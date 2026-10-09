@@ -11,6 +11,7 @@ import {
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { normalizeGameSettings } from "@/lib/game/settings";
 import type {
     GameOp,
     GameSettings,
@@ -115,6 +116,8 @@ export const createGameStore = (
         if (!found) return undefined;
         const state = JSON.parse(found.state) as GameState;
         state.hasHider = found.hider_secret !== null;
+        // Games from before a settings change get the defaults for what's new.
+        state.settings = normalizeGameSettings(state.settings);
         return state;
     };
     const notify = (state: GameState) => {

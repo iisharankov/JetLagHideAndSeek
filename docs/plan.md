@@ -172,6 +172,14 @@ the usual app update. See [deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md#upd
 | Stations are de-duplicated automatically: a station that is also a tram/bus/boat stop counts once (the railway station is kept, so train lines work) | 6 | `tests/stationManipulations.test.ts` |
 | **Zones are cut to the area still in play**, so a zone on the edge of an answer shows only its possible part | 10 | `tests/hidingZones.test.ts` (`clipZonesToRemaining`) |
 
+**Found right after (2026-10-09, late):** a game created before the settings
+update crashed the options bar ("can't access property halts"): its settings
+on the server lacked the new fields. Now the server fills in defaults when it
+loads a game (`server/src/games.test.ts`), the phone does the same when it
+receives one, the plain address no longer rejoins the last game (Menu → Game
+offers "Rejoin it" / "Forget it"), and the options bar's error box can reset
+the game and settings.
+
 **Pfungen (your point 10):** that was correct, not a bug. The hider was
 "further from the airport" than the seeker, so everything nearer than the
 seeker's distance (the shaded disc around Zürich airport) was ruled out.

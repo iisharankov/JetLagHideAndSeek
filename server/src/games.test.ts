@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -138,5 +139,34 @@ describe("game store", () => {
         const later = Date.now() + 366 * 24 * 3600 * 1000;
         expect(games.cleanup(later)).toBe(1);
         expect(games.get(old.id)).toBeUndefined();
+    });
+});
+
+describe("games from before the settings update", () => {
+    it("get the defaults for settings they don't have", () => {
+        const db = new DatabaseSync(":memory:");
+        const store = createGameStore(db, dir);
+        const old = JSON.stringify({
+            ...start(),
+            id: "oldgame1",
+            settings: { size: "large", seekersCanAnswer: true },
+        });
+        db.prepare(
+            "INSERT INTO games (id, state, updated_at) VALUES (?, ?, ?)",
+        ).run("oldgame1", old, Date.now());
+
+        const loaded = store.get("oldgame1")!;
+        expect(loaded.settings.size).toBe("large");
+        expect(loaded.settings.seekersCanAnswer).toBe(true);
+        expect(loaded.settings.stationKinds).toEqual({
+            halts: true,
+            trams: false,
+            boats: false,
+        });
+        expect(loaded.settings.hidingRadiusKm).toBe(1);
+        expect(loaded.settings.disabledQuestions).toEqual([
+            "measuring:coastline",
+            "measuring:seven11",
+        ]);
     });
 });

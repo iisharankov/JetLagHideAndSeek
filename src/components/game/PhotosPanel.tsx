@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { photoUrl } from "@/lib/game/api";
 import { shrinkPhoto } from "@/lib/game/photos";
 import {
-    currentGameId,
+    activeGameId,
     gameRole,
     gameState,
     sendOp,
@@ -72,7 +72,7 @@ const PhotoButton = ({
 };
 
 const Photo = ({ photoId }: { photoId: string }) => {
-    const url = photoUrl(currentGameId.get(), photoId);
+    const url = photoUrl(activeGameId.get(), photoId);
     return (
         <a href={url} target="_blank" rel="noreferrer">
             <img

@@ -193,5 +193,14 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await curse.getByRole("button", { name: "Cleared" }).click();
     await expect(ben.getByTestId("active-curse")).toHaveCount(0);
 
+    // Opening the plain address later doesn't drop Ana back into the game;
+    // the Game tab offers to rejoin.
+    await page.goto("/");
+    await openMenu(page, "Game");
+    await expect(page.getByTestId("game-connection")).toHaveCount(0);
+    await page.getByRole("button", { name: "Rejoin it" }).click();
+    await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
+    await expect(page).toHaveURL(/[?&]game=/);
+
     await ben.context().close();
 });

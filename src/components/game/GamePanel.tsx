@@ -19,11 +19,14 @@ import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
 import { gameSettings } from "@/lib/context";
 import {
+    activeGameId,
     currentGameId,
+    forgetLastGame,
     gameConnection,
     gameLink,
     gameRole,
     gameState,
+    joinGame,
     leaveGame,
     playerName,
     sendOp,
@@ -89,7 +92,8 @@ const NameInput = () => {
 
 /** Menu → Game: the game's settings, and starting or running a shared game. */
 export const GamePanel = () => {
-    const $gameId = useStore(currentGameId);
+    const $gameId = useStore(activeGameId);
+    const $lastGameId = useStore(currentGameId);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const $connection = useStore(gameConnection);
@@ -102,6 +106,25 @@ export const GamePanel = () => {
     if (!$gameId) {
         return (
             <>
+                {$lastGameId && (
+                    <section
+                        className="flex flex-col gap-2 rounded-lg border border-amber-500/60 p-3"
+                        data-testid="rejoin-game"
+                    >
+                        <p className="text-sm">
+                            You were in a shared game (
+                            <span className="font-mono">{$lastGameId}</span>).
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button onClick={() => joinGame($lastGameId)}>
+                                Rejoin it
+                            </Button>
+                            <Button variant="outline" onClick={forgetLastGame}>
+                                Forget it
+                            </Button>
+                        </div>
+                    </section>
+                )}
                 <section className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3">
                     <h3 className="text-sm font-semibold font-poppins">
                         Game settings

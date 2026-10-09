@@ -13,6 +13,7 @@ import {
     polyGeoJSON,
     questions,
 } from "@/lib/context";
+import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
 import {
     applyPlayArea,
@@ -39,8 +40,10 @@ import type { GameOp, GameState, Role } from "./types";
 export const GAME_URL_PARAM = "game";
 
 export const playerName = persistentAtom<string>("playerName", "");
-/** The game this phone is in ("" when playing alone). */
+/** The last shared game this phone was in, to rejoin ("" if none). */
 export const currentGameId = persistentAtom<string>("currentGame", "");
+/** The game this phone is in right now ("" when playing alone). */
+export const activeGameId = atom<string>("");
 const hiderTokens = persistentAtom<Record<string, string>>(
     "hiderTokens",
     {},
@@ -62,7 +65,7 @@ export const suggestedAnswers = atom<
 >({});
 
 const me = () => playerName.get().trim() || "Someone";
-const token = () => hiderTokens.get()[currentGameId.get()];
+const token = () => hiderTokens.get()[activeGameId.get()];
 
 // What this phone last had in common with the server.
 let synced = new Map<number, string>();
@@ -80,14 +83,19 @@ const setUrl = (id: string) => {
 };
 
 /** The link to this game, for sharing. */
-export const gameLink = (id = currentGameId.get()) => {
+export const gameLink = (id = activeGameId.get()) => {
     const url = new URL(window.location.origin + window.location.pathname);
     url.searchParams.set(GAME_URL_PARAM, id);
     return url.toString();
 };
 
 /** Applies the server's game to this phone. */
-const receive = (state: GameState, force = false) => {
+const receive = (received: GameState, force = false) => {
+    // A game from an older version may lack newer settings.
+    const state: GameState = {
+        ...received,
+        settings: normalizeGameSettings(received.settings),
+    };
     const current = gameState.get();
     if (!force && current?.id === state.id && state.version < current.version) {
         return;
@@ -157,7 +165,7 @@ const receive = (state: GameState, force = false) => {
 
 /** Reloads the game from the server, e.g. after a refused change. */
 const resync = async () => {
-    const id = currentGameId.get();
+    const id = activeGameId.get();
     if (!id) return;
     try {
         const { role, state } = await fetchGame(id, token());
@@ -170,7 +178,7 @@ const resync = async () => {
 
 /** Sends one change; the server's answer is applied straight away. */
 export const sendOp = async (op: GameOp) => {
-    const id = currentGameId.get();
+    const id = activeGameId.get();
     if (!id) return;
     try {
         const { state } = await postOp(id, op, me(), token());
@@ -255,7 +263,7 @@ const disconnect = () => {
 
 const connect = async () => {
     disconnect();
-    const id = currentGameId.get();
+    const id = activeGameId.get();
     if (!id) return;
     gameConnection.set("connecting");
     try {
@@ -296,7 +304,7 @@ export const joinGame = (id: string) => {
         // The server's version wins: this phone's questions count as what it
         // last had in common with the server, so ones not in the game are
         // dropped (kept as a backup) and none are sent.
-        if (currentGameId.get() !== id && questions.get().length > 0) {
+        if (activeGameId.get() !== id && questions.get().length > 0) {
             try {
                 localStorage.setItem(
                     "questions-before-game",
@@ -314,6 +322,7 @@ export const joinGame = (id: string) => {
         suggestedAnswers.set({});
     }
     currentGameId.set(id);
+    activeGameId.set(id);
     setUrl(id);
     listenForLocalChanges();
     void connect();
@@ -324,6 +333,7 @@ export const leaveGame = () => {
     disconnect();
     sessionGame = "";
     currentGameId.set("");
+    activeGameId.set("");
     gameState.set(null);
     gameRole.set("seeker");
     gameConnection.set("off");
@@ -349,7 +359,7 @@ export const startGame = async () => {
 
 /** Becomes the hider on this phone (the first hider sets the password). */
 export const claimHider = async (password: string) => {
-    const id = currentGameId.get();
+    const id = activeGameId.get();
     const { token: hiderToken } = await postHiderPassword(id, password);
     hiderTokens.set({ ...hiderTokens.get(), [id]: hiderToken });
     await connect();
@@ -357,7 +367,7 @@ export const claimHider = async (password: string) => {
 
 /** Stops being the hider on this phone (the role stays protected). */
 export const forgetHider = () => {
-    const { [currentGameId.get()]: removed, ...rest } = hiderTokens.get();
+    const { [activeGameId.get()]: removed, ...rest } = hiderTokens.get();
     void removed;
     hiderTokens.set(rest);
     void connect();
@@ -368,7 +378,7 @@ export const uploadPhoto = async (
     options: { requestId?: string; caption?: string } = {},
 ) => {
     const { state } = await postPhoto(
-        currentGameId.get(),
+        activeGameId.get(),
         photo,
         me(),
         token(),
@@ -379,13 +389,16 @@ export const uploadPhoto = async (
 
 /**
  * On page load: make the saved game settings take effect, then join the game
- * in the URL, or the one this phone was in.
+ * in the URL. The plain address joins nothing (Menu → Game offers to rejoin
+ * the last game), so a game that misbehaves can always be left behind.
  */
 export const resumeGame = () => {
     applyGameSettings(gameSettings.get());
     const fromUrl = new URL(window.location.href).searchParams.get(
         GAME_URL_PARAM,
     );
-    const id = fromUrl || currentGameId.get();
-    if (id) joinGame(id);
+    if (fromUrl) joinGame(fromUrl);
 };
+
+/** Forgets the last game without having to join it first. */
+export const forgetLastGame = () => currentGameId.set("");
