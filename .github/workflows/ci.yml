@@ -1,0 +1,44 @@
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4 # version from "packageManager" in package.json
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm lint:check
+            - run: pnpm typecheck
+            - run: pnpm test
+            - run: pnpm build
+            - run: pnpm build:server && pnpm build:datasets
+            - name: Build reference datasets from a small real extract
+              run: |
+                  sudo apt-get update && sudo apt-get install -y --no-install-recommends osmium-tool
+                  curl -fsSL -o /tmp/li.osm.pbf https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+                  node server/dist/build-datasets.mjs --input /tmp/li.osm.pbf --far /tmp/li.osm.pbf --output /tmp/li-data
+                  test -s /tmp/li-data/manifest.json
+                  test -s /tmp/li-data/voronoi-poi-museum.json
+                  test -s /tmp/li-data/train-lines.json
+                  test -s /tmp/li-data/lakes.json
+            - run: pnpm exec playwright install --with-deps firefox
+            - run: pnpm test:e2e
+            - uses: actions/upload-artifact@v4
+              if: failure()
+              with:
+                  name: playwright-traces
+                  path: test-results/
+                  retention-days: 7

@@ -22,3 +22,18 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# ArcGIS runtime asset, copied from node_modules by scripts/copy-arcgis-assets.mjs
+public/arcgis/
+
+# Playwright
+test-results/
+playwright-report/
+
+# API server bundle and local data
+server/dist/
+data/
+deploy/data/
+
+# Reference datasets for `pnpm dev` (scripts/build-dev-data.sh)
+public/data/

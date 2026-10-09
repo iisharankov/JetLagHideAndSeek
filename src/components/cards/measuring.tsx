@@ -1,8 +1,8 @@
 import { useStore } from "@nanostores/react";
 import { Label } from "@radix-ui/react-label";
 import * as React from "react";
-import { Suspense, use } from "react";
 
+import { AdminLevelSelect } from "@/components/AdminLevelSelect";
 import CustomInitDialog from "@/components/CustomInitDialog";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
@@ -21,13 +21,16 @@ import {
     isLoading,
     questionModified,
     questions,
+    regionRules,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
 import {
+    DEFAULT_MIN_LAKE_AREA_KM2,
     determineMeasuringBoundary,
-    findAdminZoneInfo,
+    LAKE_AREA_CHOICES,
 } from "@/maps/questions/measuring";
+import { adaptTypeOptions } from "@/maps/regionRules";
 import {
     determineUnionizedStrings,
     type MeasuringQuestion,
@@ -54,6 +57,7 @@ export const MeasuringQuestionComponent = ({
     const $displayHidingZones = useStore(displayHidingZones);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
+    const $regionRules = useStore(regionRules);
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const label = `Measuring
@@ -71,60 +75,50 @@ export const MeasuringQuestionComponent = ({
             questionSpecific = (
                 <>
                     <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                        <Select
-                            trigger="OSM Zone"
-                            options={{
-                                2: "OSM Zone 2 (Country)",
-                                3: "OSM Zone 3 (region in Japan)",
-                                4: "OSM Zone 4 (prefecture in Japan)",
-                                5: "OSM Zone 5",
-                                6: "OSM Zone 6",
-                                7: "OSM Zone 7",
-                                8: "OSM Zone 8",
-                                9: "OSM Zone 9",
-                                10: "OSM Zone 10",
-                            }}
-                            value={(
-                                (data as any).cat?.adminLevel ?? 4
-                            ).toString()}
-                            onValueChange={(value) => {
-                                if (!(data as any).cat) {
-                                    (data as any).cat = { adminLevel: 4 };
-                                }
-                                (data as any).cat.adminLevel = parseInt(
-                                    value,
-                                ) as 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-                                (data as any).cat.zoneName = undefined;
+                        <AdminLevelSelect
+                            lat={data.lat}
+                            lng={data.lng}
+                            value={(data as any).cat?.adminLevel ?? 4}
+                            onChange={(level) => {
+                                (data as any).cat = { adminLevel: level };
                                 questionModified();
                             }}
                             disabled={!data.drag || $isLoading}
                         />
                     </SidebarMenuItem>
-                    <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                        <Suspense
-                            fallback={
-                                <div className="flex items-center justify-center w-full h-[3rem]">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="animate-spin"
-                                    >
-                                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                                    </svg>
-                                </div>
-                            }
-                        >
-                            <AdminZoneNameDisplay data={data} />
-                        </Suspense>
-                    </SidebarMenuItem>
+                    {$displayHidingZones && (
+                        <span className="px-2 text-center text-sm text-gray-500">
+                            With hiding zones on, this answer only shades inside
+                            the zones.
+                        </span>
+                    )}
                 </>
+            );
+            break;
+        case "lake":
+            questionSpecific = (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <Label className="text-sm shrink-0">
+                        Lakes of at least
+                    </Label>
+                    <Select
+                        trigger="Minimum lake size"
+                        options={Object.fromEntries(
+                            LAKE_AREA_CHOICES.map((km2) => [
+                                String(km2),
+                                `${km2} km²`,
+                            ]),
+                        )}
+                        value={String(
+                            data.minLakeAreaKm2 ?? DEFAULT_MIN_LAKE_AREA_KM2,
+                        )}
+                        onValueChange={(value) => {
+                            data.minLakeAreaKm2 = Number(value);
+                            questionModified();
+                        }}
+                        disabled={!data.drag || $isLoading}
+                    />
+                </SidebarMenuItem>
             );
             break;
         case "mcdonalds":
@@ -201,7 +195,7 @@ export const MeasuringQuestionComponent = ({
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
             hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = !hidden))}
+            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -236,25 +230,36 @@ export const MeasuringQuestionComponent = ({
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                 <Select
                     trigger="Measuring Type"
-                    options={Object.fromEntries(
-                        measuringQuestionSchema.options
-                            .filter((x) => x.description === NO_GROUP)
-                            .flatMap((x) =>
-                                determineUnionizedStrings(x.shape.type),
-                            )
-                            .map((x) => [(x._def as any).value, x.description]),
+                    options={adaptTypeOptions(
+                        Object.fromEntries(
+                            measuringQuestionSchema.options
+                                .filter((x) => x.description === NO_GROUP)
+                                .flatMap((x) =>
+                                    determineUnionizedStrings(x.shape.type),
+                                )
+                                .map((x) => [
+                                    (x._def as any).value,
+                                    x.description,
+                                ]),
+                        ),
+                        $regionRules,
+                        data.type,
                     )}
                     groups={measuringQuestionSchema.options
                         .filter((x) => x.description !== NO_GROUP)
-                        .map((x) => [
-                            x.description,
-                            Object.fromEntries(
-                                determineUnionizedStrings(x.shape.type).map(
-                                    (x) => [
-                                        (x._def as any).value,
-                                        x.description,
-                                    ],
+                        .map((x): [string, Record<string, string>] => [
+                            x.description ?? "",
+                            adaptTypeOptions(
+                                Object.fromEntries(
+                                    determineUnionizedStrings(x.shape.type).map(
+                                        (x) => [
+                                            (x._def as any).value,
+                                            x.description,
+                                        ],
+                                    ),
                                 ),
+                                $regionRules,
+                                data.type,
                             ),
                         ])
                         .reduce(
@@ -370,39 +375,5 @@ export const MeasuringQuestionComponent = ({
                 </ToggleGroup>
             </div>
         </QuestionCard>
-    );
-};
-
-const AdminZoneNameDisplay = ({ data }: { data: MeasuringQuestion }) => {
-    useStore(triggerLocalRefresh);
-
-    const adminLevel = (data as any).cat?.adminLevel ?? 4;
-    const zoneInfo = use(findAdminZoneInfo(data.lat, data.lng, adminLevel));
-
-    // Update the zone name in the data
-    if (
-        zoneInfo &&
-        (data as any).cat &&
-        (data as any).cat.zoneName !== zoneInfo.name
-    ) {
-        (data as any).cat.zoneName = zoneInfo.name;
-        questionModified();
-    }
-
-    if (!zoneInfo) {
-        return (
-            <div className="flex items-center justify-center w-full h-[3rem] text-muted-foreground text-sm">
-                No zone found
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col items-center w-full h-[3rem]">
-            <Label className="text-xs text-muted-foreground">Zone</Label>
-            <span className="font-medium text-sm truncate max-w-full">
-                {zoneInfo.name}
-            </span>
-        </div>
     );
 };

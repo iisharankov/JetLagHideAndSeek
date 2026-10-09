@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { mergeDuplicateStation } from "../src/maps/geo-utils/stationManipulations";
+import { describe, expect, it } from "vitest";
+
+import type { StationPlace } from "@/maps/api";
+import {
+    checkIfStationsShareZones,
+    type Location,
+    mergeDuplicateStation,
+} from "@/maps/geo-utils/stationManipulations";
+import type { Units } from "@/maps/schema";
 
 describe("mergeDuplicateStation", () => {
     it("merges duplicates in the eastern hemisphere", async () => {
@@ -16,7 +23,7 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 10000; // super wide radius to ensure all locations are in
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         expect(result).toHaveLength(1);
@@ -37,7 +44,7 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 10000; // super wide radius to ensure all locations are in
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         expect(result).toHaveLength(1);
@@ -58,7 +65,7 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 10000; // super wide radius to ensure all locations are in
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         expect(result).toHaveLength(1);
@@ -84,7 +91,7 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 10000; // super wide radius to ensure all locations are in
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         expect(result).toHaveLength(1);
@@ -110,7 +117,7 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 10000; // super wide radius to ensure all locations are in
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         expect(result).toHaveLength(3);
@@ -199,18 +206,13 @@ describe("mergeDuplicateStation", () => {
             },
         ];
         const radius = 0.5;
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
 
         const result = await mergeDuplicateStation(places, radius, units);
         // We expect 3 stations, because the 3 pairs are very far apart
         expect(result).toHaveLength(3);
     });
 });
-
-import { checkIfStationsShareZones } from "../src/maps/geo-utils/stationManipulations";
-import type { Location } from "../src/maps/geo-utils/stationManipulations";
-import * as turf from "@turf/turf";
-import type { StationPlace } from "@/maps/api";
 
 describe("checkIfStationsShareZones", () => {
     it("returns true that Jan van Galenstraat subway station and nearby tram station share zones with km as unit", async () => {
@@ -223,14 +225,14 @@ describe("checkIfStationsShareZones", () => {
             coordinates: [4.8350051, 52.3732337],
         };
         const radius: number = 0.5; //km
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
         const result = await checkIfStationsShareZones(
             station1,
             station2,
             radius,
             units,
         );
-        expect(result).true;
+        expect(result).toBe(true);
     });
 
     it("returns false that Jan van Galenstraat subway station and far away tram station share zones with km as unit", async () => {
@@ -243,14 +245,14 @@ describe("checkIfStationsShareZones", () => {
             coordinates: [4.8487242, 52.3729826],
         };
         const radius: number = 0.5; //km
-        const units: turf.Units = "kilometers";
+        const units: Units = "kilometers";
         const result = await checkIfStationsShareZones(
             station1,
             station2,
             radius,
             units,
         );
-        expect(result).false;
+        expect(result).toBe(false);
     });
 
     it("returns false that Jan van Galenstraat subway station and far away tram station share zones with miles as unit", async () => {
@@ -263,13 +265,13 @@ describe("checkIfStationsShareZones", () => {
             coordinates: [4.8487242, 52.3729826],
         };
         const radius: number = 0.5; //km
-        const units: turf.Units = "miles";
+        const units: Units = "miles";
         const result = await checkIfStationsShareZones(
             station1,
             station2,
             radius,
             units,
         );
-        expect(result).false;
+        expect(result).toBe(false);
     });
 });

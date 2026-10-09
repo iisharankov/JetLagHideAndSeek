@@ -2,6 +2,7 @@ import { useStore } from "@nanostores/react";
 import * as React from "react";
 import { toast } from "react-toastify";
 
+import { AdminLevelSelect } from "@/components/AdminLevelSelect";
 import CustomInitDialog from "@/components/CustomInitDialog";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
@@ -21,6 +22,7 @@ import {
     isLoading,
     questionModified,
     questions,
+    regionRules,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,7 @@ import {
     determineMatchingBoundary,
     findMatchingPlaces,
 } from "@/maps/questions/matching";
+import { adaptTypeOptions } from "@/maps/regionRules";
 import {
     determineUnionizedStrings,
     type MatchingQuestion,
@@ -54,6 +57,7 @@ export const MatchingQuestionComponent = ({
     const $displayHidingZones = useStore(displayHidingZones);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
+    const $regionRules = useStore(regionRules);
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const [pendingCustomType, setPendingCustomType] = React.useState<
@@ -75,33 +79,12 @@ export const MatchingQuestionComponent = ({
             questionSpecific = (
                 <>
                     <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                        <Select
-                            trigger="OSM Zone"
-                            options={{
-                                2: "OSM Zone 2 (Country)",
-                                3: "OSM Zone 3 (region in Japan)",
-                                4: "OSM Zone 4 (prefecture in Japan)",
-                                5: "OSM Zone 5",
-                                6: "OSM Zone 6",
-                                7: "OSM Zone 7",
-                                8: "OSM Zone 8",
-                                9: "OSM Zone 9",
-                                10: "OSM Zone 10",
-                            }}
-                            value={data.cat.adminLevel.toString()}
-                            onValueChange={(value) =>
-                                questionModified(
-                                    (data.cat.adminLevel = parseInt(value) as
-                                        | 2
-                                        | 3
-                                        | 4
-                                        | 5
-                                        | 6
-                                        | 7
-                                        | 8
-                                        | 9
-                                        | 10),
-                                )
+                        <AdminLevelSelect
+                            lat={data.lat}
+                            lng={data.lng}
+                            value={data.cat.adminLevel}
+                            onChange={(level) =>
+                                questionModified((data.cat.adminLevel = level))
                             }
                             disabled={!data.drag || $isLoading}
                         />
@@ -191,7 +174,7 @@ export const MatchingQuestionComponent = ({
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
             hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = !hidden))}
+            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -244,25 +227,36 @@ export const MatchingQuestionComponent = ({
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                 <Select
                     trigger="Matching Type"
-                    options={Object.fromEntries(
-                        matchingQuestionSchema.options
-                            .filter((x) => x.description === NO_GROUP)
-                            .flatMap((x) =>
-                                determineUnionizedStrings(x.shape.type),
-                            )
-                            .map((x) => [(x._def as any).value, x.description]),
+                    options={adaptTypeOptions(
+                        Object.fromEntries(
+                            matchingQuestionSchema.options
+                                .filter((x) => x.description === NO_GROUP)
+                                .flatMap((x) =>
+                                    determineUnionizedStrings(x.shape.type),
+                                )
+                                .map((x) => [
+                                    (x._def as any).value,
+                                    x.description,
+                                ]),
+                        ),
+                        $regionRules,
+                        data.type,
                     )}
                     groups={matchingQuestionSchema.options
                         .filter((x) => x.description !== NO_GROUP)
-                        .map((x) => [
-                            x.description,
-                            Object.fromEntries(
-                                determineUnionizedStrings(x.shape.type).map(
-                                    (x) => [
-                                        (x._def as any).value,
-                                        x.description,
-                                    ],
+                        .map((x): [string, Record<string, string>] => [
+                            x.description ?? "",
+                            adaptTypeOptions(
+                                Object.fromEntries(
+                                    determineUnionizedStrings(x.shape.type).map(
+                                        (x) => [
+                                            (x._def as any).value,
+                                            x.description,
+                                        ],
+                                    ),
                                 ),
+                                $regionRules,
+                                data.type,
                             ),
                         ])
                         .reduce(
@@ -347,7 +341,7 @@ export const MatchingQuestionComponent = ({
                             }
                             // The category should be defined such that no error is thrown if this is a zone question.
                             if (!(data as any).cat) {
-                                (data as any).cat = { adminLevel: 3 };
+                                (data as any).cat = { adminLevel: 4 };
                             }
                             questionModified((data.type = value));
                             return;
@@ -360,7 +354,7 @@ export const MatchingQuestionComponent = ({
 
                         // The category should be defined such that no error is thrown if this is a zone question.
                         if (!(data as any).cat) {
-                            (data as any).cat = { adminLevel: 3 };
+                            (data as any).cat = { adminLevel: 4 };
                         }
                         questionModified((data.type = value));
                     }}

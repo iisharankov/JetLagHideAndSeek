@@ -1,3 +1,5 @@
+import "./arcgis";
+
 import * as units from "@arcgis/core/core/units.js";
 import * as geodesicBufferOperator from "@arcgis/core/geometry/operators/geodesicBufferOperator.js";
 import * as geodeticDistanceOperator from "@arcgis/core/geometry/operators/geodeticDistanceOperator.js";
@@ -18,11 +20,20 @@ import { BLANK_GEOJSON } from "@/maps/api";
 
 export { geoSpatialVoronoi } from "@/maps/geo-utils/voronoi";
 
-export const safeUnion = (input: FeatureCollection<Polygon | MultiPolygon>) => {
-    if (input.features.length === 1) return input.features[0];
-    const union = turf.union(input);
-    if (union) return union;
-    throw new Error("No features");
+/**
+ * All the areas merged into one. Merging nothing gives an empty area (turf
+ * throws "Must have at least 2 geometries" for that, which crashed the
+ * hiding zone sidebar when no stations were left).
+ */
+export const safeUnion = (
+    input: FeatureCollection<Polygon | MultiPolygon>,
+): Feature<Polygon | MultiPolygon> => {
+    const areas = input.features.filter(
+        (feature) => feature.geometry.coordinates.length > 0,
+    );
+    if (areas.length === 0) return turf.multiPolygon([]);
+    if (areas.length === 1) return areas[0];
+    return turf.union(turf.featureCollection(areas)) ?? turf.multiPolygon([]);
 };
 
 export const holedMask = (

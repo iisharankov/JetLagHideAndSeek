@@ -1,20 +1,11 @@
 import type { APILocations } from "@/maps/schema";
 
-export const OVERPASS_HOSTS = {
-    "overpass-api.de (official; often slow)":
-        "https://overpass-api.de/api/interpreter",
-    "private.coffee (unofficial; backup)":
-        "https://overpass.private.coffee/api/interpreter",
-    "maps.mail.ru (unofficial; fast but sometimes unavailable)":
-        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-} as const;
-
-export const GEOCODER_API = "https://photon.komoot.io/api/";
-export const PASTEBIN_API_POST_URL =
-    "https://cors-anywhere.com/https://pastebin.com/api/api_post.php";
-export const PASTEBIN_API_RAW_URL = "https://pastebin.com/raw/";
-export const PASTEBIN_API_RAW_URL_PROXIED =
-    "https://cors-anywhere.com/https://pastebin.com/raw/";
+/** Public Overpass servers, only used when the player opts in. */
+export const PUBLIC_OVERPASS_HOSTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
 
 export const ICON_COLORS = {
     black: "#3D3D3D",

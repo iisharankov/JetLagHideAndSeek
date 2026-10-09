@@ -30,8 +30,16 @@ import {
     SidebarGroupLabel,
     SidebarMenu,
 } from "@/components/ui/sidebar-l";
-import { isLoading, questions } from "@/lib/context";
+import { showUndoToast } from "@/components/undoToast";
+import {
+    deleteQuestion,
+    isLoading,
+    questions,
+    questionStatuses,
+} from "@/lib/context";
 import { cn } from "@/lib/utils";
+
+import { QuestionInfoButton } from "./QuestionInfoButton";
 
 export const QuestionCard = ({
     children,
@@ -61,7 +69,9 @@ export const QuestionCard = ({
     const [isCollapsed, setIsCollapsed] = useState(collapsed ?? false);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
+    const status = useStore(questionStatuses)[questionKey];
     const copyButtonRef = useRef<HTMLButtonElement>(null);
+    const question = $questions.find((q) => q.key === questionKey);
 
     const toggleCollapse = () => {
         if (setCollapsed) {
@@ -89,6 +99,38 @@ export const QuestionCard = ({
                     >
                         {label} {sub && `(${sub})`}
                     </SidebarGroupLabel>
+                    {question && (
+                        <QuestionInfoButton
+                            category={question.id}
+                            type={
+                                (
+                                    question.data as {
+                                        type?: string;
+                                        locationType?: string;
+                                    }
+                                ).type ??
+                                (question.data as { locationType?: string })
+                                    .locationType
+                            }
+                        />
+                    )}
+                    {(status?.state === "error" ||
+                        status?.state === "not-applicable") && (
+                        <p
+                            role="status"
+                            className={cn(
+                                "mx-2 mb-1 rounded-md px-2 py-1 text-xs",
+                                status.state === "error"
+                                    ? "bg-red-900/70 text-red-100"
+                                    : "bg-amber-900/60 text-amber-100",
+                            )}
+                        >
+                            {status.state === "error"
+                                ? "Not applied: "
+                                : "Not applicable: "}
+                            {status.message}
+                        </p>
+                    )}
                     <SidebarGroupContent
                         className={cn(
                             "overflow-hidden transition-all duration-1000 max-h-[100rem]", // 100rem is arbitrary
@@ -205,12 +247,11 @@ export const QuestionCard = ({
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>
-                                            Are you absolutely sure?
+                                            Delete this question?
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This
-                                            will permanently delete the
-                                            question.
+                                            You can undo this for a few seconds
+                                            afterwards.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -218,22 +259,12 @@ export const QuestionCard = ({
                                             Cancel
                                         </AlertDialogCancel>
                                         <AlertDialogAction
-                                            onClick={() => {
-                                                questions.set([]);
-                                            }}
-                                        >
-                                            Delete All Questions
-                                        </AlertDialogAction>
-                                        <AlertDialogAction
-                                            onClick={() => {
-                                                questions.set(
-                                                    $questions.filter(
-                                                        (q) =>
-                                                            q.key !==
-                                                            questionKey,
-                                                    ),
-                                                );
-                                            }}
+                                            onClick={() =>
+                                                showUndoToast(
+                                                    "Question deleted.",
+                                                    deleteQuestion(questionKey),
+                                                )
+                                            }
                                             className="mb-2 sm:mb-0"
                                         >
                                             Delete Question
@@ -256,6 +287,10 @@ export const QuestionCard = ({
                                 size="sm"
                                 onClick={() => setHidden!(!hidden)}
                                 disabled={$isLoading}
+                                aria-label={
+                                    hidden ? "Show question" : "Hide question"
+                                }
+                                aria-pressed={hidden}
                             >
                                 {hidden ? <EyeOffIcon /> : <EyeIcon />}
                             </Button>

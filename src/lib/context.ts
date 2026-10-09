@@ -3,6 +3,8 @@ import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Map } from "leaflet";
 import { atom, computed, onSet } from "nanostores";
 
+import { createBusyTracker } from "@/lib/jobs";
+import { decodeStoredQuestions } from "@/lib/storage";
 import type {
     AdditionalMapGeoLocations,
     CustomStation,
@@ -10,12 +12,14 @@ import type {
     StationCircle,
 } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
+import { DEFAULT_STATION_FILTERS } from "@/maps/hidingZones";
+import type { QuestionStatus } from "@/maps/index";
+import { type RegionChoice, regionRulesFor } from "@/maps/regionRules";
 import {
     type DeepPartial,
     type Question,
     type Questions,
     questionSchema,
-    questionsSchema,
     type Units,
 } from "@/maps/schema";
 
@@ -25,19 +29,18 @@ export const mapGeoLocation = persistentAtom<OpenStreetMap>(
         type: "Feature",
         properties: {
             osm_type: "R",
-            osm_id: 175905,
+            osm_id: 51701,
             osm_key: "place",
-            osm_value: "city",
-            type: "city",
-            name: "New York",
-            state: "New York",
-            country: "United States",
-            countrycode: "US",
-            extent: [40.91763, -74.258843, 40.476578, -73.700233],
+            osm_value: "country",
+            type: "country",
+            name: "Switzerland",
+            country: "Switzerland",
+            countrycode: "CH",
+            extent: [47.8084546, 5.9559113, 45.817995, 10.4922941],
         },
         geometry: {
             type: "Point",
-            coordinates: [40.7127281, -74.0060152],
+            coordinates: [46.7985624, 8.2319736],
         },
     },
     {
@@ -46,20 +49,37 @@ export const mapGeoLocation = persistentAtom<OpenStreetMap>(
     },
 );
 
+/** Which local rule adaptations to use ("auto": by the play area's country). */
+export const regionChoice = persistentAtom<RegionChoice>(
+    "regionChoice",
+    "auto",
+    {
+        encode: JSON.stringify,
+        decode: JSON.parse,
+    },
+);
+export const regionRules = computed(
+    [regionChoice, mapGeoLocation],
+    (choice, location) =>
+        regionRulesFor(choice, location.properties.countrycode),
+);
+
 export const additionalMapGeoLocations = persistentAtom<
     AdditionalMapGeoLocations[]
 >("additionalMapGeoLocations", [], {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
-export const permanentOverlay = persistentAtom<FeatureCollection | null>(
-    "permanentOverlay",
-    null,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
+
+/** Identifies the current play area, for caching results that depend on it. */
+export const playAreaKey = () =>
+    JSON.stringify({
+        polygon: polyGeoJSON.get(),
+        base: mapGeoLocation.get().properties.osm_id,
+        extra: additionalMapGeoLocations
+            .get()
+            .map((entry) => [entry.location.properties.osm_id, entry.added]),
+    });
 
 export const mapGeoJSON = atom<FeatureCollection<
     Polygon | MultiPolygon
@@ -73,7 +93,7 @@ export const polyGeoJSON = persistentAtom<FeatureCollection<
 
 export const questions = persistentAtom<Questions>("questions", [], {
     encode: JSON.stringify,
-    decode: (x) => questionsSchema.parse(JSON.parse(x)),
+    decode: decodeStoredQuestions,
 });
 export const addQuestion = (question: DeepPartial<Question>) =>
     questionModified(questions.get().push(questionSchema.parse(question)));
@@ -86,9 +106,34 @@ export const questionModified = (..._: any[]) => {
     }
 };
 
+/** Removes a question. Returns an undo function (safe to call twice). */
+export const deleteQuestion = (key: number) => {
+    const before = questions.get();
+    const index = before.findIndex((q) => q.key === key);
+    if (index === -1) return () => {};
+
+    const removed = before[index];
+    questions.set(before.filter((q) => q.key !== key));
+
+    return () => {
+        const now = questions.get();
+        if (now.some((q) => q.key === key)) return;
+        questions.set([...now.slice(0, index), removed, ...now.slice(index)]);
+    };
+};
+
+/** Removes every question. Returns an undo function. */
+export const clearQuestions = () => {
+    const before = questions.get();
+    questions.set([]);
+    return () => {
+        if (questions.get().length === 0) questions.set(before);
+    };
+};
+
 export const leafletMapContext = atom<Map | null>(null);
 
-export const defaultUnit = persistentAtom<Units>("defaultUnit", "miles");
+export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
 export const hiderMode = persistentAtom<
     | false
     | {
@@ -110,7 +155,7 @@ export const displayHidingZones = persistentAtom<boolean>(
 );
 export const displayHidingZonesOptions = persistentAtom<string[]>(
     "displayHidingZonesOptions",
-    ["[railway=station]"],
+    DEFAULT_STATION_FILTERS,
     {
         encode: JSON.stringify,
         decode: JSON.parse,
@@ -154,6 +199,15 @@ export const mergeDuplicates = persistentAtom<boolean>(
         decode: JSON.parse,
     },
 );
+/** Draw the remaining stations as markers on top of the hiding zones. */
+export const showRemainingStations = persistentAtom<boolean>(
+    "showRemainingStations",
+    false,
+    {
+        encode: JSON.stringify,
+        decode: JSON.parse,
+    },
+);
 export const includeDefaultStations = persistentAtom<boolean>(
     "includeDefaultStations",
     false,
@@ -176,7 +230,7 @@ export const hidingRadius = persistentAtom<number>("hidingRadius", 0.5, {
 });
 export const hidingRadiusUnits = persistentAtom<Units>(
     "hidingRadiusUnits",
-    "miles",
+    "kilometers",
     {
         encode: JSON.stringify,
         decode: JSON.parse,
@@ -270,7 +324,6 @@ export const hidingZone = computed(
         customStations,
         includeDefaultStations,
         customPresets,
-        permanentOverlay,
     ],
     (
         q,
@@ -285,7 +338,6 @@ export const hidingZone = computed(
         $customStations,
         includeDefault,
         presets,
-        $permanentOverlay,
     ) => {
         if (geo !== null) {
             return {
@@ -299,7 +351,6 @@ export const hidingZone = computed(
                 customStations: $customStations,
                 includeDefaultStations: includeDefault,
                 presets: structuredClone(presets),
-                permanentOverlay: $permanentOverlay,
             };
         } else {
             const $loc = structuredClone(loc);
@@ -316,7 +367,6 @@ export const hidingZone = computed(
                 customStations: $customStations,
                 includeDefaultStations: includeDefault,
                 presets: structuredClone(presets),
-                permanentOverlay: $permanentOverlay,
             };
         }
     },
@@ -331,23 +381,32 @@ export const planningModeEnabled = persistentAtom<boolean>(
         decode: JSON.parse,
     },
 );
+/** Draw each question's reference places (star, dots, zone outline). */
+export const showReferencePlaces = persistentAtom<boolean>(
+    "showReferencePlaces",
+    true,
+    {
+        encode: JSON.stringify,
+        decode: JSON.parse,
+    },
+);
 export const autoZoom = persistentAtom<boolean>("autoZoom", true, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
 
-export const isLoading = atom<boolean>(false);
+/** Background work in progress (map refresh, hiding zones, GPS lookups). */
+export const busy = createBusyTracker();
+export const isLoading = busy.isBusy;
 
-export const baseTileLayer = persistentAtom<
-    "voyager" | "light" | "dark" | "transport" | "neighbourhood" | "osmcarto"
->("baseTileLayer", "voyager");
-export const thunderforestApiKey = persistentAtom<string>(
-    "thunderforestApiKey",
-    "",
-    {
-        encode: (value: string) => value,
-        decode: (value: string) => value,
-    },
+/** Per-question result of the last map refresh, keyed by question key. */
+export const questionStatuses = atom<Record<number, QuestionStatus>>({});
+
+export type BaseTileLayer = "selfhosted" | "selfhosted-dark" | "osmcarto";
+export const baseTileLayer = persistentAtom<BaseTileLayer>(
+    "baseTileLayer",
+    (import.meta.env.PUBLIC_DEFAULT_TILE_LAYER as BaseTileLayer) ||
+        "selfhosted",
 );
 export const followMe = persistentAtom<boolean>("followMe", false, {
     encode: JSON.stringify,
@@ -355,16 +414,6 @@ export const followMe = persistentAtom<boolean>("followMe", false, {
 });
 export const defaultCustomQuestions = persistentAtom<boolean>(
     "defaultCustomQuestions",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
-
-export const pastebinApiKey = persistentAtom<string>("pastebinApiKey", "");
-export const alwaysUsePastebin = persistentAtom<boolean>(
-    "alwaysUsePastebin",
     false,
     {
         encode: JSON.stringify,
@@ -387,20 +436,17 @@ export const customInitPreference = persistentAtom<"ask" | "blank" | "prefill">(
     },
 );
 
-export const allowGooglePlusCodes = persistentAtom<boolean>(
-    "allowGooglePlusCodes",
+/** Extra Overpass server tried after the app's own one (blank: none). */
+export const overpassCustomHost = persistentAtom<string>(
+    "overpassCustomHost",
+    "",
+);
+/** Opt-in: fall back to public Overpass servers, which then see the queries. */
+export const allowPublicOverpass = persistentAtom<boolean>(
+    "allowPublicOverpass",
     false,
     {
         encode: JSON.stringify,
         decode: JSON.parse,
     },
-);
-
-export const overpassHost = persistentAtom<string>(
-    "overpassHost",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-);
-export const overpassCustomHost = persistentAtom<string>(
-    "overpassCustomHost",
-    "",
 );

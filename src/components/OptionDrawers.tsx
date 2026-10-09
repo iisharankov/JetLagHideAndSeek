@@ -1,4 +1,5 @@
 import { useStore } from "@nanostores/react";
+import { EyeOffIcon, MenuIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -9,313 +10,167 @@ import {
     DrawerTitle,
     DrawerTrigger,
 } from "@/components/ui/drawer";
+import { withBase } from "@/lib/config";
 import {
-    additionalMapGeoLocations,
-    allowGooglePlusCodes,
-    alwaysUsePastebin,
+    allowPublicOverpass,
     animateMapMovements,
     autoSave,
     autoZoom,
     baseTileLayer,
     customInitPreference,
-    customPresets,
-    customStations,
     defaultCustomQuestions,
     defaultUnit,
-    disabledStations,
-    displayHidingZonesOptions,
     followMe,
     hiderMode,
-    hidingRadius,
-    hidingRadiusUnits,
     hidingZone,
-    includeDefaultStations,
     leafletMapContext,
-    mapGeoJSON,
-    mapGeoLocation,
     overpassCustomHost,
-    overpassHost,
-    pastebinApiKey,
-    permanentOverlay,
     planningModeEnabled,
-    polyGeoJSON,
     questions,
+    regionChoice,
     save,
+    showReferencePlaces,
     showTutorial,
-    thunderforestApiKey,
     triggerLocalRefresh,
-    useCustomStations,
 } from "@/lib/context";
+import { downloadSharedGame, uploadSharedGame } from "@/lib/shareApi";
 import {
-    cn,
-    compress,
-    decompress,
-    fetchFromPastebin,
-    shareOrFallback,
-    uploadToPastebin,
-} from "@/lib/utils";
-import { OVERPASS_HOSTS } from "@/maps/api/constants";
-import { questionsSchema } from "@/maps/schema";
+    applySharedGame,
+    parseSharedGame,
+    summarizeSharedGame,
+} from "@/lib/sharedGame";
+import { cn, compress, decompress, shareOrFallback } from "@/lib/utils";
+import { errorMessage } from "@/maps/errors";
+import type { RegionChoice } from "@/maps/regionRules";
 
 import { LatitudeLongitude } from "./LatLngPicker";
+import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
-import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
-import { Separator } from "./ui/separator";
 import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
 } from "./ui/sidebar-l";
+import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 import { UnitSelect } from "./UnitSelect";
 
-const HIDING_ZONE_URL_PARAM = "hz";
-const HIDING_ZONE_COMPRESSED_URL_PARAM = "hzc";
-const PASTEBIN_URL_PARAM = "pb";
-const FETCH_URL_PARAM = "url";
+const SHARE_URL_PARAM = "share"; // id on our own share service
+const HIDING_ZONE_COMPRESSED_URL_PARAM = "hzc"; // the whole game in the link
+const HIDING_ZONE_URL_PARAM = "hz"; // legacy, uncompressed
+const FETCH_URL_PARAM = "url"; // a game file hosted somewhere else
+const MAX_LINK_LENGTH = 2000;
+
+/** The shared game in the page's URL, if any. */
+const readSharedGameFromUrl = async (
+    params: URLSearchParams,
+): Promise<{ text: string; source?: string } | null> => {
+    const shareId = params.get(SHARE_URL_PARAM);
+    if (shareId) return { text: await downloadSharedGame(shareId) };
+
+    const compressed = params.get(HIDING_ZONE_COMPRESSED_URL_PARAM);
+    if (compressed) return { text: await decompress(compressed) };
+
+    const legacy = params.get(HIDING_ZONE_URL_PARAM);
+    if (legacy) return { text: atob(legacy) };
+
+    const url = params.get(FETCH_URL_PARAM);
+    if (url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
+        return { text: await response.text(), source: url };
+    }
+
+    return null;
+};
 
 export const OptionDrawers = ({ className }: { className?: string }) => {
     useStore(triggerLocalRefresh);
     const $defaultCustomQuestions = useStore(defaultCustomQuestions);
-    const $allowGooglePlusCodes = useStore(allowGooglePlusCodes);
     const $defaultUnit = useStore(defaultUnit);
+    const $regionChoice = useStore(regionChoice);
     const $animateMapMovements = useStore(animateMapMovements);
     const $autoZoom = useStore(autoZoom);
     const $hiderMode = useStore(hiderMode);
     const $autoSave = useStore(autoSave);
-    const $hidingZone = useStore(hidingZone);
     const $planningMode = useStore(planningModeEnabled);
     const $baseTileLayer = useStore(baseTileLayer);
-    const $thunderforestApiKey = useStore(thunderforestApiKey);
-    const $pastebinApiKey = useStore(pastebinApiKey);
-    const $alwaysUsePastebin = useStore(alwaysUsePastebin);
     const $followMe = useStore(followMe);
+    const $showReferencePlaces = useStore(showReferencePlaces);
     const $customInitPref = useStore(customInitPreference);
-    const $overpassHost = useStore(overpassHost);
+    const $allowPublicOverpass = useStore(allowPublicOverpass);
     const $overpassCustomHost = useStore(overpassCustomHost);
-    const lastDefaultUnit = useRef($defaultUnit);
-    const hasSyncedInitialUnit = useRef(false);
     const [isOptionsOpen, setOptionsOpen] = useState(false);
+    const [menuTab, setMenuTab] = useState<MenuTab>("game");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        const currentDefault = $defaultUnit;
-
-        if (!hasSyncedInitialUnit.current) {
-            hasSyncedInitialUnit.current = true;
-            if (hidingRadiusUnits.get() !== currentDefault) {
-                hidingRadiusUnits.set(currentDefault);
-            }
-        } else if (lastDefaultUnit.current !== currentDefault) {
-            hidingRadiusUnits.set(currentDefault);
-        }
-
-        lastDefaultUnit.current = currentDefault;
-    }, [$defaultUnit]);
-
-    useEffect(() => {
         const params = new URL(window.location.toString()).searchParams;
-        const hidingZoneOld = params.get(HIDING_ZONE_URL_PARAM);
-        const hidingZoneCompressed = params.get(
-            HIDING_ZONE_COMPRESSED_URL_PARAM,
-        );
-        const pastebinId = params.get(PASTEBIN_URL_PARAM);
-        const fetchUrl = params.get(FETCH_URL_PARAM);
 
-        if (hidingZoneOld !== null) {
-            // Legacy base64 encoding
-            try {
-                loadHidingZone(atob(hidingZoneOld));
-                // Remove hiding zone parameter after initial load
+        readSharedGameFromUrl(params)
+            .then((shared) => {
+                if (!shared) return;
                 window.history.replaceState({}, "", window.location.pathname);
-            } catch (e) {
-                toast.error(`Invalid hiding zone settings: ${e}`);
-            }
-        } else if (hidingZoneCompressed !== null) {
-            // Modern compressed format
-            decompress(hidingZoneCompressed).then((data) => {
-                try {
-                    loadHidingZone(data);
-                    // Remove hiding zone parameter after initial load
-                    window.history.replaceState(
-                        {},
-                        "",
-                        window.location.pathname,
-                    );
-                } catch (e) {
-                    toast.error(`Invalid hiding zone settings: ${e}`);
-                }
-            });
-        } else if (pastebinId !== null) {
-            fetchFromPastebin(pastebinId)
-                .then((data) => {
-                    try {
-                        loadHidingZone(data);
-                        // Remove pb parameter after initial load
-                        window.history.replaceState(
-                            {},
-                            "",
-                            window.location.pathname,
-                        );
-                        toast.success(
-                            "Successfully loaded data from Pastebin link!",
-                        );
-                    } catch (e) {
-                        toast.error(`Invalid data from Pastebin: ${e}`);
-                    }
-                })
-                .catch((error) => {
-                    console.error("Failed to fetch from Pastebin:", error);
-                    toast.error(
-                        `Failed to load from Pastebin: ${error.message}`,
-                    );
-                });
-        } else if (fetchUrl !== null) {
-            fetch(fetchUrl)
-                .then((response) => {
-                    if (!response.ok)
-                        throw `${response.status} ${response.statusText}`;
-                    return response.text();
-                })
-                .then((data) => {
-                    try {
-                        loadHidingZone(data);
-                        // Remove url parameter after initial load
-                        window.history.replaceState(
-                            {},
-                            "",
-                            window.location.pathname,
-                        );
-                        toast.success(
-                            `Successfully loaded data from ${fetchUrl}`,
-                        );
-                    } catch (e) {
-                        toast.error(`Invalid data from ${fetchUrl}: ${e}`);
-                    }
-                })
-                .catch((error) => {
-                    console.error(`Failed to fetch from ${fetchUrl}:`, error);
-                    toast.error(
-                        `Failed to load from ${fetchUrl}: ${error.message}`,
-                    );
-                });
-        }
+                offerSharedGame(parseSharedGame(shared.text), shared.source);
+            })
+            .catch((error) =>
+                toast.error(
+                    `Couldn't open the shared game: ${errorMessage(error)}`,
+                ),
+            );
     }, []);
 
-    const loadHidingZone = (hidingZone: string) => {
+    /** Loads a game the player chose explicitly (file or clipboard). */
+    const loadHidingZone = (text: string) => {
         try {
-            const geojson = JSON.parse(hidingZone);
-
-            if (
-                geojson.properties &&
-                geojson.properties.isHidingZone === true
-            ) {
-                questions.set(
-                    questionsSchema.parse(geojson.properties.questions ?? []),
-                );
-                mapGeoLocation.set(geojson);
-                mapGeoJSON.set(null);
-                polyGeoJSON.set(null);
-
-                if (geojson.alternateLocations) {
-                    additionalMapGeoLocations.set(geojson.alternateLocations);
-                } else {
-                    additionalMapGeoLocations.set([]);
-                }
-            } else {
-                if (geojson.questions) {
-                    questions.set(questionsSchema.parse(geojson.questions));
-                    delete geojson.questions;
-
-                    mapGeoJSON.set(geojson);
-                    polyGeoJSON.set(geojson);
-                } else {
-                    questions.set([]);
-                    mapGeoJSON.set(geojson);
-                    polyGeoJSON.set(geojson);
-                }
-            }
-
-            const incomingPresets =
-                geojson.presets ?? geojson.properties?.presets;
-            if (incomingPresets && Array.isArray(incomingPresets)) {
-                try {
-                    const normalized = (incomingPresets as any[])
-                        .filter((p) => p && p.data)
-                        .map((p) => {
-                            return {
-                                id:
-                                    p.id ??
-                                    (typeof crypto !== "undefined" &&
-                                    typeof (crypto as any).randomUUID ===
-                                        "function"
-                                        ? (crypto as any).randomUUID()
-                                        : String(Date.now()) + Math.random()),
-                                name: p.name ?? "Imported preset",
-                                type: p.type ?? "custom",
-                                data: p.data,
-                                createdAt:
-                                    p.createdAt ?? new Date().toISOString(),
-                            };
-                        });
-                    if (normalized.length > 0) {
-                        customPresets.set(normalized);
-                        toast.info(`Imported ${normalized.length} preset(s)`);
-                    }
-                } catch (err) {
-                    console.warn("Failed to import presets", err);
-                }
-            }
-
-            if (
-                geojson.disabledStations !== null &&
-                geojson.disabledStations.constructor === Array
-            ) {
-                disabledStations.set(geojson.disabledStations);
-            }
-
-            if (geojson.hidingRadius !== null) {
-                hidingRadius.set(geojson.hidingRadius);
-            }
-
-            if (geojson.zoneOptions) {
-                displayHidingZonesOptions.set(geojson.zoneOptions ?? []);
-            }
-
-            if (typeof geojson.useCustomStations === "boolean") {
-                useCustomStations.set(geojson.useCustomStations);
-            }
-
-            if (
-                geojson.customStations &&
-                geojson.customStations.constructor === Array
-            ) {
-                customStations.set(geojson.customStations);
-            }
-
-            if (typeof geojson.includeDefaultStations === "boolean") {
-                includeDefaultStations.set(geojson.includeDefaultStations);
-            }
-
-            if (geojson.permanentOverlay) {
-                permanentOverlay.set(geojson.permanentOverlay);
-            } else {
-                permanentOverlay.set(null);
-            }
-
-            toast.success("Hiding zone loaded successfully", {
+            const game = parseSharedGame(text);
+            applySharedGame(game);
+            toast.success(`Loaded ${summarizeSharedGame(game)}.`, {
                 autoClose: 2000,
             });
-        } catch (e) {
-            toast.error(`Invalid hiding zone settings: ${e}`);
+        } catch (error) {
+            toast.error(errorMessage(error));
+        }
+    };
+
+    const shareGame = async () => {
+        const game = JSON.stringify(hidingZone.get());
+        const baseUrl = `${window.location.origin}${window.location.pathname}`;
+        let shareUrl: string;
+
+        try {
+            shareUrl = `${baseUrl}?${SHARE_URL_PARAM}=${await uploadSharedGame(game)}`;
+        } catch (error) {
+            console.warn("Share service unreachable, using a long link", error);
+            shareUrl = `${baseUrl}?${HIDING_ZONE_COMPRESSED_URL_PARAM}=${await compress(game)}`;
+            if (shareUrl.length > MAX_LINK_LENGTH) {
+                toast.info(
+                    "The share service isn't reachable and the game is too big for a link, so it was saved as a file instead.",
+                );
+                saveToFile();
+                return;
+            }
+        }
+
+        const result = await shareOrFallback(shareUrl);
+        if (result === false) {
+            toast.error(`Couldn't copy the link. Here it is: ${shareUrl}`, {
+                className: "p-0 w-[1000px]",
+            });
+        } else if (result === "clipboard") {
+            toast.success("Game link copied to the clipboard", {
+                autoClose: 2000,
+            });
         }
     };
 
     const saveToFile = () => {
         try {
-            const data = JSON.stringify($hidingZone, null, 2);
+            const data = JSON.stringify(hidingZone.get(), null, 2);
             const blob = new Blob([data], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -352,13 +207,52 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         reader.readAsText(file);
     };
 
+    const setHiderMode = (on: boolean) => {
+        if (!on) {
+            hiderMode.set(false);
+            return;
+        }
+        const center = leafletMapContext.get()?.getCenter();
+        hiderMode.set({
+            latitude: center?.lat ?? 0,
+            longitude: center?.lng ?? 0,
+        });
+    };
+
+    const setPlanningMode = (on: boolean) => {
+        if (!on) {
+            leafletMapContext.get()?.eachLayer((layer: any) => {
+                if (layer.questionKey || layer.questionKey === 0) {
+                    leafletMapContext.get()?.removeLayer(layer);
+                }
+            });
+        } else {
+            questions.set([...questions.get()]);
+        }
+        planningModeEnabled.set(on);
+    };
+
+    const copyGame = () => {
+        if (!navigator?.clipboard)
+            return toast.error("Clipboard not supported");
+        navigator.clipboard.writeText(JSON.stringify(hidingZone.get()));
+        toast.success("Game copied", { autoClose: 2000 });
+    };
+
+    const pasteGame = () => {
+        if (!navigator?.clipboard)
+            return toast.error("Clipboard not supported");
+        navigator.clipboard.readText().then(loadHidingZone);
+    };
+
+    const openMenu = (tab: MenuTab) => {
+        setMenuTab(tab);
+        setOptionsOpen(true);
+    };
+
     return (
-        <div
-            className={cn(
-                "flex justify-end gap-2 max-[412px]:!mb-4 max-[640px]:overflow-x-auto max-[640px]:w-[85vw] max-[640px]:justify-start max-[640px]:[&>button]:flex-shrink-0 max-[640px]:[&>div]:flex-shrink-0 max-[640px]:pb-1",
-                className,
-            )}
-        >
+        <div className={cn("flex justify-end gap-2", className)}>
+            <SharedGameDialog />
             <input
                 ref={fileInputRef}
                 type="file"
@@ -370,490 +264,324 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     e.target.value = "";
                 }}
             />
-            <Button
-                className="shadow-md"
-                onClick={saveToFile}
-                title="Download current hiding zone as a JSON file"
-            >
-                Save File
-            </Button>
-            <Button
-                className="shadow-md"
-                onClick={() => fileInputRef.current?.click()}
-                title="Load a hiding zone from a JSON file"
-            >
-                Load File
-            </Button>
-            <Button
-                className="shadow-md"
-                onClick={async () => {
-                    const hidingZoneString = JSON.stringify($hidingZone);
-                    let compressedData;
-                    try {
-                        compressedData = await compress(hidingZoneString);
-                    } catch (error) {
-                        console.error("Compression failed:", error);
-                        toast.error(`Failed to prepare data for sharing`);
-                        return;
-                    }
-
-                    const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-                    let shareUrl = `${baseUrl}?${HIDING_ZONE_COMPRESSED_URL_PARAM}=${compressedData}`;
-
-                    if ($alwaysUsePastebin || shareUrl.length > 2000) {
-                        if ($pastebinApiKey) {
-                            try {
-                                toast.info(
-                                    "Data is being shared via Pastebin...",
-                                );
-                                const pastebinUrl = await uploadToPastebin(
-                                    $pastebinApiKey,
-                                    hidingZoneString,
-                                );
-                                const pasteId = pastebinUrl.substring(
-                                    pastebinUrl.lastIndexOf("/") + 1,
-                                );
-                                shareUrl = `${baseUrl}?${PASTEBIN_URL_PARAM}=${pasteId}`;
-                                toast.success(
-                                    "Successfully uploaded to Pastebin! URL is ready to be shared.",
-                                );
-                            } catch (error) {
-                                console.error("Pastebin upload failed:", error);
-                                toast.warning(
-                                    "Pastebin upload failed, falling back to file download.",
-                                );
-                                saveToFile();
-                                return;
-                            }
-                        } else {
-                            toast.info(
-                                "Data is too large for a URL — saving to file instead.",
-                            );
-                            saveToFile();
-                            return;
-                        }
-                    }
-
-                    // Show platform native share sheet if possible
-                    await shareOrFallback(shareUrl).then((result) => {
-                        console.log(`result ${result}`);
-                        if (result === false) {
-                            return toast.error(
-                                `Clipboard not supported. Try manually copying/pasting: ${shareUrl}`,
-                                { className: "p-0 w-[1000px]" },
-                            );
-                        }
-
-                        if (result === "clipboard") {
-                            toast.success(
-                                "Hiding zone URL copied to clipboard",
-                                {
-                                    autoClose: 2000,
-                                },
-                            );
-                        }
-                    });
-                }}
-                data-tutorial-id="share-questions-button"
-            >
-                Share
-            </Button>
-            <Button
-                className="w-24 shadow-md"
-                onClick={() => {
-                    showTutorial.set(true);
-                }}
-            >
-                Tutorial
-            </Button>
+            {$hiderMode !== false && (
+                <Button
+                    className="shadow-md bg-yellow-400 text-black hover:bg-yellow-300"
+                    onClick={() => openMenu("hider")}
+                    title="You're the hider: answers come from the hider pin"
+                >
+                    <EyeOffIcon className="mr-1 h-4 w-4" />
+                    Hider mode
+                </Button>
+            )}
             <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
-                <DrawerTrigger className="w-24" asChild>
+                <DrawerTrigger asChild>
                     <Button
-                        className="w-24 shadow-md"
-                        data-tutorial-id="option-questions-button"
+                        className="shadow-md"
+                        data-tutorial-id="menu-button"
+                        onClick={() => setMenuTab("game")}
                     >
-                        Options
+                        <MenuIcon className="mr-1 h-4 w-4" />
+                        Menu
                     </Button>
                 </DrawerTrigger>
                 <DrawerContent>
-                    <div className="flex flex-col items-center gap-4 mb-4">
-                        <DrawerHeader>
-                            <DrawerTitle className="text-4xl font-semibold font-poppins">
-                                Options
+                    <div className="mx-auto flex w-full max-w-xl flex-col gap-3 px-4 pb-6">
+                        <DrawerHeader className="px-0">
+                            <DrawerTitle className="text-2xl font-semibold font-poppins">
+                                Menu
                             </DrawerTitle>
                         </DrawerHeader>
-                        <div className="overflow-y-scroll max-h-[40vh] flex flex-col items-center gap-4 max-w-[1000px] px-12">
-                            <div className="flex flex-row max-[330px]:flex-col gap-4">
-                                <Button
-                                    onClick={() => {
-                                        if (!navigator || !navigator.clipboard)
-                                            return toast.error(
-                                                "Clipboard not supported",
-                                            );
-                                        navigator.clipboard.writeText(
-                                            JSON.stringify($hidingZone),
-                                        );
-                                        toast.success(
-                                            "Hiding zone copied successfully",
-                                            {
-                                                autoClose: 2000,
-                                            },
-                                        );
-                                    }}
-                                >
-                                    Copy Hiding Zone
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        if (!navigator || !navigator.clipboard)
-                                            return toast.error(
-                                                "Clipboard not supported",
-                                            );
-                                        navigator.clipboard
-                                            .readText()
-                                            .then(loadHidingZone);
-                                    }}
-                                >
-                                    Paste Hiding Zone
-                                </Button>
-                            </div>
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>Default Unit</Label>
-                            <UnitSelect
-                                unit={$defaultUnit}
-                                onChange={defaultUnit.set}
-                            />
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>New Custom Question Defaults</Label>
-                            <Select
-                                trigger="New custom default"
-                                options={{
-                                    ask: "Ask each time",
-                                    blank: "Start blank",
-                                    prefill: "Copy from current",
-                                }}
-                                value={$customInitPref}
-                                onValueChange={(v) =>
-                                    customInitPreference.set(v as any)
-                                }
-                            />
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>Base map style</Label>
-                            <Select
-                                trigger="Base map style"
-                                options={{
-                                    voyager: "CARTO Voyager",
-                                    light: "CARTO Light",
-                                    dark: "CARTO Dark",
-                                    transport: "Thunderforest Transport",
-                                    neighbourhood:
-                                        "Thunderforest Neighbourhood",
-                                    osmcarto: "OpenStreetMap Carto",
-                                }}
-                                value={$baseTileLayer}
-                                onValueChange={(v) =>
-                                    baseTileLayer.set(v as any)
-                                }
-                            />
-                            <div className="flex flex-col items-center gap-2">
-                                <Label>Thunderforest API Key</Label>
-                                <Input
-                                    type="text"
-                                    value={$thunderforestApiKey}
-                                    id="thunderforestApiKey"
-                                    onChange={(e) =>
-                                        thunderforestApiKey.set(e.target.value)
-                                    }
-                                    placeholder="Enter your Thunderforest API key"
-                                />
-                                <p className="text-xs text-gray-500">
-                                    Needed for Thunderforest map styles. Create
-                                    a key{" "}
-                                    <a
-                                        href="https://manage.thunderforest.com/users/sign_up?price=hobby-project-usd"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-500 cursor-pointer"
-                                    >
-                                        here.
-                                    </a>{" "}
-                                    Don&apos;t worry, it&apos;s free.
-                                </p>
-                            </div>
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <div className="flex flex-col items-center gap-2">
-                                <Label>Pastebin API Key</Label>
-                                <Input
-                                    type="text"
-                                    value={$pastebinApiKey}
-                                    id="pastebinApiKey"
-                                    onChange={(e) =>
-                                        pastebinApiKey.set(e.target.value)
-                                    }
-                                    placeholder="Enter your Pastebin API key"
-                                />
-                                <p className="text-xs text-gray-500">
-                                    Optional. If set, large game data will be
-                                    shared via Pastebin URL; otherwise it falls
-                                    back to a JSON file download. Create a key{" "}
-                                    <a
-                                        href="https://pastebin.com/doc_api"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-500 cursor-pointer"
-                                    >
-                                        here
-                                    </a>
-                                    .
-                                </p>
-                            </div>
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>Overpass API Host</Label>
-                            <Select
-                                trigger="Overpass API host"
-                                options={{
-                                    ...Object.fromEntries(
-                                        Object.entries(OVERPASS_HOSTS).map(
-                                            ([label, url]) => [url, label],
-                                        ),
-                                    ),
-                                    custom: "Custom URL",
-                                }}
-                                value={$overpassHost}
-                                onValueChange={(v) =>
-                                    overpassHost.set(v as any)
-                                }
-                            />
-                            {$overpassHost === "custom" && (
-                                <div className="flex flex-col items-center gap-2 w-full">
-                                    <Input
-                                        type="text"
-                                        value={$overpassCustomHost}
-                                        onChange={(e) =>
-                                            overpassCustomHost.set(
-                                                e.target.value,
-                                            )
-                                        }
-                                        placeholder="https://your-overpass-instance/api/interpreter"
-                                    />
-                                </div>
-                            )}
-                            <p className="text-xs text-gray-500 text-center">
-                                {$overpassHost === "custom"
-                                    ? "The other hosts will be used as fallbacks if this one fails."
-                                    : "The remaining hosts will be tried as fallbacks if the selected one fails."}
-                            </p>
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>Permanent Map Overlay</Label>
-                            <div className="flex flex-row max-[330px]:flex-col gap-4">
-                                <Button
-                                    onClick={() => permanentOverlay.set(null)}
-                                >
-                                    Remove
-                                </Button>
-                                <Button
-                                    onClick={async () => {
-                                        if (!navigator || !navigator.clipboard)
-                                            return toast.error(
-                                                "Clipboard not supported",
-                                            );
-
-                                        try {
-                                            const clipboard =
-                                                await navigator.clipboard.readText();
-                                            const geojson =
-                                                JSON.parse(clipboard);
-                                            permanentOverlay.set(geojson);
-                                        } catch (e) {
-                                            toast.error(
-                                                `Invalid GeoJSON overlay: ${e}`,
-                                            );
-                                        }
-                                    }}
-                                >
-                                    Paste GeoJSON
-                                </Button>
-                            </div>
-                            <Separator className="bg-slate-300 w-[280px]" />
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Animate map movements?
-                                </label>
-                                <Checkbox
-                                    checked={$animateMapMovements}
-                                    onCheckedChange={() => {
-                                        animateMapMovements.set(
-                                            !$animateMapMovements,
-                                        );
-                                    }}
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Force Pastebin for sharing?
-                                </label>
-                                <Checkbox
-                                    checked={$alwaysUsePastebin}
-                                    onCheckedChange={() =>
-                                        alwaysUsePastebin.set(
-                                            !$alwaysUsePastebin,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Enable planning mode?
-                                </label>
-                                <Checkbox
-                                    checked={$planningMode}
-                                    onCheckedChange={() => {
-                                        if ($planningMode === true) {
-                                            const map = leafletMapContext.get();
-
-                                            if (map) {
-                                                map.eachLayer((layer: any) => {
-                                                    if (
-                                                        layer.questionKey ||
-                                                        layer.questionKey === 0
-                                                    ) {
-                                                        map.removeLayer(layer);
-                                                    }
-                                                });
-                                            }
-                                        } else {
-                                            questions.set([...questions.get()]); // I think that this should always be auto-saved
-                                        }
-
-                                        planningModeEnabled.set(!$planningMode);
-                                    }}
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Auto save?
-                                </label>
-                                <Checkbox
-                                    checked={$autoSave}
-                                    onCheckedChange={() =>
-                                        autoSave.set(!$autoSave)
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Auto zoom?
-                                </label>
-                                <Checkbox
-                                    checked={$autoZoom}
-                                    onCheckedChange={() =>
-                                        autoZoom.set(!$autoZoom)
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Follow Me (GPS)?
-                                </label>
-                                <Checkbox
-                                    checked={$followMe}
-                                    onCheckedChange={() =>
-                                        followMe.set(!$followMe)
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Default to custom questions?
-                                </label>
-                                <Checkbox
-                                    checked={$defaultCustomQuestions}
-                                    onCheckedChange={() =>
-                                        defaultCustomQuestions.set(
-                                            !$defaultCustomQuestions,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Allow Google Plus codes?
-                                </label>
-                                <Checkbox
-                                    checked={$allowGooglePlusCodes}
-                                    onCheckedChange={() =>
-                                        allowGooglePlusCodes.set(
-                                            !$allowGooglePlusCodes,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="flex flex-row items-center gap-2">
-                                <label className="text-2xl font-semibold font-poppins">
-                                    Hider mode?
-                                </label>
-                                <Checkbox
-                                    checked={!!$hiderMode}
-                                    onCheckedChange={() => {
-                                        if ($hiderMode === false) {
-                                            const $leafletMapContext =
-                                                leafletMapContext.get();
-
-                                            if ($leafletMapContext) {
-                                                const center =
-                                                    $leafletMapContext.getCenter();
-                                                hiderMode.set({
-                                                    latitude: center.lat,
-                                                    longitude: center.lng,
-                                                });
-                                            } else {
-                                                hiderMode.set({
-                                                    latitude: 0,
-                                                    longitude: 0,
-                                                });
-                                            }
-                                        } else {
-                                            hiderMode.set(false);
-                                        }
-                                    }}
-                                />
-                            </div>
-                            {$hiderMode !== false && (
-                                <SidebarMenu>
-                                    <LatitudeLongitude
-                                        latitude={$hiderMode.latitude}
-                                        longitude={$hiderMode.longitude}
-                                        inlineEdit
-                                        onChange={(latitude, longitude) => {
-                                            $hiderMode.latitude =
-                                                latitude ?? $hiderMode.latitude;
-                                            $hiderMode.longitude =
-                                                longitude ??
-                                                $hiderMode.longitude;
-
-                                            if ($autoSave) {
-                                                hiderMode.set({
-                                                    ...$hiderMode,
-                                                });
-                                            } else {
-                                                triggerLocalRefresh.set(
-                                                    Math.random(),
-                                                );
-                                            }
-                                        }}
-                                        label="Hider Location"
-                                    />
-                                    {!autoSave && (
-                                        <SidebarMenuItem>
-                                            <SidebarMenuButton
-                                                className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500 mt-2"
-                                                onClick={save}
+                        <SegmentedControl
+                            label="Menu section"
+                            options={[
+                                { value: "game", label: "Game" },
+                                { value: "hider", label: "Hider" },
+                                { value: "settings", label: "Settings" },
+                            ]}
+                            value={menuTab}
+                            onValueChange={setMenuTab}
+                        />
+                        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pb-2">
+                            {menuTab === "game" && (
+                                <>
+                                    <MenuGroup title="Share this game">
+                                        <Button
+                                            onClick={shareGame}
+                                            data-tutorial-id="share-questions-button"
+                                        >
+                                            Share link
+                                        </Button>
+                                        <p className="text-xs text-slate-400">
+                                            A short link with the play area,
+                                            questions and hiding zone settings.
+                                            Anyone opening it is asked before
+                                            their own game is replaced.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={saveToFile}
                                             >
-                                                Save
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
+                                                Save to file
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() =>
+                                                    fileInputRef.current?.click()
+                                                }
+                                            >
+                                                Load from file
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={copyGame}
+                                            >
+                                                Copy game
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={pasteGame}
+                                            >
+                                                Paste game
+                                            </Button>
+                                        </div>
+                                    </MenuGroup>
+                                    <MenuGroup title="Help">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Button variant="outline" asChild>
+                                                <a
+                                                    href={withBase("rules/")}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    Rules
+                                                </a>
+                                            </Button>
+                                            <Button variant="outline" asChild>
+                                                <a
+                                                    href={withBase(
+                                                        "reference/",
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    Questions &amp; cards
+                                                </a>
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="col-span-2"
+                                                onClick={() => {
+                                                    setOptionsOpen(false);
+                                                    showTutorial.set(true);
+                                                }}
+                                            >
+                                                Tutorial
+                                            </Button>
+                                        </div>
+                                    </MenuGroup>
+                                </>
+                            )}
+                            {menuTab === "hider" && (
+                                <>
+                                    <ToggleCard
+                                        title="I'm the hider (hider mode)"
+                                        description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
+                                        checked={$hiderMode !== false}
+                                        onCheckedChange={setHiderMode}
+                                    />
+                                    {$hiderMode !== false && (
+                                        <MenuGroup title="Hider location">
+                                            <p className="text-xs text-slate-400">
+                                                Drag the black hider pin on the
+                                                map, use your GPS (target
+                                                button), or type coordinates.
+                                            </p>
+                                            <SidebarMenu>
+                                                <LatitudeLongitude
+                                                    latitude={
+                                                        $hiderMode.latitude
+                                                    }
+                                                    longitude={
+                                                        $hiderMode.longitude
+                                                    }
+                                                    inlineEdit
+                                                    onChange={(
+                                                        latitude,
+                                                        longitude,
+                                                    ) => {
+                                                        $hiderMode.latitude =
+                                                            latitude ??
+                                                            $hiderMode.latitude;
+                                                        $hiderMode.longitude =
+                                                            longitude ??
+                                                            $hiderMode.longitude;
+
+                                                        if ($autoSave) {
+                                                            hiderMode.set({
+                                                                ...$hiderMode,
+                                                            });
+                                                        } else {
+                                                            triggerLocalRefresh.set(
+                                                                Math.random(),
+                                                            );
+                                                        }
+                                                    }}
+                                                    label="Hider location"
+                                                />
+                                                {!$autoSave && (
+                                                    <SidebarMenuItem>
+                                                        <SidebarMenuButton
+                                                            className="bg-blue-600 p-2 rounded-md font-semibold font-poppins mt-2"
+                                                            onClick={save}
+                                                        >
+                                                            Save
+                                                        </SidebarMenuButton>
+                                                    </SidebarMenuItem>
+                                                )}
+                                            </SidebarMenu>
+                                        </MenuGroup>
                                     )}
-                                </SidebarMenu>
+                                </>
+                            )}
+                            {menuTab === "settings" && (
+                                <>
+                                    <MenuGroup title="Game rules">
+                                        <Label>Local rules</Label>
+                                        <Select
+                                            trigger="Local rules"
+                                            options={{
+                                                auto: "Automatic (by play area)",
+                                                standard:
+                                                    "Standard Jet Lag rules",
+                                                switzerland: "Switzerland",
+                                            }}
+                                            value={$regionChoice}
+                                            onValueChange={(v) =>
+                                                regionChoice.set(
+                                                    v as RegionChoice,
+                                                )
+                                            }
+                                        />
+                                        <p className="text-xs text-slate-400">
+                                            Swiss rules: &quot;major city&quot;
+                                            means 100,000+ people, coastline and
+                                            7-Eleven questions are hidden and
+                                            the lake shore question is added.
+                                        </p>
+                                        <Label>Default unit</Label>
+                                        <UnitSelect
+                                            unit={$defaultUnit}
+                                            onChange={defaultUnit.set}
+                                        />
+                                    </MenuGroup>
+                                    <MenuGroup title="Map">
+                                        <ToggleCard
+                                            title="Show reference places"
+                                            description="A star on the place a question measures from, dots on the other candidates, and the seeker's zone outline."
+                                            checked={$showReferencePlaces}
+                                            onCheckedChange={
+                                                showReferencePlaces.set
+                                            }
+                                        />
+                                        <ToggleCard
+                                            title="Follow me (GPS)"
+                                            description="Show your own position on the map."
+                                            checked={$followMe}
+                                            onCheckedChange={followMe.set}
+                                        />
+                                        <ToggleCard
+                                            title="Auto zoom"
+                                            description="Zoom to what's left after each answer."
+                                            checked={$autoZoom}
+                                            onCheckedChange={autoZoom.set}
+                                        />
+                                        <ToggleCard
+                                            title="Animate map movements"
+                                            checked={$animateMapMovements}
+                                            onCheckedChange={
+                                                animateMapMovements.set
+                                            }
+                                        />
+                                        <Label>Base map</Label>
+                                        <Select
+                                            trigger="Base map style"
+                                            options={{
+                                                selfhosted:
+                                                    "Own server (light)",
+                                                "selfhosted-dark":
+                                                    "Own server (dark)",
+                                                osmcarto:
+                                                    "OpenStreetMap Carto (external)",
+                                            }}
+                                            value={$baseTileLayer}
+                                            onValueChange={(v) =>
+                                                baseTileLayer.set(v as any)
+                                            }
+                                        />
+                                    </MenuGroup>
+                                    <MenuGroup title="Questions">
+                                        <ToggleCard
+                                            title="Planning mode"
+                                            description="Unlocked questions only draw where they would split the map, without applying an answer."
+                                            checked={$planningMode}
+                                            onCheckedChange={setPlanningMode}
+                                        />
+                                        <ToggleCard
+                                            title="Auto save"
+                                            description="Apply every change straight away. Off: changes wait for Save."
+                                            checked={$autoSave}
+                                            onCheckedChange={autoSave.set}
+                                        />
+                                        <ToggleCard
+                                            title="Default to custom questions"
+                                            checked={$defaultCustomQuestions}
+                                            onCheckedChange={
+                                                defaultCustomQuestions.set
+                                            }
+                                        />
+                                        <Label>New custom questions</Label>
+                                        <Select
+                                            trigger="New custom default"
+                                            options={{
+                                                ask: "Ask each time",
+                                                blank: "Start blank",
+                                                prefill: "Copy from current",
+                                            }}
+                                            value={$customInitPref}
+                                            onValueChange={(v) =>
+                                                customInitPreference.set(
+                                                    v as any,
+                                                )
+                                            }
+                                        />
+                                    </MenuGroup>
+                                    <MenuGroup title="Map data">
+                                        <p className="text-xs text-slate-400">
+                                            Questions are answered from this
+                                            app&apos;s own server.
+                                        </p>
+                                        <Input
+                                            type="text"
+                                            value={$overpassCustomHost}
+                                            onChange={(e) =>
+                                                overpassCustomHost.set(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Extra Overpass server (optional)"
+                                        />
+                                        <ToggleCard
+                                            title="Fall back to public Overpass servers"
+                                            description="Public servers are often overloaded, and they see the play area and question locations."
+                                            checked={$allowPublicOverpass}
+                                            onCheckedChange={
+                                                allowPublicOverpass.set
+                                            }
+                                        />
+                                    </MenuGroup>
+                                </>
                             )}
                         </div>
                     </div>
@@ -862,3 +590,20 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         </div>
     );
 };
+
+type MenuTab = "game" | "hider" | "settings";
+
+const MenuGroup = ({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) => (
+    <section className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3">
+        <h3 className="text-sm font-semibold font-poppins text-slate-200">
+            {title}
+        </h3>
+        {children}
+    </section>
+);

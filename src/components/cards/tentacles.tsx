@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
-import { Suspense, use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
@@ -22,7 +22,8 @@ import {
 } from "@/lib/context";
 import { cn, mapToObj } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
-import { arcDistance } from "@/maps/geo-utils";
+import { errorMessage } from "@/maps/errors";
+import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import {
     determineUnionizedStrings,
     NO_GROUP,
@@ -68,7 +69,7 @@ export const TentacleQuestionComponent = ({
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
             hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = !hidden))}
+            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <SidebarMenuItem>
                 <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
@@ -187,119 +188,105 @@ export const TentacleQuestionComponent = ({
                 disabled={!data.drag || $isLoading}
             />
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <Suspense
-                    fallback={
-                        <div className="flex items-center justify-center w-full h-8">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="animate-spin"
-                            >
-                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                        </div>
-                    }
-                >
-                    <TentacleLocationSelector
-                        data={data}
-                        promise={
-                            data.locationType === "custom"
-                                ? Promise.resolve(
-                                      turf.featureCollection(data.places),
-                                  )
-                                : findTentacleLocations(data)
-                        }
-                        disabled={!data.drag || $isLoading}
-                    />
-                </Suspense>
+                <TentacleLocationSelector
+                    data={data}
+                    disabled={!data.drag || $isLoading}
+                />
             </SidebarMenuItem>
         </QuestionCard>
     );
 };
 
+type TentacleOptions =
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; features: any[] };
+
+/** The places the hider can name: those of the type within the radius. */
+const useTentacleOptions = (data: TentacleQuestion): TentacleOptions => {
+    const [options, setOptions] = useState<TentacleOptions>({
+        status: "loading",
+    });
+    const customPlaces =
+        data.locationType === "custom" ? JSON.stringify(data.places) : "";
+
+    useEffect(() => {
+        let cancelled = false;
+        setOptions({ status: "loading" });
+
+        const load =
+            data.locationType === "custom"
+                ? Promise.resolve(turf.featureCollection(data.places))
+                : findTentacleLocations(data);
+
+        load.then((locations) =>
+            filterPointsWithinRadius(
+                locations,
+                data.lng,
+                data.lat,
+                data.radius,
+                data.unit,
+            ),
+        ).then(
+            (within) =>
+                !cancelled &&
+                setOptions({ status: "ready", features: within.features }),
+            (error) =>
+                !cancelled &&
+                setOptions({ status: "error", message: errorMessage(error) }),
+        );
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        data.locationType,
+        customPlaces,
+        data.lat,
+        data.lng,
+        data.radius,
+        data.unit,
+    ]);
+
+    return options;
+};
+
 const TentacleLocationSelector = ({
     data,
-    promise,
     disabled,
 }: {
     data: TentacleQuestion;
-    promise: Promise<any>;
     disabled: boolean;
 }) => {
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
-    const locations = use(promise);
-    const [filteredFeatures, setFilteredFeatures] = useState<any[]>([]);
+    const options = useTentacleOptions(data);
 
-    // Filter locations to only those within the radius of the primary location
+    // Only once the list has loaded: drop an answer that's no longer within
+    // the radius. (Doing this before loading would wipe every saved answer.)
     useEffect(() => {
-        let cancelled = false;
+        if (options.status !== "ready" || !data.location) return;
+        const name = data.location.properties?.name;
+        if (!options.features.some((f) => f.properties.name === name)) {
+            data.location = false;
+            questionModified();
+        }
+    }, [options]);
 
-        const filterLocations = async () => {
-            if (
-                data.lat === null ||
-                data.lng === null ||
-                data.radius === undefined ||
-                data.radius === null
-            ) {
-                if (!cancelled) setFilteredFeatures(locations.features);
-                return;
-            }
+    if (options.status === "loading") {
+        return (
+            <div className="flex w-full items-center justify-center h-8 text-sm text-muted-foreground">
+                Loading places…
+            </div>
+        );
+    }
 
-            const center = turf.point([data.lng, data.lat]);
-            const included = await Promise.all(
-                locations.features.map(async (feature: any) => {
-                    const coords =
-                        feature?.geometry?.coordinates ??
-                        (feature?.properties?.lon && feature?.properties?.lat
-                            ? [feature.properties.lon, feature.properties.lat]
-                            : null);
-
-                    if (!coords) return false;
-
-                    return (
-                        (await arcDistance(
-                            center,
-                            turf.point(coords),
-                            data.unit,
-                        )) <= data.radius
-                    );
-                }),
-            );
-            if (!cancelled) {
-                setFilteredFeatures(
-                    locations.features.filter(
-                        (_: any, index: number) => included[index],
-                    ),
-                );
-            }
-        };
-
-        filterLocations();
-        return () => {
-            cancelled = true;
-        };
-    }, [locations, data.lat, data.lng, data.radius, data.unit]);
-
-    // If the currently selected location is no longer within radius, clear it.
-    const _selectedLocationName = data.location
-        ? data.location.properties?.name
-        : null;
-    if (
-        _selectedLocationName &&
-        !filteredFeatures.find(
-            (f: any) => f.properties.name === _selectedLocationName,
-        )
-    ) {
-        data.location = false;
-        questionModified();
+    if (options.status === "error") {
+        return (
+            <p className="w-full px-2 text-xs text-red-300">
+                Couldn&apos;t load places: {options.message}
+            </p>
+        );
     }
 
     return (
@@ -307,21 +294,20 @@ const TentacleLocationSelector = ({
             trigger="Location"
             options={{
                 false: "Not Within",
-                ...mapToObj(filteredFeatures, (feature: any) => [
+                ...mapToObj(options.features, (feature: any) => [
                     feature.properties.name,
                     feature.properties.name,
                 ]),
             }}
             value={data.location ? data.location.properties.name : "false"}
             onValueChange={(value) => {
-                if (value === "false") {
-                    data.location = false;
-                } else {
-                    data.location = filteredFeatures.find(
-                        (feature: any) => feature.properties.name === value,
-                    );
-                }
-
+                data.location =
+                    value === "false"
+                        ? false
+                        : options.features.find(
+                              (feature: any) =>
+                                  feature.properties.name === value,
+                          );
                 questionModified();
             }}
             disabled={!!$hiderMode || disabled}

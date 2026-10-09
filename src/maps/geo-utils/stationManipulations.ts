@@ -2,19 +2,20 @@ import * as turf from "@turf/turf";
 
 import type { StationPlace } from "@/maps/api";
 import { arcDistance } from "@/maps/geo-utils/operators";
+import type { Units } from "@/maps/schema";
 
 /**
  * Function to merge duplicates stations into one station, by averaging their longitude and latitude
  * @param places    Array of all unmerged stations
  * @param radius    Radius of the hiding zone
- * @param units     turf.Units unit of the radius ("miles", "kilometers" etc.)
+ * @param units     Unit of the radius ("miles", "kilometers" or "meters")
  * @returns         Array of all merged stations
  */
 export async function mergeDuplicateStation(
     places: StationPlace[],
     radius: number,
-    units: turf.Units,
-): StationPlace[] {
+    units: Units,
+): Promise<StationPlace[]> {
     const grouped = new Map<string, any[]>();
     // 1. Group by name
     for (const place of places) {
@@ -126,8 +127,8 @@ export async function checkIfStationsShareZones(
     station1: Location,
     station2: Location,
     radius: number,
-    units: turf.Units,
-): boolean {
+    units: Units,
+): Promise<boolean> {
     // Convert to turf points
     const point1 = turf.point([
         station1.coordinates[0],

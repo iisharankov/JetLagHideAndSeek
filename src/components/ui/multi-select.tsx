@@ -140,6 +140,13 @@ export const MultiSelect = React.forwardRef<
     ) => {
         const [selectedValues, setSelectedValues] =
             React.useState<string[]>(defaultValue);
+        // Follow changes made outside (e.g. a separate switch for one option).
+        const defaultKey = defaultValue.join("\u0000");
+        React.useEffect(() => {
+            setSelectedValues((current) =>
+                current.join("\u0000") === defaultKey ? current : defaultValue,
+            );
+        }, [defaultKey]);
         const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const [isAnimating, setIsAnimating] = React.useState(false);

@@ -1,7 +1,12 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import { Map } from "@/components/Map";
-import { PlacePicker } from "@/components/PlacePicker";
+// Each panel is wrapped in its own error boundary (see components/islands).
+import { Map } from "@/components/islands/Map";
+import { OptionDrawers } from "@/components/islands/OptionDrawers";
+import { PlacePicker } from "@/components/islands/PlacePicker";
+import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
+import { TutorialDialog } from "@/components/islands/TutorialDialog";
+import { ZoneSidebar } from "@/components/islands/ZoneSidebar";
 import {
     SidebarProvider as SidebarProviderL,
     SidebarTrigger as SidebarTriggerL,
@@ -10,10 +15,6 @@ import {
     SidebarProvider as SidebarProviderR,
     SidebarTrigger as SidebarTriggerR,
 } from "@/components/ui/sidebar-r";
-import { QuestionSidebar } from "@/components/QuestionSidebar";
-import { ZoneSidebar } from "@/components/ZoneSidebar";
-import { OptionDrawers } from "@/components/OptionDrawers";
-import { TutorialDialog } from "@/components/TutorialDialog";
 ---
 
 <Layout className="bg-jetlag">

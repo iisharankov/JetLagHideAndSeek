@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { type DragEndEvent, Icon } from "leaflet";
+import type { DragEndEvent } from "leaflet";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { Marker } from "react-leaflet";
@@ -14,6 +14,7 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 import type { ICON_COLORS } from "@/maps/api";
+import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
 import { LatitudeLongitude } from "./LatLngPicker";
 import {
@@ -53,18 +54,15 @@ const ColoredMarker = ({
             <Marker
                 position={[latitude, longitude]}
                 icon={
-                    color
-                        ? new Icon({
-                              iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-                              shadowUrl:
-                                  "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-                              iconSize: [25, 41],
-                              iconAnchor: [12, 41],
-                              popupAnchor: [1, -34],
-                              shadowSize: [41, 41],
-                          })
-                        : undefined
+                    questionKey === -1
+                        ? hiderIcon()
+                        : color
+                          ? markerIcon(color)
+                          : undefined
                 }
+                title={questionKey === -1 ? "Hider location" : undefined}
+                alt={questionKey === -1 ? "Hider location" : "Question"}
+                zIndexOffset={questionKey === -1 ? 1000 : 0}
                 draggable={true}
                 eventHandlers={{
                     dragstart: () => {

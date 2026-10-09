@@ -2,6 +2,17 @@ import { useStore } from "@nanostores/react";
 import { SidebarCloseIcon } from "lucide-react";
 
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
     Sidebar,
     SidebarContent,
     SidebarContext,
@@ -11,8 +22,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
+import { showUndoToast } from "@/components/undoToast";
+import { withBase } from "@/lib/config";
 import {
     autoSave,
+    clearQuestions,
     isLoading,
     questions,
     save,
@@ -38,6 +52,14 @@ export const QuestionSidebar = () => {
         <Sidebar>
             <div className="flex items-center justify-between">
                 <h2 className="ml-4 mt-4 font-poppins text-2xl">Questions</h2>
+                <a
+                    href={withBase("reference/")}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 ml-auto mr-3 text-sm text-blue-400 underline"
+                >
+                    Reference
+                </a>
                 <SidebarCloseIcon
                     className="mr-2 visible md:hidden"
                     onClick={() => {
@@ -103,17 +125,47 @@ export const QuestionSidebar = () => {
                                 </SidebarMenuButton>
                             </AddQuestionDialog>
                         </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <a
-                                href="https://github.com/taibeled/JetLagHideAndSeek"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <SidebarMenuButton className="bg-emerald-600 transition-colors">
-                                    Star this on GitHub! It&apos;s free :)
-                                </SidebarMenuButton>
-                            </a>
-                        </SidebarMenuItem>
+                        {$questions.length > 0 && (
+                            <SidebarMenuItem>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <SidebarMenuButton
+                                            disabled={$isLoading}
+                                            className="text-red-300"
+                                        >
+                                            Clear all questions
+                                        </SidebarMenuButton>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                Delete all {$questions.length}{" "}
+                                                questions?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                You can undo this for a few
+                                                seconds afterwards.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    showUndoToast(
+                                                        "All questions deleted.",
+                                                        clearQuestions(),
+                                                    )
+                                                }
+                                            >
+                                                Delete all
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </SidebarMenuItem>
+                        )}
                         {!$autoSave && (
                             <SidebarMenuItem>
                                 <SidebarMenuButton

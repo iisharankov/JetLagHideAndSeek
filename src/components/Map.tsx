@@ -9,92 +9,44 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
 import { toast } from "react-toastify";
 
+import { TILES_URL } from "@/lib/config";
 import {
     additionalMapGeoLocations,
     addQuestion,
-    animateMapMovements,
-    autoZoom,
+    type BaseTileLayer,
     baseTileLayer,
+    displayHidingZones,
+    displayHidingZonesOptions,
     followMe,
     hiderMode,
-    isLoading,
+    hidingRadius,
+    hidingRadiusUnits,
     leafletMapContext,
-    mapGeoJSON,
     mapGeoLocation,
-    permanentOverlay,
-    planningModeEnabled,
-    polyGeoJSON,
-    questionFinishedMapData,
     questions,
-    thunderforestApiKey,
-    triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
-import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
-import { hiderifyQuestion } from "@/maps";
-import { clearCache, determineMapBoundaries } from "@/maps/api";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
-import { MapPrint } from "./MapPrint";
+import { requestMapRefresh } from "./mapRefresh";
+import { PMTilesLayer } from "./PMTilesLayer";
 import { PolygonDraw } from "./PolygonDraw";
+import { ReferenceMarkers } from "./ReferenceMarkers";
 
-const getTileLayer = (tileLayer: string, thunderforestApiKey: string) => {
+const OSM_ATTRIBUTION =
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+const getTileLayer = (tileLayer: BaseTileLayer) => {
     switch (tileLayer) {
-        case "light":
-            return (
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="https://carto.com/attributions">CARTO</a>; Powered by Esri and Turf.js'
-                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2hdi_1_0b36dd202687c7d7c2b90861"
-                    subdomains="abcd"
-                    maxZoom={20} // This technically should be 6, but once the ratelimiting starts this can take over
-                    minZoom={2}
-                    noWrap
-                />
-            );
-
-        case "dark":
-            return (
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="https://carto.com/attributions">CARTO</a>; Powered by Esri and Turf.js'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2hdi_1_0b36dd202687c7d7c2b90861"
-                    subdomains="abcd"
-                    maxZoom={20} // This technically should be 6, but once the ratelimiting starts this can take over
-                    minZoom={2}
-                    noWrap
-                />
-            );
-
-        case "transport":
-            if (thunderforestApiKey)
-                return (
-                    <TileLayer
-                        url={`https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=${thunderforestApiKey}`}
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="http://www.thunderforest.com/">Thunderforest</a>; Powered by Esri and Turf.js'
-                        maxZoom={22}
-                        minZoom={2}
-                        noWrap
-                    />
-                );
-            break;
-
-        case "neighbourhood":
-            if (thunderforestApiKey)
-                return (
-                    <TileLayer
-                        url={`https://tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey=${thunderforestApiKey}`}
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="http://www.thunderforest.com/">Thunderforest</a>; Powered by Esri and Turf.js'
-                        maxZoom={22}
-                        minZoom={2}
-                        noWrap
-                    />
-                );
-            break;
-
+        case "selfhosted":
+            return <PMTilesLayer url={TILES_URL} flavor="light" />;
+        case "selfhosted-dark":
+            return <PMTilesLayer url={TILES_URL} flavor="dark" />;
         case "osmcarto":
             return (
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; Powered by Esri and Turf.js'
+                    attribution={OSM_ATTRIBUTION}
                     url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                     maxZoom={19}
                     minZoom={2}
@@ -103,16 +55,7 @@ const getTileLayer = (tileLayer: string, thunderforestApiKey: string) => {
             );
     }
 
-    return (
-        <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="https://carto.com/attributions">CARTO</a>; Powered by Esri and Turf.js'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2hdi_1_0b36dd202687c7d7c2b90861"
-            subdomains="abcd"
-            maxZoom={20} // This technically should be 6, but once the ratelimiting starts this can take over
-            minZoom={2}
-            noWrap
-        />
-    );
+    return <PMTilesLayer url={TILES_URL} flavor="light" />;
 };
 
 export const Map = ({ className }: { className?: string }) => {
@@ -120,11 +63,12 @@ export const Map = ({ className }: { className?: string }) => {
     const $mapGeoLocation = useStore(mapGeoLocation);
     const $questions = useStore(questions);
     const $baseTileLayer = useStore(baseTileLayer);
-    const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $hiderMode = useStore(hiderMode);
-    const $isLoading = useStore(isLoading);
     const $followMe = useStore(followMe);
-    const $permanentOverlay = useStore(permanentOverlay);
+    const $displayHidingZones = useStore(displayHidingZones);
+    const $hidingRadius = useStore(hidingRadius);
+    const $hidingRadiusUnits = useStore(hidingRadiusUnits);
+    const $zoneOptions = useStore(displayHidingZonesOptions);
     const map = useStore(leafletMapContext);
 
     const followMeMarkerRef = useMemo(
@@ -135,110 +79,6 @@ export const Map = ({ className }: { className?: string }) => {
         () => ({ current: null as number | null }),
         [],
     );
-
-    const refreshQuestions = async (focus: boolean = false) => {
-        if (!map) return;
-
-        if ($isLoading) return;
-
-        isLoading.set(true);
-
-        if ($questions.length === 0) {
-            await clearCache();
-        }
-
-        let mapGeoData = mapGeoJSON.get();
-
-        if (!mapGeoData) {
-            const polyGeoData = polyGeoJSON.get();
-            if (polyGeoData) {
-                mapGeoData = polyGeoData;
-                mapGeoJSON.set(polyGeoData);
-            } else {
-                await toast.promise(
-                    determineMapBoundaries()
-                        .then((x) => {
-                            mapGeoJSON.set(x);
-                            mapGeoData = x;
-                        })
-                        .catch((error) => console.log(error)),
-                    {
-                        error: "Error refreshing map data",
-                    },
-                );
-            }
-        }
-
-        if ($hiderMode !== false) {
-            for (const question of $questions) {
-                await hiderifyQuestion(question);
-            }
-
-            triggerLocalRefresh.set(Math.random()); // Refresh the question sidebar with new information but not this map
-        }
-
-        map.eachLayer((layer: any) => {
-            if (layer.questionKey || layer.questionKey === 0) {
-                map.removeLayer(layer);
-            }
-        });
-
-        try {
-            mapGeoData = await applyQuestionsToMapGeoData(
-                $questions,
-                mapGeoData,
-                planningModeEnabled.get(),
-                (geoJSONObj, question) => {
-                    const geoJSONPlane = L.geoJSON(geoJSONObj);
-                    // @ts-expect-error This is a check such that only this type of layer is removed
-                    geoJSONPlane.questionKey = question.key;
-                    geoJSONPlane.addTo(map);
-                },
-            );
-
-            mapGeoData = {
-                type: "FeatureCollection",
-                features: [holedMask(mapGeoData!)!],
-            };
-
-            map.eachLayer((layer: any) => {
-                if (layer.eliminationGeoJSON) {
-                    // Hopefully only geoJSON layers
-                    map.removeLayer(layer);
-                }
-            });
-
-            const g = L.geoJSON(mapGeoData);
-            // @ts-expect-error This is a check such that only this type of layer is removed
-            g.eliminationGeoJSON = true;
-            g.addTo(map);
-
-            questionFinishedMapData.set(mapGeoData);
-
-            if (autoZoom.get() && focus) {
-                const bbox = turf.bbox(holedMask(mapGeoData) as any);
-                const bounds = [
-                    [bbox[1], bbox[0]],
-                    [bbox[3], bbox[2]],
-                ];
-
-                if (animateMapMovements.get()) {
-                    map.flyToBounds(bounds as any);
-                } else {
-                    map.fitBounds(bounds as any);
-                }
-            }
-        } catch (error) {
-            console.log(error);
-
-            isLoading.set(false);
-            if (document.querySelectorAll(".Toastify__toast").length === 0) {
-                return toast.error("No solutions found / error occurred");
-            }
-        } finally {
-            isLoading.set(false);
-        }
-    };
 
     const displayMap = useMemo(
         () => (
@@ -368,8 +208,9 @@ export const Map = ({ className }: { className?: string }) => {
                     },
                 ]}
             >
-                {getTileLayer($baseTileLayer, $thunderforestApiKey)}
+                {getTileLayer($baseTileLayer)}
                 <DraggableMarkers />
+                <ReferenceMarkers />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">
                         <LeafletFullScreenButton />
@@ -377,47 +218,29 @@ export const Map = ({ className }: { className?: string }) => {
                 </div>
                 <PolygonDraw />
                 <ScaleControl position="bottomleft" />
-                <MapPrint
-                    position="topright"
-                    sizeModes={["Current", "A4Portrait", "A4Landscape"]}
-                    hideControlContainer={false}
-                    hideClasses={[
-                        "leaflet-full-screen-specific-name",
-                        "leaflet-top",
-                        "leaflet-control-easyPrint",
-                        "leaflet-draw",
-                    ]}
-                    title="Print"
-                />
             </MapContainer>
         ),
-        [map, $baseTileLayer, $thunderforestApiKey],
+        [map, $baseTileLayer],
     );
+
+    // Admin-border answers shade only inside hiding zones while those are
+    // on, so they depend on the zone settings too.
+    const zoneSettings = $questions.some(
+        (q) => q.id === "measuring" && q.data.type === "admin-measure",
+    )
+        ? JSON.stringify([
+              $displayHidingZones,
+              $hidingRadius,
+              $hidingRadiusUnits,
+              $zoneOptions,
+          ])
+        : "";
 
     useEffect(() => {
         if (!map) return;
 
-        refreshQuestions(true);
-    }, [$questions, map, $hiderMode]);
-
-    useEffect(() => {
-        const intervalId = setInterval(async () => {
-            if (!map) return;
-            let layerCount = 0;
-            map.eachLayer((layer: any) => {
-                if (layer.eliminationGeoJSON) {
-                    // Hopefully only geoJSON layers
-                    layerCount++;
-                }
-            });
-            if (layerCount > 1) {
-                console.log("Too many layers, refreshing...");
-                refreshQuestions(false);
-            }
-        }, 1000);
-
-        return () => clearInterval(intervalId);
-    }, [map]);
+        requestMapRefresh(true);
+    }, [$questions, map, $hiderMode, zoneSettings]);
 
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -492,44 +315,6 @@ export const Map = ({ className }: { className?: string }) => {
             }
         };
     }, [$followMe, map]);
-
-    useEffect(() => {
-        if (!map) return;
-
-        map.eachLayer((layer: any) => {
-            if (layer.permanentGeoJSON) map.removeLayer(layer);
-        });
-
-        if ($permanentOverlay === null) return;
-
-        try {
-            const overlay = L.geoJSON($permanentOverlay, {
-                interactive: false,
-
-                // @ts-expect-error Type hints force a Layer to be returned, but Leaflet accepts null as well
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                pointToLayer(geoJsonPoint, latlng) {
-                    return null;
-                },
-
-                style(feature) {
-                    return {
-                        color: feature?.properties?.stroke,
-                        weight: feature?.properties?.["stroke-width"],
-                        opacity: feature?.properties?.["stroke-opacity"],
-                        fillColor: feature?.properties?.fill,
-                        fillOpacity: feature?.properties?.["fill-opacity"],
-                    };
-                },
-            });
-            // @ts-expect-error This is a check such that only this type of layer is removed
-            overlay.permanentGeoJSON = true;
-            overlay.addTo(map);
-            overlay.bringToBack();
-        } catch (e) {
-            toast.error(`Failed to display GeoJSON overlay: ${e}`);
-        }
-    }, [$permanentOverlay, map]);
 
     return displayMap;
 };

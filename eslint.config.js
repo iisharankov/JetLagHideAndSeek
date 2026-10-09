@@ -9,8 +9,13 @@ import tsconfig from "./tsconfig.json" with { type: "json" };
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
+    { ignores: ["dist/", "server/dist/", ".astro/", "public/arcgis/"] },
     { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
     { languageOptions: { globals: globals.browser } },
+    {
+        files: ["server/**", "scripts/**", "e2e/**", "*.config.*"],
+        languageOptions: { globals: globals.node },
+    },
     pluginJs.configs.recommended,
     ...tseslint.configs.recommended,
     pluginReact.configs.flat.recommended,

@@ -1,0 +1,86 @@
+# Self-hosted Jet Lag Hide and Seek. Every service listens on 127.0.0.1 only;
+# the host's nginx puts them behind one domain with TLS and Authelia
+# (see nginx/jetlag.sharankov.com.conf). Setup steps: deploy/README.md.
+name: jetlag
+
+services:
+    # The app itself, plus the basemap at /tiles/ and reference data at /data/.
+    web:
+        build:
+            context: ..
+            dockerfile: deploy/Dockerfile
+            target: web
+            args:
+                SITE_URL: "${SITE_URL:-https://jetlag.sharankov.com}"
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:${WEB_PORT:-18780}:8080"
+        volumes:
+            - "${DATA_DIR:-./data}/tiles:/tiles:ro"
+            - "${DATA_DIR:-./data}/datasets:/datasets:ro"
+
+    # Share links.
+    api:
+        build:
+            context: ..
+            dockerfile: deploy/Dockerfile
+            target: api
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:${API_PORT:-18787}:8787"
+        volumes:
+            - "${DATA_DIR:-./data}/api:/data"
+
+    # OpenStreetMap queries, from the extract made by `updater`. The first
+    # start imports it (about an hour); refresh-data.sh redoes that monthly.
+    overpass:
+        image: wiktorn/overpass-api:latest
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:${OVERPASS_PORT:-18781}:80"
+        environment:
+            OVERPASS_MODE: init
+            OVERPASS_META: "no"
+            OVERPASS_PLANET_URL: file:///osm/region.osm.bz2
+            OVERPASS_DIFF_URL: "" # no live updates; refreshed from new extracts
+            OVERPASS_UPDATE_SLEEP: 86400
+            OVERPASS_COMPRESSION: gz
+            OVERPASS_USE_AREAS: "true" # needed for "which canton is this in?"
+            OVERPASS_RULES_LOAD: 10
+            OVERPASS_STOP_AFTER_INIT: "false"
+            OVERPASS_MAX_TIMEOUT: 300s
+            OVERPASS_FASTCGI_PROCESSES: 8
+            # Every request arrives from the same address (the host's nginx),
+            # so per-address limits would throttle the whole team.
+            OVERPASS_RATE_LIMIT: 64
+            OVERPASS_ALLOW_DUPLICATE_QUERIES: "yes"
+        volumes:
+            - "${DATA_DIR:-./data}/overpass:/db"
+            - "${DATA_DIR:-./data}/osm:/osm:ro"
+
+    # Place search. The first start imports the Swiss data dump.
+    photon:
+        build:
+            context: ..
+            dockerfile: deploy/photon.Dockerfile
+        restart: unless-stopped
+        ports:
+            - "127.0.0.1:${PHOTON_PORT:-18782}:2322"
+        environment:
+            JAVA_OPTS: "-Xmx4g"
+        volumes:
+            - "${DATA_DIR:-./data}/photon:/photon"
+
+    # Downloads map data and builds the reference datasets; run with
+    # `docker compose run --rm updater`.
+    updater:
+        build:
+            context: ..
+            dockerfile: deploy/Dockerfile
+            target: updater
+        profiles: ["tools"]
+        environment:
+            BBOX: "${BBOX:-5.5,45.6,11.0,48.1}"
+            MAX_ZOOM: "${MAX_ZOOM:-15}"
+        volumes:
+            - "${DATA_DIR:-./data}:/data"

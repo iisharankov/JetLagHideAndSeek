@@ -2,25 +2,40 @@ import * as turf from "@turf/turf";
 import type { Feature, MultiPolygon } from "geojson";
 import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
-import { toast } from "react-toastify";
 
 import {
+    customStations,
+    displayHidingZones,
+    displayHidingZonesOptions,
     hiderMode,
+    hidingRadius,
+    hidingRadiusUnits,
+    includeDefaultStations,
     mapGeoJSON,
     mapGeoLocation,
-    polyGeoJSON,
+    playAreaKey,
+    regionRules,
     trainStations,
+    useCustomStations,
 } from "@/lib/context";
+import { memoizeAsync } from "@/lib/memoizeAsync";
+import {
+    adminLevelLabel,
+    boundaryLines,
+    nearestBorderKm,
+} from "@/maps/adminBorders";
 import {
     fetchCoastline,
+    findAdminBorderLines,
     findAdminBoundary,
     findPlacesInZone,
     findPlacesSpecificInZone,
-    LOCATION_FIRST_TAG,
     nearestToQuestion,
-    prettifyLocation,
     QuestionSpecificLocation,
 } from "@/maps/api";
+import { datasets } from "@/maps/datasets/load";
+import { ruledOutInZones, withinDistanceOfLines } from "@/maps/distanceRegion";
+import { NotApplicableError } from "@/maps/errors";
 import {
     arcBufferToPoint,
     arcDistance,
@@ -29,18 +44,21 @@ import {
     holedMask,
     modifyMapData,
 } from "@/maps/geo-utils";
+import { loadStationPlaces } from "@/maps/hidingZoneStations";
 import type {
     APILocations,
     HomeGameMeasuringQuestions,
     MeasuringQuestion,
 } from "@/maps/schema";
 
+import { type PlaceKind, placesForMeasuring } from "./places";
+
 export interface AdminZoneInfo {
     name: string;
     boundary: any;
 }
 
-export const findAdminZoneInfo = _.memoize(
+export const findAdminZoneInfo = memoizeAsync(
     async (
         lat: number,
         lng: number,
@@ -53,8 +71,8 @@ export const findAdminZoneInfo = _.memoize(
         }
 
         const name =
-            boundary.properties?.["name:en"] ??
             boundary.properties?.name ??
+            boundary.properties?.["name:en"] ??
             "Unknown";
 
         return { name, boundary };
@@ -112,6 +130,183 @@ const bboxExtension = (
     ];
 };
 
+type Bbox = [number, number, number, number];
+
+/**
+ * The borders of the question's admin level around an area, plus the
+ * seeker's distance to the nearest one (their own zone's edge).
+ */
+const adminBordersAround = memoizeAsync(
+    async (question: MeasuringQuestion, bbox: Bbox) => {
+        const adminLevel = (question as any).cat?.adminLevel ?? 4;
+        const zoneInfo = await findAdminZoneInfo(
+            question.lat,
+            question.lng,
+            adminLevel,
+        );
+        if (!zoneInfo) {
+            const label = adminLevelLabel(
+                adminLevel,
+                mapGeoLocation.get().properties.countrycode,
+            );
+            throw new NotApplicableError(
+                `There's no ${label} at the seeker's location.`,
+            );
+        }
+
+        const ownBorder = boundaryLines(zoneInfo.boundary);
+        const seekerDistanceKm = nearestBorderKm(ownBorder, question);
+        // From the datasets, the zones overlapping the area are enough:
+        // anyone in the area is in one of them, and their nearest border is
+        // that zone's edge. Overpass needs a margin to find the same zones.
+        const borders =
+            (await datasets.adminBorderLines(adminLevel, bbox)) ??
+            (await findAdminBorderLines(
+                adminLevel,
+                turf.bbox(
+                    turf.buffer(turf.bboxPolygon(bbox), seekerDistanceKm + 5, {
+                        units: "kilometers",
+                    })!,
+                ) as Bbox,
+            ));
+
+        return { borders: [...borders, ...ownBorder], seekerDistanceKm };
+    },
+    (question, bbox) =>
+        JSON.stringify({
+            lat: question.lat,
+            lng: question.lng,
+            level: (question as any).cat?.adminLevel ?? 4,
+            area: playAreaKey(),
+            bbox: bbox.map((value) => value.toFixed(3)),
+        }),
+);
+
+/** Whether hiding zones are on and there are stations to draw them around. */
+const hidingZonesActive = () => {
+    if (!displayHidingZones.get()) return false;
+    const customOnly = useCustomStations.get() && !includeDefaultStations.get();
+    return customOnly
+        ? customStations.get().length > 0
+        : displayHidingZonesOptions.get().length > 0;
+};
+
+/**
+ * Admin-border question with hiding zones on: only the parts of the zones
+ * the answer rules out, so the rest of the map isn't covered in shading
+ * around every municipality.
+ */
+const adminRuledOutInZones = async (
+    question: MeasuringQuestion,
+    bbox: Bbox,
+) => {
+    const { borders, seekerDistanceKm } = await adminBordersAround(
+        question,
+        bbox,
+    );
+    const stations = await loadStationPlaces();
+    return ruledOutInZones({
+        lines: borders,
+        distanceKm: seekerDistanceKm,
+        hiderCloser: question.hiderCloser,
+        stations: stations.map((station) => turf.getCoord(station)),
+        zoneRadiusKm: turf.convertLength(
+            hidingRadius.get(),
+            hidingRadiusUnits.get(),
+            "kilometers",
+        ),
+        bbox,
+    });
+};
+
+/** Lake shore question: the lake sizes players can choose from (km²). */
+export const LAKE_AREA_CHOICES = [10, 20, 25, 50] as const;
+export const DEFAULT_MIN_LAKE_AREA_KM2 = 10;
+
+const minLakeArea = (question: MeasuringQuestion) =>
+    (question as any).minLakeAreaKm2 ?? DEFAULT_MIN_LAKE_AREA_KM2;
+
+/** The shores of the big lakes, and the seeker's distance to the nearest. */
+const lakeShoresAround = memoizeAsync(
+    async (question: MeasuringQuestion) => {
+        const minimum = minLakeArea(question);
+        const covered = await datasets.covers([
+            question.lng,
+            question.lat,
+            question.lng,
+            question.lat,
+        ]);
+        const lakes = covered ? await datasets.lakes(minimum) : undefined;
+        if (!lakes) {
+            throw new NotApplicableError(
+                "There's no lake data for this area on the server.",
+            );
+        }
+        if (lakes.length === 0) {
+            throw new NotApplicableError(
+                `There are no lakes of ${minimum} km² or more.`,
+            );
+        }
+        const shores = lakes.flatMap((lake) => boundaryLines(lake));
+        return { shores, seekerDistanceKm: nearestBorderKm(shores, question) };
+    },
+    (question) =>
+        JSON.stringify({
+            lat: question.lat,
+            lng: question.lng,
+            minimum: minLakeArea(question),
+        }),
+);
+
+/** Where someone is closer to a big lake's shore than the seeker. */
+const lakeShoreRegionIn = async (question: MeasuringQuestion, bbox: Bbox) => {
+    const { shores, seekerDistanceKm } = await lakeShoresAround(question);
+    return turf.simplify(
+        withinDistanceOfLines(shores, seekerDistanceKm, bbox),
+        {
+            tolerance: 0.0003,
+        },
+    );
+};
+
+/** Where someone is closer to a border of the level than the seeker. */
+const adminBorderRegionIn = async (question: MeasuringQuestion, bbox: Bbox) => {
+    const { borders, seekerDistanceKm } = await adminBordersAround(
+        question,
+        bbox,
+    );
+    return turf.simplify(
+        withinDistanceOfLines(borders, seekerDistanceKm, bbox),
+        { tolerance: 0.0003 },
+    );
+};
+
+/** What a "closer to the nearest X?" question compares, if it's places. */
+export const measuringPlaceKind = (
+    question: MeasuringQuestion,
+): PlaceKind | null => {
+    switch (question.type) {
+        case "airport":
+            return "airport";
+        case "city":
+            return "city";
+        case "aquarium-full":
+        case "zoo-full":
+        case "theme_park-full":
+        case "peak-full":
+        case "museum-full":
+        case "hospital-full":
+        case "cinema-full":
+        case "library-full":
+        case "golf_course-full":
+        case "consulate-full":
+        case "park-full":
+            return question.type.split("-full")[0] as APILocations;
+        default:
+            return null;
+    }
+};
+
 export const determineMeasuringBoundary = async (
     question: MeasuringQuestion,
 ) => {
@@ -119,40 +314,37 @@ export const determineMeasuringBoundary = async (
 
     switch (question.type) {
         case "highspeed-measure-shinkansen": {
-            const features = osmtogeojson(
-                await findPlacesInZone(
-                    "[highspeed=yes]",
-                    "Finding high-speed lines...",
-                    "nwr",
-                    "geom",
-                ),
-            ).features;
+            const features =
+                (await datasets.highSpeedLines(
+                    bBox as [number, number, number, number],
+                )) ??
+                osmtogeojson(
+                    await findPlacesInZone(
+                        "[highspeed=yes]",
+                        "Finding high-speed lines...",
+                        "nwr",
+                        "geom",
+                    ),
+                ).features;
+            if (features.length === 0) {
+                throw new NotApplicableError(
+                    "There's no high-speed rail in or near the play area.",
+                );
+            }
 
             return [highSpeedBase(features)];
         }
         case "admin-measure": {
-            const adminLevel = (question as any).cat?.adminLevel ?? 4;
-            const zoneInfo = await findAdminZoneInfo(
-                question.lat,
-                question.lng,
-                adminLevel,
+            const { borders } = await adminBordersAround(
+                question,
+                bBox as Bbox,
             );
-
-            if (!zoneInfo) {
-                toast.error("No admin boundary found at this location");
-                return [turf.multiPolygon([])];
-            }
-
-            // Store the zone name for display
-            if (!(question as any).cat) {
-                (question as any).cat = { adminLevel };
-            }
-            (question as any).cat.zoneName = zoneInfo.name;
-
-            // Convert the polygon to its outline (the border)
-            const outline = turf.polygonToLine(zoneInfo.boundary);
-            return [outline];
+            return borders.map((line) =>
+                turf.simplify(line, { tolerance: 0.0002 }),
+            );
         }
+        case "lake":
+            return (await lakeShoresAround(question)).shores;
         case "coastline": {
             const coastline = turf.lineToPolygon(
                 await fetchCoastline(),
@@ -192,44 +384,7 @@ export const determineMeasuringBoundary = async (
             ];
         }
         case "airport":
-            return [
-                turf.combine(
-                    turf.featureCollection(
-                        _.uniqBy(
-                            (
-                                await findPlacesInZone(
-                                    '["aeroway"="aerodrome"]["iata"]', // Only commercial airports have IATA codes,
-                                    "Finding airports...",
-                                )
-                            ).elements,
-                            (feature: any) => feature.tags.iata,
-                        ).map((x: any) =>
-                            turf.point([
-                                x.center ? x.center.lon : x.lon,
-                                x.center ? x.center.lat : x.lat,
-                            ]),
-                        ),
-                    ),
-                ).features[0],
-            ];
         case "city":
-            return [
-                turf.combine(
-                    turf.featureCollection(
-                        (
-                            await findPlacesInZone(
-                                '[place=city]["population"~"^[1-9]+[0-9]{6}$"]', // The regex is faster than (if:number(t["population"])>1000000)
-                                "Finding cities...",
-                            )
-                        ).elements.map((x: any) =>
-                            turf.point([
-                                x.center ? x.center.lon : x.lon,
-                                x.center ? x.center.lat : x.lat,
-                            ]),
-                        ),
-                    ),
-                ).features[0],
-            ];
         case "aquarium-full":
         case "zoo-full":
         case "theme_park-full":
@@ -241,49 +396,11 @@ export const determineMeasuringBoundary = async (
         case "golf_course-full":
         case "consulate-full":
         case "park-full": {
-            const location = question.type.split("-full")[0] as APILocations;
-
-            const data = await findPlacesInZone(
-                `[${LOCATION_FIRST_TAG[location]}=${location}]`,
-                `Finding ${prettifyLocation(location, true).toLowerCase()}...`,
-                "nwr",
-                "center",
-                [],
-                60,
+            const places = await placesForMeasuring(
+                measuringPlaceKind(question)!,
+                question,
             );
-
-            if (data.remark && data.remark.startsWith("runtime error")) {
-                toast.error(
-                    `Error finding ${prettifyLocation(
-                        location,
-                        true,
-                    ).toLowerCase()}. Please enable hiding zone mode and switch to the Large Game variation of this question.`,
-                );
-                return [turf.multiPolygon([])];
-            }
-
-            if (data.elements.length >= 1000) {
-                toast.error(
-                    `Too many ${prettifyLocation(
-                        location,
-                        true,
-                    ).toLowerCase()} found (${data.elements.length}). Please enable hiding zone mode and switch to the Large Game variation of this question.`,
-                );
-                return [turf.multiPolygon([])];
-            }
-
-            return [
-                turf.combine(
-                    turf.featureCollection(
-                        data.elements.map((x: any) =>
-                            turf.point([
-                                x.center ? x.center.lon : x.lon,
-                                x.center ? x.center.lat : x.lat,
-                            ]),
-                        ),
-                    ),
-                ).features[0],
-            ];
+            return [turf.combine(turf.featureCollection(places)).features[0]];
         }
         case "custom-measure":
             return turf.combine(
@@ -307,7 +424,7 @@ export const determineMeasuringBoundary = async (
     }
 };
 
-const bufferedDeterminer = _.memoize(
+const bufferedDeterminer = memoizeAsync(
     async (question: MeasuringQuestion) => {
         const placeData = await determineMeasuringBoundary(question);
 
@@ -324,21 +441,37 @@ const bufferedDeterminer = _.memoize(
             type: question.type,
             lat: question.lat,
             lng: question.lng,
-            entirety: polyGeoJSON.get()
-                ? polyGeoJSON.get()
-                : mapGeoLocation.get(),
+            area: playAreaKey(),
             geo: (question as any).geo,
-            cat: (question as any).cat,
+            adminLevel: (question as any).cat?.adminLevel,
+            // The "major city" threshold depends on the rules.
+            rules: regionRules.get().region,
         }),
 );
 
 export const adjustPerMeasuring = async (
     question: MeasuringQuestion,
     mapData: any,
+    inHidingZonesOnly = hidingZonesActive(),
 ) => {
     if (mapData === null) return;
 
-    const buffer = await bufferedDeterminer(question);
+    if (question.type === "admin-measure" && inHidingZonesOnly) {
+        const ruledOut = await adminRuledOutInZones(
+            question,
+            turf.bbox(mapData) as Bbox,
+        );
+        if (ruledOut.geometry.coordinates.length === 0) return mapData;
+        return modifyMapData(mapData, ruledOut, false);
+    }
+
+    // Only the area still in play needs computing, which keeps this fast.
+    const buffer =
+        question.type === "admin-measure"
+            ? await adminBorderRegionIn(question, turf.bbox(mapData) as Bbox)
+            : question.type === "lake"
+              ? await lakeShoreRegionIn(question, turf.bbox(mapData) as Bbox)
+              : await bufferedDeterminer(question);
 
     if (buffer === false) return mapData;
 
@@ -377,6 +510,7 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
             drag: false,
             color: "black",
             collapsed: false,
+            hidden: false,
         });
 
         question.hiderCloser =
@@ -440,14 +574,21 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
 
     let feature = null;
 
+    // The hider's answer uses the whole map, not just the hiding zones.
     try {
-        feature = holedMask((await adjustPerMeasuring(question, $mapGeoJSON))!);
+        feature = holedMask(
+            (await adjustPerMeasuring(question, $mapGeoJSON, false))!,
+        );
     } catch {
         try {
-            feature = await adjustPerMeasuring(question, {
-                type: "FeatureCollection",
-                features: [holedMask($mapGeoJSON)],
-            });
+            feature = await adjustPerMeasuring(
+                question,
+                {
+                    type: "FeatureCollection",
+                    features: [holedMask($mapGeoJSON)],
+                },
+                false,
+            );
         } catch {
             return question;
         }
@@ -466,7 +607,13 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
 
 export const measuringPlanningPolygon = async (question: MeasuringQuestion) => {
     try {
-        const buffered = await bufferedDeterminer(question);
+        const playArea = turf.bbox(mapGeoJSON.get()!) as Bbox;
+        const buffered =
+            question.type === "admin-measure"
+                ? await adminBorderRegionIn(question, playArea)
+                : question.type === "lake"
+                  ? await lakeShoreRegionIn(question, playArea)
+                  : await bufferedDeterminer(question);
 
         if (buffered === false) return false;
 

@@ -1,0 +1,20 @@
+---
+import { getCollection, render } from "astro:content";
+
+import RulesShell from "@/components/rules/RulesShell.astro";
+
+export async function getStaticPaths() {
+    const pages = await getCollection("rules");
+    return pages.map((page) => ({ params: { slug: page.id }, props: { page } }));
+}
+
+const { page } = Astro.props;
+const { Content } = await render(page);
+---
+
+<RulesShell title={page.data.title} current={page.id}>
+    <article class="rules-text">
+        <h1>{page.data.title}</h1>
+        <Content />
+    </article>
+</RulesShell>

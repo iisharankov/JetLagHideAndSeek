@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTutorialStep } from "@/hooks/use-tutorial-step";
+import type { TutorialStepId } from "@/lib/tutorial";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
@@ -26,7 +27,8 @@ const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
-const SIDEBAR_TUTORIAL_STEPS = [6];
+// Steps that show the (desktop) question sidebar expanded.
+const SIDEBAR_TUTORIAL_STEPS: TutorialStepId[] = ["question-types"];
 export const MENU_ITEM_CLASSNAME =
     "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0";
 
@@ -194,7 +196,10 @@ const Sidebar = React.forwardRef<
             "expanded",
             "collapsed",
         );
-        openMobile = useTutorialStep(openMobile, SIDEBAR_TUTORIAL_STEPS);
+        // On phones the sidebar is a modal sheet: opening it on top of the
+        // tutorial's modal dialog makes the two fight over focus and freezes
+        // the tutorial, so keep it closed while the tutorial is showing.
+        openMobile = useTutorialStep(openMobile, []);
 
         if (collapsible === "none") {
             return (

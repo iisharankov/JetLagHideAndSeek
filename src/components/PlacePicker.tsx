@@ -99,7 +99,10 @@ export const PlacePicker = ({
     const _placeSeen: Record<string, number> = {};
 
     return (
-        <Popover open={useTutorialStep(open, [3])} onOpenChange={setOpen}>
+        <Popover
+            open={useTutorialStep(open, ["place-manage"])}
+            onOpenChange={setOpen}
+        >
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"

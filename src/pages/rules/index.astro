@@ -1,0 +1,36 @@
+---
+import { getCollection } from "astro:content";
+
+import RulesShell from "@/components/rules/RulesShell.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const pages = (await getCollection("rules")).sort(
+    (a, b) => a.data.order - b.data.order,
+);
+const chapters = pages.filter((page) => !page.id.includes("/"));
+---
+
+<RulesShell title="Hide and Seek rules">
+    <article class="rules-text">
+        <h1>Hide and Seek rules</h1>
+        <p>The full rulebook for the home game, chapter by chapter.</p>
+        {
+            chapters.map((chapter) => (
+                <section>
+                    <h2>
+                        <a href={`${base}rules/${chapter.id}/`}>{chapter.data.title}</a>
+                    </h2>
+                    <ul>
+                        {pages
+                            .filter((page) => page.id.startsWith(`${chapter.id}/`))
+                            .map((page) => (
+                                <li>
+                                    <a href={`${base}rules/${page.id}/`}>{page.data.title}</a>
+                                </li>
+                            ))}
+                    </ul>
+                </section>
+            ))
+        }
+    </article>
+</RulesShell>

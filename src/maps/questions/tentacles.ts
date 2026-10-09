@@ -10,7 +10,8 @@ import {
 } from "@/maps/geo-utils";
 import type { TentacleQuestion, Units } from "@/maps/schema";
 
-const filterPointsWithinRadius = async (
+/** The points within `radius` of the center (geodesic distance). */
+export const filterPointsWithinRadius = async (
     points: any,
     centerLng: number,
     centerLat: number,

@@ -1,0 +1,11 @@
+node_modules
+dist
+server/dist
+public/arcgis
+deploy/data
+deploy/.env
+test-results
+playwright-report
+.astro
+.git
+public/data

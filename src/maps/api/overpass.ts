@@ -1,20 +1,36 @@
 import * as turf from "@turf/turf";
-import type { FeatureCollection, MultiPolygon } from "geojson";
+import type {
+    Feature,
+    FeatureCollection,
+    LineString,
+    MultiLineString,
+    MultiPolygon,
+} from "geojson";
 import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
 import { toast } from "react-toastify";
 
+import { OVERPASS_URLS, withBase } from "@/lib/config";
 import {
     additionalMapGeoLocations,
+    allowPublicOverpass,
+    mapGeoJSON,
     mapGeoLocation,
     overpassCustomHost,
-    overpassHost,
     polyGeoJSON,
 } from "@/lib/context";
+import { datasets } from "@/maps/datasets/load";
 import { safeUnion } from "@/maps/geo-utils";
+import { expandingSearch } from "@/maps/hidingZones";
 
-import { cacheFetch, determineCache } from "./cache";
-import { LOCATION_FIRST_TAG, OVERPASS_HOSTS } from "./constants";
+import { cacheFetch } from "./cache";
+import { LOCATION_FIRST_TAG, PUBLIC_OVERPASS_HOSTS } from "./constants";
+import { prettifyLocation } from "./geo";
+import {
+    cacheStorageCache,
+    createOverpassClient,
+    OverpassError,
+} from "./overpassClient";
 import type {
     EncompassingTentacleQuestionSchema,
     HomeGameMatchingQuestions,
@@ -28,59 +44,41 @@ type TentacleLocationQuery = Pick<
     "lat" | "lng" | "radius" | "unit" | "locationType"
 >;
 
+/** Servers to ask, in order: our own, an optional custom one, then (opt-in) public ones. */
+export const overpassEndpoints = () =>
+    _.uniq(
+        [
+            ...OVERPASS_URLS,
+            overpassCustomHost.get().trim(),
+            ...(allowPublicOverpass.get() ? PUBLIC_OVERPASS_HOSTS : []),
+        ].filter(Boolean),
+    );
+
+const queryOverpass = createOverpassClient({ endpoints: overpassEndpoints });
+
+/**
+ * Runs an Overpass query (cached). Throws an OverpassError, after showing a
+ * toast, when no server could answer; it never pretends nothing was found.
+ */
 export const getOverpassData = async (
     query: string,
     loadingText?: string,
     cacheType: CacheType = CacheType.CACHE,
 ) => {
-    const encodedQuery = encodeURIComponent(query);
-    const allHostUrls = Object.values(OVERPASS_HOSTS);
-    const selectedHost = overpassHost.get();
-    const customUrl = overpassCustomHost.get();
+    const pending = queryOverpass(query, {
+        cache: cacheStorageCache(cacheType),
+    });
 
-    const primaryBaseUrl =
-        selectedHost === "custom"
-            ? customUrl || allHostUrls[0]
-            : selectedHost || allHostUrls[0];
-    const fallbackBaseUrls = allHostUrls.filter((h) => h !== primaryBaseUrl);
-
-    const primaryUrl = `${primaryBaseUrl}?data=${encodedQuery}`;
-    let response = await cacheFetch(primaryUrl, loadingText, cacheType);
-
-    if (!response.ok) {
-        for (const fallbackBase of fallbackBaseUrls) {
-            try {
-                const fallbackResponse = await cacheFetch(
-                    `${fallbackBase}?data=${encodedQuery}`,
-                    loadingText,
-                    cacheType,
-                );
-                if (fallbackResponse.ok) {
-                    const cache = await determineCache(cacheType);
-                    await cache.put(primaryUrl, fallbackResponse.clone());
-                    response = fallbackResponse;
-                    break;
-                }
-            } catch {
-                toast.error(
-                    `Could not load data from Overpass: ${response.status} ${response.statusText}`,
-                    { toastId: "overpass-error" },
-                );
-                return { elements: [] };
-            }
+    try {
+        return await (loadingText
+            ? toast.promise(pending, { pending: loadingText })
+            : pending);
+    } catch (error) {
+        if (error instanceof OverpassError) {
+            toast.error(error.message, { toastId: "overpass-error" });
         }
+        throw error;
     }
-
-    if (!response.ok) {
-        toast.error(
-            `Could not load data from Overpass: ${response.status} ${response.statusText}`,
-            { toastId: "overpass-error" },
-        );
-        return { elements: [] };
-    }
-
-    const data = await response.json();
-    return data;
 };
 
 export const determineGeoJSON = async (
@@ -92,6 +90,11 @@ export const determineGeoJSON = async (
         R: "relation",
         N: "node",
     };
+    if (osmTypeLetter === "R") {
+        const zone = await datasets.boundaryById(Number(osmId));
+        if (zone) return turf.featureCollection([zone]);
+    }
+
     const osmType = osmTypeMap[osmTypeLetter];
     const query = `[out:json];${osmType}(${osmId});out geom;`;
     const data = await getOverpassData(
@@ -112,17 +115,28 @@ export const findTentacleLocations = async (
     question: TentacleLocationQuery,
     text: string = "Determining tentacle locations...",
 ) => {
-    const query = `
-[out:json][timeout:25];
-nwr["${LOCATION_FIRST_TAG[question.locationType]}"="${question.locationType}"](around:${turf.convertLength(
+    const radiusKm = turf.convertLength(
         question.radius,
         question.unit,
-        "meters",
-    )}, ${question.lat}, ${question.lng});
+        "kilometers",
+    );
+    const elements =
+        (await datasets.placesAround(
+            question.locationType,
+            question.lat,
+            question.lng,
+            radiusKm,
+        )) ??
+        (
+            await getOverpassData(
+                `
+[out:json][timeout:25];
+nwr["${LOCATION_FIRST_TAG[question.locationType]}"="${question.locationType}"](around:${radiusKm * 1000}, ${question.lat}, ${question.lng});
 out center;
-    `;
-    const data = await getOverpassData(query, text);
-    const elements = data.elements;
+    `,
+                text,
+            )
+        ).elements;
     const response = turf.points([]);
     elements.forEach((element: any) => {
         if (!element.tags["name"] && !element.tags["name:en"]) return;
@@ -159,6 +173,9 @@ export const findAdminBoundary = async (
     longitude: number,
     adminLevel: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10,
 ) => {
+    const zone = await datasets.adminZoneAt(latitude, longitude, adminLevel);
+    if (zone !== undefined) return zone ?? undefined;
+
     const query = `
 [out:json];
 is_in(${latitude}, ${longitude})->.a;
@@ -170,9 +187,68 @@ out geom;
     return geo.features?.[0];
 };
 
+/** Every admin level present at a point, with its name, lowest level first. */
+export const findAdminLevelsAt = async (
+    latitude: number,
+    longitude: number,
+) => {
+    const fromData = await datasets.adminLevelsAt(latitude, longitude);
+    if (fromData) return fromData;
+
+    const query = `
+[out:json];
+is_in(${latitude}, ${longitude})->.a;
+rel(pivot.a)[boundary=administrative][admin_level];
+out tags;
+    `;
+    const data = await getOverpassData(query, undefined, CacheType.ZONE_CACHE);
+    return (data.elements as { tags: Record<string, string> }[])
+        .map((element) => ({
+            level: Number(element.tags.admin_level),
+            name: element.tags.name ?? element.tags["name:en"] ?? "",
+        }))
+        .filter((zone) => Number.isInteger(zone.level))
+        .sort((a, b) => a.level - b.level);
+};
+
+/**
+ * The border lines of every admin area of a level inside a bounding box
+ * ([minLng, minLat, maxLng, maxLat]), as line features.
+ */
+export const findAdminBorderLines = async (
+    adminLevel: number,
+    bbox: [number, number, number, number],
+): Promise<Feature<LineString | MultiLineString>[]> => {
+    const box = `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`;
+    const query = `
+[out:json][timeout:120];
+rel[boundary=administrative][admin_level=${adminLevel}](${box});
+way(r)(${box});
+out geom;
+    `;
+    const data = await getOverpassData(
+        query,
+        "Finding borders...",
+        CacheType.ZONE_CACHE,
+    );
+    return osmtogeojson(data).features.flatMap((feature: any) => {
+        const type = feature.geometry?.type;
+        if (type === "LineString" || type === "MultiLineString") {
+            return [feature];
+        }
+        if (type === "Polygon" || type === "MultiPolygon") {
+            const outline = turf.polygonToLine(feature);
+            return outline.type === "FeatureCollection"
+                ? outline.features
+                : [outline];
+        }
+        return [];
+    });
+};
+
 export const fetchCoastline = async () => {
     const response = await cacheFetch(
-        import.meta.env.BASE_URL + "/coastline50.geojson",
+        withBase("coastline50.geojson"),
         "Fetching coastline data...",
         CacheType.PERMANENT_CACHE,
     );
@@ -247,6 +323,16 @@ export const findPlacesInZone = async (
     alternatives: string[] = [],
     timeoutDuration: number = 0,
 ) => {
+    const playArea = mapGeoJSON.get();
+    if (outType === "center" && playArea) {
+        const elements = await datasets.placesInZone(
+            [filter, ...alternatives],
+            playArea,
+            searchType,
+        );
+        if (elements) return { elements };
+    }
+
     let query = "";
     const $polyGeoJSON = polyGeoJSON.get();
     if ($polyGeoJSON) {
@@ -374,26 +460,50 @@ export const findPlacesSpecificInZone = async (
     );
 };
 
+/** The place of the question's type nearest to the question's location. */
 export const nearestToQuestion = async (
     question: HomeGameMatchingQuestions | HomeGameMeasuringQuestions,
 ) => {
-    let radius = 30;
-    let instances: any = { features: [] };
-    while (instances.features.length === 0) {
-        instances = await findTentacleLocations(
-            {
-                lat: question.lat,
-                lng: question.lng,
-                radius: radius,
-                unit: "miles",
-                locationType: question.type,
-            },
-            "Finding matching locations...",
-        );
-        radius += 30;
-    }
     const questionPoint = turf.point([question.lng, question.lat]);
-    return turf.nearestPoint(questionPoint, instances as any);
+
+    const nearest = await datasets.nearestPlace(
+        question.type,
+        question.lat,
+        question.lng,
+    );
+    if (nearest) {
+        const point = turf.point(
+            nearest.center
+                ? [nearest.center.lon, nearest.center.lat]
+                : [nearest.lon!, nearest.lat!],
+        );
+        return turf.point(point.geometry.coordinates, {
+            name: nearest.tags["name:en"] ?? nearest.tags.name,
+            distanceToPoint: turf.distance(questionPoint, point),
+        });
+    }
+
+    const { found } = await expandingSearch(
+        async (radiusKm) =>
+            (
+                await findTentacleLocations(
+                    {
+                        lat: question.lat,
+                        lng: question.lng,
+                        radius: radiusKm,
+                        unit: "kilometers",
+                        locationType: question.type,
+                    },
+                    "Finding matching locations...",
+                )
+            ).features,
+        {
+            startKm: 50,
+            maxKm: 400,
+            what: prettifyLocation(question.type, true).toLowerCase(),
+        },
+    );
+    return turf.nearestPoint(questionPoint, turf.featureCollection(found));
 };
 
 export const determineMapBoundaries = async () => {

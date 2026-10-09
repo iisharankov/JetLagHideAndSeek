@@ -270,7 +270,9 @@ const zoneMatchingQuestionsSchema = baseMatchingQuestionSchema.extend({
                 z.literal(10),
             ]),
         })
-        .default(() => ({ adminLevel: 3 }) as { adminLevel: 3 }),
+        // Level 4 is the first subdivision in most countries (cantons in
+        // Switzerland, states in the US); level 3 rarely exists.
+        .default(() => ({ adminLevel: 4 }) as { adminLevel: 4 }),
 });
 
 const homeGameMatchingQuestionsSchema = baseMatchingQuestionSchema.extend({
@@ -327,6 +329,7 @@ const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
     type: z
         .union([
             z.literal("coastline").describe("Coastline Question"),
+            z.literal("lake").describe("Lake Shore Question"),
             z
                 .literal("airport")
                 .describe("Commercial Airport In Zone Question"),
@@ -386,6 +389,8 @@ const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
             zoneName: z.string().optional(),
         })
         .optional(),
+    /** Lake shore question: only lakes at least this big count (km²). */
+    minLakeAreaKm2: z.number().positive().optional(),
 });
 
 const hidingZoneMeasuringQuestionsSchema = baseMeasuringQuestionSchema.extend({

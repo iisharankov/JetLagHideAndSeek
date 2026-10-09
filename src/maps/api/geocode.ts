@@ -1,6 +1,7 @@
 import _ from "lodash";
 
-import { GEOCODER_API } from "./constants";
+import { GEOCODER_URL } from "@/lib/config";
+
 import { convertToLatLong } from "./geo";
 import type { OpenStreetMap } from "./types";
 
@@ -9,11 +10,12 @@ export const geocode = async (
     language: string,
     filter: boolean = true,
 ) => {
-    const features = (
-        await (
-            await fetch(`${GEOCODER_API}?lang=${language}&q=${address}`)
-        ).json()
-    ).features as OpenStreetMap[];
+    const params = new URLSearchParams({ lang: language, q: address });
+    const response = await fetch(`${GEOCODER_URL}?${params}`);
+    if (!response.ok) {
+        throw new Error(`Place search answered HTTP ${response.status}`);
+    }
+    const features = (await response.json()).features as OpenStreetMap[];
 
     features.forEach((feature) => {
         feature.geometry.coordinates = convertToLatLong(

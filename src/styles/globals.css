@@ -105,18 +105,8 @@ div.leaflet-control-attribution.leaflet-control {
         @apply !mt-[104px] md:!mt-[40px];
     }
 
-    main:not(.fullscreen)
-        .leaflet-top
-        .leaflet-control:not(.leaflet-control-easyPrint) {
+    main:not(.fullscreen) .leaflet-top .leaflet-control {
         @apply !mt-[104px] md:!mt-[40px];
-    }
-
-    div.leaflet-top div.leaflet-control-easyPrint {
-        @apply !mt-[140px] md:!mt-[74px];
-    }
-
-    main.fullscreen div.leaflet-control-easyPrint {
-        @apply hidden;
     }
 
     .selected-card-background-temporary {
@@ -179,4 +169,87 @@ div.leaflet-control-attribution.leaflet-control {
 /* Override default dialog positioning when tutorial is active */
 [data-tutorial-active="true"] [role="dialog"] {
     position: fixed !important;
+}
+
+/* Rulebook text (rules pages, reference page, ⓘ popovers). */
+.rules-text > * + *,
+.rules-text blockquote > * + * {
+    margin-top: 0.6em;
+}
+.rules-text h1,
+.rules-text h2,
+.rules-text h3,
+.rules-text h4,
+.rules-text h5 {
+    font-family: "Poppins", sans-serif;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 1.2em;
+    scroll-margin-top: 1rem;
+}
+.rules-text h1 {
+    font-size: 1.9em;
+}
+.rules-text h2 {
+    font-size: 1.5em;
+}
+.rules-text h3 {
+    font-size: 1.25em;
+}
+.rules-text h4 {
+    font-size: 1.1em;
+}
+.rules-text ul {
+    list-style: disc;
+    padding-left: 1.4em;
+}
+.rules-text ol {
+    list-style: decimal;
+    padding-left: 1.4em;
+}
+.rules-text a {
+    color: rgb(96 165 250);
+    text-decoration: underline;
+}
+.rules-text blockquote {
+    border-left: 3px solid rgb(96 165 250);
+    padding-left: 0.8em;
+}
+.rules-text table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+}
+.rules-text th,
+.rules-text td {
+    border: 1px solid rgb(71 85 105);
+    padding: 0.3em 0.6em;
+    vertical-align: top;
+}
+.rules-text img {
+    max-width: min(100%, 420px);
+    border-radius: 0.5rem;
+}
+.rules-text code {
+    font-size: 0.9em;
+}
+
+/* SMALL / MEDIUM / LARGE game-size badges, colours as on the cards. */
+.game-size {
+    display: inline-block;
+    padding: 0.05em 0.5em;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.8em;
+    white-space: nowrap;
+    color: #fff;
+}
+.game-size-small {
+    background: #f5b800;
+}
+.game-size-medium {
+    background: #ff8c00;
+}
+.game-size-large {
+    background: #fc1403;
 }

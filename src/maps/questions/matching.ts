@@ -6,66 +6,64 @@ import type {
     Point,
     Polygon,
 } from "geojson";
-import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
-import { toast } from "react-toastify";
 
 import {
     hiderMode,
     mapGeoJSON,
     mapGeoLocation,
-    polyGeoJSON,
+    playAreaKey,
+    regionRules,
 } from "@/lib/context";
+import { memoizeAsync } from "@/lib/memoizeAsync";
+import { adminLevelLabel } from "@/maps/adminBorders";
 import {
     findAdminBoundary,
     findPlacesInZone,
-    LOCATION_FIRST_TAG,
     nearestToQuestion,
-    prettifyLocation,
-    trainLineNodeFinder,
 } from "@/maps/api";
+import { datasets } from "@/maps/datasets/load";
+import { NotApplicableError } from "@/maps/errors";
 import { holedMask, modifyMapData, safeUnion } from "@/maps/geo-utils";
 import { geoSpatialVoronoi } from "@/maps/geo-utils";
+import { DEFAULT_STATION_FILTERS } from "@/maps/hidingZones";
 import type {
     APILocations,
     HomeGameMatchingQuestions,
     MatchingQuestion,
 } from "@/maps/schema";
+import { firstLetter, nameLength, stationSignName } from "@/maps/stationNames";
+import { sharesTrainLineWith } from "@/maps/trainLines";
 
-export const findMatchingPlaces = async (question: MatchingQuestion) => {
+import { type PlaceKind, placesInPlayArea, seekerNearestCell } from "./places";
+
+const zoneLabel = (adminLevel: number) =>
+    adminLevelLabel(adminLevel, mapGeoLocation.get().properties.countrycode);
+
+const ACCENTED: Record<string, string> = {
+    A: "AÀÁÂÄÃÅ",
+    C: "CÇ",
+    E: "EÉÈÊË",
+    I: "IÌÍÎÏ",
+    N: "NÑ",
+    O: "OÒÓÔÖÕ",
+    U: "UÙÚÛÜ",
+    Y: "YÝŸ",
+};
+
+/** Overpass regex class for a letter and its accented forms ("E" -> "[EÉÈÊË]"). */
+const letterPattern = (letter: string) =>
+    ACCENTED[letter] ? `[${ACCENTED[letter]}]` : letter;
+
+/** What a "same nearest X?" question compares, if it compares places. */
+export const matchingPlaceKind = (
+    question: MatchingQuestion,
+): PlaceKind | null => {
     switch (question.type) {
-        case "airport": {
-            return _.uniqBy(
-                (
-                    await findPlacesInZone(
-                        '["aeroway"="aerodrome"]["iata"]', // Only commercial airports have IATA codes,
-                        "Finding airports...",
-                    )
-                ).elements,
-                (feature: any) => feature.tags.iata,
-            ).map((x) =>
-                turf.point([
-                    x.center ? x.center.lon : x.lon,
-                    x.center ? x.center.lat : x.lat,
-                ]),
-            );
-        }
-        case "major-city": {
-            return (
-                await findPlacesInZone(
-                    '[place=city]["population"~"^[1-9]+[0-9]{6}$"]', // The regex is faster than (if:number(t["population"])>1000000)
-                    "Finding cities...",
-                )
-            ).elements.map((x: any) =>
-                turf.point([
-                    x.center ? x.center.lon : x.lon,
-                    x.center ? x.center.lat : x.lat,
-                ]),
-            );
-        }
-        case "custom-points": {
-            return question.geo!;
-        }
+        case "airport":
+            return "airport";
+        case "major-city":
+            return "city";
         case "aquarium-full":
         case "zoo-full":
         case "theme_park-full":
@@ -76,49 +74,20 @@ export const findMatchingPlaces = async (question: MatchingQuestion) => {
         case "library-full":
         case "golf_course-full":
         case "consulate-full":
-        case "park-full": {
-            const location = question.type.split("-full")[0] as APILocations;
-
-            const data = await findPlacesInZone(
-                `[${LOCATION_FIRST_TAG[location]}=${location}]`,
-                `Finding ${prettifyLocation(location, true).toLowerCase()}...`,
-                "nwr",
-                "center",
-                [],
-                60,
-            );
-
-            if (data.remark && data.remark.startsWith("runtime error")) {
-                toast.error(
-                    `Error finding ${prettifyLocation(
-                        location,
-                        true,
-                    ).toLowerCase()}. Please enable hiding zone mode and switch to the Large Game variation of this question.`,
-                );
-                return [];
-            }
-
-            if (data.elements.length >= 1000) {
-                toast.error(
-                    `Too many ${prettifyLocation(
-                        location,
-                        true,
-                    ).toLowerCase()} found (${data.elements.length}). Please enable hiding zone mode and switch to the Large Game variation of this question.`,
-                );
-                return [];
-            }
-
-            return data.elements.map((x: any) =>
-                turf.point([
-                    x.center ? x.center.lon : x.lon,
-                    x.center ? x.center.lat : x.lat,
-                ]),
-            );
-        }
+        case "park-full":
+            return question.type.split("-full")[0] as APILocations;
+        default:
+            return null;
     }
 };
 
-export const determineMatchingBoundary = _.memoize(
+export const findMatchingPlaces = async (question: MatchingQuestion) => {
+    if (question.type === "custom-points") return question.geo!;
+    const kind = matchingPlaceKind(question);
+    return kind ? placesInPlayArea(kind) : undefined;
+};
+
+export const determineMatchingBoundary = memoizeAsync(
     async (question: MatchingQuestion) => {
         let boundary;
 
@@ -151,8 +120,9 @@ export const determineMatchingBoundary = _.memoize(
                 );
 
                 if (!boundary) {
-                    toast.error("No boundary found for this zone");
-                    throw new Error("No boundary found");
+                    throw new NotApplicableError(
+                        `There's no ${zoneLabel(question.cat.adminLevel)} at the seeker's location.`,
+                    );
                 }
                 break;
             }
@@ -164,42 +134,56 @@ export const determineMatchingBoundary = _.memoize(
                 );
 
                 if (!zone) {
-                    toast.error("No boundary found for this zone");
-                    throw new Error("No boundary found");
+                    throw new NotApplicableError(
+                        `There's no ${zoneLabel(question.cat.adminLevel)} at the seeker's location.`,
+                    );
                 }
 
-                let englishName = zone.properties?.["name:en"];
-
-                if (!englishName) {
-                    const name = zone.properties?.name;
-
-                    if (/^[a-zA-Z]$/.test(name[0])) {
-                        englishName = name;
-                    } else {
-                        toast.error("No English name found for this zone");
-                        throw new Error("No English name");
-                    }
+                // Same naming rule as stations: the local name, accents ignored.
+                const zoneName: string | undefined =
+                    zone.properties?.name ?? zone.properties?.["name:en"];
+                if (!zoneName) {
+                    throw new NotApplicableError(
+                        "The seeker's zone has no name in the map data.",
+                    );
                 }
 
-                const letter = englishName[0].toUpperCase();
+                const letter = firstLetter(zoneName);
 
-                boundary = turf.featureCollection(
-                    osmtogeojson(
-                        await findPlacesInZone(
-                            `[admin_level=${question.cat.adminLevel}]["name:en"~"^${letter}.+"]`, // Regex is faster than filtering afterward
-                            `Finding zones that start with the same letter (${letter})...`,
-                            "relation",
-                            "geom",
-                            [
-                                `[admin_level=${question.cat.adminLevel}]["name"~"^${letter}.+"]`,
-                            ], // Regex is faster than filtering afterward
+                const fromData = await datasets.adminZonesIn(
+                    question.cat.adminLevel,
+                    turf.bbox(mapGeoJSON.get()!) as [
+                        number,
+                        number,
+                        number,
+                        number,
+                    ],
+                );
+                const sameLetter = fromData?.filter((candidate) => {
+                    const name =
+                        candidate.properties?.name ??
+                        candidate.properties?.["name:en"];
+                    return !!name && firstLetter(name) === letter;
+                });
+
+                boundary = turf.featureCollection<Polygon | MultiPolygon>(
+                    sameLetter ??
+                        osmtogeojson(
+                            await findPlacesInZone(
+                                `[admin_level=${question.cat.adminLevel}]["name:en"~"^${letterPattern(letter)}.+"]`, // Regex is faster than filtering afterward
+                                `Finding zones that start with the same letter (${letter})...`,
+                                "relation",
+                                "geom",
+                                [
+                                    `[admin_level=${question.cat.adminLevel}]["name"~"^${letterPattern(letter)}.+"]`,
+                                ], // Regex is faster than filtering afterward
+                            ),
+                        ).features.filter(
+                            (x): x is Feature<Polygon | MultiPolygon> =>
+                                x.geometry &&
+                                (x.geometry.type === "Polygon" ||
+                                    x.geometry.type === "MultiPolygon"),
                         ),
-                    ).features.filter(
-                        (x): x is Feature<Polygon | MultiPolygon> =>
-                            x.geometry &&
-                            (x.geometry.type === "Polygon" ||
-                                x.geometry.type === "MultiPolygon"),
-                    ),
                 );
 
                 // It's either simplify or crash. Technically this could be bad if someone's hiding zone was inside multiple zones, but that's unlikely.
@@ -227,6 +211,15 @@ export const determineMatchingBoundary = _.memoize(
             case "consulate-full":
             case "park-full":
             case "custom-points": {
+                const kind = matchingPlaceKind(question);
+                const cell = kind
+                    ? await seekerNearestCell(kind, question)
+                    : undefined;
+                if (cell) {
+                    boundary = cell;
+                    break;
+                }
+
                 const data = await findMatchingPlaces(question);
 
                 const voronoi = geoSpatialVoronoi(data);
@@ -251,9 +244,9 @@ export const determineMatchingBoundary = _.memoize(
             lng: question.lng,
             cat: question.cat,
             geo: question.geo,
-            entirety: polyGeoJSON.get()
-                ? polyGeoJSON.get()
-                : mapGeoLocation.get(),
+            area: playAreaKey(),
+            // The "major city" threshold depends on the rules.
+            rules: regionRules.get().region,
         }),
 );
 
@@ -304,6 +297,7 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
             drag: false,
             color: "black",
             collapsed: false,
+            hidden: false,
         });
 
         question.same =
@@ -323,11 +317,14 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         ]);
         const seekerPoint = turf.point([question.lng, question.lat]);
 
+        // Train stations as for hiding zones: halts count too.
         const places = osmtogeojson(
             await findPlacesInZone(
-                "[railway=station]",
-                "Finding train stations. This may take a while. Do not press any buttons while this is processing. Don't worry, it will be cached.",
-                "node",
+                DEFAULT_STATION_FILTERS[0],
+                "Finding train stations...",
+                "nwr",
+                "center",
+                DEFAULT_STATION_FILTERS.slice(1),
             ),
         ) as FeatureCollection<Point>;
 
@@ -338,49 +335,33 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         );
 
         if (question.type === "same-train-line") {
-            const nodes = await trainLineNodeFinder(
+            const sharesLine = await sharesTrainLineWith(
                 nearestSeekerTrainStation.properties.id,
+                stationSignName(nearestSeekerTrainStation.properties),
             );
-
-            const hiderId = parseInt(
-                nearestHiderTrainStation.properties.id.split("/")[1],
-            );
-
-            if (nodes.includes(hiderId)) {
-                question.same = true;
-            } else {
-                question.same = false;
-            }
+            question.same = sharesLine(nearestHiderTrainStation.properties.id);
+            return question;
         }
 
-        const hiderEnglishName =
-            nearestHiderTrainStation.properties["name:en"] ||
-            nearestHiderTrainStation.properties.name;
-        const seekerEnglishName =
-            nearestSeekerTrainStation.properties["name:en"] ||
-            nearestSeekerTrainStation.properties.name;
+        const hiderName = stationSignName(nearestHiderTrainStation.properties);
+        const seekerName = stationSignName(
+            nearestSeekerTrainStation.properties,
+        );
 
-        if (!hiderEnglishName || !seekerEnglishName) {
+        if (!hiderName || !seekerName) {
             return question;
         }
 
         if (question.type === "same-first-letter-station") {
-            if (
-                hiderEnglishName[0].toUpperCase() ===
-                seekerEnglishName[0].toUpperCase()
-            ) {
-                question.same = true;
-            } else {
-                question.same = false;
-            }
+            question.same = firstLetter(hiderName) === firstLetter(seekerName);
         } else if (question.type === "same-length-station") {
-            if (hiderEnglishName.length === seekerEnglishName.length) {
-                question.lengthComparison = "same";
-            } else if (hiderEnglishName.length < seekerEnglishName.length) {
-                question.lengthComparison = "shorter";
-            } else {
-                question.lengthComparison = "longer";
-            }
+            const difference = nameLength(hiderName) - nameLength(seekerName);
+            question.lengthComparison =
+                difference === 0
+                    ? "same"
+                    : difference < 0
+                      ? "shorter"
+                      : "longer";
         }
 
         return question;

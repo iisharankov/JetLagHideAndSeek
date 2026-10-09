@@ -1,133 +1,60 @@
 ---
+import "@fontsource/oxygen/400.css";
+import "@fontsource/oxygen/700.css";
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
 import "@/styles/globals.css";
+
 import { ToastContainer } from "react-toastify";
 // @ts-ignore
 import { pwaInfo } from "virtual:pwa-info";
 
 export interface Props {
     className?: string;
+    title?: string;
 }
 
-const { className } = Astro.props;
+const { className, title = "Jet Lag Hide and Seek" } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 ---
 
 <!doctype html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width" />
-        <link
-            rel="icon"
-            type="image/x-icon"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon.ico"
-        />
-        <link
-            rel="shortcut icon"
-            type="image/x-icon"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon.ico"
-        />
-        <link
-            rel="apple-touch-icon"
-            sizes="180x180"
-            href="https://taibeled.github.io/JetLagHideAndSeek/apple-touch-icon.png"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="theme-color" content="#1F2F3F" />
+        <link rel="icon" type="image/x-icon" href={`${base}favicon.ico`} />
         <link
             rel="icon"
             type="image/png"
             sizes="32x32"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon-32x32.png"
+            href={`${base}favicon-32x32.png`}
         />
         <link
             rel="icon"
             type="image/png"
             sizes="16x16"
-            href="https://taibeled.github.io/JetLagHideAndSeek/favicon-16x16.png"
+            href={`${base}favicon-16x16.png`}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=Oxygen:wght@300;400;700&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
-            rel="stylesheet"
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href={`${base}apple-touch-icon.png`}
         />
-        <script
-            type="text/partytown"
-            async
-            src="https://www.googletagmanager.com/gtag/js?id=G-RKJ9G6CNC2"
-        ></script>
-        <script type="text/partytown">
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-                dataLayer.push(arguments);
-            }
-            gtag("js", new Date());
-
-            gtag("config", "G-RKJ9G6CNC2");
-        </script>
-        <script type="text/javascript">
-            if (!window.location.host.includes("localhost")) {
-                (function (c, l, a, r, i, t, y) {
-                    c[a] =
-                        c[a] ||
-                        function () {
-                            (c[a].q = c[a].q || []).push(arguments);
-                        };
-                    t = l.createElement(r);
-                    t.async = 1;
-                    t.src = "https://www.clarity.ms/tag/" + i;
-                    y = l.getElementsByTagName(r)[0];
-                    y.parentNode.insertBefore(t, y);
-                })(window, document, "clarity", "script", "sus45mfdvm");
-            }
-        </script>
         <meta name="generator" content={Astro.generator} />
-        <!-- HTML Meta Tags -->
-        <title>Map Generator for Jet Lag The Game: Hide and Seek</title>
+        <title>{title}</title>
         <meta
             name="description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
+            content="Map tool for Jet Lag: The Game, Hide and Seek. Add the seekers' questions and see where the hider can still be."
         />
-
-        <!-- Facebook Meta Tags -->
-        <meta
-            property="og:url"
-            content="https://taibeled.github.io/JetLagHideAndSeek/"
-        />
-        <meta property="og:type" content="website" />
-        <meta
-            property="og:title"
-            content="Map Generator for Jet Lag The Game: Hide and Seek"
-        />
-        <meta
-            property="og:description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
-        />
-        <meta
-            property="og:image"
-            content="https://taibeled.github.io/JetLagHideAndSeek/JLIcon.png"
-        />
-
-        <!-- Twitter Meta Tags -->
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta property="twitter:domain" content="taibeled.github.io" />
-        <meta
-            property="twitter:url"
-            content="https://taibeled.github.io/JetLagHideAndSeek/"
-        />
-        <meta
-            name="twitter:title"
-            content="Map Generator for Jet Lag The Game: Hide and Seek"
-        />
-        <meta
-            name="twitter:description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
-        />
-        <meta
-            name="twitter:image"
-            content="https://taibeled.github.io/JetLagHideAndSeek/JLIcon.png"
-        />
-
         {pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} />}
+        <script>
+            import "@/pwa";
+        </script>
     </head>
     <body class:list={[className, "dark"]}>
         <slot />
