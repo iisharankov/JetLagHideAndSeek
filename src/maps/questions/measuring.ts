@@ -35,6 +35,7 @@ import {
 } from "@/maps/api";
 import { datasets } from "@/maps/datasets/load";
 import { ruledOutInZones, withinDistanceOfLines } from "@/maps/distanceRegion";
+import { elevation } from "@/maps/elevation";
 import { NotApplicableError } from "@/maps/errors";
 import {
     arcBufferToPoint,
@@ -219,6 +220,23 @@ const adminRuledOutInZones = async (
     });
 };
 
+/** The seeker's altitude: as typed in, or the ground height at their pin. */
+export const seekerAltitude = async (question: MeasuringQuestion) =>
+    (question as any).seekerAltitude ??
+    (await elevation.elevationAt(question.lat, question.lng));
+
+/**
+ * Altitude question: where the ground is higher than the seeker. The hider
+ * is "closer to sea level" when lower, as in the rulebook's wording.
+ */
+const higherGroundIn = async (question: MeasuringQuestion, bbox: Bbox) => {
+    const metres = await seekerAltitude(question);
+    const grid = await elevation.elevationGrid(bbox);
+    return turf.simplify(elevation.regionAbove(grid, metres), {
+        tolerance: 0.0003,
+    });
+};
+
 /** Lake shore question: the lake sizes players can choose from (km²). */
 export const LAKE_AREA_CHOICES = [10, 20, 25, 50] as const;
 export const DEFAULT_MIN_LAKE_AREA_KM2 = 10;
@@ -345,6 +363,8 @@ export const determineMeasuringBoundary = async (
         }
         case "lake":
             return (await lakeShoresAround(question)).shores;
+        case "sea-level":
+            return false;
         case "coastline": {
             const coastline = turf.lineToPolygon(
                 await fetchCoastline(),
@@ -455,6 +475,15 @@ export const adjustPerMeasuring = async (
     inHidingZonesOnly = hidingZonesActive(),
 ) => {
     if (mapData === null) return;
+
+    if (question.type === "sea-level") {
+        const higher = await higherGroundIn(
+            question,
+            turf.bbox(mapData) as Bbox,
+        );
+        // Closer to sea level = lower = outside the higher ground.
+        return modifyMapData(mapData, higher, !question.hiderCloser);
+    }
 
     if (question.type === "admin-measure" && inHidingZonesOnly) {
         const ruledOut = await adminRuledOutInZones(
@@ -613,7 +642,9 @@ export const measuringPlanningPolygon = async (question: MeasuringQuestion) => {
                 ? await adminBorderRegionIn(question, playArea)
                 : question.type === "lake"
                   ? await lakeShoreRegionIn(question, playArea)
-                  : await bufferedDeterminer(question);
+                  : question.type === "sea-level"
+                    ? await higherGroundIn(question, playArea)
+                    : await bufferedDeterminer(question);
 
         if (buffered === false) return false;
 

@@ -1,15 +1,25 @@
 # Project docs
 
-Notes, audit and plan for this fork. Last updated 2026-10-09 (round 3 done).
+Notes, audit and plan for this fork. Last updated 2026-10-09 (round 4 done).
 
 | File                                       | What's in it                                                                                   |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | [plan.md](plan.md)                         | **Status and next steps:** what's done (with the test for each fix), what's next (shared game board, photos, curses) |
-| [questions.md](questions.md)               | **Your turn:** 4 new questions, your shared-board answers for next run, decisions made        |
+| [questions.md](questions.md)               | **Your turn:** 3 new questions (metric cards, round timer, first impressions), decisions made |
 | [architecture.md](architecture.md)         | How the app works now: self-hosted services, reference data, refresh pipeline, state, sharing |
 | [audit.md](audit.md)                       | The round-2 audit (findings as found, with a status note on top)                               |
 | [../deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md) | **First deploy**, step by step, without Authelia                                  |
 | [../deploy/README.md](../deploy/README.md) | How to run it on your server (reference)                                                       |
+
+## Round 4 in short
+
+- **Shared game:** one link for seekers and hider. Seekers' drafts stay
+  hidden from the hider until sent; the hider's phone suggests answers and
+  nothing is sent until the hider taps one; photos and curses are tracked
+  per game.
+- **New:** altitude question ("higher or lower than me?"); Lugano and Sion
+  count as airports; reference places only for the active question.
+- **Next:** your answers to Q32–Q34, a real test game.
 
 ## Round 3 in short
 

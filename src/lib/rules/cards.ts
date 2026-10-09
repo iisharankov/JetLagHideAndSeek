@@ -9,6 +9,8 @@ export interface Curse {
     effect: string;
     castingCost: string;
     image: string;
+    /** For curses that last a set time: minutes for small/medium/large. */
+    minutes?: [number, number, number];
 }
 
 export interface Powerup {
@@ -69,6 +71,7 @@ export const CURSES: Curse[] = [
         effect: "For the next {0.5/1/3} hours, whenever the seekers want to pass through a doorway into a building, business, train, or other vehicle, they must first roll 2 dice. If they do not roll a 7 or higher, they cannot enter that space (including through other doorways.) Any given doorway can be re-attempted after {5/10/15} minutes.",
         castingCost: "Discard two cards.",
         image: "curse_jammed_door",
+        minutes: [30, 60, 180],
     },
     {
         name: "Curse of the Spotty Memory",
@@ -139,6 +142,7 @@ export const CURSES: Curse[] = [
         castingCost:
             "Roll a die. If it's an even number, this curse has no effect.",
         image: "curse_gamblers_feet",
+        minutes: [20, 40, 60],
     },
     {
         name: "Curse of the Hidden Hangman",
@@ -157,6 +161,7 @@ export const CURSES: Curse[] = [
         effect: "For the next {20/40/60} minutes, the seekers can only turn right at any street intersection. If, at any point, they find themselves in a dead end where they cannot continue forward or turn right for another 1,000 feet, they may do a full 180. A right turn is defined as a road at any angle that veers to the right of the seekers.",
         castingCost: "Discard a card.",
         image: "curse_right_turn",
+        minutes: [20, 40, 60],
     },
     {
         name: "Curse of the Urban Explorer",

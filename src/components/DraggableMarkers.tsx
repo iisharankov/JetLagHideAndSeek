@@ -6,6 +6,7 @@ import { Marker } from "react-leaflet";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
+    activeQuestionKey,
     autoSave,
     hiderMode,
     questionModified,
@@ -67,6 +68,9 @@ const ColoredMarker = ({
                 eventHandlers={{
                     dragstart: () => {
                         isDragging = true;
+                        if (questionKey !== -1) {
+                            activeQuestionKey.set(questionKey);
+                        }
                     },
                     dragend: (x) => {
                         onChange(x);
@@ -75,6 +79,9 @@ const ColoredMarker = ({
                         }, 100);
                     },
                     click: () => {
+                        if (questionKey !== -1) {
+                            activeQuestionKey.set(questionKey);
+                        }
                         if (!isDragging) {
                             setOpen(true);
                         }

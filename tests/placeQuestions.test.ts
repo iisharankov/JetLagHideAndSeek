@@ -106,6 +106,29 @@ vi.mock("@/maps/datasets/load", async () => {
     };
 });
 
+// Fake terrain for the altitude question: 1 km higher per degree east of 7°E.
+vi.mock("@/maps/elevation", async (importOriginal) => {
+    const real = await importOriginal<typeof import("@/maps/elevation")>();
+    const tile = (z: number, x: number) => {
+        const data = new Int16Array(256 * 256);
+        for (let row = 0; row < 256; row++) {
+            for (let col = 0; col < 256; col++) {
+                const lng =
+                    ((x * 256 + col + 0.5) / (2 ** z * 256)) * 360 - 180;
+                data[row * 256 + col] = Math.round((lng - 7) * 1000);
+            }
+        }
+        return data;
+    };
+    return {
+        ...real,
+        elevation: real.createElevation(
+            async (z, x) => tile(z, x),
+            [9, 10, 11],
+        ),
+    };
+});
+
 const playArea = turf.featureCollection([
     turf.bboxPolygon([7.55, 47.5, 7.95, 47.65]),
 ]);
@@ -171,5 +194,34 @@ describe("lake shore question", () => {
         await expect(adjustPerMeasuring(q, playArea)).rejects.toThrow(
             "There are no lakes of 20 km² or more.",
         );
+    });
+});
+
+describe("altitude question", () => {
+    it("keeps where the hider is lower than the seeker (closer to sea level)", async () => {
+        const q = question<MeasuringQuestion>("measuring", {
+            type: "sea-level",
+            lat: 47.55,
+            lng: 7.75, // the ground is ~750 m high there
+            hiderCloser: true,
+        });
+        const result = await adjustPerMeasuring(q, playArea);
+
+        expect(contains(result, 7.6, 47.6)).toBe(true); // ~600 m
+        expect(contains(result, 7.9, 47.6)).toBe(false); // ~900 m
+    });
+
+    it("uses the seeker's own altitude reading when given", async () => {
+        const q = question<MeasuringQuestion>("measuring", {
+            type: "sea-level",
+            lat: 47.55,
+            lng: 7.75,
+            seekerAltitude: 850, // e.g. on a tower
+            hiderCloser: false, // hider is higher
+        });
+        const result = await adjustPerMeasuring(q, playArea);
+
+        expect(contains(result, 7.9, 47.6)).toBe(true); // ~900 m
+        expect(contains(result, 7.8, 47.6)).toBe(false); // ~800 m
     });
 });

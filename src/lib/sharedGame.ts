@@ -44,7 +44,7 @@ const settingsSchema = z.object({
     includeDefaultStations: z.boolean().nullish(),
 });
 
-type Settings = {
+export type Settings = {
     [K in keyof z.infer<typeof settingsSchema>]?: NonNullable<
         z.infer<typeof settingsSchema>[K]
     >;
@@ -188,18 +188,72 @@ export const summarizeSharedGame = (game: SharedGame) => {
     return `${questionsText} in ${place}`;
 };
 
-/** Replaces the current game. Presets are merged, never removed. */
-export const applySharedGame = (game: SharedGame) => {
-    if (game.playArea.kind === "place") {
-        mapGeoLocation.set(game.playArea.location);
-        additionalMapGeoLocations.set(game.playArea.alternateLocations);
+/** The play area as shared: a place (with added areas) or a drawn polygon. */
+export const currentPlayArea = (): SharedGame["playArea"] => {
+    const polygon = polyGeoJSON.get();
+    return polygon
+        ? { kind: "polygon", polygon }
+        : {
+              kind: "place",
+              location: mapGeoLocation.get(),
+              alternateLocations: additionalMapGeoLocations.get(),
+          };
+};
+
+/** Checks a play area received from a shared game (throws if invalid). */
+export const parsePlayArea = (raw: any): SharedGame["playArea"] => {
+    if (
+        raw?.kind === "place" &&
+        raw.location?.geometry?.type === "Point" &&
+        typeof raw.location?.properties?.osm_id === "number"
+    ) {
+        return {
+            kind: "place",
+            location: raw.location,
+            alternateLocations: Array.isArray(raw.alternateLocations)
+                ? raw.alternateLocations
+                : [],
+        };
+    }
+    if (
+        raw?.kind === "polygon" &&
+        raw.polygon?.type === "FeatureCollection" &&
+        Array.isArray(raw.polygon.features) &&
+        raw.polygon.features.every(isPolygon)
+    ) {
+        return { kind: "polygon", polygon: raw.polygon };
+    }
+    throw new Error("The shared game's play area is invalid.");
+};
+
+/** Switches to a shared play area. */
+export const applyPlayArea = (playArea: SharedGame["playArea"]) => {
+    if (playArea.kind === "place") {
+        mapGeoLocation.set(playArea.location);
+        additionalMapGeoLocations.set(playArea.alternateLocations);
         polyGeoJSON.set(null);
     } else {
-        polyGeoJSON.set(game.playArea.polygon);
+        polyGeoJSON.set(playArea.polygon);
     }
     mapGeoJSON.set(null);
+};
 
-    const { settings } = game;
+/** Hiding zone settings as shared. */
+export const currentZoneSettings = (): Settings => ({
+    disabledStations: disabledStations.get(),
+    hidingRadius: hidingRadius.get(),
+    hidingRadiusUnits: hidingRadiusUnits.get(),
+    zoneOptions: displayHidingZonesOptions.get(),
+    useCustomStations: useCustomStations.get(),
+    customStations: customStations.get(),
+    includeDefaultStations: includeDefaultStations.get(),
+});
+
+/** Checks shared hiding zone settings (throws if they're invalid). */
+export const parseZoneSettings = (raw: unknown): Settings =>
+    parseSettings(raw ?? {});
+
+export const applyZoneSettings = (settings: Settings) => {
     if (settings.disabledStations)
         disabledStations.set(settings.disabledStations);
     if (settings.hidingRadius) hidingRadius.set(settings.hidingRadius);
@@ -212,6 +266,12 @@ export const applySharedGame = (game: SharedGame) => {
     if (settings.customStations) customStations.set(settings.customStations);
     if (settings.includeDefaultStations !== undefined)
         includeDefaultStations.set(settings.includeDefaultStations);
+};
+
+/** Replaces the current game. Presets are merged, never removed. */
+export const applySharedGame = (game: SharedGame) => {
+    applyPlayArea(game.playArea);
+    applyZoneSettings(game.settings);
 
     if (game.presets.length > 0) {
         const byId = new Map(customPresets.get().map((p) => [p.id, p]));

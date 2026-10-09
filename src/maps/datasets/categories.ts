@@ -138,6 +138,8 @@ export interface DatasetManifest {
     files: Record<string, number>;
     /** Area of the extra data on airports, cities and places around it. */
     far?: [number, number, number, number];
+    /** Elevation tiles in elevation/<z>/<x>/<y>.i16 (256 × 256 Int16 metres). */
+    elevation?: { zooms: number[] };
 }
 
 /** A cell of a voronoi-<name>.json file: where that place is the nearest. */

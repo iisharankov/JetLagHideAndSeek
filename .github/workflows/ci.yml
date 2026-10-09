@@ -34,6 +34,14 @@ jobs:
                   test -s /tmp/li-data/voronoi-poi-museum.json
                   test -s /tmp/li-data/train-lines.json
                   test -s /tmp/li-data/lakes.json
+            - name: Check the nginx configs with a real nginx (no install, no service)
+              run: |
+                  mkdir -p /tmp/nginx && cd /tmp/nginx
+                  sudo apt-get update -qq
+                  apt-get download nginx-light nginx-common
+                  for deb in *.deb; do dpkg -x "$deb" root; done
+                  cd "$GITHUB_WORKSPACE"
+                  NGINX_BIN=/tmp/nginx/root/usr/sbin/nginx MIME_TYPES=/tmp/nginx/root/etc/nginx/mime.types deploy/test-nginx.sh
             - run: pnpm exec playwright install --with-deps firefox
             - run: pnpm test:e2e
             - uses: actions/upload-artifact@v4

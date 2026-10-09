@@ -16,12 +16,16 @@ import {
     questionStatuses,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { answerOf, describeAnswer } from "@/lib/game/answers";
+import { gameRole, gameState, suggestedAnswers } from "@/lib/game/session";
+import { roleOnMap } from "@/lib/game/sync";
 import { createLatestRunner } from "@/lib/jobs";
 import {
     applyQuestionsToMapGeoData,
     hiderifyQuestion,
     holedMask,
     type QuestionStatus,
+    safeUnion,
 } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
@@ -30,6 +34,47 @@ import { errorMessage } from "@/maps/errors";
 type TaggedLayer = L.Layer & {
     questionKey?: number;
     eliminationGeoJSON?: boolean;
+};
+
+/** Areas ruled out only by seekers' draft questions (speculation). */
+const SPECULATIVE_STYLE: L.PathOptions = {
+    color: "#f59e0b",
+    fillColor: "#f59e0b",
+    fillOpacity: 0.3,
+    weight: 2,
+    dashArray: "6 4",
+};
+
+/**
+ * Hider in a shared game: hider mode suggests an answer for each question
+ * waiting for one, worked out on a copy (nothing is sent until the hider
+ * confirms it).
+ */
+const suggestAnswers = async (
+    questionsToAnswer: ReturnType<typeof questions.get>,
+    errors: Record<number, QuestionStatus>,
+) => {
+    const game = gameState.get();
+    if (!game) return;
+    const suggestions: ReturnType<typeof suggestedAnswers.get> = {};
+    for (const question of questionsToAnswer) {
+        try {
+            const copy = structuredClone(question);
+            copy.data.drag = true;
+            await hiderifyQuestion(copy);
+            suggestions[question.key] = {
+                answer: answerOf(copy),
+                label: describeAnswer(copy),
+                basedOn: game.questions[String(question.key)].updatedAt,
+            };
+        } catch (error) {
+            errors[question.key] = {
+                state: "error",
+                message: `Couldn't work out an answer: ${errorMessage(error)}`,
+            };
+        }
+    }
+    suggestedAnswers.set(suggestions);
 };
 
 const removeLayers = (map: L.Map, matches: (layer: TaggedLayer) => boolean) => {
@@ -77,8 +122,19 @@ const refresh = async () => {
         return;
     }
 
+    const game = gameState.get();
+    const confirmed = $questions.filter(
+        (q) => roleOnMap(q, game) === "confirmed",
+    );
+    const speculative = $questions.filter(
+        (q) => roleOnMap(q, game) === "speculative",
+    );
+    const waiting = $questions.filter((q) => roleOnMap(q, game) === "waiting");
+
     const hiderModeErrors: Record<number, QuestionStatus> = {};
-    if (hiderMode.get() !== false) {
+    if (hiderMode.get() !== false && game && gameRole.get() === "hider") {
+        await suggestAnswers(waiting, hiderModeErrors);
+    } else if (hiderMode.get() !== false && !game) {
         for (const question of $questions) {
             try {
                 await hiderifyQuestion(question);
@@ -94,26 +150,63 @@ const refresh = async () => {
     }
 
     removeLayers(map, (layer) => layer.questionKey !== undefined);
-    const { mapGeoData, statuses } = await applyQuestionsToMapGeoData(
-        $questions,
+    const drawOutline = (
+        outline: Parameters<typeof L.geoJSON>[0],
+        question: { key: number },
+    ) => {
+        const layer = L.geoJSON(outline) as L.GeoJSON & TaggedLayer;
+        layer.questionKey = question.key;
+        layer.addTo(map);
+    };
+    // Confirmed answers first, then the seekers' speculation on top.
+    const known = await applyQuestionsToMapGeoData(
+        confirmed,
         playArea,
         planningModeEnabled.get(),
-        (outline, question) => {
-            const layer = L.geoJSON(outline) as L.GeoJSON & TaggedLayer;
-            layer.questionKey = question.key;
-            layer.addTo(map);
-        },
+        drawOutline,
     );
+    const guessed = await applyQuestionsToMapGeoData(
+        speculative,
+        known.mapGeoData,
+        planningModeEnabled.get(),
+        drawOutline,
+    );
+    const mapGeoData = guessed.mapGeoData;
     questionStatuses.set({
-        ...Object.fromEntries(statuses),
+        ...Object.fromEntries(known.statuses),
+        ...Object.fromEntries(guessed.statuses),
+        ...Object.fromEntries(
+            waiting.map((q) => [
+                q.key,
+                { state: "skipped", reason: "waiting" } as QuestionStatus,
+            ]),
+        ),
         ...hiderModeErrors,
     });
 
-    const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
     removeLayers(map, (layer) => layer.eliminationGeoJSON === true);
-    const shading = L.geoJSON(eliminated) as L.GeoJSON & TaggedLayer;
+    const shading = L.geoJSON(
+        turf.featureCollection([holedMask(known.mapGeoData)!]),
+    ) as L.GeoJSON & TaggedLayer;
     shading.eliminationGeoJSON = true;
     shading.addTo(map);
+    if (speculative.length > 0) {
+        const ruledOutByGuesses = turf.difference(
+            turf.featureCollection([
+                safeUnion(known.mapGeoData),
+                safeUnion(mapGeoData),
+            ]),
+        );
+        if (ruledOutByGuesses) {
+            const layer = L.geoJSON(ruledOutByGuesses, {
+                style: SPECULATIVE_STYLE,
+                interactive: false,
+            }) as L.GeoJSON & TaggedLayer;
+            layer.eliminationGeoJSON = true;
+            layer.addTo(map);
+        }
+    }
+    const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
     questionFinishedMapData.set(eliminated);
 
     if (focus && autoZoom.get()) {

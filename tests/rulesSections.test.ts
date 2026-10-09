@@ -72,3 +72,19 @@ describe("parseRulesPage", () => {
         expect(parsed.section("zoos within 15 miles")?.body).toContain("zoo");
     });
 });
+
+describe("photoQuestions", () => {
+    it("lists the rulebook's photo questions with the game sizes they're for", async () => {
+        const { photoQuestions } = await import("@/lib/rules/content");
+        const all = photoQuestions();
+        const tree = all.find((q) => q.name === "Tree");
+        expect(tree?.sizes).toEqual(["small", "medium", "large"]);
+        expect(tree?.rules).toContain("entire tree");
+        expect(
+            all.find((q) => q.name === "Restaurant Interior")?.sizes,
+        ).toEqual(["medium", "large"]);
+        expect(all.find((q) => q.name === "5 Buildings")?.sizes).toEqual([
+            "large",
+        ]);
+    });
+});

@@ -173,6 +173,11 @@ export const TYPES: Record<
             note: "Distance to the shore of the nearest lake of at least the chosen size (10 km² unless changed). The app's version of the body of water question.",
             rules: { page: MEASURING, heading: "Body of Water" },
         },
+        "sea-level": {
+            label: "Altitude (higher or lower)",
+            note: "Compares the hider's altitude with the seeker's. The seeker's altitude is the ground height at their pin unless you type in your phone's reading. Ground heights come from free elevation data (about 50–200 m detail), so near the boundary the answer may be off.",
+            rules: { page: MEASURING, heading: "Sea Level" },
+        },
         coastline: {
             label: "Coastline",
             rules: { page: MEASURING, heading: "Coastline" },

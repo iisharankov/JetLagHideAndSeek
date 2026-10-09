@@ -25,6 +25,7 @@ import {
     mapGeoLocation,
     questions,
 } from "@/lib/context";
+import { gameRole, gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
 import { DraggableMarkers } from "./DraggableMarkers";
@@ -236,11 +237,21 @@ export const Map = ({ className }: { className?: string }) => {
           ])
         : "";
 
+    // In a shared game, a question's state (draft, asked, answered) decides
+    // how it shades the map.
+    const $game = useStore(gameState);
+    const $role = useStore(gameRole);
+    const questionStates = $game
+        ? Object.values($game.questions)
+              .map((entry) => `${entry.question.key}:${entry.state}`)
+              .join(",")
+        : "";
+
     useEffect(() => {
         if (!map) return;
 
         requestMapRefresh(true);
-    }, [$questions, map, $hiderMode, zoneSettings]);
+    }, [$questions, map, $hiderMode, zoneSettings, questionStates, $role]);
 
     useEffect(() => {
         const handleFullscreenChange = () => {

@@ -8,6 +8,7 @@ import radar from "@/content/rules/seeking/radar-questions.md?raw";
 import tentacle from "@/content/rules/seeking/tentacle-questions.md?raw";
 import thermometer from "@/content/rules/seeking/thermometer-questions.md?raw";
 import { withBase } from "@/lib/config";
+import type { GameSize } from "@/lib/game/types";
 
 import { headingSlug, parseRulesPage } from "./sections";
 
@@ -53,3 +54,29 @@ export const categoryIntro = (page: RulesPageId) =>
                 !/^Here('s| are) (a|two) little diagram/.test(block),
         )
         .join("\n\n");
+
+/**
+ * The photo questions, with the game sizes each is for: the rulebook lists
+ * the small-game ones first, then adds more for medium and large games.
+ */
+export const photoQuestions = () => {
+    const groups: GameSize[][] = [
+        ["small", "medium", "large"],
+        ["medium", "large"],
+        ["large"],
+    ];
+    let group = 0;
+    const questions: { name: string; rules: string; sizes: GameSize[] }[] = [];
+    for (const section of RULES_PAGES["seeking/photo-questions"].sections) {
+        if (section.level <= 3) {
+            group = Math.min(group + 1, groups.length - 1);
+        } else {
+            questions.push({
+                name: section.title,
+                rules: section.body,
+                sizes: groups[group],
+            });
+        }
+    }
+    return questions;
+};

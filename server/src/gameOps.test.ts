@@ -1,0 +1,269 @@
+import { describe, expect, it } from "vitest";
+
+import type { GameState, SharedQuestion } from "@/lib/game/types";
+
+import {
+    type Actor,
+    applyOp,
+    GameRuleError,
+    newGameState,
+    viewFor,
+} from "./gameOps";
+
+const radius = (key: number, data: Record<string, unknown> = {}) =>
+    ({
+        id: "radius",
+        key,
+        data: { lat: 47.37, lng: 8.54, radius: 5, within: true, ...data },
+    }) as SharedQuestion;
+
+const seeker: Actor = { name: "Ana", role: "seeker" };
+const hider: Actor = { name: "Ben", role: "hider" };
+
+const fresh = () =>
+    newGameState("g1", { playArea: { kind: "place" }, zone: {} }, 1000);
+
+const apply = (state: GameState, op: any, actor: Actor = seeker, now = 2000) =>
+    applyOp(state, op, actor, now);
+
+describe("questions", () => {
+    it("a seeker's new question is a draft the hider can't see", () => {
+        const state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        expect(state.questions["1"].state).toBe("draft");
+        expect(state.questions["1"].createdBy).toBe("Ana");
+        expect(viewFor(state, "seeker").questions["1"]).toBeDefined();
+        expect(viewFor(state, "hider").questions["1"]).toBeUndefined();
+    });
+
+    it("sending a question to the hider makes it visible to them", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        state = apply(state, { type: "sendQuestion", key: 1 });
+        expect(state.questions["1"].state).toBe("asked");
+        expect(viewFor(state, "hider").questions["1"]).toBeDefined();
+    });
+
+    it("the hider's answer only changes the answer fields", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: false, radius: 99 },
+                basedOn: state.questions["1"].updatedAt,
+            },
+            hider,
+            3000,
+        );
+        const entry = state.questions["1"];
+        expect(entry.state).toBe("answered");
+        expect(entry.question.data.within).toBe(false);
+        expect(entry.question.data.radius).toBe(5); // not an answer field
+        expect(entry.answeredAt).toBe(3000);
+    });
+
+    it("refuses an answer worked out for an older version of the question", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        const asked = state.questions["1"].updatedAt;
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1, { radius: 10 }) },
+            seeker,
+            2500,
+        );
+        expect(() =>
+            apply(
+                state,
+                {
+                    type: "answerQuestion",
+                    key: 1,
+                    answer: { within: false },
+                    basedOn: asked,
+                },
+                hider,
+            ),
+        ).toThrow(GameRuleError);
+    });
+
+    it("only the hider answers, unless the game lets seekers", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        const answer = {
+            type: "answerQuestion",
+            key: 1,
+            answer: { within: true },
+            basedOn: state.questions["1"].updatedAt,
+        };
+        expect(() => apply(state, answer, seeker)).toThrow(/Only the hider/);
+
+        state = apply(
+            state,
+            { type: "setSettings", settings: { seekersCanAnswer: true } },
+            hider,
+        );
+        expect(apply(state, answer, seeker).questions["1"].state).toBe(
+            "answered",
+        );
+    });
+
+    it("seekers can't change or delete an answered question", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: false },
+                basedOn: state.questions["1"].updatedAt,
+            },
+            hider,
+        );
+        expect(() =>
+            apply(state, {
+                type: "putQuestion",
+                question: radius(1, { lat: 46 }),
+            }),
+        ).toThrow(/answered/);
+        expect(() => apply(state, { type: "deleteQuestion", key: 1 })).toThrow(
+            /answered/,
+        );
+        // The hider can.
+        expect(
+            apply(state, { type: "deleteQuestion", key: 1 }, hider).questions[
+                "1"
+            ],
+        ).toBeUndefined();
+    });
+
+    it("the hider can't touch the seekers' drafts", () => {
+        const state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        expect(() =>
+            apply(state, { type: "deleteQuestion", key: 1 }, hider),
+        ).toThrow(GameRuleError);
+    });
+
+    it("last change wins and says who made it", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1, { radius: 7 }) },
+            { name: "Cleo", role: "seeker" },
+            2500,
+        );
+        expect(state.questions["1"].question.data.radius).toBe(7);
+        expect(state.questions["1"].updatedBy).toBe("Cleo");
+        expect(state.questions["1"].createdBy).toBe("Ana");
+    });
+
+    it("never stores a phone's own view settings", () => {
+        const state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1, { collapsed: true, hidden: true, drag: true }),
+        });
+        const data = state.questions["1"].question.data;
+        expect(data.collapsed).toBeUndefined();
+        expect(data.hidden).toBeUndefined();
+        expect(data.drag).toBeUndefined();
+    });
+});
+
+describe("settings", () => {
+    it("only the hider decides whether seekers may answer", () => {
+        expect(() =>
+            apply(fresh(), {
+                type: "setSettings",
+                settings: { seekersCanAnswer: true },
+            }),
+        ).toThrow(/Only the hider/);
+        expect(
+            apply(fresh(), { type: "setSettings", settings: { size: "large" } })
+                .settings.size,
+        ).toBe("large");
+    });
+});
+
+describe("photos and curses", () => {
+    it("seekers ask for photos; the hider casts curses; anyone clears them", () => {
+        let state = apply(fresh(), { type: "askPhoto", name: "Tree" });
+        expect(state.photoRequests[0]).toMatchObject({
+            name: "Tree",
+            askedBy: "Ana",
+        });
+
+        expect(() =>
+            apply(state, { type: "castCurse", name: "Curse of the Cairn" }),
+        ).toThrow(/Only the hider/);
+        state = apply(
+            state,
+            { type: "castCurse", name: "Curse of the Cairn" },
+            hider,
+        );
+        const curse = state.curses[0];
+        expect(curse.name).toBe("Curse of the Cairn");
+
+        state = apply(
+            state,
+            { type: "clearCurse", id: curse.id },
+            seeker,
+            5000,
+        );
+        expect(state.curses[0]).toMatchObject({
+            clearedAt: 5000,
+            clearedBy: "Ana",
+        });
+    });
+});
+
+describe("new round", () => {
+    it("keeps the finished round and starts empty, with no hider", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state = { ...state, hasHider: true };
+        state = apply(state, { type: "newRound" }, seeker, 9000);
+        expect(state.questions).toEqual({});
+        expect(state.hasHider).toBe(false);
+        expect(state.rounds).toHaveLength(1);
+        expect(state.rounds[0].questions).toHaveLength(1);
+        expect(state.rounds[0].endedAt).toBe(9000);
+    });
+});
+
+describe("versions", () => {
+    it("every change bumps the version and the update time", () => {
+        const before = fresh();
+        const after = apply(before, { type: "askPhoto", name: "Tree" });
+        expect(after.version).toBe(before.version + 1);
+        expect(after.updatedAt).toBe(2000);
+        expect(before.photoRequests).toEqual([]); // not mutated
+    });
+});

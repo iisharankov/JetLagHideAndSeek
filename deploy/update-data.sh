@@ -2,6 +2,7 @@
 # Downloads fresh map data for the play region into /data:
 #   /data/osm/region.osm.bz2       OpenStreetMap data, imported by Overpass
 #   /data/osm/far-places.osm.pbf   airports, cities and places up to ~300 km away
+#   /data/elevation/               elevation tiles (downloaded once, ~100 MB)
 #   /data/datasets/                places, stations and borders, served by `web`
 #   /data/tiles/basemap.pmtiles    vector basemap tiles, served by `web`
 # Runs inside the `updater` container; see refresh-data.sh.
@@ -65,9 +66,13 @@ fi
 echo "Building reference datasets..."
 rm -rf /data/datasets.tmp
 node /app/build-datasets.mjs --input /data/osm/region.osm.pbf --far "$FAR" \
-    --output /data/datasets.tmp
-rm -rf /data/datasets
-mv /data/datasets.tmp /data/datasets
+    --elevation /data/elevation --output /data/datasets.tmp
+# Replace the folder's contents, not the folder: `web` has it mounted, and a
+# new folder put in its place would stay invisible to it until a restart.
+mkdir -p /data/datasets
+find /data/datasets -mindepth 1 -delete
+find /data/datasets.tmp -mindepth 1 -maxdepth 1 -exec mv -t /data/datasets/ {} +
+rmdir /data/datasets.tmp
 
 echo "Extracting basemap tiles..."
 build=$(curl -fsSL https://build-metadata.protomaps.dev/builds.json | jq -r '.[-1].key')

@@ -17,7 +17,7 @@ Players' phones only ever talk to `jetlag.sharankov.com`.
 | Service    | What it does                                                                 | Port on 127.0.0.1 | Data in `deploy/data/`               |
 | ---------- | ---------------------------------------------------------------------------- | ----------------- | ------------------------------------ |
 | `web`      | The app, the basemap at `/tiles/` and the reference data at `/data/`         | 18780             | `tiles/`, `datasets/`                |
-| `api`      | Share links                                                                  | 18787             | `api/` (SQLite)                      |
+| `api`      | Share links and shared games (live updates, photos)                          | 18787             | `api/` (SQLite, `photos/`)           |
 | `overpass` | OpenStreetMap queries (which canton, museums…)                               | 18781             | `overpass/`, `osm/`                  |
 | `photon`   | Place search                                                                 | 18782             | `photon/`                            |
 | `updater`  | Downloads fresh map data and builds the reference data, only when you run it | –                 | writes `osm/`, `datasets/`, `tiles/` |

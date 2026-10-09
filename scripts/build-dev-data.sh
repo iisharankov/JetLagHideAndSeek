@@ -47,7 +47,8 @@ if [ "${FAR:-0}" = 1 ] && [ ! -s "$FAR_FILE" ]; then
 fi
 if [ -s "$FAR_FILE" ]; then far_args=(--far "$FAR_FILE"); fi
 
-node server/dist/build-datasets.mjs --input "$file" "${far_args[@]}" --output public/data.tmp
+node server/dist/build-datasets.mjs --input "$file" "${far_args[@]}" \
+    --elevation data/elevation --output public/data.tmp
 rm -rf public/data
 mv public/data.tmp public/data
 echo "Reference data ready in public/data/ (restart pnpm dev if it's running)."

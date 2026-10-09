@@ -64,6 +64,13 @@ export default defineConfig({
     devToolbar: {
         enabled: false,
     },
+    // `pnpm dev`: shared games and share links go to a local API server
+    // (`pnpm build:server && pnpm start:server` in another terminal).
+    vite: {
+        server: {
+            proxy: { "/api": "http://127.0.0.1:8787" },
+        },
+    },
     // Override at build time, e.g. `BASE_PATH=/jetlag/ pnpm build`.
     site: process.env.SITE_URL ?? "https://jetlag.sharankov.com",
     base: process.env.BASE_PATH ?? "/",

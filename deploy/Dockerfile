@@ -17,14 +17,18 @@ FROM nginx:stable-alpine AS web
 COPY deploy/nginx/web.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Share links (and later, team sync). Data lives in /data.
+# Share links and shared games. Data (SQLite, photos) lives in /data, a
+# folder from the host; api-entrypoint.sh makes it writable by the `node`
+# user and runs the server as that user.
 FROM node:24-alpine AS api
+RUN apk add --no-cache su-exec
 WORKDIR /app
 COPY --from=build /app/server/dist/index.mjs ./index.mjs
+COPY deploy/api-entrypoint.sh /usr/local/bin/api-entrypoint
+RUN chmod +x /usr/local/bin/api-entrypoint
 ENV NODE_ENV=production PORT=8787 DATA_DIR=/data
-RUN mkdir /data && chown node:node /data
-USER node
 EXPOSE 8787
+ENTRYPOINT ["api-entrypoint"]
 CMD ["node", "index.mjs"]
 
 # Downloads map data and builds the reference datasets (see update-data.sh).

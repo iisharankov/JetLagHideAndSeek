@@ -9,6 +9,9 @@
 // train lines per station, big lakes, "nearest place" maps and a
 // manifest.json describing what was built.
 //
+// --elevation <dir> adds elevation tiles for the altitude question (from the
+// free AWS Terrain Tiles; downloaded once into <dir>, see elevation.ts).
+//
 // --far adds airports, cities and other places from a wider area (about
 // 300 km around Switzerland; see deploy/update-data.sh), so that e.g. Milan's
 // airport counts as the nearest one where it is. `--print-far-filters`
@@ -39,6 +42,7 @@ import {
 } from "@/maps/datasets/categories";
 
 import { categoriesFor, isLake, osmIdentity, toElement } from "./elements";
+import { buildElevation, ELEVATION_ZOOMS } from "./elevation";
 import { buildNearestMaps } from "./nearest";
 import { linesByStation, trainLinesFromOpl } from "./routes";
 
@@ -303,6 +307,7 @@ const main = async () => {
             input: { type: "string" },
             output: { type: "string" },
             far: { type: "string" },
+            elevation: { type: "string" },
             "print-far-filters": { type: "boolean" },
         },
     });
@@ -312,7 +317,7 @@ const main = async () => {
     }
     if (!values.input || !values.output) {
         console.error(
-            "Usage: build-datasets --input <file.osm.pbf> --output <dir> [--far <file.osm.pbf>]",
+            "Usage: build-datasets --input <file.osm.pbf> --output <dir> [--far <file.osm.pbf>] [--elevation <cache dir>]",
         );
         process.exit(2);
     }
@@ -396,12 +401,25 @@ const main = async () => {
             lines.length,
         );
 
+        let elevation: DatasetManifest["elevation"];
+        if (values.elevation) {
+            console.log("Elevation tiles...");
+            const tiles = await buildElevation({
+                bbox: core,
+                cacheDir: values.elevation,
+                output,
+            });
+            elevation = { zooms: ELEVATION_ZOOMS };
+            console.log(`  elevation: ${tiles} tiles`);
+        }
+
         const manifest: DatasetManifest = {
             version: 1,
             built: new Date().toISOString(),
             bbox: core,
             files: counts,
             ...(far ? { far } : {}),
+            ...(elevation ? { elevation } : {}),
         };
         writeFileSync(join(output, "manifest.json"), JSON.stringify(manifest));
         console.log(`Done. Covers ${manifest.bbox.join(", ")}.`);

@@ -3,7 +3,7 @@
 Goal: **self-hosted, private, reliable on game day, with team sync.**
 Switzerland first, nothing that stops other regions working.
 
-Updated after your round-3 answers (2026-10-09). Status: ✅ done and
+Updated after your round-4 answers (2026-10-09). Status: ✅ done and
 tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dropped.
 
 ## What changed in the plan
@@ -122,27 +122,41 @@ error panel offers "Reset its settings". The bottom buttons became one Menu
 zone display style is a segmented control, and the hider has its own black
 "HIDER" pin.
 
-## Phase 3: one shared game board, photos, curses ⏭️ (next round)
+## Phase 3: one shared game board, photos, curses ✅ (round 4)
 
-From your round-3 answers (Q10–Q17):
+| Change | Your answer | Test |
+| --- | --- | --- |
+| **Shared game:** Menu → Game → "Start a shared game". The link (`?game=<id>`) is the game; everyone opens it and sees changes live (server-sent events, reconnects by itself). The phone rejoins its game when reopened | Q10 | `server/src/app.test.ts` (incl. the live stream), `e2e/sharedGame.spec.ts` (two phones) |
+| **Question states:** a seeker's new question is a *draft* only seekers see (its answer is a guess, shaded amber on the map); "Send to the hider" makes it *asked*; the hider's answer makes it *answered* (shaded as usual) | Q12 | `server/src/gameOps.test.ts`, `tests/gameSync.test.ts`, e2e (amber shading appears and goes) |
+| **Hider role** behind a password the first hider sets; the hider never sees drafts | Q10 | `server/src/games.test.ts`, e2e |
+| **Nothing sent automatically:** with hider mode on, the hider's card shows the suggested answer; one tap sends it (or another answer). Answers worked out for an older version of a question are refused | Q11 | `server/src/gameOps.test.ts`, e2e ("suggests: Yes", sent "No") |
+| **Game settings:** game size, and "seekers can answer" (only the hider can switch it; off by default, which locks answered questions for seekers) | Q12 | `server/src/gameOps.test.ts` |
+| Last change wins, with "changed by Ana · 2 min ago" on each card | Q13 | `server/src/gameOps.test.ts` |
+| **New round:** puts the questions, photo questions and curses away (kept with the game) and frees the hider role | – | `server/src/games.test.ts` |
+| Games kept a year after their last change, photos included | Q15 | `server/src/games.test.ts` |
+| **Photos tab:** the rulebook's photo questions for the game size; seekers ask, the hider sends a photo (camera on phones), everyone sees it; other photos for the game. Photos are re-encoded to at most 5 MB, which also removes their location data | Q16 | e2e (ask, send, see), `server/src/app.test.ts` (size limit) |
+| **Curses tab:** the hider casts a curse (text shown for the game size, countdown for timed ones); everyone sees it; seekers mark it cleared | Q17 | `server/src/gameOps.test.ts`, `tests/rulesText.test.tsx`, e2e |
+| **Altitude question** ("are you higher or lower than me?"): free AWS Terrain Tiles elevation data, built on the server (~100 MB, ~50 m detail); the seeker's altitude comes from the map or their phone's reading | Q29 | `server/datasets/elevation.test.ts` (PNG decoding checked against PIL), `tests/elevation.test.ts` (incl. a real tile that once broke it), `tests/placeQuestions.test.ts`; checked in a browser (Zürich HB 413 m, Uetliberg 857 m) |
+| Lugano and Sion count as airports | Q28 | `server/datasets/elements.test.ts` |
+| Reference places only for the active question (the card last opened, tapped or added); Settings: active / all / off | Q31 | `tests/activeQuestion.test.ts` |
+| **Fixed:** the hider password was sometimes sent empty (the app's text fields report changes after half a second) | found by the e2e test | `e2e/sharedGame.spec.ts` |
 
-1. **One live link** for seekers and hider: questions added, moved or changed
-   by anyone show up on everyone's phone. Stored in the API's SQLite, pushed
-   live over a WebSocket.
-2. **Hider role** behind a password the hider sets. The hider's position never
-   leaves their phone; hider mode **suggests** each answer and the hider taps
-   to send it (nothing is sent automatically).
-3. **Game settings page**, including who may change answers (for now: only
-   the hider).
-4. **Seeker brainstorm mode:** seekers add questions only they see, with a
-   "send to hider" button. Shading in different colours: confirmed answers
-   versus speculative ones.
-5. **Edits:** last change wins (Q13). No live location sharing (Q14).
-6. **Old games:** kept 30 days, or a year if small (Q15).
-7. **Photos:** shrunk to at most 5 MB, attached per game; a tab listing the
-   photo questions (Q16).
-8. **Curses:** a tracker per game using the transcribed curse cards
-   (`src/lib/rules/cards.ts`).
+**Found on the first server run (2026-10-09 evening):** the `web` container
+labelled every file as a download (a `types` block in its nginx config
+replaced nginx's whole MIME list), and the API couldn't write to its data
+folder (owned by root) so it restarted for ever. Both fixed; the nginx
+configs are now checked by a real nginx in CI (`deploy/test-nginx.sh`:
+content types, caching, compression, basemap range requests, host site
+syntax). Also fixed before they bit: gzip would have broken the basemap's
+range requests, and a data refresh swapped a folder the `web` container has
+mounted.
+
+**Metric cards:** not found online; see Q32. The app still shows the imperial
+card texts.
+
+**For the server:** this update needs the new nginx `/api/` settings (live
+updates and photos), a data refresh for the elevation tiles and airports, and
+the usual app update. See [deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md#updating-to-round-4).
 
 ## Phase 4: game-day UX ⏭️
 

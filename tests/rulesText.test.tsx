@@ -64,3 +64,16 @@ describe("CardText", () => {
         );
     });
 });
+
+describe("CardText for one game size", () => {
+    it("shows only that size's value", () => {
+        expect(
+            renderToStaticMarkup(
+                <CardText
+                    text="Seekers must be at least {1/5/30} miles from you."
+                    size="medium"
+                />,
+            ),
+        ).toBe("Seekers must be at least <strong>5</strong> miles from you.");
+    });
+});

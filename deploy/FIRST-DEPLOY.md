@@ -18,14 +18,15 @@ fastest option: a Hetzner server downloads at hundreds of MB/s, so the whole
 first setup takes **roughly 1–2 hours**, and most of that is importing, not
 downloading.
 
-| Data | Size on the server | Where it comes from | First time |
-| --- | --- | --- | --- |
-| OpenStreetMap extracts for CH + neighbours | ~3.7 GB (kept for faster refreshes) | Geofabrik, downloaded by `updater` | ~5–10 min |
-| Places up to ~300 km away (`far-places.osm.pbf`) | 22 MB (the 6.5 GB of downloads are deleted) | **copy yours from your PC** (step 3), or `updater` downloads it | copy: seconds; download: ~10–20 min |
-| Reference data (places, borders, train lines, lakes…) | ~40–50 MB | built by `updater` from the above | ~2 min |
-| Basemap tiles | ~1.5 GB | Protomaps, extracted by `updater` | ~5–15 min |
-| Overpass database (fallback map queries) | ~10–20 GB | imported by the `overpass` container on first start | ~1 hour |
-| Place search (Photon) | ~1–2 GB | downloaded and imported by `photon` on first start | ~15–30 min |
+| Data                                                  | Size on the server                          | Where it comes from                                             | First time                          |
+| ----------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- |
+| OpenStreetMap extracts for CH + neighbours            | ~3.7 GB (kept for faster refreshes)         | Geofabrik, downloaded by `updater`                              | ~5–10 min                           |
+| Places up to ~300 km away (`far-places.osm.pbf`)      | 22 MB (the 6.5 GB of downloads are deleted) | **copy yours from your PC** (step 3), or `updater` downloads it | copy: seconds; download: ~10–20 min |
+| Reference data (places, borders, train lines, lakes…) | ~40–50 MB                                   | built by `updater` from the above                               | ~2 min                              |
+| Elevation tiles (altitude question)                   | ~100 MB                                     | free AWS Terrain Tiles, downloaded once by `updater`            | ~1–2 min                            |
+| Basemap tiles                                         | ~1.5 GB                                     | Protomaps, extracted by `updater`                               | ~5–15 min                           |
+| Overpass database (fallback map queries)              | ~10–20 GB                                   | imported by the `overpass` container on first start             | ~1 hour                             |
+| Place search (Photon)                                 | ~1–2 GB                                     | downloaded and imported by `photon` on first start              | ~15–30 min                          |
 
 The only file worth copying from your PC is `data/osm/far-places.osm.pbf`:
 it saves 6.5 GB of downloads. Your Swiss extract and `public/data/` are not
@@ -109,7 +110,8 @@ reference data; only place search and the Overpass fallback wait.
 Check from the server:
 
 ```bash
-curl -sI localhost:18780/ | head -1                          # 200 OK
+docker compose ps                                            # web, api "healthy"; nothing "Restarting"
+curl -sI localhost:18780/ | grep -iE "^HTTP|content-type"    # 200, text/html
 curl -s localhost:18780/data/manifest.json | head -c 200     # reference data
 curl -sI localhost:18780/tiles/basemap.pmtiles | head -1     # 200 OK
 curl -s localhost:18787/api/health                           # {"ok":true}
@@ -117,13 +119,18 @@ curl -s 'localhost:18782/api?q=Zurich&limit=1' | head -c 200 # after Photon's im
 curl -s 'localhost:18781/api/interpreter?data=[out:json];node(1);out;' | head -c 200  # after Overpass's import
 ```
 
+A `curl` that prints nothing means nothing is listening on that port yet:
+for Overpass that's normal during its first hour; for anything else, look at
+`docker compose logs --tail=50 <service>`.
+
 ## 7. HTTPS and nginx (no Authelia)
 
-Get the certificate first (certbot answers the check through nginx), then
-install the site:
+The site file expects your server's shared certificate at
+`/etc/letsencrypt/live/main_cert/`, which covers this name. (If you ever
+need a separate one: `sudo certbot certonly --nginx -d jetlag.sharankov.com`,
+then change the two `ssl_certificate` lines.)
 
 ```bash
-sudo certbot certonly --nginx -d jetlag.sharankov.com
 sudo cp ~/jetlag/deploy/nginx/jetlag.sharankov.com.noauth.conf /etc/nginx/sites-available/jetlag.sharankov.com
 sudo ln -s /etc/nginx/sites-available/jetlag.sharankov.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
@@ -179,16 +186,74 @@ REFRESH_FAR=1 ~/jetlag/deploy/refresh-data.sh   # also renew the 300 km places (
 
 **Storage:** expect 20–30 GB in `deploy/data/` in total.
 
+## Already deployed? Do this now
+
+The first version on the server had two bugs found on your first run:
+
+- the `web` container labelled every file as a download
+  (`application/octet-stream`), so the browser saved the page instead of
+  showing it;
+- the API couldn't write to `deploy/data/api/` (Docker creates that folder
+  owned by root), so it restarted for ever, and `/api/…` answered 502.
+
+Both are fixed in the code. The server gets fixes only through GitHub, so
+**first, on your PC**, commit and push (nothing happens on the server
+otherwise: `git pull` finds nothing and rebuilds the same images):
+
+```bash
+git add -A && git commit -m "Shared games, altitude question, server fixes" && git push
+```
+
+Then, on the server:
+
+```bash
+cd ~/jetlag && git pull
+# 1. Host nginx. The file in the repo points at your shared certificate
+#    (main_cert), so copying it over is safe. What changed: photos up to
+#    5 MB need the bigger upload limit; everything else works either way.
+sudo cp deploy/nginx/jetlag.sharankov.com.noauth.conf /etc/nginx/sites-available/jetlag.sharankov.com
+sudo nginx -t && sudo systemctl reload nginx
+# 2. New images, restart the app.
+cd deploy
+docker compose --profile tools build
+docker compose up -d
+# 3. Check (web and api say "healthy" after a minute).
+docker compose ps
+curl -sI localhost:18780/ | grep -i content-type   # text/html
+curl -s localhost:18787/api/health                 # {"ok":true}
+# 4. Elevation data and the airport list (20–40 min; the app works meanwhile).
+docker compose run --rm updater
+```
+
+Until the new image runs, this one line makes the old API start (it only
+lacked permission to write its folder):
+
+```bash
+chown -R 1000:1000 ~/jetlag/deploy/data/api && docker compose restart api
+```
+
+Photos are stored with the games in `deploy/data/api/photos/`.
+
 ## If something goes wrong
 
+- **502 Bad Gateway**: nginx is up but the container behind that address
+  isn't answering. `docker compose ps` shows which one (look for
+  "Restarting" or "unhealthy"), `docker compose logs --tail=50 api` (or
+  `web`) shows why. For `/overpass/` during the first hour it's normal.
+- **The browser downloads a file instead of showing the app**: the `web`
+  image is from before the fix above; `docker compose build web &&
+docker compose up -d web`.
+- **`curl localhost:18787/api/health` prints nothing**: the API container is
+  restarting. Before the fix above it couldn't write to `deploy/data/api/`;
+  `docker compose logs api` says what's wrong now.
 - **The updater fails on a download**: run it again; Geofabrik sometimes
   hiccups. If one region's address changed, edit `REGIONS` / `FAR_REGIONS` in
   `update-data.sh`.
-- **`nginx -t` complains about the certificate**: step 7's `certbot certonly`
-  didn't finish; check that DNS points at this server and port 80 is open.
+- **`nginx -t` complains about the certificate**: the two `ssl_certificate`
+  lines must point at an existing one (`ls /etc/letsencrypt/live/`).
 - **"Map data unavailable" on a question**: Overpass is still importing
   (`docker compose logs overpass`). Most questions don't need it.
 - **Search finds nothing**: Photon is still importing (`docker compose logs
-  photon`).
+photon`).
 - **A panel shows "ran into a problem"**: press "Reset its settings"; if it
   comes back, send me the message shown.

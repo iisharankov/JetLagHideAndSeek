@@ -3,6 +3,7 @@ import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { VscChevronDown, VscShare, VscTrash } from "react-icons/vsc";
 
+import { QuestionGameBar } from "@/components/game/QuestionGameBar";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/sidebar-l";
 import { showUndoToast } from "@/components/undoToast";
 import {
+    activeQuestionKey,
     deleteQuestion,
     isLoading,
     questions,
@@ -72,17 +74,28 @@ export const QuestionCard = ({
     const status = useStore(questionStatuses)[questionKey];
     const copyButtonRef = useRef<HTMLButtonElement>(null);
     const question = $questions.find((q) => q.key === questionKey);
+    const isActive = useStore(activeQuestionKey) === questionKey;
 
     const toggleCollapse = () => {
         if (setCollapsed) {
             setCollapsed(!isCollapsed);
         }
+        if (isCollapsed) activeQuestionKey.set(questionKey);
         setIsCollapsed((prevState) => !prevState);
     };
 
     return (
         <>
-            <SidebarGroup className={className}>
+            <SidebarGroup
+                className={cn(
+                    "transition-colors",
+                    isActive &&
+                        "bg-blue-500/10 ring-1 ring-inset ring-blue-500/60",
+                    className,
+                )}
+                onPointerDown={() => activeQuestionKey.set(questionKey)}
+                data-active={isActive || undefined}
+            >
                 <div className="relative">
                     <button
                         onClick={toggleCollapse}
@@ -114,6 +127,7 @@ export const QuestionCard = ({
                             }
                         />
                     )}
+                    <QuestionGameBar questionKey={questionKey} />
                     {(status?.state === "error" ||
                         status?.state === "not-applicable") && (
                         <p

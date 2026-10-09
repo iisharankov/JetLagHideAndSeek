@@ -210,11 +210,23 @@ const SIZES = [
  * Card text where "{1/5/30}" means 1, 5 or 30 depending on the game size
  * (small/medium/large), shown as S/M/L badges like on the cards.
  */
-export const CardText = ({ text }: { text: string }) => (
+export const CardText = ({
+    text,
+    size,
+}: {
+    text: string;
+    /** Show only this game size's value. */
+    size?: "small" | "medium" | "large";
+}) => (
     <>
         {text.split(/(\{[^}]+\})/).map((part, index) => {
             const values = part.match(/^\{(.+)\}$/)?.[1].split("/");
             if (!values) return <Fragment key={index}>{part}</Fragment>;
+            if (size) {
+                const value =
+                    values[SIZES.findIndex(([name]) => name === size)];
+                return <strong key={index}>{value}</strong>;
+            }
             return (
                 <Fragment key={index}>
                     {values.map((value, n) => (

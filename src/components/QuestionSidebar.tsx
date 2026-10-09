@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { SidebarCloseIcon } from "lucide-react";
+import { useState } from "react";
 
 import {
     AlertDialog,
@@ -22,6 +23,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
+import { SegmentedControl } from "@/components/ui/toggle-card";
 import { showUndoToast } from "@/components/undoToast";
 import { withBase } from "@/lib/config";
 import {
@@ -32,8 +34,11 @@ import {
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { gameState } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
+import { CursesPanel } from "./game/CursesPanel";
+import { PhotosPanel } from "./game/PhotosPanel";
 import {
     MatchingQuestionComponent,
     MeasuringQuestionComponent,
@@ -47,11 +52,25 @@ export const QuestionSidebar = () => {
     const $questions = useStore(questions);
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
+    const $game = useStore(gameState);
+    const [tab, setTab] = useState<"questions" | "photos" | "curses">(
+        "questions",
+    );
+    const activeCurses =
+        $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
+    const waitingPhotos =
+        $game?.photoRequests.filter((request) => !request.photoId).length ?? 0;
 
     return (
         <Sidebar>
             <div className="flex items-center justify-between">
-                <h2 className="ml-4 mt-4 font-poppins text-2xl">Questions</h2>
+                <h2 className="ml-4 mt-4 font-poppins text-2xl">
+                    {tab === "questions"
+                        ? "Questions"
+                        : tab === "photos"
+                          ? "Photos"
+                          : "Curses"}
+                </h2>
                 <a
                     href={withBase("reference/")}
                     target="_blank"
@@ -67,7 +86,39 @@ export const QuestionSidebar = () => {
                     }}
                 />
             </div>
-            <SidebarContent>
+            <div className="px-2 pt-2">
+                <SegmentedControl
+                    label="Sidebar section"
+                    options={[
+                        { value: "questions", label: "Questions" },
+                        {
+                            value: "photos",
+                            label: waitingPhotos
+                                ? `Photos (${waitingPhotos})`
+                                : "Photos",
+                        },
+                        {
+                            value: "curses",
+                            label: activeCurses
+                                ? `Curses (${activeCurses})`
+                                : "Curses",
+                        },
+                    ]}
+                    value={tab}
+                    onValueChange={setTab}
+                />
+            </div>
+            {tab === "photos" && (
+                <SidebarContent>
+                    <PhotosPanel />
+                </SidebarContent>
+            )}
+            {tab === "curses" && (
+                <SidebarContent>
+                    <CursesPanel />
+                </SidebarContent>
+            )}
+            <SidebarContent className={tab === "questions" ? "" : "hidden"}>
                 {$questions.map((question) => {
                     switch (question.id) {
                         case "radius":
@@ -115,7 +166,7 @@ export const QuestionSidebar = () => {
                     }
                 })}
             </SidebarContent>
-            <SidebarGroup>
+            <SidebarGroup className={tab === "questions" ? "" : "hidden"}>
                 <SidebarGroupContent>
                     <SidebarMenu data-tutorial-id="add-questions-buttons">
                         <SidebarMenuItem>

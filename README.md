@@ -30,6 +30,13 @@ pnpm dev          # app at http://localhost:4321
 around Switzerland, as the server does (downloads ~6.5 GB once, keeps a small
 file in `data/osm/`).
 
+Shared games and share links need the API server. In dev, run it next to
+`pnpm dev` (which forwards `/api` to it):
+
+```bash
+pnpm build:server && pnpm start:server   # API on http://127.0.0.1:8787
+```
+
 In dev, questions are answered from `public/data/` when it exists (built by
 `pnpm data:dev`); anything else goes to public services: Overpass, OpenStreetMap
 tiles and Photon search (see `.env.development`). `npm run …` works too if
@@ -43,6 +50,7 @@ you don't have pnpm.
 | `pnpm lint` / `lint:check`    | ESLint and Prettier (fix / check only)                           |
 | `pnpm check`                  | lint:check + typecheck + test, as CI runs them                   |
 | `pnpm build:server`           | Bundle the API server into `server/dist/`                        |
+| `deploy/test-nginx.sh`        | Check the nginx configs with a real nginx (after `pnpm build`)   |
 
 Changes are test-driven: new behaviour and bug fixes come with a test that
 fails before the change. CI (`.github/workflows/ci.yml`) runs every check on

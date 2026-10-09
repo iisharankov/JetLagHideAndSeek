@@ -51,7 +51,14 @@ describe("categoriesFor", () => {
         expect(categoriesFor({ aeroway: "aerodrome", iata: "MLH" })).toEqual([
             "airports",
         ]);
-        // Airfields with an IATA code but no scheduled flights.
+        // Airports people think of as airports count, flights or not.
+        expect(categoriesFor({ aeroway: "aerodrome", iata: "LUG" })).toEqual([
+            "airports",
+        ]);
+        expect(categoriesFor({ aeroway: "aerodrome", iata: "SIR" })).toEqual([
+            "airports",
+        ]);
+        // Airfields and military bases with an IATA code don't.
         expect(categoriesFor({ aeroway: "aerodrome", iata: "BXO" })).toEqual(
             [],
         );

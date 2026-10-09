@@ -320,10 +320,11 @@ export const tutorialSteps: TutorialStep[] = [
             <>
                 Everything else is in the <strong>Menu</strong>:
                 <br />
-                <strong>Game:</strong> share a link to this game (anyone opening
-                it is asked before their game is replaced), save or load a file,
-                the rules and the question &amp; card reference, and this
-                tutorial.
+                <strong>Game:</strong> start a <strong>shared game</strong>{" "}
+                (everyone, hider included, opens the same link and sees
+                questions live; seekers&apos; drafts stay hidden from the hider
+                until sent), share a copy, save or load a file, the rules, the
+                question &amp; card reference and this tutorial.
                 <br />
                 <strong>Hider:</strong> hider mode.
                 <br />
@@ -340,10 +341,12 @@ export const tutorialSteps: TutorialStep[] = [
         title: "Hider mode",
         content: (
             <>
-                The hider opens the shared game and turns on{" "}
+                The hider opens the game link, taps{" "}
+                <strong>Menu → Game → I&apos;m the hider</strong> (with a
+                password the seekers don&apos;t know), then turns on{" "}
                 <strong>Menu → Hider → hider mode</strong>. A black hider pin
-                appears: put it where you are (or use GPS). Every question is
-                then answered automatically.
+                appears: put it where you are (or use GPS). The app then
+                suggests each answer; nothing is sent until the hider taps it.
                 <br />
                 <br />
                 The hider&apos;s position never leaves their phone: only the

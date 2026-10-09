@@ -27,12 +27,13 @@ import {
     overpassCustomHost,
     planningModeEnabled,
     questions,
+    referencePlacesMode,
     regionChoice,
     save,
-    showReferencePlaces,
     showTutorial,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { gameRole, gameState, resumeGame } from "@/lib/game/session";
 import { downloadSharedGame, uploadSharedGame } from "@/lib/shareApi";
 import {
     applySharedGame,
@@ -43,6 +44,7 @@ import { cn, compress, decompress, shareOrFallback } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 import type { RegionChoice } from "@/maps/regionRules";
 
+import { GamePanel } from "./game/GamePanel";
 import { LatitudeLongitude } from "./LatLngPicker";
 import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
@@ -100,15 +102,18 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const $planningMode = useStore(planningModeEnabled);
     const $baseTileLayer = useStore(baseTileLayer);
     const $followMe = useStore(followMe);
-    const $showReferencePlaces = useStore(showReferencePlaces);
+    const $referencePlaces = useStore(referencePlacesMode);
     const $customInitPref = useStore(customInitPreference);
     const $allowPublicOverpass = useStore(allowPublicOverpass);
     const $overpassCustomHost = useStore(overpassCustomHost);
     const [isOptionsOpen, setOptionsOpen] = useState(false);
     const [menuTab, setMenuTab] = useState<MenuTab>("game");
+    const $game = useStore(gameState);
+    const $role = useStore(gameRole);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        resumeGame();
         const params = new URL(window.location.toString()).searchParams;
 
         readSharedGameFromUrl(params)
@@ -305,18 +310,19 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pb-2">
                             {menuTab === "game" && (
                                 <>
-                                    <MenuGroup title="Share this game">
+                                    <GamePanel />
+                                    <MenuGroup title="Share a copy">
                                         <Button
                                             onClick={shareGame}
                                             data-tutorial-id="share-questions-button"
                                         >
-                                            Share link
+                                            Share a copy as a link
                                         </Button>
                                         <p className="text-xs text-slate-400">
-                                            A short link with the play area,
-                                            questions and hiding zone settings.
-                                            Anyone opening it is asked before
-                                            their own game is replaced.
+                                            A snapshot (not live) of the play
+                                            area, questions and hiding zone
+                                            settings. Anyone opening it is asked
+                                            before their own game is replaced.
                                         </p>
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button
@@ -385,6 +391,14 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             )}
                             {menuTab === "hider" && (
                                 <>
+                                    {$game && $role !== "hider" && (
+                                        <p className="rounded-md bg-amber-900/50 p-2 text-xs text-amber-100">
+                                            In a shared game, first become the
+                                            hider in Menu → Game (&quot;I&apos;m
+                                            the hider&quot;). Hider mode then
+                                            suggests answers for you to send.
+                                        </p>
+                                    )}
                                     <ToggleCard
                                         title="I'm the hider (hider mode)"
                                         description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
@@ -477,14 +491,33 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                         />
                                     </MenuGroup>
                                     <MenuGroup title="Map">
-                                        <ToggleCard
-                                            title="Show reference places"
-                                            description="A star on the place a question measures from, dots on the other candidates, and the seeker's zone outline."
-                                            checked={$showReferencePlaces}
-                                            onCheckedChange={
-                                                showReferencePlaces.set
+                                        <Label>Reference places</Label>
+                                        <SegmentedControl
+                                            label="Reference places"
+                                            options={[
+                                                {
+                                                    value: "active",
+                                                    label: "Active question",
+                                                },
+                                                {
+                                                    value: "all",
+                                                    label: "All questions",
+                                                },
+                                                { value: "off", label: "Off" },
+                                            ]}
+                                            value={$referencePlaces}
+                                            onValueChange={
+                                                referencePlacesMode.set
                                             }
                                         />
+                                        <p className="text-xs text-slate-400">
+                                            A star on the place a question
+                                            measures from, dots on the other
+                                            candidates and the seeker&apos;s
+                                            zone outline. The active question is
+                                            the card you last opened, tapped or
+                                            added.
+                                        </p>
                                         <ToggleCard
                                             title="Follow me (GPS)"
                                             description="Show your own position on the map."

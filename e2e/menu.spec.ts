@@ -17,7 +17,7 @@ test("one Menu holds game, hider and settings; hider mode shows the hider pin", 
 
     await page.getByRole("button", { name: "Menu" }).click();
     await expect(
-        page.getByRole("button", { name: "Share link" }),
+        page.getByRole("button", { name: "Share a copy as a link" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Rules" })).toHaveAttribute(
         "href",

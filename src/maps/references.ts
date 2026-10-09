@@ -18,6 +18,7 @@ import { matchingPlaceKind } from "@/maps/questions/matching";
 import {
     DEFAULT_MIN_LAKE_AREA_KM2,
     measuringPlaceKind,
+    seekerAltitude,
 } from "@/maps/questions/measuring";
 import {
     type PlaceKind,
@@ -218,6 +219,17 @@ const computeReference = async (
                 (data as any).cat?.adminLevel ?? 4,
             );
         }
+        if (data.type === "sea-level") {
+            const metres = await seekerAltitude(data);
+            return {
+                star: {
+                    lat: data.lat,
+                    lng: data.lng,
+                    name: `Seeker altitude: ${Math.round(metres)} m`,
+                },
+                dots: [],
+            };
+        }
         if (data.type === "lake") {
             return lakeReference(
                 data,
@@ -250,6 +262,7 @@ export const questionReference = memoizeAsync(computeReference, (question) =>
         lng: (question.data as any).lng,
         cat: (question.data as any).cat,
         minLake: (question.data as any).minLakeAreaKm2,
+        altitude: (question.data as any).seekerAltitude,
         area: playAreaKey(),
         rules: regionRules.get().region,
     }),

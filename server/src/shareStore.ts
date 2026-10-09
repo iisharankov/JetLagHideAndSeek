@@ -13,9 +13,12 @@ export interface ShareStore {
     load(id: string): string | undefined;
 }
 
-/** Shared games in SQLite (`:memory:` for tests). */
-export const createShareStore = (path: string): ShareStore => {
-    const db = new DatabaseSync(path);
+/** Share links in SQLite: a database, or a path (`:memory:` for tests). */
+export const createShareStore = (
+    database: string | DatabaseSync,
+): ShareStore => {
+    const db =
+        typeof database === "string" ? new DatabaseSync(database) : database;
     db.exec(`
         CREATE TABLE IF NOT EXISTS shares (
             id TEXT PRIMARY KEY,

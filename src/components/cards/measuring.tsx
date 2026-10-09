@@ -7,6 +7,7 @@ import CustomInitDialog from "@/components/CustomInitDialog";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
     MENU_ITEM_CLASSNAME,
@@ -25,6 +26,7 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
+import { elevation } from "@/maps/elevation";
 import {
     DEFAULT_MIN_LAKE_AREA_KM2,
     determineMeasuringBoundary,
@@ -93,6 +95,14 @@ export const MeasuringQuestionComponent = ({
                         </span>
                     )}
                 </>
+            );
+            break;
+        case "sea-level":
+            questionSpecific = (
+                <AltitudeInput
+                    data={data}
+                    disabled={!data.drag || $isLoading}
+                />
             );
             break;
         case "lake":
@@ -367,13 +377,62 @@ export const MeasuringQuestionComponent = ({
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >
                     <ToggleGroupItem value="further">
-                        Hider Further
+                        {data.type === "sea-level"
+                            ? "Hider Higher"
+                            : "Hider Further"}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="closer">
-                        Hider Closer
+                        {data.type === "sea-level"
+                            ? "Hider Lower"
+                            : "Hider Closer"}
                     </ToggleGroupItem>
                 </ToggleGroup>
             </div>
         </QuestionCard>
+    );
+};
+
+/**
+ * Altitude question: the seeker's altitude. Blank uses the ground height at
+ * the seeker's pin (shown as the placeholder); typing a phone's reading
+ * overrides it.
+ */
+const AltitudeInput = ({
+    data,
+    disabled,
+}: {
+    data: MeasuringQuestion & { seekerAltitude?: number };
+    disabled: boolean;
+}) => {
+    const [ground, setGround] = React.useState<number | null>(null);
+    React.useEffect(() => {
+        let current = true;
+        elevation
+            .elevationAt(data.lat, data.lng)
+            .then((metres) => current && setGround(metres))
+            .catch(() => current && setGround(null));
+        return () => {
+            current = false;
+        };
+    }, [data.lat, data.lng]);
+
+    return (
+        <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+            <Label className="text-sm shrink-0">Seeker altitude (m)</Label>
+            <Input
+                type="number"
+                inputMode="numeric"
+                className="w-28"
+                value={data.seekerAltitude ?? ""}
+                placeholder={ground === null ? "from map" : `${ground} (map)`}
+                onChange={(event) => {
+                    const value = event.target.value.trim();
+                    data.seekerAltitude =
+                        value === "" ? undefined : Number(value);
+                    questionModified();
+                }}
+                disabled={disabled}
+            />
+        </SidebarMenuItem>
     );
 };

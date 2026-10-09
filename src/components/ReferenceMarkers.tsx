@@ -3,7 +3,13 @@ import * as L from "leaflet";
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 
-import { mapGeoJSON, questions, showReferencePlaces } from "@/lib/context";
+import { questionsToReference } from "@/lib/activeQuestion";
+import {
+    activeQuestionKey,
+    mapGeoJSON,
+    questions,
+    referencePlacesMode,
+} from "@/lib/context";
 import { escapeHtml } from "@/lib/html";
 import { ICON_COLORS } from "@/maps/api";
 import { questionReference } from "@/maps/references";
@@ -11,7 +17,8 @@ import type { Question } from "@/maps/schema";
 
 // Draws what each question measures against (see maps/references.ts): a
 // star on the seeker's reference place, dots on the other candidates and the
-// seeker's zone outline. Hidden questions draw nothing.
+// seeker's zone outline, for the active question (or all, or none: see
+// the Map settings). Hidden questions draw nothing.
 
 const colorOf = (question: Question) =>
     ICON_COLORS[
@@ -29,18 +36,19 @@ const starIcon = (color: string) =>
 export const ReferenceMarkers = () => {
     const map = useMap();
     const $questions = useStore(questions);
-    const $show = useStore(showReferencePlaces);
+    const $mode = useStore(referencePlacesMode);
+    const $active = useStore(activeQuestionKey);
     const $area = useStore(mapGeoJSON);
 
     useEffect(() => {
         const layer = L.layerGroup().addTo(map);
         const renderer = L.canvas({ padding: 0.5 });
-        if (!$show || !$area) return () => void layer.remove();
+        const shown = questionsToReference($questions, $mode, $active);
+        if (shown.length === 0 || !$area) return () => void layer.remove();
 
         let cancelled = false;
         const draw = async () => {
-            for (const question of $questions) {
-                if (question.data.hidden) continue;
+            for (const question of shown) {
                 const reference = await questionReference(question).catch(
                     () => null,
                 );
@@ -87,7 +95,7 @@ export const ReferenceMarkers = () => {
             cancelled = true;
             layer.remove();
         };
-    }, [map, $questions, $show, $area]);
+    }, [map, $questions, $mode, $active, $area]);
 
     return null;
 };

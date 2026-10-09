@@ -3,6 +3,7 @@ import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Map } from "leaflet";
 import { atom, computed, onSet } from "nanostores";
 
+import type { ReferenceMode } from "@/lib/activeQuestion";
 import { createBusyTracker } from "@/lib/jobs";
 import { decodeStoredQuestions } from "@/lib/storage";
 import type {
@@ -95,8 +96,11 @@ export const questions = persistentAtom<Questions>("questions", [], {
     encode: JSON.stringify,
     decode: decodeStoredQuestions,
 });
-export const addQuestion = (question: DeepPartial<Question>) =>
-    questionModified(questions.get().push(questionSchema.parse(question)));
+export const addQuestion = (question: DeepPartial<Question>) => {
+    const parsed = questionSchema.parse(question);
+    activeQuestionKey.set(parsed.key);
+    questionModified(questions.get().push(parsed));
+};
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const questionModified = (..._: any[]) => {
     if (autoSave.get()) {
@@ -381,15 +385,13 @@ export const planningModeEnabled = persistentAtom<boolean>(
         decode: JSON.parse,
     },
 );
-/** Draw each question's reference places (star, dots, zone outline). */
-export const showReferencePlaces = persistentAtom<boolean>(
-    "showReferencePlaces",
-    true,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
+/** Which questions draw their reference places (star, dots, zone outline). */
+export const referencePlacesMode = persistentAtom<ReferenceMode>(
+    "referencePlaces",
+    "active",
 );
+/** The question being worked on: its card was last opened, tapped or added. */
+export const activeQuestionKey = atom<number | null>(null);
 export const autoZoom = persistentAtom<boolean>("autoZoom", true, {
     encode: JSON.stringify,
     decode: JSON.parse,

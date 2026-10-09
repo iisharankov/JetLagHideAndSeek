@@ -331,6 +331,9 @@ const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
             z.literal("coastline").describe("Coastline Question"),
             z.literal("lake").describe("Lake Shore Question"),
             z
+                .literal("sea-level")
+                .describe("Altitude Question (Higher or Lower)"),
+            z
                 .literal("airport")
                 .describe("Commercial Airport In Zone Question"),
             z
@@ -391,6 +394,8 @@ const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
         .optional(),
     /** Lake shore question: only lakes at least this big count (km²). */
     minLakeAreaKm2: z.number().positive().optional(),
+    /** Altitude question: the seeker's altitude (m); default from the map. */
+    seekerAltitude: z.number().optional(),
 });
 
 const hidingZoneMeasuringQuestionsSchema = baseMeasuringQuestionSchema.extend({

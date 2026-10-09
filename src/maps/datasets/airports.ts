@@ -1,10 +1,8 @@
-// Airports that count as "commercial" for airport questions: those with
-// regular international passenger flights, within reach of Switzerland
-// (about 300 km). Edit this list to change which airports count, then rebuild
-// the reference data (deploy/README.md) and the app.
-//
-// Written from general knowledge, not checked against current timetables:
-// please review. Codes are IATA codes as tagged in OpenStreetMap.
+// Airports that count as "commercial" for airport questions: the ones
+// players would call an airport (with or without flights right now), within
+// reach of Switzerland (about 300 km). Edit this list to change which
+// airports count, then rebuild the reference data (deploy/README.md) and the
+// app. Codes are IATA codes as tagged in OpenStreetMap.
 
 export const COMMERCIAL_AIRPORTS: Record<string, string> = {
     // Switzerland
@@ -15,10 +13,10 @@ export const COMMERCIAL_AIRPORTS: Record<string, string> = {
     EAP: "EuroAirport Basel-Mulhouse-Freiburg (France)",
     BRN: "Bern",
     ACH: "St. Gallen-Altenrhein",
-    // Left out, add them if they have flights when you play:
-    // LUG Lugano (no scheduled flights since 2020, as far as I know),
-    // SIR Sion (occasional seasonal flights only), SMV Engadin, BXO Buochs,
-    // EML Emmen and VIP Payerne (airfields and military bases).
+    LUG: "Lugano",
+    SIR: "Sion",
+    // Left out: SMV Engadin (business jets only), BXO Buochs, EML Emmen and
+    // VIP Payerne (airfields and military bases).
 
     // Germany
     FDH: "Friedrichshafen",
