@@ -46,13 +46,6 @@ export enum CacheType {
     PERMANENT_CACHE = "jlhs-map-generator-permanent-cache",
 }
 
-export interface CustomStation {
-    id: string;
-    name?: string;
-    lat: number;
-    lng: number;
-}
-
 export interface StationPlaceProperties {
     id: string;
     [key: string]: string | undefined;

@@ -1,7 +1,13 @@
 // HTTP calls to the shared-game API (server/src/app.ts).
 import { API_URL } from "@/lib/config";
 
-import type { GameOp, GameState, Role, SharedQuestion } from "./types";
+import type {
+    GameOp,
+    GameSettings,
+    GameState,
+    Role,
+    SharedQuestion,
+} from "./types";
 
 const headers = (token?: string, extra: Record<string, string> = {}) => ({
     ...extra,
@@ -37,6 +43,7 @@ const post = <T>(path: string, body: unknown, token?: string) =>
 export const createGame = (start: {
     playArea: unknown;
     zone: unknown;
+    settings: GameSettings;
     questions: SharedQuestion[];
     by: string;
 }) => post<{ state: GameState }>("/games", start);

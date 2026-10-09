@@ -6,6 +6,7 @@ import {
     type GameOp,
     type GameState,
     LOCAL_FIELDS,
+    type Role,
     type SharedQuestion,
 } from "./types";
 
@@ -97,6 +98,20 @@ export const diffLocal = (
         if (!keys.has(key)) ops.push({ type: "deleteQuestion", key });
     }
     return ops;
+};
+
+/**
+ * Whether this phone may change or delete a question: answered questions
+ * are the hider's, unless the game lets seekers answer.
+ */
+export const canChangeQuestion = (
+    key: number,
+    state: GameState | null,
+    role: Role,
+) => {
+    const entry = state?.questions[String(key)];
+    if (!entry || entry.state !== "answered") return true;
+    return role === "hider" || state!.settings.seekersCanAnswer;
 };
 
 /**

@@ -50,3 +50,21 @@ export const hiderIcon = (): Icon =>
         popupAnchor: [0, -60],
         className: "hider-marker",
     }));
+
+// A seeker's own note on the map (never shared): a violet pin with a
+// bookmark, smaller than the question pins.
+const noteSvg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="40" viewBox="0 0 26 40">` +
+    `<path d="M13 1C6.4 1 1 6.4 1 13c0 2.4.7 4.6 1.9 6.5L13 39l10.1-19.5C24.3 17.6 25 15.4 25 13 25 6.4 19.6 1 13 1z" fill="#7c3aed" stroke="#fff" stroke-opacity=".8"/>` +
+    `<path d="M9 7h8v12l-4-3-4 3z" fill="#fff"/></svg>`;
+
+let note: Icon | undefined;
+
+export const noteIcon = (): Icon =>
+    (note ??= new Icon({
+        iconUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(noteSvg)}`,
+        iconSize: [26, 40],
+        iconAnchor: [13, 39],
+        popupAnchor: [0, -36],
+        className: "note-marker",
+    }));

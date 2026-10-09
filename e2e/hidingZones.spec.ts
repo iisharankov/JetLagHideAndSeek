@@ -1,9 +1,10 @@
 import { expect, test } from "./fixtures";
 
-// Regression: with hiding zones on, the "No Overlap" style and no stations
-// (yet), the sidebar crashed with "Must have at least 2 geometries", and the
-// saved style made it crash again after every reload.
-test("hiding zones survive having no stations in the no-overlap style", async ({
+// Regression: with hiding zones on and no stations (yet), the sidebar
+// crashed with "Must have at least 2 geometries", and a saved style made it
+// crash again after every reload. (The "no-overlap" style no longer exists;
+// an old saved value must not break anything either.)
+test("hiding zones survive having no stations, and an old saved style", async ({
     page,
     externalHosts,
 }) => {

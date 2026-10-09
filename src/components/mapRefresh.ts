@@ -14,6 +14,7 @@ import {
     questionFinishedMapData,
     questions,
     questionStatuses,
+    remainingMapData,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { answerOf, describeAnswer } from "@/lib/game/answers";
@@ -24,6 +25,7 @@ import {
     applyQuestionsToMapGeoData,
     hiderifyQuestion,
     holedMask,
+    questionOutline,
     type QuestionStatus,
     safeUnion,
 } from "@/maps";
@@ -34,6 +36,14 @@ import { errorMessage } from "@/maps/errors";
 type TaggedLayer = L.Layer & {
     questionKey?: number;
     eliminationGeoJSON?: boolean;
+};
+
+/** A question waiting for the hider's answer: its shape, nothing ruled out. */
+const WAITING_STYLE: L.PathOptions = {
+    color: "#60a5fa",
+    weight: 3,
+    dashArray: "8 6",
+    fill: false,
 };
 
 /** Areas ruled out only by seekers' draft questions (speculation). */
@@ -172,6 +182,23 @@ const refresh = async () => {
         drawOutline,
     );
     const mapGeoData = guessed.mapGeoData;
+    // Questions waiting for the hider are drawn, not applied, so the hider
+    // (and everyone) sees what's being asked.
+    for (const question of waiting) {
+        try {
+            const outline = await questionOutline(question);
+            if (outline) {
+                const layer = L.geoJSON(outline, {
+                    style: WAITING_STYLE,
+                    interactive: false,
+                }) as L.GeoJSON & TaggedLayer;
+                layer.questionKey = question.key;
+                layer.addTo(map);
+            }
+        } catch {
+            // Nothing to draw for this one (e.g. no data for its place).
+        }
+    }
     questionStatuses.set({
         ...Object.fromEntries(known.statuses),
         ...Object.fromEntries(guessed.statuses),
@@ -207,6 +234,7 @@ const refresh = async () => {
         }
     }
     const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
+    remainingMapData.set(mapGeoData);
     questionFinishedMapData.set(eliminated);
 
     if (focus && autoZoom.get()) {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { answerChoices, answerOf, describeAnswer } from "@/lib/game/answers";
+import {
+    answerChoices,
+    answerOf,
+    describeAnswer,
+    isCurrentAnswer,
+} from "@/lib/game/answers";
 import { type Question, questionSchema } from "@/maps/schema";
 
 const q = (id: string, data: object) =>
@@ -71,18 +76,25 @@ describe("describeAnswer", () => {
 });
 
 describe("answerChoices", () => {
-    it("lists every possible answer, the current one first", () => {
+    it("lists every possible answer in a fixed order, whatever the answer", () => {
         expect(answerChoices(q("radius", { within: false }))).toEqual([
-            { label: "No", answer: { within: false } },
             { label: "Yes", answer: { within: true } },
+            { label: "No", answer: { within: false } },
+        ]);
+        expect(answerChoices(q("radius", { within: true }))).toEqual(
+            answerChoices(q("radius", { within: false })),
+        );
+        const lengths = q("matching", {
+            type: "same-length-station",
+            lengthComparison: "same",
+        });
+        expect(answerChoices(lengths).map((c) => c.label)).toEqual([
+            "Shorter",
+            "Same length",
+            "Longer",
         ]);
         expect(
-            answerChoices(
-                q("matching", {
-                    type: "same-length-station",
-                    lengthComparison: "same",
-                }),
-            ).map((c) => c.label),
-        ).toEqual(["Same length", "Shorter", "Longer"]);
+            answerChoices(lengths).map((c) => isCurrentAnswer(lengths, c)),
+        ).toEqual([false, true, false]);
     });
 });

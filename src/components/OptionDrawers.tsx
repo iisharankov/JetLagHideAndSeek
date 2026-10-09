@@ -45,6 +45,7 @@ import { errorMessage } from "@/maps/errors";
 import type { RegionChoice } from "@/maps/regionRules";
 
 import { GamePanel } from "./game/GamePanel";
+import { HiderClaim } from "./game/HiderClaim";
 import { LatitudeLongitude } from "./LatLngPicker";
 import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
@@ -391,72 +392,81 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             )}
                             {menuTab === "hider" && (
                                 <>
-                                    {$game && $role !== "hider" && (
-                                        <p className="rounded-md bg-amber-900/50 p-2 text-xs text-amber-100">
-                                            In a shared game, first become the
-                                            hider in Menu → Game (&quot;I&apos;m
-                                            the hider&quot;). Hider mode then
-                                            suggests answers for you to send.
-                                        </p>
-                                    )}
-                                    <ToggleCard
-                                        title="I'm the hider (hider mode)"
-                                        description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
-                                        checked={$hiderMode !== false}
-                                        onCheckedChange={setHiderMode}
-                                    />
-                                    {$hiderMode !== false && (
-                                        <MenuGroup title="Hider location">
-                                            <p className="text-xs text-slate-400">
-                                                Drag the black hider pin on the
-                                                map, use your GPS (target
-                                                button), or type coordinates.
-                                            </p>
-                                            <SidebarMenu>
-                                                <LatitudeLongitude
-                                                    latitude={
-                                                        $hiderMode.latitude
-                                                    }
-                                                    longitude={
-                                                        $hiderMode.longitude
-                                                    }
-                                                    inlineEdit
-                                                    onChange={(
-                                                        latitude,
-                                                        longitude,
-                                                    ) => {
-                                                        $hiderMode.latitude =
-                                                            latitude ??
-                                                            $hiderMode.latitude;
-                                                        $hiderMode.longitude =
-                                                            longitude ??
-                                                            $hiderMode.longitude;
-
-                                                        if ($autoSave) {
-                                                            hiderMode.set({
-                                                                ...$hiderMode,
-                                                            });
-                                                        } else {
-                                                            triggerLocalRefresh.set(
-                                                                Math.random(),
-                                                            );
+                                    {$game && <HiderClaim />}
+                                    <div
+                                        className={cn(
+                                            "flex flex-col gap-3",
+                                            $game &&
+                                                $role !== "hider" &&
+                                                "pointer-events-none opacity-40",
+                                        )}
+                                        aria-disabled={
+                                            $game && $role !== "hider"
+                                                ? true
+                                                : undefined
+                                        }
+                                        data-testid="hider-controls"
+                                    >
+                                        <ToggleCard
+                                            title="Hider mode"
+                                            description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
+                                            checked={$hiderMode !== false}
+                                            onCheckedChange={setHiderMode}
+                                        />
+                                        {$hiderMode !== false && (
+                                            <MenuGroup title="Hider location">
+                                                <p className="text-xs text-slate-400">
+                                                    Drag the black hider pin on
+                                                    the map, use your GPS
+                                                    (target button), or type
+                                                    coordinates.
+                                                </p>
+                                                <SidebarMenu>
+                                                    <LatitudeLongitude
+                                                        latitude={
+                                                            $hiderMode.latitude
                                                         }
-                                                    }}
-                                                    label="Hider location"
-                                                />
-                                                {!$autoSave && (
-                                                    <SidebarMenuItem>
-                                                        <SidebarMenuButton
-                                                            className="bg-blue-600 p-2 rounded-md font-semibold font-poppins mt-2"
-                                                            onClick={save}
-                                                        >
-                                                            Save
-                                                        </SidebarMenuButton>
-                                                    </SidebarMenuItem>
-                                                )}
-                                            </SidebarMenu>
-                                        </MenuGroup>
-                                    )}
+                                                        longitude={
+                                                            $hiderMode.longitude
+                                                        }
+                                                        inlineEdit
+                                                        onChange={(
+                                                            latitude,
+                                                            longitude,
+                                                        ) => {
+                                                            $hiderMode.latitude =
+                                                                latitude ??
+                                                                $hiderMode.latitude;
+                                                            $hiderMode.longitude =
+                                                                longitude ??
+                                                                $hiderMode.longitude;
+
+                                                            if ($autoSave) {
+                                                                hiderMode.set({
+                                                                    ...$hiderMode,
+                                                                });
+                                                            } else {
+                                                                triggerLocalRefresh.set(
+                                                                    Math.random(),
+                                                                );
+                                                            }
+                                                        }}
+                                                        label="Hider location"
+                                                    />
+                                                    {!$autoSave && (
+                                                        <SidebarMenuItem>
+                                                            <SidebarMenuButton
+                                                                className="bg-blue-600 p-2 rounded-md font-semibold font-poppins mt-2"
+                                                                onClick={save}
+                                                            >
+                                                                Save
+                                                            </SidebarMenuButton>
+                                                        </SidebarMenuItem>
+                                                    )}
+                                                </SidebarMenu>
+                                            </MenuGroup>
+                                        )}
+                                    </div>
                                 </>
                             )}
                             {menuTab === "settings" && (

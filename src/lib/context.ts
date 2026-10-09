@@ -4,11 +4,15 @@ import type { Map } from "leaflet";
 import { atom, computed, onSet } from "nanostores";
 
 import type { ReferenceMode } from "@/lib/activeQuestion";
+import {
+    defaultGameSettings,
+    normalizeGameSettings,
+} from "@/lib/game/settings";
+import type { GameSettings } from "@/lib/game/types";
 import { createBusyTracker } from "@/lib/jobs";
 import { decodeStoredQuestions } from "@/lib/storage";
 import type {
     AdditionalMapGeoLocations,
-    CustomStation,
     OpenStreetMap,
     StationCircle,
 } from "@/maps/api";
@@ -165,9 +169,16 @@ export const displayHidingZonesOptions = persistentAtom<string[]>(
         decode: JSON.parse,
     },
 );
-export const displayHidingZonesStyle = persistentAtom<
-    "zones" | "stations" | "no-overlap" | "no-display"
->("displayHidingZonesStyle", "zones");
+/** What the hiding zones look like: the zones, or just the stations. */
+export const displayHidingZonesStyle = persistentAtom<"zones" | "stations">(
+    "displayHidingZonesStyle",
+    "zones",
+    {
+        encode: (value) => value,
+        // Older versions also had "no-overlap" and "no-display".
+        decode: (value) => (value === "stations" ? "stations" : "zones"),
+    },
+);
 export const questionFinishedMapData = atom<any>(null);
 
 export const trainStations = atom<StationCircle[]>([]);
@@ -179,47 +190,37 @@ onSet(trainStations, ({ newValue }) => {
     });
 });
 
-export const useCustomStations = persistentAtom<boolean>(
-    "useCustomStations",
-    false,
+/**
+ * The game's settings (size, rules, hiding zones, questions). In a shared
+ * game they come from the server; see lib/gameSettings.ts for applying them.
+ */
+export const gameSettings = persistentAtom<GameSettings>(
+    "gameSettings",
+    defaultGameSettings(),
     {
         encode: JSON.stringify,
-        decode: JSON.parse,
+        decode: (value) => normalizeGameSettings(JSON.parse(value)),
     },
 );
-export const customStations = persistentAtom<CustomStation[]>(
-    "customStations",
-    [],
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
-export const mergeDuplicates = persistentAtom<boolean>(
-    "removeDuplicates",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
-/** Draw the remaining stations as markers on top of the hiding zones. */
-export const showRemainingStations = persistentAtom<boolean>(
-    "showRemainingStations",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
-export const includeDefaultStations = persistentAtom<boolean>(
-    "includeDefaultStations",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
+
+/** The area still in play after the last refresh (the shading's inverse). */
+export const remainingMapData = atom<FeatureCollection<
+    Polygon | MultiPolygon
+> | null>(null);
+
+/** A seeker's private note on the map: a place worth remembering. */
+export interface NotePin {
+    id: string;
+    lat: number;
+    lng: number;
+    label: string;
+    createdAt: number;
+}
+/** Note pins stay on this phone; they're never shared. */
+export const notePins = persistentAtom<NotePin[]>("notePins", [], {
+    encode: JSON.stringify,
+    decode: JSON.parse,
+});
 export const animateMapMovements = persistentAtom<boolean>(
     "animateMapMovements",
     false,
@@ -324,9 +325,6 @@ export const hidingZone = computed(
         hidingRadius,
         hidingRadiusUnits,
         displayHidingZonesOptions,
-        useCustomStations,
-        customStations,
-        includeDefaultStations,
         customPresets,
     ],
     (
@@ -338,9 +336,6 @@ export const hidingZone = computed(
         radius,
         hidingRadiusUnits,
         zoneOptions,
-        useCustom,
-        $customStations,
-        includeDefault,
         presets,
     ) => {
         if (geo !== null) {
@@ -351,9 +346,6 @@ export const hidingZone = computed(
                 hidingRadius: radius,
                 hidingRadiusUnits,
                 zoneOptions: zoneOptions,
-                useCustomStations: useCustom,
-                customStations: $customStations,
-                includeDefaultStations: includeDefault,
                 presets: structuredClone(presets),
             };
         } else {
@@ -367,9 +359,6 @@ export const hidingZone = computed(
                 hidingRadiusUnits,
                 alternateLocations: structuredClone(altLoc),
                 zoneOptions: zoneOptions,
-                useCustomStations: useCustom,
-                customStations: $customStations,
-                includeDefaultStations: includeDefault,
                 presets: structuredClone(presets),
             };
         }

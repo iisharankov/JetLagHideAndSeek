@@ -326,7 +326,7 @@ export const tutorialSteps: TutorialStep[] = [
                 until sent), share a copy, save or load a file, the rules, the
                 question &amp; card reference and this tutorial.
                 <br />
-                <strong>Hider:</strong> hider mode.
+                <strong>Hider:</strong> becoming the hider, and hider mode.
                 <br />
                 <strong>Settings:</strong> local rules (Swiss adaptations switch
                 on automatically for Swiss play areas), planning mode, map
@@ -341,11 +341,11 @@ export const tutorialSteps: TutorialStep[] = [
         title: "Hider mode",
         content: (
             <>
-                The hider opens the game link, taps{" "}
-                <strong>Menu → Game → I&apos;m the hider</strong> (with a
-                password the seekers don&apos;t know), then turns on{" "}
-                <strong>Menu → Hider → hider mode</strong>. A black hider pin
-                appears: put it where you are (or use GPS). The app then
+                The hider opens the game link and, in{" "}
+                <strong>Menu → Hider</strong>, taps{" "}
+                <strong>I&apos;m the hider</strong> (with a password the seekers
+                don&apos;t know), then turns on hider mode there. A black hider
+                pin appears: put it where you are (or use GPS). The app then
                 suggests each answer; nothing is sent until the hider taps it.
                 <br />
                 <br />

@@ -7,7 +7,7 @@ Decisions are listed at the end.
 
 ---
 
-## New questions (round 5)
+## Open questions
 
 **Q32.** Metric cards. The card texts in the app are from the imperial
 edition, and I couldn't find the metric edition's texts anywhere online, so I
@@ -34,13 +34,6 @@ off, stopped when found, paused during a Move), and for the hider a private
 hand of cards (time bonuses, powerups, curses) that adds up the bonus
 minutes at the end. Nothing private is sent to the seekers until the round
 ends._
-
-**Answer:**
-
-**Q34.** After your first real test of the shared game, is anything
-confusing or missing? (E.g. should seekers' drafts be visible only to the
-seeker who made them instead of all seekers? Should the hider be able to
-send a different answer than hider mode suggests? It can now.)
 
 **Answer:**
 
@@ -107,3 +100,12 @@ From your earlier answers (rounds 1–4), already built or planned:
   - **Curses:** a tracker per game (the hider casts, everyone sees, seekers
     clear).
   - **Rules:** all built into the app, never linked elsewhere.
+- **Round 5 (after the first real game):** game settings are chosen on a few
+  screens before a game starts and are fixed while it runs (hider may widen
+  the hiding zones); radar defaults 2/10/50 km; the hider sees a question's
+  pin and outline before answering; answer buttons keep their order; seekers
+  can't delete answered questions; the Hider tab holds the password step;
+  seekers get private note pins; the hiding-zone sidebar is Zones \| Stations
+  plus "stations left" and "removed" lists; stations are de-duplicated
+  automatically; zones are cut to the possible area; custom station lists are
+  gone.

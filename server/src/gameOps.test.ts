@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
 
 import {
@@ -21,7 +22,15 @@ const seeker: Actor = { name: "Ana", role: "seeker" };
 const hider: Actor = { name: "Ben", role: "hider" };
 
 const fresh = () =>
-    newGameState("g1", { playArea: { kind: "place" }, zone: {} }, 1000);
+    newGameState(
+        "g1",
+        {
+            playArea: { kind: "place" },
+            zone: {},
+            settings: defaultGameSettings("medium", "switzerland"),
+        },
+        1000,
+    );
 
 const apply = (state: GameState, op: any, actor: Actor = seeker, now = 2000) =>
     applyOp(state, op, actor, now);
@@ -195,17 +204,63 @@ describe("questions", () => {
 });
 
 describe("settings", () => {
-    it("only the hider decides whether seekers may answer", () => {
+    it("are fixed once the game has started", () => {
+        expect(() =>
+            apply(
+                fresh(),
+                { type: "setSettings", settings: { size: "large" } },
+                hider,
+            ),
+        ).toThrow(/fixed once the game has started/);
+        expect(() =>
+            apply(
+                fresh(),
+                {
+                    type: "setSettings",
+                    settings: {
+                        stationKinds: {
+                            halts: true,
+                            trams: true,
+                            boats: false,
+                        },
+                    },
+                },
+                hider,
+            ),
+        ).toThrow(/fixed/);
+    });
+
+    it("let the hider widen the hiding zone and let seekers answer", () => {
         expect(() =>
             apply(fresh(), {
                 type: "setSettings",
                 settings: { seekersCanAnswer: true },
             }),
         ).toThrow(/Only the hider/);
-        expect(
-            apply(fresh(), { type: "setSettings", settings: { size: "large" } })
-                .settings.size,
-        ).toBe("large");
+        expect(() =>
+            apply(fresh(), {
+                type: "setSettings",
+                settings: { hidingRadiusKm: 1 },
+            }),
+        ).toThrow(/Only the hider/);
+        const changed = apply(
+            fresh(),
+            {
+                type: "setSettings",
+                settings: { hidingRadiusKm: 1, seekersCanAnswer: true },
+            },
+            hider,
+        );
+        expect(changed.settings.hidingRadiusKm).toBe(1);
+        expect(changed.settings.seekersCanAnswer).toBe(true);
+        expect(changed.settings.size).toBe("medium");
+        expect(() =>
+            apply(
+                fresh(),
+                { type: "setSettings", settings: { hidingRadiusKm: 500 } },
+                hider,
+            ),
+        ).toThrow(/up to 50 km/);
     });
 });
 

@@ -3,13 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { NotApplicableError } from "@/maps/errors";
 import {
-    BOAT_STOPS,
+    clipZonesToRemaining,
     DEFAULT_STATION_FILTERS,
     expandingSearch,
     measuringCouldMatch,
     placesNearStation,
-    TRAM_STOPS,
-    withStationKind,
 } from "@/maps/hidingZones";
 
 describe("measuringCouldMatch", () => {
@@ -142,20 +140,38 @@ describe("station kinds", () => {
             "[railway=halt]",
         ]);
     });
+});
 
-    it("switches trams and boats on and off without duplicates", () => {
-        const withTrams = withStationKind(
-            DEFAULT_STATION_FILTERS,
-            TRAM_STOPS,
-            true,
+describe("clipZonesToRemaining", () => {
+    const remaining = turf.featureCollection([
+        turf.bboxPolygon([8.5, 47.3, 8.6, 47.4]),
+    ]);
+    const zone = (lng: number, lat: number) =>
+        turf.circle([lng, lat], 1, {
+            units: "kilometers",
+            properties: { id: `${lng}` },
+        });
+
+    it("keeps the part of each zone still in play, and drops the rest", () => {
+        const inside = zone(8.55, 47.35);
+        const edge = zone(8.5, 47.35); // half in, half out
+        const outside = zone(8.8, 47.35);
+        const clipped = clipZonesToRemaining(
+            [inside, edge, outside],
+            remaining,
         );
-        expect(withTrams).toEqual([...DEFAULT_STATION_FILTERS, TRAM_STOPS]);
-        expect(withStationKind(withTrams, TRAM_STOPS, true)).toBe(withTrams);
 
-        const both = withStationKind(withTrams, BOAT_STOPS, true);
-        expect(withStationKind(both, TRAM_STOPS, false)).toEqual([
-            ...DEFAULT_STATION_FILTERS,
-            BOAT_STOPS,
-        ]);
+        expect(clipped.map((z) => z.properties.id)).toEqual(["8.55", "8.5"]);
+        expect(turf.area(clipped[0])).toBeCloseTo(turf.area(inside), -3);
+        expect(turf.area(clipped[1]) / turf.area(edge)).toBeCloseTo(0.5, 1);
+    });
+
+    it("gives nothing when no area is left", () => {
+        expect(
+            clipZonesToRemaining(
+                [zone(8.55, 47.35)],
+                turf.featureCollection([]),
+            ),
+        ).toEqual([]);
     });
 });

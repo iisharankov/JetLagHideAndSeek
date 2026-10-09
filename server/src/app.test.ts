@@ -118,6 +118,9 @@ describe("shared games", () => {
         const body = await response.json();
         expect(body.role).toBe("seeker");
         expect(body.state.id).toBe(id);
+        // Settings not sent get defaults.
+        expect(body.state.settings.size).toBe("medium");
+        expect(body.state.settings.hidingRadiusKm).toBe(0.5);
         expect((await app.request("/api/games/nope")).status).toBe(404);
     });
 

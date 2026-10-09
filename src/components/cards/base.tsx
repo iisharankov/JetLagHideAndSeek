@@ -39,6 +39,8 @@ import {
     questions,
     questionStatuses,
 } from "@/lib/context";
+import { gameRole, gameState } from "@/lib/game/session";
+import { canChangeQuestion } from "@/lib/game/sync";
 import { cn } from "@/lib/utils";
 
 import { QuestionInfoButton } from "./QuestionInfoButton";
@@ -75,6 +77,9 @@ export const QuestionCard = ({
     const copyButtonRef = useRef<HTMLButtonElement>(null);
     const question = $questions.find((q) => q.key === questionKey);
     const isActive = useStore(activeQuestionKey) === questionKey;
+    const $game = useStore(gameState);
+    const $role = useStore(gameRole);
+    const lockedByGame = !canChangeQuestion(questionKey, $game, $role);
 
     const toggleCollapse = () => {
         if (setCollapsed) {
@@ -251,9 +256,14 @@ export const QuestionCard = ({
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button
+                                        disabled={$isLoading || lockedByGame}
+                                        title={
+                                            lockedByGame
+                                                ? "Answered: only the hider can delete it"
+                                                : "Delete question"
+                                        }
                                         variant="outline"
                                         size="sm"
-                                        disabled={$isLoading}
                                     >
                                         <VscTrash />
                                     </Button>

@@ -1,6 +1,6 @@
 # Project docs
 
-Notes, audit and plan for this fork. Last updated 2026-10-09 (round 4 done).
+Notes, audit and plan for this fork. Last updated 2026-10-09 (round 5 done).
 
 | File                                       | What's in it                                                                                   |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
@@ -10,6 +10,17 @@ Notes, audit and plan for this fork. Last updated 2026-10-09 (round 4 done).
 | [audit.md](audit.md)                       | The round-2 audit (findings as found, with a status note on top)                               |
 | [../deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md) | **First deploy**, step by step, without Authelia                                  |
 | [../deploy/README.md](../deploy/README.md) | How to run it on your server (reference)                                                       |
+
+## Round 5 in short (after your first real game)
+
+- **Game settings** are chosen on a few screens before a game starts and
+  are fixed while it runs: size, rules, hiding zones, which questions.
+- **The hider sees the question** (pin and dashed outline) before answering;
+  answer buttons don't move; seekers can't delete answered questions.
+- **Hider tab** holds the password step; hider controls fade until then.
+- **Hiding zones:** simpler sidebar (Zones | Stations, stations left,
+  removed), automatic de-duplication, zones cut to the possible area.
+- **Note pins** for seekers' private spots.
 
 ## Round 4 in short
 

@@ -1,7 +1,7 @@
 import * as turf from "@turf/turf";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mapGeoJSON } from "@/lib/context";
+import { gameSettings, mapGeoJSON } from "@/lib/context";
 import { adjustPerMatching } from "@/maps/questions/matching";
 import { adjustPerMeasuring } from "@/maps/questions/measuring";
 import {
@@ -184,16 +184,21 @@ describe("lake shore question", () => {
         expect(contains(result, 7.75, 47.6)).toBe(false); // ~11 km
     });
 
-    it("ignores lakes smaller than the chosen size", async () => {
-        const q = question<MeasuringQuestion>("measuring", {
-            type: "lake",
-            lat: 47.53,
-            lng: 7.65,
-            minLakeAreaKm2: 20,
-        });
-        await expect(adjustPerMeasuring(q, playArea)).rejects.toThrow(
-            "There are no lakes of 20 km² or more.",
-        );
+    it("ignores lakes smaller than the size set for the game", async () => {
+        const before = gameSettings.get();
+        gameSettings.set({ ...before, minLakeAreaKm2: 20 });
+        try {
+            const q = question<MeasuringQuestion>("measuring", {
+                type: "lake",
+                lat: 47.53,
+                lng: 7.65,
+            });
+            await expect(adjustPerMeasuring(q, playArea)).rejects.toThrow(
+                "There are no lakes of 20 km² or more.",
+            );
+        } finally {
+            gameSettings.set(before);
+        }
     });
 });
 

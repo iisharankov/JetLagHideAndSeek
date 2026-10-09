@@ -3,7 +3,11 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { questions } from "@/lib/context";
-import { answerChoices, describeAnswer } from "@/lib/game/answers";
+import {
+    answerChoices,
+    describeAnswer,
+    isCurrentAnswer,
+} from "@/lib/game/answers";
 import {
     gameRole,
     gameState,
@@ -47,16 +51,9 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const mayAnswer = $role === "hider" || $game.settings.seekersCanAnswer;
     const suggestion = $suggestions[questionKey];
     const choices = answerChoices(question);
-    if (suggestion) {
-        // The suggested answer first.
-        choices.sort((a, b) =>
-            JSON.stringify(a.answer) === JSON.stringify(suggestion.answer)
-                ? -1
-                : JSON.stringify(b.answer) === JSON.stringify(suggestion.answer)
-                  ? 1
-                  : 0,
-        );
-    }
+    const isSuggested = (choice: (typeof choices)[number]) =>
+        !!suggestion &&
+        JSON.stringify(choice.answer) === JSON.stringify(suggestion.answer);
     const showChoices =
         mayAnswer &&
         (entry.state === "asked" || (entry.state === "answered" && changing));
@@ -106,11 +103,16 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                                 key={choice.label}
                                 size="sm"
                                 variant={
-                                    suggestion &&
-                                    JSON.stringify(choice.answer) ===
-                                        JSON.stringify(suggestion.answer)
+                                    isSuggested(choice) ||
+                                    (entry.state === "answered" &&
+                                        isCurrentAnswer(question, choice))
                                         ? "default"
                                         : "outline"
+                                }
+                                title={
+                                    isSuggested(choice)
+                                        ? "Suggested by hider mode"
+                                        : undefined
                                 }
                                 onClick={() => {
                                     setChanging(false);

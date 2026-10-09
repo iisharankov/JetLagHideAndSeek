@@ -75,6 +75,23 @@ export const determinePlanningPolygon = async (
     }
 };
 
+/** A question's shape on the map (circle, split line…), lock or no lock. */
+export const questionOutline = async (question: Question) => {
+    if (question.data.hidden) return undefined;
+    switch (question.id) {
+        case "radius":
+            return radiusPlanningPolygon(question.data);
+        case "thermometer":
+            return thermometerPlanningPolygon(question.data);
+        case "tentacles":
+            return tentaclesPlanningPolygon(question.data);
+        case "matching":
+            return matchingPlanningPolygon(question.data);
+        case "measuring":
+            return measuringPlanningPolygon(question.data);
+    }
+};
+
 export async function adjustMapGeoDataForQuestion(
     question: Question,
     mapGeoData: any,

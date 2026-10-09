@@ -1,277 +1,56 @@
+import * as turf from "@turf/turf";
 import { describe, expect, it } from "vitest";
 
 import type { StationPlace } from "@/maps/api";
-import {
-    checkIfStationsShareZones,
-    type Location,
-    mergeDuplicateStation,
-} from "@/maps/geo-utils/stationManipulations";
-import type { Units } from "@/maps/schema";
+import { dedupeStations } from "@/maps/geo-utils/stationManipulations";
 
-describe("mergeDuplicateStation", () => {
-    it("merges duplicates in the eastern hemisphere", async () => {
-        const places: StationPlace[] = [
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [120, 10] },
-                properties: { id: "1", name: "Station East" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [122, 12] },
-                properties: { id: "2", name: "Station East" },
-            },
+const stop = (
+    id: string,
+    name: string | undefined,
+    lng: number,
+    lat: number,
+    tags: Record<string, string> = { railway: "station" },
+) => turf.point([lng, lat], { id, name, ...tags }) as unknown as StationPlace;
+
+describe("dedupeStations", () => {
+    it("keeps one entry for a station that is also a tram and bus stop", () => {
+        const stations = [
+            stop("node/1", "Zürich HB", 8.5403, 47.378, {
+                railway: "tram_stop",
+            }),
+            stop("node/2", "Zürich HB", 8.5399, 47.3779, {
+                highway: "bus_stop",
+            }),
+            stop("node/3", "Zürich HB", 8.5402, 47.3782), // the railway station
+            stop("node/4", "Zürich HB", 8.5401, 47.3783, { railway: "halt" }),
         ];
-        const radius = 10000; // super wide radius to ensure all locations are in
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        expect(result).toHaveLength(1);
-        expect(result[0].geometry.coordinates).toEqual([121, 11]); // average
+        const kept = dedupeStations(stations);
+        expect(kept.map((s) => s.properties.id)).toEqual(["node/3"]);
     });
 
-    it("merges duplicates in the western hemisphere", async () => {
-        const places: StationPlace[] = [
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [-80, 25] },
-                properties: { id: "1", name: "Station West" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [-82, 23] },
-                properties: { id: "2", name: "Station West" },
-            },
-        ];
-        const radius = 10000; // super wide radius to ensure all locations are in
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        expect(result).toHaveLength(1);
-        expect(result[0].geometry.coordinates).toEqual([-81, 24]);
-    });
-
-    it("merges duplicates in the southern hemisphere", async () => {
-        const places: StationPlace[] = [
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [30, -20] },
-                properties: { id: "1", name: "Station South" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [32, -22] },
-                properties: { id: "2", name: "Station South" },
-            },
-        ];
-        const radius = 10000; // super wide radius to ensure all locations are in
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        expect(result).toHaveLength(1);
-        expect(result[0].geometry.coordinates).toEqual([31, -21]);
-    });
-
-    it("handles 3 or more duplicates", async () => {
-        const places: StationPlace[] = [
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [10, 10] },
-                properties: { id: "1", name: "Station Multi" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [20, 20] },
-                properties: { id: "2", name: "Station Multi" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [30, 30] },
-                properties: { id: "3", name: "Station Multi" },
-            },
-        ];
-        const radius = 10000; // super wide radius to ensure all locations are in
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        expect(result).toHaveLength(1);
-        expect(result[0].geometry.coordinates).toEqual([20, 20]); // average of 10,20,30
-    });
-
-    it("returns all places unchanged when all names are unique", async () => {
-        const places: StationPlace[] = [
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [10, 50] },
-                properties: { id: "A", name: "Unique A" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [20, -30] },
-                properties: { id: "B", name: "Unique B" },
-            },
-            {
-                type: "Feature",
-                geometry: { type: "Point", coordinates: [-40, 60] },
-                properties: { id: "C", name: "Unique C" },
-            },
-        ];
-        const radius = 10000; // super wide radius to ensure all locations are in
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        expect(result).toHaveLength(3);
-
-        // Make sure the coordinates are preserved exactly
-        expect(result.map((r) => r.geometry.coordinates)).toEqual([
-            [10, 50],
-            [20, -30],
-            [-40, 60],
+    it("keeps same-named stops that are far apart", () => {
+        const kept = dedupeStations([
+            stop("node/1", "Bahnhofstrasse", 8.54, 47.37, {
+                railway: "tram_stop",
+            }),
+            stop("node/2", "Bahnhofstrasse", 8.72, 47.5, {
+                railway: "tram_stop",
+            }),
         ]);
+        expect(kept).toHaveLength(2);
     });
 
-    it("returns 3 individual zones when 6 Jan van Galenstraat stations are added, where only 2 stations share the actual zone", async () => {
-        const places: StationPlace[] = [
-            {
-                // West station 1:      https://www.openstreetmap.org/node/3306520727
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8350051, 52.3732337],
-                },
-                properties: {
-                    id: "node/3306520727",
-                    name: "Jan van Galenstraat",
-                },
-            },
-            {
-                // West station 2:      https://www.openstreetmap.org/node/434662863
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8359077, 52.3730297],
-                },
-                properties: {
-                    id: "node/434662863",
-                    name: "Jan van Galenstraat",
-                },
-            },
-            {
-                // Center station 1:    https://www.openstreetmap.org/node/434700014
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8485891, 52.3733319],
-                },
-                properties: {
-                    id: "node/434700014",
-                    name: "Jan van Galenstraat",
-                },
-            },
-            {
-                // Center station 2:    https://www.openstreetmap.org/node/3300515588
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8487242, 52.3729826],
-                },
-                properties: {
-                    id: "node/3300515588",
-                    name: "Jan van Galenstraat",
-                },
-            },
-            {
-                // East station 1:      https://www.openstreetmap.org/node/434397634
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8584711, 52.3751323],
-                },
-                properties: {
-                    id: "node/434397634",
-                    name: "Jan van Galenstraat",
-                },
-            },
-            {
-                // East station 2:      https://www.openstreetmap.org/node/434397635
-                type: "Feature",
-                geometry: {
-                    type: "Point",
-                    coordinates: [4.8586427, 52.3743002],
-                },
-                properties: {
-                    id: "node/434397635",
-                    name: "Jan van Galenstraat",
-                },
-            },
+    it("keeps every unnamed stop and the original order", () => {
+        const stations = [
+            stop("node/1", undefined, 8.54, 47.37),
+            stop("node/2", "A", 8.55, 47.37),
+            stop("node/3", undefined, 8.5401, 47.3701),
+            stop("node/4", "A", 8.5501, 47.3701, { railway: "halt" }),
         ];
-        const radius = 0.5;
-        const units: Units = "kilometers";
-
-        const result = await mergeDuplicateStation(places, radius, units);
-        // We expect 3 stations, because the 3 pairs are very far apart
-        expect(result).toHaveLength(3);
-    });
-});
-
-describe("checkIfStationsShareZones", () => {
-    it("returns true that Jan van Galenstraat subway station and nearby tram station share zones with km as unit", async () => {
-        // Subway station:      https://www.openstreetmap.org/node/250224485
-        const station1: Location = {
-            coordinates: [4.8352937, 52.3726582],
-        };
-        // Nearby tram station: https://www.openstreetmap.org/node/3306520727
-        const station2: Location = {
-            coordinates: [4.8350051, 52.3732337],
-        };
-        const radius: number = 0.5; //km
-        const units: Units = "kilometers";
-        const result = await checkIfStationsShareZones(
-            station1,
-            station2,
-            radius,
-            units,
-        );
-        expect(result).toBe(true);
-    });
-
-    it("returns false that Jan van Galenstraat subway station and far away tram station share zones with km as unit", async () => {
-        // Subway station:      https://www.openstreetmap.org/node/250224485
-        const station1: Location = {
-            coordinates: [4.8352937, 52.3726582],
-        };
-        // Far away tram station: https://www.openstreetmap.org/node/3300515588
-        const station2: Location = {
-            coordinates: [4.8487242, 52.3729826],
-        };
-        const radius: number = 0.5; //km
-        const units: Units = "kilometers";
-        const result = await checkIfStationsShareZones(
-            station1,
-            station2,
-            radius,
-            units,
-        );
-        expect(result).toBe(false);
-    });
-
-    it("returns false that Jan van Galenstraat subway station and far away tram station share zones with miles as unit", async () => {
-        // Subway station:      https://www.openstreetmap.org/node/250224485
-        const station1: Location = {
-            coordinates: [4.8352937, 52.3726582],
-        };
-        // Far away tram station: https://www.openstreetmap.org/node/3300515588
-        const station2: Location = {
-            coordinates: [4.8487242, 52.3729826],
-        };
-        const radius: number = 0.5; //km
-        const units: Units = "miles";
-        const result = await checkIfStationsShareZones(
-            station1,
-            station2,
-            radius,
-            units,
-        );
-        expect(result).toBe(false);
+        expect(dedupeStations(stations).map((s) => s.properties.id)).toEqual([
+            "node/1",
+            "node/2",
+            "node/3",
+        ]);
     });
 });

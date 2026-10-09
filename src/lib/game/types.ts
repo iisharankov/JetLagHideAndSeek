@@ -58,8 +58,25 @@ export interface CurseEntry {
     clearedBy?: string;
 }
 
+/** Which stops count as hiding-zone stations; trains always do. */
+export interface StationKinds {
+    halts: boolean;
+    trams: boolean;
+    boats: boolean;
+}
+
+/** Decided before the game starts; fixed while it runs (see settings.ts). */
 export interface GameSettings {
     size: GameSize;
+    /** Local rules (which questions exist, "major city" threshold…). */
+    region: "standard" | "switzerland";
+    /** The hider may still change this during the game. */
+    hidingRadiusKm: number;
+    stationKinds: StationKinds;
+    /** Lake shore question: only lakes at least this big count. */
+    minLakeAreaKm2: number;
+    /** "matching:zone", "measuring:coastline"…: types left out of the game. */
+    disabledQuestions: string[];
     /** Off: only the hider can answer or change answered questions. */
     seekersCanAnswer: boolean;
 }

@@ -9,6 +9,7 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
 import { toast } from "react-toastify";
 
+import { addNotePin } from "@/components/game/NotePins";
 import { TILES_URL } from "@/lib/config";
 import {
     additionalMapGeoLocations,
@@ -26,6 +27,7 @@ import {
     questions,
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
+import { newRadiusQuestion } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
 
 import { DraggableMarkers } from "./DraggableMarkers";
@@ -95,13 +97,14 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Radius",
                         callback: (e: any) =>
-                            addQuestion({
-                                id: "radius",
-                                data: {
-                                    lat: e.latlng.lat,
-                                    lng: e.latlng.lng,
-                                },
-                            }),
+                            addQuestion(
+                                newRadiusQuestion(e.latlng.lat, e.latlng.lng),
+                            ),
+                    },
+                    {
+                        text: "Add a note pin",
+                        callback: (e: any) =>
+                            addNotePin(e.latlng.lat, e.latlng.lng),
                     },
                     {
                         text: "Add Thermometer",

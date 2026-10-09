@@ -17,6 +17,7 @@ import {
     isLoading,
     leafletMapContext,
 } from "@/lib/context";
+import { newRadiusQuestion } from "@/lib/gameSettings";
 
 export const AddQuestionDialog = ({
     children,
@@ -30,10 +31,7 @@ export const AddQuestionDialog = ({
         const map = leafletMapContext.get();
         if (!map) return false;
         const center = map.getCenter();
-        addQuestion({
-            id: "radius",
-            data: { lat: center.lat, lng: center.lng },
-        });
+        addQuestion(newRadiusQuestion(center.lat, center.lng));
         return true;
     };
 

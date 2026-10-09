@@ -18,6 +18,7 @@ import {
     customInitPreference,
     displayHidingZones,
     drawingQuestionKey,
+    gameSettings,
     hiderMode,
     isLoading,
     questionModified,
@@ -25,13 +26,10 @@ import {
     regionRules,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
 import { elevation } from "@/maps/elevation";
-import {
-    DEFAULT_MIN_LAKE_AREA_KM2,
-    determineMeasuringBoundary,
-    LAKE_AREA_CHOICES,
-} from "@/maps/questions/measuring";
+import { determineMeasuringBoundary } from "@/maps/questions/measuring";
 import { adaptTypeOptions } from "@/maps/regionRules";
 import {
     determineUnionizedStrings,
@@ -60,6 +58,12 @@ export const MeasuringQuestionComponent = ({
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
+    const $gameSettings = useStore(gameSettings);
+    // The game's own list of question types, plus the local rules' labels.
+    const gameRules = {
+        ...$regionRules,
+        hiddenQuestionTypes: hiddenTypesFor("measuring", $gameSettings),
+    };
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const label = `Measuring
@@ -103,32 +107,6 @@ export const MeasuringQuestionComponent = ({
                     data={data}
                     disabled={!data.drag || $isLoading}
                 />
-            );
-            break;
-        case "lake":
-            questionSpecific = (
-                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                    <Label className="text-sm shrink-0">
-                        Lakes of at least
-                    </Label>
-                    <Select
-                        trigger="Minimum lake size"
-                        options={Object.fromEntries(
-                            LAKE_AREA_CHOICES.map((km2) => [
-                                String(km2),
-                                `${km2} km²`,
-                            ]),
-                        )}
-                        value={String(
-                            data.minLakeAreaKm2 ?? DEFAULT_MIN_LAKE_AREA_KM2,
-                        )}
-                        onValueChange={(value) => {
-                            data.minLakeAreaKm2 = Number(value);
-                            questionModified();
-                        }}
-                        disabled={!data.drag || $isLoading}
-                    />
-                </SidebarMenuItem>
             );
             break;
         case "mcdonalds":
@@ -252,7 +230,7 @@ export const MeasuringQuestionComponent = ({
                                     x.description,
                                 ]),
                         ),
-                        $regionRules,
+                        gameRules,
                         data.type,
                     )}
                     groups={measuringQuestionSchema.options
@@ -268,7 +246,7 @@ export const MeasuringQuestionComponent = ({
                                         ],
                                     ),
                                 ),
-                                $regionRules,
+                                gameRules,
                                 data.type,
                             ),
                         ])

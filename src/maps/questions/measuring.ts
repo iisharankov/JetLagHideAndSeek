@@ -4,19 +4,17 @@ import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
 
 import {
-    customStations,
     displayHidingZones,
     displayHidingZonesOptions,
+    gameSettings,
     hiderMode,
     hidingRadius,
     hidingRadiusUnits,
-    includeDefaultStations,
     mapGeoJSON,
     mapGeoLocation,
     playAreaKey,
     regionRules,
     trainStations,
-    useCustomStations,
 } from "@/lib/context";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import {
@@ -184,13 +182,8 @@ const adminBordersAround = memoizeAsync(
 );
 
 /** Whether hiding zones are on and there are stations to draw them around. */
-const hidingZonesActive = () => {
-    if (!displayHidingZones.get()) return false;
-    const customOnly = useCustomStations.get() && !includeDefaultStations.get();
-    return customOnly
-        ? customStations.get().length > 0
-        : displayHidingZonesOptions.get().length > 0;
-};
+const hidingZonesActive = () =>
+    displayHidingZones.get() && displayHidingZonesOptions.get().length > 0;
 
 /**
  * Admin-border question with hiding zones on: only the parts of the zones
@@ -242,7 +235,9 @@ export const LAKE_AREA_CHOICES = [10, 20, 25, 50] as const;
 export const DEFAULT_MIN_LAKE_AREA_KM2 = 10;
 
 const minLakeArea = (question: MeasuringQuestion) =>
-    (question as any).minLakeAreaKm2 ?? DEFAULT_MIN_LAKE_AREA_KM2;
+    gameSettings.get().minLakeAreaKm2 ??
+    (question as any).minLakeAreaKm2 ??
+    DEFAULT_MIN_LAKE_AREA_KM2;
 
 /** The shores of the big lakes, and the seeker's distance to the nearest. */
 const lakeShoresAround = memoizeAsync(

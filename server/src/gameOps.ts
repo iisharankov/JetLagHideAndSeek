@@ -2,15 +2,19 @@
 // are easy to test; games.ts stores the results and tells every phone.
 import { randomBytes } from "node:crypto";
 
+import { normalizeGameSettings } from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
     type GameOp,
+    type GameSettings,
     type GameState,
     LOCAL_FIELDS,
     type QuestionEntry,
     type Role,
     type SharedQuestion,
 } from "@/lib/game/types";
+
+const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
 
 /** A change the rules don't allow; the API answers with `status`. */
 export class GameRuleError extends Error {
@@ -31,7 +35,11 @@ const shortId = () => randomBytes(6).toString("base64url");
 
 export const newGameState = (
     id: string,
-    { playArea, zone }: { playArea: unknown; zone: unknown },
+    {
+        playArea,
+        zone,
+        settings,
+    }: { playArea: unknown; zone: unknown; settings: GameSettings },
     now: number,
 ): GameState => ({
     id,
@@ -40,7 +48,7 @@ export const newGameState = (
     updatedAt: now,
     playArea,
     zone,
-    settings: { size: "medium", seekersCanAnswer: false },
+    settings,
     questions: {},
     photoRequests: [],
     photos: [],
@@ -179,16 +187,27 @@ export const applyOp = (
             state.zone = op.zone;
             break;
         case "setSettings": {
-            if ("seekersCanAnswer" in op.settings) {
-                assertHider(actor, "decide whether seekers may answer");
+            // Settings are decided before the game starts. The hider may
+            // still widen the hiding zone and let seekers answer.
+            for (const key of Object.keys(op.settings)) {
+                if (!CHANGEABLE_LATER.has(key)) {
+                    throw new GameRuleError(
+                        "Game settings are fixed once the game has started (start a new game to change them).",
+                    );
+                }
             }
+            assertHider(actor, "change the game settings");
+            const next = normalizeGameSettings({
+                ...state.settings,
+                ...op.settings,
+            });
             if (
-                op.settings.size !== undefined &&
-                !["small", "medium", "large"].includes(op.settings.size)
+                op.settings.hidingRadiusKm !== undefined &&
+                next.hidingRadiusKm !== op.settings.hidingRadiusKm
             ) {
-                throw new GameRuleError("Unknown game size.", 400);
+                throw new GameRuleError("Choose a radius up to 50 km.", 400);
             }
-            state.settings = { ...state.settings, ...op.settings };
+            state.settings = next;
             break;
         }
         case "askPhoto":

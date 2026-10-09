@@ -7,17 +7,13 @@ import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
-    customStations,
     disabledStations,
-    displayHidingZonesOptions,
-    hidingRadius,
-    hidingRadiusUnits,
-    includeDefaultStations,
+    gameSettings,
     mapGeoLocation,
     polyGeoJSON,
     questions,
-    useCustomStations,
 } from "@/lib/context";
+import { applyGameSettings } from "@/lib/gameSettings";
 import {
     applyPlayArea,
     applyZoneSettings,
@@ -147,6 +143,8 @@ const receive = (state: GameState, force = false) => {
                 applyZoneSettings(parseZoneSettings(state.zone));
             }
         }
+        // The game's settings are the server's.
+        applyGameSettings(state.settings);
     } catch (error) {
         toast.error(`Couldn't apply the shared game: ${errorMessage(error)}`, {
             toastId: "game-apply-error",
@@ -246,17 +244,7 @@ const listenForLocalChanges = () => {
     ]) {
         store.listen(() => inGame() && syncPlayArea());
     }
-    for (const store of [
-        disabledStations,
-        hidingRadius,
-        hidingRadiusUnits,
-        displayHidingZonesOptions,
-        useCustomStations,
-        customStations,
-        includeDefaultStations,
-    ]) {
-        store.listen(() => inGame() && syncZone());
-    }
+    disabledStations.listen(() => inGame() && syncZone());
 };
 
 const disconnect = () => {
@@ -349,6 +337,7 @@ export const startGame = async () => {
     const { state } = await createGame({
         playArea: currentPlayArea(),
         zone: currentZoneSettings(),
+        settings: gameSettings.get(),
         questions: questions.get().map(toShared),
         by: me(),
     });
@@ -388,8 +377,12 @@ export const uploadPhoto = async (
     receive(state);
 };
 
-/** On page load: join the game in the URL, or the one this phone was in. */
+/**
+ * On page load: make the saved game settings take effect, then join the game
+ * in the URL, or the one this phone was in.
+ */
 export const resumeGame = () => {
+    applyGameSettings(gameSettings.get());
     const fromUrl = new URL(window.location.href).searchParams.get(
         GAME_URL_PARAM,
     );

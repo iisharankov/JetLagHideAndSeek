@@ -72,10 +72,17 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
     void externalHosts;
 
-    // Ana starts a shared game.
+    // Ana starts a shared game: the settings screens, then start.
     await preparePhone(page, "Ana");
     await openMenu(page, "Game");
     await page.getByRole("button", { name: "Start a shared game" }).click();
+    await expect(page.getByText("1 of 3: Game")).toBeVisible();
+    await page.getByRole("radio", { name: "Small" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByLabel("Hiding zone radius (km)")).toHaveValue("0.5");
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByText("3 of 3: Questions")).toBeVisible();
+    await page.getByRole("button", { name: "Start the game" }).click();
     await expect(page).toHaveURL(/[?&]game=[A-Za-z0-9]{8}/);
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
@@ -92,16 +99,33 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     const speculation = page.locator('path[stroke="#f59e0b"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
 
-    // Ben opens the link and becomes the hider: he doesn't see the draft.
+    // Ben opens the link and becomes the hider (Menu → Hider); until then the
+    // hider controls are faded. He doesn't see the draft.
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
-    await openMenu(ben, "Game");
+    await openMenu(ben, "Hider");
+    await expect(ben.getByTestId("hider-controls")).toHaveAttribute(
+        "aria-disabled",
+        "true",
+    );
     await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel(/hider password/i).fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
-    await expect(ben.getByText(/^You're\s+the hider\.$/)).toBeVisible();
+    await expect(ben.getByTestId("hider-status")).toContainText(
+        "the hider in this game",
+    );
+    await expect(ben.getByTestId("hider-controls")).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+    );
     await ben.keyboard.press("Escape");
     await expect(ben.getByTestId("question-game-state")).toHaveCount(0);
+    // The settings came with the game: a small game.
+    await openMenu(ben, "Game");
+    await expect(ben.getByTestId("game-settings-summary")).toContainText(
+        "Small",
+    );
+    await ben.keyboard.press("Escape");
 
     // Ana sends it; Ben sees it. With hider mode on (his pin starts at the
     // map's centre, next to Ana's question) his phone suggests "Yes", and
@@ -109,19 +133,34 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await page.getByRole("button", { name: "Send to the hider" }).click();
     const benState = ben.getByTestId("question-game-state");
     await expect(benState).toHaveAttribute("data-state", "asked");
+    // Before answering, Ben's map shows the question's pin and its outline.
+    await expect(ben.locator('img[alt="Question"]')).toHaveCount(1);
+    await expect(ben.locator('path[stroke="#60a5fa"]').first()).toBeAttached({
+        timeout: 20_000,
+    });
     await openMenu(ben, "Hider");
-    await ben.getByRole("switch", { name: /I'm the hider/ }).click();
+    await ben.getByRole("switch", { name: /^Hider mode/ }).click();
     await ben.keyboard.press("Escape");
     await expect(benState).toContainText("Hider mode suggests: Yes", {
         timeout: 20_000,
     });
     await expect(anaState).toHaveAttribute("data-state", "asked");
+    // The buttons keep their order (Yes, No) whatever is suggested.
+    await expect(
+        benState.getByRole("button", { name: /^(Yes|No)$/ }),
+    ).toHaveText(["Yes", "No"]);
     await ben.getByRole("button", { name: "No", exact: true }).click();
 
     // Ana's phone shows the answer, now as a confirmed answer on the map.
     await expect(anaState).toHaveAttribute("data-state", "answered");
     await expect(anaState).toContainText("Answered: No");
     await expect(speculation).toHaveCount(0, { timeout: 20_000 });
+    // Seekers can't delete an answered question (so no "deleted" banner).
+    await expect(
+        page.getByRole("button", {
+            name: "Answered: only the hider can delete it",
+        }),
+    ).toBeDisabled();
 
     // Photos: Ana asks for a tree, Ben sends one, Ana sees it.
     await page.getByRole("radio", { name: /Photos/ }).click();

@@ -16,11 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SegmentedControl, ToggleCard } from "@/components/ui/toggle-card";
+import { ToggleCard } from "@/components/ui/toggle-card";
+import { gameSettings } from "@/lib/context";
 import {
-    claimHider,
     currentGameId,
-    forgetHider,
     gameConnection,
     gameLink,
     gameRole,
@@ -28,11 +27,12 @@ import {
     leaveGame,
     playerName,
     sendOp,
-    startGame,
 } from "@/lib/game/session";
-import type { GameSize } from "@/lib/game/types";
+import { describeStations, questionKey } from "@/lib/game/settings";
+import type { GameSettings } from "@/lib/game/types";
 import { shareOrFallback } from "@/lib/utils";
-import { errorMessage } from "@/maps/errors";
+
+import { GameSetupDialog } from "./GameSetupDialog";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -41,48 +41,96 @@ const CONNECTION_TEXT = {
     retrying: "Reconnecting…",
 };
 
-/** Menu → Game: start, join and set up a shared game. */
+const SIZE_NAMES = { small: "Small", medium: "Medium", large: "Large" };
+
+/** The settings in a few lines. */
+const SettingsSummary = ({ settings }: { settings: GameSettings }) => (
+    <dl
+        className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-slate-300"
+        data-testid="game-settings-summary"
+    >
+        <dt>Size</dt>
+        <dd>
+            {SIZE_NAMES[settings.size]},{" "}
+            {settings.region === "switzerland" ? "Swiss" : "standard"} rules
+        </dd>
+        <dt>Hiding zones</dt>
+        <dd>
+            {settings.hidingRadiusKm} km around{" "}
+            {describeStations(settings.stationKinds)}
+        </dd>
+        <dt>Questions</dt>
+        <dd>
+            {settings.disabledQuestions.length === 0
+                ? "all"
+                : `all but ${settings.disabledQuestions.length}`}
+            {!settings.disabledQuestions.includes(
+                questionKey("measuring", "lake"),
+            ) && `; lakes from ${settings.minLakeAreaKm2} km²`}
+        </dd>
+    </dl>
+);
+
+const NameInput = () => {
+    const $name = useStore(playerName);
+    return (
+        <>
+            <Label htmlFor="player-name">Your name</Label>
+            <Input
+                id="player-name"
+                value={$name}
+                maxLength={40}
+                placeholder="Shown to the others"
+                onChange={(e) => playerName.set(e.target.value)}
+            />
+        </>
+    );
+};
+
+/** Menu → Game: the game's settings, and starting or running a shared game. */
 export const GamePanel = () => {
     const $gameId = useStore(currentGameId);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const $connection = useStore(gameConnection);
     const $name = useStore(playerName);
-    const [claiming, setClaiming] = useState(false);
-    const [busy, setBusy] = useState(false);
+    const $settings = useStore(gameSettings);
+    const [setup, setSetup] = useState<"solo" | "start" | null>(null);
+
+    const settings = $game?.settings ?? $settings;
 
     if (!$gameId) {
         return (
-            <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
-                <h3 className="text-sm font-semibold font-poppins">
-                    Play together
-                </h3>
-                <p className="text-xs text-slate-400">
-                    Start a shared game: everyone (seekers and hider) opens the
-                    same link and sees questions as they&apos;re added and
-                    answered. Your play area, settings and questions so far come
-                    along.
-                </p>
-                <NameInput />
-                <Button
-                    disabled={busy}
-                    onClick={async () => {
-                        setBusy(true);
-                        try {
-                            await startGame();
-                            toast.success(
-                                "Shared game started. Send the link to the others.",
-                            );
-                        } catch (error) {
-                            toast.error(errorMessage(error));
-                        } finally {
-                            setBusy(false);
-                        }
-                    }}
-                >
-                    Start a shared game
-                </Button>
-            </section>
+            <>
+                <section className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3">
+                    <h3 className="text-sm font-semibold font-poppins">
+                        Game settings
+                    </h3>
+                    <SettingsSummary settings={settings} />
+                    <Button variant="outline" onClick={() => setSetup("solo")}>
+                        Change game settings
+                    </Button>
+                </section>
+                <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
+                    <h3 className="text-sm font-semibold font-poppins">
+                        Play together
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                        Everyone (seekers and hider) opens one link and sees
+                        questions as they&apos;re added and answered. The
+                        settings are decided when the game starts.
+                    </p>
+                    <NameInput />
+                    <Button onClick={() => setSetup("start")}>
+                        Start a shared game
+                    </Button>
+                </section>
+                <GameSetupDialog
+                    open={setup !== null}
+                    onOpenChange={(open) => !open && setSetup(null)}
+                    mode={setup ?? "solo"}
+                />
+            </>
         );
     }
 
@@ -113,98 +161,55 @@ export const GamePanel = () => {
             <Button onClick={shareLink}>Share the game link</Button>
             <p className="break-all text-xs text-slate-400">{gameLink()}</p>
             <NameInput />
-
-            <p className="text-sm">
-                You&apos;re{" "}
-                <strong>{$role === "hider" ? "the hider" : "a seeker"}</strong>
-                {$role === "seeker" &&
-                    $game?.hasHider &&
-                    " (a hider has joined)"}
-                .
+            <p className="text-sm" data-testid="game-role">
+                {$role === "hider" ? (
+                    <>
+                        You&apos;re <strong>the hider</strong> in this game.
+                    </>
+                ) : (
+                    <>
+                        You&apos;re <strong>a seeker</strong>
+                        {$game?.hasHider && " (a hider has joined)"}. To be the
+                        hider: Menu → Hider.
+                    </>
+                )}
             </p>
-            {$role === "seeker" && !claiming && (
-                <Button variant="outline" onClick={() => setClaiming(true)}>
-                    I&apos;m the hider
-                </Button>
-            )}
-            {$role === "seeker" && claiming && (
-                <form
-                    className="flex flex-col gap-2"
-                    onSubmit={async (event) => {
-                        event.preventDefault();
-                        // Read the field itself: the app's inputs report
-                        // changes with a delay.
-                        const password = String(
-                            new FormData(event.currentTarget).get("password"),
-                        );
-                        try {
-                            await claimHider(password);
-                            setClaiming(false);
-                            toast.success(
-                                "You're the hider on this phone. Turn on hider mode in Menu → Hider.",
-                            );
-                        } catch (error) {
-                            toast.error(errorMessage(error));
-                        }
-                    }}
-                >
-                    <Label htmlFor="hider-password">
-                        {$game?.hasHider
-                            ? "Hider password"
-                            : "Choose a hider password (seekers won't know it)"}
-                    </Label>
-                    <input
-                        id="hider-password"
-                        name="password"
-                        type="password"
-                        autoComplete="off"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button type="submit">Become the hider</Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setClaiming(false)}
-                        >
-                            Cancel
-                        </Button>
-                    </div>
-                </form>
-            )}
-            {$role === "hider" && (
-                <Button variant="outline" onClick={forgetHider}>
-                    Stop being the hider on this phone
-                </Button>
-            )}
 
-            {$game && (
+            <h4 className="text-xs font-semibold font-poppins text-slate-300">
+                Settings (fixed for this game)
+            </h4>
+            <SettingsSummary settings={settings} />
+            {$game && $role === "hider" && (
                 <>
-                    <Label>Game size</Label>
-                    <SegmentedControl<GameSize>
-                        label="Game size"
-                        options={[
-                            { value: "small", label: "Small" },
-                            { value: "medium", label: "Medium" },
-                            { value: "large", label: "Large" },
-                        ]}
-                        value={$game.settings.size}
-                        onValueChange={(size) =>
-                            void sendOp({
-                                type: "setSettings",
-                                settings: { size },
-                            })
-                        }
+                    <Label htmlFor="game-hiding-radius">
+                        Hiding zone radius (km): the hider can change it
+                    </Label>
+                    <Input
+                        id="game-hiding-radius"
+                        type="number"
+                        inputMode="decimal"
+                        min={0.1}
+                        max={50}
+                        step={0.1}
+                        value={$game.settings.hidingRadiusKm}
+                        onChange={(event) => {
+                            const hidingRadiusKm = Number(event.target.value);
+                            if (
+                                hidingRadiusKm > 0 &&
+                                hidingRadiusKm <= 50 &&
+                                hidingRadiusKm !== $game.settings.hidingRadiusKm
+                            ) {
+                                void sendOp({
+                                    type: "setSettings",
+                                    settings: { hidingRadiusKm },
+                                });
+                            }
+                        }}
                     />
                     <ToggleCard
                         title="Seekers can answer questions"
-                        description={
-                            $role === "hider"
-                                ? "Off: only you answer, and answered questions are locked for the seekers."
-                                : "Only the hider can change this. Off: only the hider answers."
-                        }
+                        description="Off: only you answer, and answered questions are locked for the seekers."
                         checked={$game.settings.seekersCanAnswer}
-                        disabled={$role !== "hider"}
                         onCheckedChange={(seekersCanAnswer) =>
                             void sendOp({
                                 type: "setSettings",
@@ -254,21 +259,5 @@ export const GamePanel = () => {
                 </p>
             )}
         </section>
-    );
-};
-
-const NameInput = () => {
-    const $name = useStore(playerName);
-    return (
-        <>
-            <Label htmlFor="player-name">Your name</Label>
-            <Input
-                id="player-name"
-                value={$name}
-                maxLength={40}
-                placeholder="Shown to the others"
-                onChange={(e) => playerName.set(e.target.value)}
-            />
-        </>
     );
 };

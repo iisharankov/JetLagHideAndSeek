@@ -18,6 +18,7 @@ import {
     customInitPreference,
     displayHidingZones,
     drawingQuestionKey,
+    gameSettings,
     hiderMode,
     isLoading,
     questionModified,
@@ -25,6 +26,7 @@ import {
     regionRules,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
 import {
     determineMatchingBoundary,
@@ -58,6 +60,12 @@ export const MatchingQuestionComponent = ({
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
+    const $gameSettings = useStore(gameSettings);
+    // The game's own list of question types, plus the local rules' labels.
+    const gameRules = {
+        ...$regionRules,
+        hiddenQuestionTypes: hiddenTypesFor("matching", $gameSettings),
+    };
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const [pendingCustomType, setPendingCustomType] = React.useState<
@@ -239,7 +247,7 @@ export const MatchingQuestionComponent = ({
                                     x.description,
                                 ]),
                         ),
-                        $regionRules,
+                        gameRules,
                         data.type,
                     )}
                     groups={matchingQuestionSchema.options
@@ -255,7 +263,7 @@ export const MatchingQuestionComponent = ({
                                         ],
                                     ),
                                 ),
-                                $regionRules,
+                                gameRules,
                                 data.type,
                             ),
                         ])

@@ -1,6 +1,12 @@
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
-import type { Feature, FeatureCollection, Point } from "geojson";
+import type {
+    Feature,
+    FeatureCollection,
+    MultiPolygon,
+    Point,
+    Polygon,
+} from "geojson";
 import * as L from "leaflet";
 import _ from "lodash";
 import { SidebarCloseIcon } from "lucide-react";
@@ -20,24 +26,22 @@ import {
     animateMapMovements,
     autoZoom,
     busy,
-    customStations as customStationsAtom,
     disabledStations,
     displayHidingZones,
     displayHidingZonesOptions,
     displayHidingZonesStyle,
+    gameSettings,
     hidingRadius,
     hidingRadiusUnits,
-    includeDefaultStations as includeDefaultStationsAtom,
     isLoading,
     leafletMapContext,
-    mergeDuplicates as mergeDuplicatesAtom,
     planningModeEnabled,
     questionFinishedMapData,
     questions,
-    showRemainingStations,
+    remainingMapData,
     trainStations,
-    useCustomStations as useCustomStationsAtom,
 } from "@/lib/context";
+import { describeStations } from "@/lib/game/settings";
 import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
@@ -47,7 +51,6 @@ import {
     findPlacesSpecificInZone,
     findTentacleLocations,
     nearestToQuestion,
-    parseCustomStationsFromText,
     prettifyLocation,
     QuestionSpecificLocation,
     type StationCircle,
@@ -61,15 +64,12 @@ import {
     geoSpatialVoronoi,
     holedMask,
     lngLatToText,
-    mergeDuplicateStation,
     safeUnion,
 } from "@/maps/geo-utils";
 import {
-    BOAT_STOPS,
+    clipZonesToRemaining,
     measuringCouldMatch,
     placesNearStation,
-    TRAM_STOPS,
-    withStationKind,
 } from "@/maps/hidingZones";
 import { loadStationPlaces } from "@/maps/hidingZoneStations";
 import type { Question } from "@/maps/schema";
@@ -81,27 +81,9 @@ import {
 import { sharesTrainLineWith } from "@/maps/trainLines";
 
 import { Button } from "./ui/button";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "./ui/command";
 import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { MultiSelect } from "./ui/multi-select";
 import { ScrollToTop } from "./ui/scroll-to-top";
-import { MENU_ITEM_CLASSNAME } from "./ui/sidebar-l";
 import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
-import { UnitSelect } from "./UnitSelect";
-
-function _previewText(count: number) {
-    return `${count} custom station${count === 1 ? "" : "s"} imported`;
-}
-
-let buttonJustClicked = false;
 
 /** Sidebar row holding a full-width setting card. */
 const CARD_ITEM = "px-2 py-1 list-none";
@@ -109,26 +91,21 @@ const CARD_ITEM = "px-2 py-1 list-none";
 export const ZoneSidebar = () => {
     const $displayHidingZones = useStore(displayHidingZones);
     const $questionFinishedMapData = useStore(questionFinishedMapData);
+    const $remaining = useStore(remainingMapData);
     const $displayHidingZonesOptions = useStore(displayHidingZonesOptions);
     const $displayHidingZonesStyle = useStore(displayHidingZonesStyle);
-    const $showRemainingStations = useStore(showRemainingStations);
     const $hidingRadius = useStore(hidingRadius);
     const $hidingRadiusUnits = useStore(hidingRadiusUnits);
+    const $gameSettings = useStore(gameSettings);
     const $isLoading = useStore(isLoading);
     const map = useStore(leafletMapContext);
     const stations = useStore(trainStations);
     const $disabledStations = useStore(disabledStations);
-    const useCustomStations = useStore(useCustomStationsAtom);
-    const mergeDuplicates = useStore(mergeDuplicatesAtom);
-    const includeDefaultStations = useStore(includeDefaultStationsAtom);
-    const $customStations = useStore(customStationsAtom);
-    const [hidingZoneModeStationID, setHidingZoneModeStationID] =
-        useState<string>("");
-    const [stationSearch, setStationSearch] = useState<string>("");
-    const isStationSearchActive = stationSearch.trim().length > 0;
-    const setStations = trainStations.set;
+    const [selectedStationId, setSelectedStationId] = useState("");
+    const [stationSearch, setStationSearch] = useState("");
+    const [showLeft, setShowLeft] = useState(true);
+    const [showRemoved, setShowRemoved] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
-    const [importUrl, setImportUrl] = useState("");
 
     const removeHidingZones = () => {
         if (!map) return;
@@ -143,7 +120,7 @@ export const ZoneSidebar = () => {
 
     const showGeoJSON = (
         geoJSONData: any,
-        nonOverlappingStations: boolean = false,
+        selectableZones: boolean = false,
         additionalOptions: L.GeoJSONOptions = {},
     ) => {
         if (!map) return;
@@ -156,13 +133,13 @@ export const ZoneSidebar = () => {
                 fillColor: "green",
                 fillOpacity: 0.2,
             },
-            onEachFeature: nonOverlappingStations
+            onEachFeature: selectableZones
                 ? (feature, layer) => {
                       if (feature.geometry.type === "Point") return;
                       layer.on("click", async () => {
                           if (!map) return;
 
-                          setHidingZoneModeStationID(
+                          setSelectedStationId(
                               feature.properties.properties.id,
                           );
                       });
@@ -205,19 +182,15 @@ export const ZoneSidebar = () => {
         $displayHidingZonesOptions,
         $hidingRadius,
         $hidingRadiusUnits,
-        useCustomStations,
-        includeDefaultStations,
-        $customStations,
-        mergeDuplicates,
     ]);
 
     useEffect(() => {
         if (!map) return;
 
-        if ($displayHidingZones && hidingZoneModeStationID) {
+        if ($displayHidingZones && selectedStationId) {
             const hiderStation = _.find(
                 stations,
-                (c) => c.properties.properties.id === hidingZoneModeStationID,
+                (c) => c.properties.properties.id === selectedStationId,
             );
 
             if (hiderStation !== undefined) {
@@ -251,11 +224,10 @@ export const ZoneSidebar = () => {
                 (x) => !$disabledStations.includes(x.properties.properties.id),
             );
             showGeoJSON(
-                withStationMarkers(
-                    styleStations(activeStations, $displayHidingZonesStyle),
+                styleStations(
                     activeStations,
-                    $showRemainingStations &&
-                        $displayHidingZonesStyle !== "stations",
+                    $displayHidingZonesStyle,
+                    $remaining,
                 ),
                 $displayHidingZonesStyle === "zones",
             );
@@ -269,10 +241,62 @@ export const ZoneSidebar = () => {
         $hidingRadius,
         $hidingRadiusUnits,
         $questionFinishedMapData,
-        $showRemainingStations,
-        hidingZoneModeStationID,
+        $remaining,
+        selectedStationId,
         stations,
     ]);
+
+    const label = (station: StationCircle) =>
+        extractStationLabel(station.properties) as string;
+    const matches = (station: StationCircle) =>
+        stationSearch.trim() === "" ||
+        label(station)
+            .toLowerCase()
+            .includes(stationSearch.trim().toLowerCase());
+    const left = stations.filter(
+        (x) => !$disabledStations.includes(x.properties.properties.id),
+    );
+    const removed = stations.filter((x) =>
+        $disabledStations.includes(x.properties.properties.id),
+    );
+    const selected = stations.find(
+        (x) => x.properties.properties.id === selectedStationId,
+    );
+
+    const StationRow = ({
+        station,
+        action,
+        onAction,
+    }: {
+        station: StationCircle;
+        action: string;
+        onAction: () => void;
+    }) => (
+        <li
+            className="flex items-center gap-2 rounded-sm px-2 py-1 text-sm hover:bg-accent"
+            data-station-id={station.properties.properties.id}
+        >
+            <span className="flex-1 truncate">{label(station)}</span>
+            <button
+                type="button"
+                className="rounded-md bg-slate-600 px-1.5 py-0.5 text-xs"
+                disabled={$isLoading}
+                onClick={() =>
+                    setSelectedStationId(station.properties.properties.id)
+                }
+            >
+                View
+            </button>
+            <button
+                type="button"
+                className="rounded-md bg-slate-700 px-1.5 py-0.5 text-xs"
+                disabled={$isLoading}
+                onClick={onAction}
+            >
+                {action}
+            </button>
+        </li>
+    );
 
     return (
         <Sidebar side="right">
@@ -293,7 +317,7 @@ export const ZoneSidebar = () => {
                             <SidebarMenuItem className={CARD_ITEM}>
                                 <ToggleCard
                                     title="Show hiding zones"
-                                    description="A circle around every station the hider could be at. Can be slow on older phones."
+                                    description="Where the hider could still be, around every station still in play."
                                     checked={$displayHidingZones}
                                     onCheckedChange={displayHidingZones.set}
                                     disabled={$isLoading}
@@ -301,29 +325,18 @@ export const ZoneSidebar = () => {
                             </SidebarMenuItem>
                             {$displayHidingZones && (
                                 <SidebarMenuItem className={CARD_ITEM}>
-                                    <p className="mb-1 text-xs font-semibold text-slate-300">
-                                        Show on the map
-                                    </p>
                                     <SegmentedControl
                                         label="Show on the map"
                                         options={[
                                             { value: "zones", label: "Zones" },
                                             {
-                                                value: "no-overlap",
-                                                label: "Merged",
-                                            },
-                                            {
                                                 value: "stations",
                                                 label: "Stations",
-                                            },
-                                            {
-                                                value: "no-display",
-                                                label: "Nothing",
                                             },
                                         ]}
                                         value={$displayHidingZonesStyle}
                                         onValueChange={(style) => {
-                                            setHidingZoneModeStationID("");
+                                            setSelectedStationId("");
                                             displayHidingZonesStyle.set(style);
                                         }}
                                         disabled={$isLoading}
@@ -331,486 +344,91 @@ export const ZoneSidebar = () => {
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && (
-                                <SidebarMenuItem className={CARD_ITEM}>
-                                    <ToggleCard
-                                        title="Show remaining stations"
-                                        description="A marker on every station still in play, on top of the zones."
-                                        checked={$showRemainingStations}
-                                        onCheckedChange={
-                                            showRemainingStations.set
-                                        }
-                                        disabled={$isLoading}
-                                    />
+                                <SidebarMenuItem
+                                    className={cn(
+                                        CARD_ITEM,
+                                        "text-xs text-slate-400",
+                                    )}
+                                >
+                                    {$hidingRadius}{" "}
+                                    {$hidingRadiusUnits === "kilometers"
+                                        ? "km"
+                                        : $hidingRadiusUnits}{" "}
+                                    around{" "}
+                                    {describeStations(
+                                        $gameSettings.stationKinds,
+                                    )}
+                                    . Change: Menu → Game.
                                 </SidebarMenuItem>
                             )}
-                            <SidebarMenuItem className={CARD_ITEM}>
-                                <ToggleCard
-                                    title="Use my own station list"
-                                    description="Import stations from a file, a link or pasted text."
-                                    checked={useCustomStations}
-                                    onCheckedChange={useCustomStationsAtom.set}
-                                    disabled={$isLoading}
-                                />
-                            </SidebarMenuItem>
-                            <SidebarMenuItem className={CARD_ITEM}>
-                                <ToggleCard
-                                    title="Merge duplicate stations"
-                                    description="One zone for stations mapped more than once."
-                                    checked={mergeDuplicates}
-                                    onCheckedChange={mergeDuplicatesAtom.set}
-                                    disabled={$isLoading}
-                                />
-                            </SidebarMenuItem>
-                            {useCustomStations && (
-                                <>
-                                    <SidebarMenuItem
-                                        className={MENU_ITEM_CLASSNAME}
+                            {$displayHidingZones && selected && (
+                                <SidebarMenuItem
+                                    className={cn(
+                                        CARD_ITEM,
+                                        "rounded-md border border-green-500/60 text-sm",
+                                    )}
+                                >
+                                    <p>
+                                        Checking{" "}
+                                        <strong>{label(selected)}</strong>: the
+                                        parts of its zone the answers rule out
+                                        are shaded.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="mt-1"
+                                        onClick={() => setSelectedStationId("")}
                                     >
-                                        <div className="flex flex-col gap-2 w-full">
-                                            <Label className="font-semibold font-poppins leading-5">
-                                                Import stations from URL (CSV,
-                                                GeoJSON, KML). This must be a
-                                                raw file link.
-                                            </Label>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    placeholder="https://..."
-                                                    value={importUrl}
-                                                    onChange={(e) =>
-                                                        setImportUrl(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    disabled={$isLoading}
-                                                />
-                                                <button
-                                                    className="bg-blue-600 text-white px-3 rounded-md"
-                                                    disabled={$isLoading}
-                                                    onClick={async () => {
-                                                        if (!importUrl) return;
-                                                        try {
-                                                            const res =
-                                                                await fetch(
-                                                                    importUrl,
-                                                                );
-                                                            const contentType =
-                                                                res.headers.get(
-                                                                    "content-type",
-                                                                ) || undefined;
-                                                            const text =
-                                                                await res.text();
-                                                            const parsed =
-                                                                parseCustomStationsFromText(
-                                                                    text,
-                                                                    contentType ||
-                                                                        undefined,
-                                                                );
-                                                            if (
-                                                                parsed.length ===
-                                                                0
-                                                            ) {
-                                                                toast.error(
-                                                                    "No stations found in provided URL",
-                                                                );
-                                                                return;
-                                                            }
-                                                            customStationsAtom.set(
-                                                                parsed,
-                                                            );
-                                                            toast.success(
-                                                                `Imported ${parsed.length} stations`,
-                                                            );
-                                                        } catch (e: any) {
-                                                            toast.error(
-                                                                `Failed to import from URL: ${e.message || e}`,
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    Import
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <Input
-                                                    type="file"
-                                                    multiple
-                                                    accept=".csv,.json,.geojson,.kml,application/json,application/vnd.google-earth.kml+xml,text/csv,application/vnd.google-apps.kml+xml,application/xml,text/xml"
-                                                    onInput={async (e) => {
-                                                        const files = (
-                                                            e.target as HTMLInputElement
-                                                        ).files;
-                                                        if (
-                                                            !files ||
-                                                            files.length === 0
-                                                        )
-                                                            return;
-                                                        try {
-                                                            const all: any[] =
-                                                                [];
-                                                            for (const file of Array.from(
-                                                                files,
-                                                            )) {
-                                                                const text =
-                                                                    await file.text();
-                                                                const parsed =
-                                                                    parseCustomStationsFromText(
-                                                                        text,
-                                                                        file.type,
-                                                                    );
-                                                                all.push(
-                                                                    ...parsed,
-                                                                );
-                                                            }
-                                                            if (
-                                                                all.length === 0
-                                                            ) {
-                                                                toast.error(
-                                                                    "No stations found in uploaded files",
-                                                                );
-                                                                return;
-                                                            }
-                                                            const byKey =
-                                                                new Map<
-                                                                    string,
-                                                                    any
-                                                                >();
-                                                            for (const s of all) {
-                                                                const key =
-                                                                    s.id &&
-                                                                    s.id.includes(
-                                                                        "/",
-                                                                    )
-                                                                        ? `id:${s.id}`
-                                                                        : `pt:${s.lat},${s.lng}`;
-                                                                if (
-                                                                    !byKey.has(
-                                                                        key,
-                                                                    )
-                                                                )
-                                                                    byKey.set(
-                                                                        key,
-                                                                        s,
-                                                                    );
-                                                            }
-                                                            const unique =
-                                                                Array.from(
-                                                                    byKey.values(),
-                                                                );
-                                                            customStationsAtom.set(
-                                                                unique,
-                                                            );
-                                                            toast.success(
-                                                                `Imported ${unique.length} stations`,
-                                                            );
-                                                        } catch (e: any) {
-                                                            toast.error(
-                                                                `Failed to import files: ${e.message || e}`,
-                                                            );
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                            <ToggleCard
-                                                title="Also use the map's stations"
-                                                description="Your list plus the stations chosen below."
-                                                checked={includeDefaultStations}
-                                                onCheckedChange={
-                                                    includeDefaultStationsAtom.set
+                                        Back to all zones
+                                    </Button>
+                                </SidebarMenuItem>
+                            )}
+                            {$displayHidingZones && (
+                                <SidebarMenuItem className={CARD_ITEM}>
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center justify-between py-1 text-left font-semibold font-poppins"
+                                        onClick={() => setShowLeft(!showLeft)}
+                                        aria-expanded={showLeft}
+                                        data-testid="remaining-stations-count"
+                                    >
+                                        <span>
+                                            {left.length === 1
+                                                ? "1 station left"
+                                                : `${left.length} stations left`}
+                                        </span>
+                                        <span aria-hidden="true">
+                                            {showLeft ? "▾" : "▸"}
+                                        </span>
+                                    </button>
+                                    {showLeft && (
+                                        <>
+                                            <Input
+                                                placeholder="Search stations…"
+                                                value={stationSearch}
+                                                onChange={(event) =>
+                                                    setStationSearch(
+                                                        event.target.value,
+                                                    )
                                                 }
+                                                debounce={200}
                                                 disabled={$isLoading}
                                             />
-                                            {$customStations.length > 0 && (
-                                                <div className="text-sm text-gray-300">
-                                                    {_previewText(
-                                                        $customStations.length,
-                                                    )}
-                                                </div>
-                                            )}
-                                            {$customStations.length > 0 && (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        className="w-full"
-                                                        onClick={() =>
-                                                            customStationsAtom.set(
-                                                                [],
-                                                            )
-                                                        }
-                                                    >
-                                                        Clear Imported
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </SidebarMenuItem>
-                                </>
-                            )}
-                            <StationKindSwitch
-                                label="Tram stops count as stations"
-                                kind={TRAM_STOPS}
-                                selected={$displayHidingZonesOptions}
-                                disabled={$isLoading}
-                            />
-                            <StationKindSwitch
-                                label="Boat stops count as stations"
-                                kind={BOAT_STOPS}
-                                selected={$displayHidingZonesOptions}
-                                disabled={$isLoading}
-                            />
-                            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                                <MultiSelect
-                                    options={[
-                                        {
-                                            label: "Railway Stations",
-                                            value: "[railway=station]",
-                                        },
-                                        {
-                                            label: "Railway Halts",
-                                            value: "[railway=halt]",
-                                        },
-                                        {
-                                            label: "Railway Stops",
-                                            value: "[railway=stop]",
-                                        },
-                                        {
-                                            label: "Tram Stops",
-                                            value: "[railway=tram_stop]",
-                                        },
-                                        {
-                                            label: "Bus Stops",
-                                            value: "[highway=bus_stop]",
-                                        },
-                                        {
-                                            label: "Ferry Terminals",
-                                            value: "[amenity=ferry_terminal]",
-                                        },
-                                        {
-                                            label: "Ferry Platforms (public transport)",
-                                            value: "[public_transport=platform][platform=ferry]",
-                                        },
-                                        {
-                                            label: "Funicular Stations",
-                                            value: "[railway=funicular]",
-                                        },
-                                        {
-                                            label: "Aerialway Stations",
-                                            value: "[aerialway=station]",
-                                        },
-                                        {
-                                            label: "Railway Stations Excluding Subways",
-                                            value: "[railway=station][subway!=yes]",
-                                        },
-                                        {
-                                            label: "Subway Stations",
-                                            value: "[railway=station][subway=yes]",
-                                        },
-                                        {
-                                            label: "Light Rail Stations",
-                                            value: "[railway=station][light_rail=yes]",
-                                        },
-                                        {
-                                            label: "Light Rail Halts",
-                                            value: "[railway=halt][light_rail=yes]",
-                                        },
-                                    ]}
-                                    onValueChange={
-                                        displayHidingZonesOptions.set
-                                    }
-                                    defaultValue={$displayHidingZonesOptions}
-                                    placeholder="Select allowed places"
-                                    animation={2}
-                                    maxCount={3}
-                                    modalPopover
-                                    className="!bg-popover bg-opacity-100"
-                                    disabled={
-                                        $isLoading ||
-                                        (useCustomStations &&
-                                            !includeDefaultStations)
-                                    }
-                                />
-                            </SidebarMenuItem>
-                            <SidebarMenuItem>
-                                <Label className="font-semibold font-poppins ml-2">
-                                    Hiding Zone Radius
-                                </Label>
-                                <div
-                                    className={cn(
-                                        MENU_ITEM_CLASSNAME,
-                                        "gap-2 flex flex-row",
-                                    )}
-                                >
-                                    <Input
-                                        type="number"
-                                        className="rounded-md p-2 w-16"
-                                        value={$hidingRadius}
-                                        onChange={(e) => {
-                                            hidingRadius.set(
-                                                parseFloat(e.target.value),
-                                            );
-                                        }}
-                                        disabled={$isLoading}
-                                    />
-                                    <UnitSelect
-                                        unit={$hidingRadiusUnits}
-                                        disabled={$isLoading}
-                                        onChange={(unit) => {
-                                            hidingRadiusUnits.set(unit);
-                                        }}
-                                    />
-                                </div>
-                            </SidebarMenuItem>
-                            {$displayHidingZones && hidingZoneModeStationID && (
-                                <SidebarMenuItem
-                                    className={cn(
-                                        MENU_ITEM_CLASSNAME,
-                                        "bg-popover hover:bg-accent",
-                                    )}
-                                    disabled={$isLoading}
-                                >
-                                    Current:{" "}
-                                    {(() => {
-                                        const selected = stations.find(
-                                            (x) =>
-                                                x.properties.properties.id ===
-                                                hidingZoneModeStationID,
-                                        );
-                                        const displayName = extractStationLabel(
-                                            selected?.properties,
-                                        );
-                                        const id = selected?.properties
-                                            .properties.id as string;
-                                        const coords = selected?.properties
-                                            .geometry.coordinates as [
-                                            number,
-                                            number,
-                                        ];
-                                        const href = id?.includes("/")
-                                            ? `https://www.openstreetmap.org/${id}`
-                                            : `https://www.openstreetmap.org/?mlat=${coords[1]}&mlon=${coords[0]}#map=17/${coords[1]}/${coords[0]}`;
-                                        return (
-                                            <a
-                                                href={href}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-500"
-                                            >
-                                                {displayName}
-                                            </a>
-                                        );
-                                    })()}
-                                </SidebarMenuItem>
-                            )}
-                            {$displayHidingZones &&
-                                $disabledStations.length > 0 && (
-                                    <SidebarMenuItem
-                                        className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
-                                        onClick={() => {
-                                            disabledStations.set([]);
-                                        }}
-                                        disabled={$isLoading}
-                                    >
-                                        Clear Disabled
-                                    </SidebarMenuItem>
-                                )}
-                            {$displayHidingZones && (
-                                <SidebarMenuItem
-                                    className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
-                                    onClick={() => {
-                                        disabledStations.set(
-                                            stations.map(
-                                                (x) =>
-                                                    x.properties.properties.id,
-                                            ),
-                                        );
-                                    }}
-                                    disabled={$isLoading}
-                                >
-                                    Disable All
-                                </SidebarMenuItem>
-                            )}
-                            {$displayHidingZones && (
-                                <SidebarMenuItem
-                                    className={cn(
-                                        MENU_ITEM_CLASSNAME,
-                                        "text-sm",
-                                    )}
-                                    data-testid="remaining-stations-count"
-                                >
-                                    {stations.length === 1
-                                        ? "1 station left"
-                                        : `${stations.length} stations left`}
-                                </SidebarMenuItem>
-                            )}
-                            {$displayHidingZones && (
-                                <Command
-                                    key={
-                                        isStationSearchActive
-                                            ? "station-search-active"
-                                            : "station-search-idle"
-                                    }
-                                    shouldFilter={isStationSearchActive}
-                                >
-                                    <CommandInput
-                                        placeholder="Search for a hiding zone..."
-                                        value={stationSearch}
-                                        onValueChange={setStationSearch}
-                                        disabled={$isLoading}
-                                    />
-                                    <CommandList className="max-h-full">
-                                        <CommandEmpty>
-                                            No hiding zones found.
-                                        </CommandEmpty>
-                                        <CommandGroup>
-                                            {stations.map((station) => (
-                                                <CommandItem
-                                                    key={
-                                                        station.properties
-                                                            .properties.id
-                                                    }
-                                                    data-station-id={
-                                                        station.properties
-                                                            .properties.id
-                                                    }
-                                                    className={cn(
-                                                        $disabledStations.includes(
-                                                            station.properties
-                                                                .properties.id,
-                                                        ) && "line-through",
-                                                    )}
-                                                    onSelect={async () => {
-                                                        if (!map) return;
-
-                                                        setTimeout(() => {
-                                                            if (
-                                                                buttonJustClicked
-                                                            ) {
-                                                                buttonJustClicked =
-                                                                    false;
-                                                                return;
+                                            <ul className="mt-1 flex flex-col">
+                                                {left
+                                                    .filter(matches)
+                                                    .map((station) => (
+                                                        <StationRow
+                                                            key={
+                                                                station
+                                                                    .properties
+                                                                    .properties
+                                                                    .id
                                                             }
-
-                                                            if (
-                                                                $disabledStations.includes(
-                                                                    station
-                                                                        .properties
-                                                                        .properties
-                                                                        .id,
-                                                                )
-                                                            ) {
-                                                                disabledStations.set(
-                                                                    [
-                                                                        ...$disabledStations.filter(
-                                                                            (
-                                                                                x,
-                                                                            ) =>
-                                                                                x !==
-                                                                                station
-                                                                                    .properties
-                                                                                    .properties
-                                                                                    .id,
-                                                                        ),
-                                                                    ],
-                                                                );
-                                                            } else {
+                                                            station={station}
+                                                            action="Remove"
+                                                            onAction={() =>
                                                                 disabledStations.set(
                                                                     [
                                                                         ...$disabledStations,
@@ -819,43 +437,76 @@ export const ZoneSidebar = () => {
                                                                             .properties
                                                                             .id,
                                                                     ],
-                                                                );
+                                                                )
                                                             }
-
-                                                            setStations([
-                                                                ...stations,
-                                                            ]);
-                                                        }, 100);
-                                                    }}
-                                                    disabled={$isLoading}
-                                                >
-                                                    {extractStationLabel(
-                                                        station.properties,
+                                                        />
+                                                    ))}
+                                                {left.length > 0 &&
+                                                    left.filter(matches)
+                                                        .length === 0 && (
+                                                        <li className="px-2 py-1 text-sm text-slate-400">
+                                                            No station matches.
+                                                        </li>
                                                     )}
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!map) return;
-
-                                                            buttonJustClicked =
-                                                                true;
-
-                                                            setHidingZoneModeStationID(
-                                                                station
-                                                                    .properties
-                                                                    .properties
-                                                                    .id,
-                                                            );
-                                                        }}
-                                                        className="bg-slate-600 p-0.5 rounded-md"
-                                                        disabled={$isLoading}
-                                                    >
-                                                        View
-                                                    </button>
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
+                                            </ul>
+                                        </>
+                                    )}
+                                </SidebarMenuItem>
+                            )}
+                            {$displayHidingZones && removed.length > 0 && (
+                                <SidebarMenuItem className={CARD_ITEM}>
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center justify-between py-1 text-left font-semibold font-poppins text-slate-400"
+                                        onClick={() =>
+                                            setShowRemoved(!showRemoved)
+                                        }
+                                        aria-expanded={showRemoved}
+                                    >
+                                        <span>Removed ({removed.length})</span>
+                                        <span aria-hidden="true">
+                                            {showRemoved ? "▾" : "▸"}
+                                        </span>
+                                    </button>
+                                    {showRemoved && (
+                                        <>
+                                            <ul className="flex flex-col">
+                                                {removed.map((station) => (
+                                                    <StationRow
+                                                        key={
+                                                            station.properties
+                                                                .properties.id
+                                                        }
+                                                        station={station}
+                                                        action="Restore"
+                                                        onAction={() =>
+                                                            disabledStations.set(
+                                                                $disabledStations.filter(
+                                                                    (id) =>
+                                                                        id !==
+                                                                        station
+                                                                            .properties
+                                                                            .properties
+                                                                            .id,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                ))}
+                                            </ul>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="mt-1"
+                                                onClick={() =>
+                                                    disabledStations.set([])
+                                                }
+                                            >
+                                                Restore all
+                                            </Button>
+                                        </>
+                                    )}
+                                </SidebarMenuItem>
                             )}
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -863,45 +514,6 @@ export const ZoneSidebar = () => {
             </SidebarContent>
         </Sidebar>
     );
-};
-
-/** A switch that adds or removes one kind of station from the filters. */
-const StationKindSwitch = ({
-    label,
-    kind,
-    selected,
-    disabled,
-}: {
-    label: string;
-    kind: string;
-    selected: string[];
-    disabled: boolean;
-}) => (
-    <SidebarMenuItem className={CARD_ITEM}>
-        <ToggleCard
-            title={label}
-            checked={selected.includes(kind)}
-            onCheckedChange={(on) =>
-                displayHidingZonesOptions.set(
-                    withStationKind(selected, kind, on),
-                )
-            }
-            disabled={disabled}
-        />
-    </SidebarMenuItem>
-);
-
-/** Adds a marker for each station to what is drawn, when asked to. */
-const withStationMarkers = (
-    shown: FeatureCollection | Feature,
-    circles: StationCircle[],
-    include: boolean,
-): FeatureCollection | Feature => {
-    if (!include) return shown;
-    return turf.featureCollection([
-        ...("features" in shown ? shown.features : [shown]),
-        ...circles.map((circle) => circle.properties),
-    ]) as FeatureCollection;
 };
 
 const HOME_GAME_TYPES = [
@@ -940,14 +552,6 @@ const applyQuestionToHidingZones = async (
         }
 
         if (data.type === "same-train-line") {
-            if (
-                useCustomStationsAtom.get() &&
-                !includeDefaultStationsAtom.get()
-            ) {
-                throw new NotApplicableError(
-                    "'Same train line' needs stations from the map data, not a custom-only list.",
-                );
-            }
             const seekerStation = nearestStation(places, seeker);
             const id = seekerStation.properties.id;
             if (!id || !id.includes("/")) {
@@ -1019,9 +623,7 @@ const computeHidingZones = async () => {
     const eliminated = questionFinishedMapData.get();
     if (!displayHidingZones.get() || !eliminated) return;
 
-    const needsMapData =
-        !useCustomStationsAtom.get() || includeDefaultStationsAtom.get();
-    if (needsMapData && displayHidingZonesOptions.get().length === 0) {
+    if (displayHidingZonesOptions.get().length === 0) {
         toast.error("Choose at least one kind of station for hiding zones.");
         return;
     }
@@ -1029,10 +631,7 @@ const computeHidingZones = async () => {
     const radius = hidingRadius.get();
     const units = hidingRadiusUnits.get();
 
-    let places = await loadStationPlaces();
-    if (mergeDuplicatesAtom.get()) {
-        places = await mergeDuplicateStation(places, radius, units);
-    }
+    const places = await loadStationPlaces();
 
     const eliminatedArea = safeUnion(
         turf.simplify(eliminated, { tolerance: 0.001 }),
@@ -1081,25 +680,19 @@ const requestHidingZoneRefresh = () =>
         });
     });
 
+/** What to draw: the zones (cut to the area still in play) or the stations. */
 function styleStations(
     circles: StationCircle[],
-    style: string,
-): FeatureCollection | Feature {
-    if (circles.length === 0)
-        return { type: "FeatureCollection", features: [] };
-    switch (style) {
-        case "no-display":
-            return { type: "FeatureCollection", features: [] };
-
-        case "no-overlap":
-            return safeUnion(turf.featureCollection(circles));
-
-        case "stations":
-            return turf.featureCollection(circles.map((c) => c.properties));
-
-        default:
-            return turf.featureCollection(circles);
+    style: "zones" | "stations",
+    remaining: FeatureCollection<Polygon | MultiPolygon> | null,
+): FeatureCollection {
+    if (circles.length === 0) return turf.featureCollection([]);
+    if (style === "stations") {
+        return turf.featureCollection(circles.map((c) => c.properties));
     }
+    return turf.featureCollection(
+        remaining ? clipZonesToRemaining(circles, remaining) : circles,
+    );
 }
 
 async function selectionProcess(

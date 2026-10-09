@@ -11,7 +11,12 @@ import {
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { GameOp, GameState, SharedQuestion } from "@/lib/game/types";
+import type {
+    GameOp,
+    GameSettings,
+    GameState,
+    SharedQuestion,
+} from "@/lib/game/types";
 
 import { type Actor, applyOp, GameRuleError, newGameState } from "./gameOps";
 
@@ -31,7 +36,7 @@ const PHOTO_TYPES: Record<string, string> = {
 
 export interface GameStore {
     create(
-        start: { playArea: unknown; zone: unknown },
+        start: { playArea: unknown; zone: unknown; settings: GameSettings },
         questions: SharedQuestion[],
         by: string,
     ): GameState;

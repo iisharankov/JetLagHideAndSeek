@@ -38,6 +38,7 @@ import { gameState } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CursesPanel } from "./game/CursesPanel";
+import { NotePinList } from "./game/NotePins";
 import { PhotosPanel } from "./game/PhotosPanel";
 import {
     MatchingQuestionComponent,
@@ -119,6 +120,7 @@ export const QuestionSidebar = () => {
                 </SidebarContent>
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
+                <NotePinList />
                 {$questions.map((question) => {
                     switch (question.id) {
                         case "radius":
@@ -176,7 +178,7 @@ export const QuestionSidebar = () => {
                                 </SidebarMenuButton>
                             </AddQuestionDialog>
                         </SidebarMenuItem>
-                        {$questions.length > 0 && (
+                        {$questions.length > 0 && !$game && (
                             <SidebarMenuItem>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>

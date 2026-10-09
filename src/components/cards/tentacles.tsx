@@ -14,12 +14,14 @@ import {
 import { UnitSelect } from "@/components/UnitSelect";
 import {
     drawingQuestionKey,
+    gameSettings,
     hiderMode,
     isLoading,
     questionModified,
     questions,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn, mapToObj } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
@@ -48,6 +50,11 @@ export const TentacleQuestionComponent = ({
     const $questions = useStore(questions);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
+    const $gameSettings = useStore(gameSettings);
+    // Types left out of this game are hidden (the current one stays).
+    const hidden = hiddenTypesFor("tentacles", $gameSettings);
+    const inGame = (type: string) =>
+        type === data.locationType || !hidden.includes(type);
     const label = `Tentacles
     ${
         $questions
@@ -102,7 +109,8 @@ export const TentacleQuestionComponent = ({
                             .flatMap((x) =>
                                 determineUnionizedStrings(x.shape.locationType),
                             )
-                            .map((x) => [(x._def as any).value, x.description]),
+                            .map((x) => [(x._def as any).value, x.description])
+                            .filter(([type]) => inGame(type)),
                     )}
                     groups={Object.fromEntries(
                         tentacleQuestionSchema.options
@@ -112,10 +120,12 @@ export const TentacleQuestionComponent = ({
                                 Object.fromEntries(
                                     determineUnionizedStrings(
                                         x.shape.locationType,
-                                    ).map((x) => [
-                                        (x._def as any).value,
-                                        x.description,
-                                    ]),
+                                    )
+                                        .map((x) => [
+                                            (x._def as any).value,
+                                            x.description,
+                                        ])
+                                        .filter(([type]) => inGame(type)),
                                 ),
                             ]),
                     )}

@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { defaultGameSettings } from "@/lib/game/settings";
+
 import { GameRuleError } from "./gameOps";
 import { createGameStore, type GameStore } from "./games";
 
@@ -16,8 +18,13 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+const settings = defaultGameSettings("medium", "switzerland");
 const start = () =>
-    games.create({ playArea: { kind: "place" }, zone: {} }, [], "Ana");
+    games.create(
+        { playArea: { kind: "place" }, zone: {}, settings },
+        [],
+        "Ana",
+    );
 
 describe("game store", () => {
     it("creates a game with a short id and finds it again", () => {
@@ -29,7 +36,7 @@ describe("game store", () => {
 
     it("imports questions from a game played alone as answered", () => {
         const game = games.create(
-            { playArea: {}, zone: {} },
+            { playArea: {}, zone: {}, settings },
             [{ id: "radius", key: 7, data: { lat: 47, lng: 8, within: true } }],
             "Ana",
         );

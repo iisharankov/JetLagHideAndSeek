@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { defaultGameSettings } from "@/lib/game/settings";
 import {
+    canChangeQuestion,
     diffLocal,
     mergeRemoteQuestions,
     roleOnMap,
@@ -44,7 +46,7 @@ const game = (entries: QuestionEntry[]): GameState => ({
     updatedAt: 0,
     playArea: null,
     zone: null,
-    settings: { size: "medium", seekersCanAnswer: false },
+    settings: defaultGameSettings("medium", "switzerland"),
     questions: Object.fromEntries(
         entries.map((e) => [String(e.question.key), e]),
     ),
@@ -194,5 +196,25 @@ describe("roleOnMap", () => {
 
     it("everything counts when not playing a shared game", () => {
         expect(roleOnMap(radius(2), null)).toBe("confirmed");
+    });
+});
+
+describe("canChangeQuestion", () => {
+    const state = game([
+        entry(radius(1), "answered"),
+        entry(radius(2), "asked"),
+    ]);
+
+    it("locks answered questions for seekers, unless the game allows it", () => {
+        expect(canChangeQuestion(1, state, "seeker")).toBe(false);
+        expect(canChangeQuestion(1, state, "hider")).toBe(true);
+        expect(canChangeQuestion(2, state, "seeker")).toBe(true);
+        expect(canChangeQuestion(9, state, "seeker")).toBe(true); // not sent yet
+        expect(canChangeQuestion(1, null, "seeker")).toBe(true); // playing alone
+        const open = {
+            ...state,
+            settings: { ...state.settings, seekersCanAnswer: true },
+        };
+        expect(canChangeQuestion(1, open, "seeker")).toBe(true);
     });
 });

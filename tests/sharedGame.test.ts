@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
     customPresets,
     disabledStations,
+    gameSettings,
     hidingRadius,
     hidingRadiusUnits,
     mapGeoLocation,
@@ -115,8 +116,10 @@ describe("applySharedGame", () => {
         expect(questions.get()).toHaveLength(1);
         expect(mapGeoLocation.get().properties.name).toBe("Zürich");
         expect(polyGeoJSON.get()).toBeNull();
-        expect(hidingRadius.get()).toBe(600);
-        expect(hidingRadiusUnits.get()).toBe("meters");
+        // The radius is a game setting now, in km.
+        expect(hidingRadius.get()).toBe(0.6);
+        expect(gameSettings.get().hidingRadiusKm).toBe(0.6);
+        expect(hidingRadiusUnits.get()).toBe("kilometers");
         expect(disabledStations.get()).toEqual(["node/1"]);
         expect(
             customPresets

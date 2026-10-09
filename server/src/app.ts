@@ -2,6 +2,7 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 
+import { normalizeGameSettings } from "@/lib/game/settings";
 import type { GameOp, GameState, SharedQuestion } from "@/lib/game/types";
 
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
@@ -98,7 +99,11 @@ export const createApp = ({
                 ? (body.questions as SharedQuestion[])
                 : [];
             const state = games.create(
-                { playArea: body?.playArea ?? null, zone: body?.zone ?? null },
+                {
+                    playArea: body?.playArea ?? null,
+                    zone: body?.zone ?? null,
+                    settings: normalizeGameSettings(body?.settings),
+                },
                 questions,
                 playerName(body?.by),
             );

@@ -3,7 +3,7 @@
 Goal: **self-hosted, private, reliable on game day, with team sync.**
 Switzerland first, nothing that stops other regions working.
 
-Updated after your round-4 answers (2026-10-09). Status: ✅ done and
+Updated after your first real game (round 5, 2026-10-09). Status: ✅ done and
 tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dropped.
 
 ## What changed in the plan
@@ -157,6 +157,27 @@ card texts.
 **For the server:** this update needs the new nginx `/api/` settings (live
 updates and photos), a data refresh for the elevation tiles and airports, and
 the usual app update. See [deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md#updating-to-round-4).
+
+## Phase 3b: after your first real game (round 5) ✅
+
+| Change | Your point | Test |
+| --- | --- | --- |
+| **Game settings screens** (Menu → Game → Change game settings, or Start a shared game): size, local rules, hiding-zone radius and station kinds, which question types are in (coastline, lake size, 7-Eleven…). Decided before the game, **fixed once it runs**; the hider can still widen the hiding zones and let seekers answer. Radar questions default to 2 / 10 / 50 km | 1, 3, 7 | `tests/gameSettings.test.ts`, `server/src/gameOps.test.ts` (locked settings), `e2e/sharedGame.spec.ts` (small game → 0.5 km zones on the other phone) |
+| **Hider sees the question before answering:** pins of locked questions stay on the map, and a question waiting for the hider is drawn as a dashed outline (circle, split line…) | 1 | e2e (pin and outline on the hider's phone) |
+| Answer buttons keep their order (Yes, No; Closer, Further…); the suggested one is filled in | 1 | `tests/gameAnswers.test.ts`, e2e |
+| Seekers can't delete an answered question (button disabled, no "deleted" banner); no "Clear all" in a shared game | 2 | `tests/gameSync.test.ts` (`canChangeQuestion`), e2e |
+| **Hider tab:** the password step lives there; hider controls are faded until the phone is the hider; seekers can't switch hider mode on in a shared game (and the hider pin isn't drawn for them) | 4 | e2e (faded, then enabled after the password) |
+| **Note pins:** seekers' private pins (long press on the map → "Add a note pin"), with a label, a list in the Questions tab, violet pin; never shared | 5 | none (checked by hand) |
+| **Hiding-zone sidebar:** only Show on/off, Zones \| Stations, a collapsible "N stations left" list with search and Remove, and a collapsible "Removed" list with Restore. Custom station lists, "merge duplicates", "merged"/"nothing" styles and "show remaining stations" are gone | 6, 8, 9, 11 | `e2e/hidingZones.spec.ts` (old saved style doesn't break it) |
+| Stations are de-duplicated automatically: a station that is also a tram/bus/boat stop counts once (the railway station is kept, so train lines work) | 6 | `tests/stationManipulations.test.ts` |
+| **Zones are cut to the area still in play**, so a zone on the edge of an answer shows only its possible part | 10 | `tests/hidingZones.test.ts` (`clipZonesToRemaining`) |
+
+**Pfungen (your point 10):** that was correct, not a bug. The hider was
+"further from the airport" than the seeker, so everything nearer than the
+seeker's distance (the shaded disc around Zürich airport) was ruled out.
+Pfungen's station is just outside that disc, so its zone was still possible,
+even though most of its circle lay inside the shaded area. The circle was
+drawn whole, which looked wrong; zones are now clipped to the possible part.
 
 ## Phase 4: game-day UX ⏭️
 

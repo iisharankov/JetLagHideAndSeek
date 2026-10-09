@@ -25,9 +25,7 @@ test("one Menu holds game, hider and settings; hider mode shows the hider pin", 
     );
 
     await page.getByRole("radio", { name: "Hider" }).click();
-    const hiderMode = page.getByRole("switch", {
-        name: /I'm the hider/,
-    });
+    const hiderMode = page.getByRole("switch", { name: /^Hider mode/ });
     await expect(hiderMode).toHaveAttribute("aria-checked", "false");
     await hiderMode.click();
     await expect(hiderMode).toHaveAttribute("aria-checked", "true");

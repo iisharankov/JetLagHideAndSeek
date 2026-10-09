@@ -89,14 +89,10 @@ export const describeAnswer = (question: Question) => {
     );
 };
 
-/** The possible answers, the question's current one first. */
-export const answerChoices = (question: Question): Choice[] => {
-    const current = answerOf(question);
-    const choices = allChoices(question);
-    const index = choices.findIndex((choice) =>
-        sameAnswer(choice.answer, current),
-    );
-    return index <= 0
-        ? choices
-        : [choices[index], ...choices.filter((_, i) => i !== index)];
-};
+/** The possible answers, always in the same order (so buttons don't move). */
+export const answerChoices = (question: Question): Choice[] =>
+    allChoices(question);
+
+/** Whether a choice is the question's current answer. */
+export const isCurrentAnswer = (question: Question, choice: Choice) =>
+    sameAnswer(choice.answer, answerOf(question));

@@ -9,14 +9,17 @@ import {
     activeQuestionKey,
     autoSave,
     hiderMode,
+    notePins,
     questionModified,
     questions,
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { gameRole, gameState } from "@/lib/game/session";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
+import { NotePinMarker } from "./game/NotePins";
 import { LatitudeLongitude } from "./LatLngPicker";
 import {
     MatchingQuestionComponent,
@@ -37,6 +40,7 @@ const ColoredMarker = ({
     onChange,
     questionKey,
     sub = "",
+    draggable = true,
 }: {
     onChange: (event: DragEndEvent) => void;
     latitude: number;
@@ -44,6 +48,8 @@ const ColoredMarker = ({
     color: keyof typeof ICON_COLORS;
     questionKey: number;
     sub?: string;
+    /** Locked questions keep their pin, but it can't be moved. */
+    draggable?: boolean;
 }) => {
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
@@ -64,7 +70,8 @@ const ColoredMarker = ({
                 title={questionKey === -1 ? "Hider location" : undefined}
                 alt={questionKey === -1 ? "Hider location" : "Question"}
                 zIndexOffset={questionKey === -1 ? 1000 : 0}
-                draggable={true}
+                opacity={draggable ? 1 : 0.75}
+                draggable={draggable}
                 eventHandlers={{
                     dragstart: () => {
                         isDragging = true;
@@ -194,9 +201,16 @@ export const DraggableMarkers = () => {
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
 
+    const $game = useStore(gameState);
+    const $role = useStore(gameRole);
+    const $notes = useStore(notePins);
+
     return (
         <Fragment>
-            {$hiderMode !== false && (
+            {$notes.map((note) => (
+                <NotePinMarker key={note.id} note={note} />
+            ))}
+            {$hiderMode !== false && !($game && $role !== "hider") && (
                 <ColoredMarker
                     color="green"
                     key="hider"
@@ -222,8 +236,8 @@ export const DraggableMarkers = () => {
             )}
             {$questions.map((question) => {
                 if (!question.data) return null;
-                if (!question.data.drag) return null;
                 if (question.data.hidden) return null;
+                const draggable = question.data.drag;
                 if (
                     question.id === "matching" &&
                     question.data.type === "custom-zone"
@@ -240,6 +254,7 @@ export const DraggableMarkers = () => {
                                 color={question.data.color}
                                 key={question.key}
                                 questionKey={question.key}
+                                draggable={draggable}
                                 latitude={question.data.lat}
                                 longitude={question.data.lng}
                                 onChange={(e) => {
@@ -258,6 +273,7 @@ export const DraggableMarkers = () => {
                                     color={question.data.colorA}
                                     key={"a" + question.key.toString()}
                                     questionKey={question.key}
+                                    draggable={draggable}
                                     sub="Start"
                                     latitude={question.data.latA}
                                     longitude={question.data.lngA}
@@ -273,6 +289,7 @@ export const DraggableMarkers = () => {
                                     color={question.data.colorB}
                                     key={"b" + question.key.toString()}
                                     questionKey={question.key}
+                                    draggable={draggable}
                                     sub="End"
                                     latitude={question.data.latB}
                                     longitude={question.data.lngB}

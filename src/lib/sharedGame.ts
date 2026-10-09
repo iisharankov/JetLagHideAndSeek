@@ -1,3 +1,4 @@
+import { convertLength } from "@turf/turf";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import { z } from "zod";
 
@@ -5,18 +6,15 @@ import {
     additionalMapGeoLocations,
     type CustomPreset,
     customPresets,
-    customStations,
     disabledStations,
-    displayHidingZonesOptions,
-    hidingRadius,
-    hidingRadiusUnits,
-    includeDefaultStations,
     mapGeoJSON,
     mapGeoLocation,
     polyGeoJSON,
     questions,
-    useCustomStations,
 } from "@/lib/context";
+import { stationKindsFromFilters } from "@/lib/game/settings";
+import type { GameSettings } from "@/lib/game/types";
+import { updateGameSettings } from "@/lib/gameSettings";
 import type { AdditionalMapGeoLocations, OpenStreetMap } from "@/maps/api";
 import { type Questions, questionsSchema } from "@/maps/schema";
 
@@ -30,18 +28,6 @@ const settingsSchema = z.object({
     hidingRadius: z.number().positive().nullish(),
     hidingRadiusUnits: z.enum(["miles", "kilometers", "meters"]).nullish(),
     zoneOptions: z.array(z.string()).nullish(),
-    useCustomStations: z.boolean().nullish(),
-    customStations: z
-        .array(
-            z.object({
-                id: z.string(),
-                name: z.string().optional(),
-                lat: z.number(),
-                lng: z.number(),
-            }),
-        )
-        .nullish(),
-    includeDefaultStations: z.boolean().nullish(),
 });
 
 export type Settings = {
@@ -238,15 +224,9 @@ export const applyPlayArea = (playArea: SharedGame["playArea"]) => {
     mapGeoJSON.set(null);
 };
 
-/** Hiding zone settings as shared. */
+/** What a shared game syncs about hiding zones (the rest is in its settings). */
 export const currentZoneSettings = (): Settings => ({
     disabledStations: disabledStations.get(),
-    hidingRadius: hidingRadius.get(),
-    hidingRadiusUnits: hidingRadiusUnits.get(),
-    zoneOptions: displayHidingZonesOptions.get(),
-    useCustomStations: useCustomStations.get(),
-    customStations: customStations.get(),
-    includeDefaultStations: includeDefaultStations.get(),
 });
 
 /** Checks shared hiding zone settings (throws if they're invalid). */
@@ -256,16 +236,20 @@ export const parseZoneSettings = (raw: unknown): Settings =>
 export const applyZoneSettings = (settings: Settings) => {
     if (settings.disabledStations)
         disabledStations.set(settings.disabledStations);
-    if (settings.hidingRadius) hidingRadius.set(settings.hidingRadius);
-    if (settings.hidingRadiusUnits)
-        hidingRadiusUnits.set(settings.hidingRadiusUnits);
-    if (settings.zoneOptions)
-        displayHidingZonesOptions.set(settings.zoneOptions);
-    if (settings.useCustomStations !== undefined)
-        useCustomStations.set(settings.useCustomStations);
-    if (settings.customStations) customStations.set(settings.customStations);
-    if (settings.includeDefaultStations !== undefined)
-        includeDefaultStations.set(settings.includeDefaultStations);
+    // Older saved games carry the radius and station kinds here; they're
+    // game settings now.
+    const changes: Partial<GameSettings> = {};
+    if (settings.hidingRadius) {
+        changes.hidingRadiusKm = convertLength(
+            settings.hidingRadius,
+            settings.hidingRadiusUnits ?? "kilometers",
+            "kilometers",
+        );
+    }
+    if (settings.zoneOptions) {
+        changes.stationKinds = stationKindsFromFilters(settings.zoneOptions);
+    }
+    if (Object.keys(changes).length > 0) updateGameSettings(changes);
 };
 
 /** Replaces the current game. Presets are merged, never removed. */
