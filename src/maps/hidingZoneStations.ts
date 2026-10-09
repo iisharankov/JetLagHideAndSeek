@@ -7,7 +7,10 @@ import {
     hidingRadiusUnits,
 } from "@/lib/context";
 import { findPlacesInZone, type StationPlace } from "@/maps/api";
-import { dedupeStations } from "@/maps/geo-utils/stationManipulations";
+import {
+    dedupeStations,
+    withoutUnreachable,
+} from "@/maps/geo-utils/stationManipulations";
 
 /**
  * The stations hiding zones are drawn around: the kinds chosen in the game
@@ -26,7 +29,7 @@ export const loadStationPlaces = async (): Promise<StationPlace[]> => {
             options.slice(1),
         ),
     ).features;
-    return dedupeStations(places);
+    return dedupeStations(withoutUnreachable(places));
 };
 
 /** Changes whenever the hiding zone settings change (for caches). */

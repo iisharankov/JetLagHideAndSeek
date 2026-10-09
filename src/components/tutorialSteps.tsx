@@ -62,45 +62,17 @@ export const tutorialSteps: TutorialStep[] = [
         title: "Choose the play area",
         content: (
             <>
-                Search for the area you&apos;re playing in: a city, a canton or
-                a whole country.
+                <strong>Menu → Game → Change game settings</strong>: search for
+                the area you&apos;re playing in (a city, a canton, a whole
+                country) or draw it on the map. <strong>+</strong> adds an area,{" "}
+                <strong>−</strong> cuts one out (a lake, a neighbouring canton).
                 <br />
                 <br />
                 Small games work well in a city (e.g. Zürich), medium games in a
                 canton, and large games across all of Switzerland.
             </>
         ),
-        targetSelector: '[data-tutorial-id="place-picker"]',
-        position: "bottom",
-    },
-    {
-        id: "place-manage",
-        title: "Combine areas",
-        content: (
-            <>
-                <strong>+</strong> adds an area to the play area,{" "}
-                <strong>−</strong> cuts it out (lakes, a neighbouring canton),
-                and <strong>×</strong> removes it from the list.
-                <br />
-                <br />
-                <strong>Clear Questions &amp; Cache</strong> starts over when
-                you switch to a very different area.
-            </>
-        ),
-        targetSelector: '[data-tutorial-id="place-picker-content"]',
-        position: "bottom",
-    },
-    {
-        id: "polygon",
-        title: "Or draw your own area",
-        content: (
-            <>
-                With the polygon tool you can draw any play area: click to add
-                corners and click the first corner again to close the shape.
-                Several shapes can be combined.
-            </>
-        ),
-        targetSelector: ".leaflet-draw-draw-polygon",
+        targetSelector: '[data-tutorial-id="menu-button"]',
         position: "top",
     },
     {
@@ -108,7 +80,8 @@ export const tutorialSteps: TutorialStep[] = [
         title: "Adding questions",
         content: (
             <>
-                Questions live in the sidebar this button opens.
+                Questions live in the sidebar this button opens. Its Stations
+                tab shows the hiding zones and the stations still in play.
                 <br />
                 <br />
                 Shortcut: right-click the map (long-press on a phone) to add a
@@ -344,8 +317,8 @@ export const tutorialSteps: TutorialStep[] = [
                 The hider opens the game link and, in{" "}
                 <strong>Menu → Hider</strong>, taps{" "}
                 <strong>I&apos;m the hider</strong> (with a password the seekers
-                don&apos;t know), then turns on hider mode there. A black hider
-                pin appears: put it where you are (or use GPS). The app then
+                don&apos;t know). Hider mode is then on: a black hider pin
+                appears; put it where you are (or use GPS). The app then
                 suggests each answer; nothing is sent until the hider taps it.
                 <br />
                 <br />

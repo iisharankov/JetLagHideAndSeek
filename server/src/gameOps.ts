@@ -53,6 +53,7 @@ export const newGameState = (
     photoRequests: [],
     photos: [],
     curses: [],
+    powerups: [],
     hasHider: false,
     rounds: [],
 });
@@ -238,16 +239,27 @@ export const applyOp = (
             curse.clearedBy = actor.name;
             break;
         }
+        case "playPowerup":
+            assertHider(actor, "play powerups");
+            state.powerups.push({
+                id: shortId(),
+                name: String(op.name).slice(0, 200),
+                playedAt: now,
+                by: actor.name,
+            });
+            break;
         case "newRound":
             state.rounds.push({
                 endedAt: now,
                 questions: Object.values(state.questions),
                 photoRequests: state.photoRequests,
                 curses: state.curses,
+                powerups: state.powerups,
             });
             state.questions = {};
             state.photoRequests = [];
             state.curses = [];
+            state.powerups = [];
             state.hasHider = false;
             break;
         default:

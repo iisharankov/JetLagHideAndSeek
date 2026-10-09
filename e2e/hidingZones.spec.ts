@@ -27,6 +27,24 @@ test("hiding zones survive having no stations, and an old saved style", async ({
     await page.waitForTimeout(3000);
 
     await expect(
-        page.getByText("The hiding zone sidebar ran into a problem."),
+        page.getByText("The stations panel ran into a problem."),
     ).toHaveCount(0);
+});
+
+test("the Stations tab holds the hiding zone controls", async ({
+    page,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+    await page.route("**/data/**", (route) => route.fulfill({ status: 404 }));
+    await page.goto("/");
+    await page.evaluate(() => localStorage.setItem("showTutorials", "false"));
+    await page.reload();
+
+    await page.getByRole("radio", { name: "Stations" }).click();
+    const zones = page.getByRole("switch", { name: /Show hiding zones/ });
+    await expect(zones).toBeVisible();
+    // No second sidebar on the right any more.
+    await expect(page.getByText("Hiding Zone", { exact: true })).toHaveCount(0);
 });

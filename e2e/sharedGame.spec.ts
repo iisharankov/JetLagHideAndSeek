@@ -86,6 +86,11 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(page).toHaveURL(/[?&]game=[A-Za-z0-9]{8}/);
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
+    // The setup dialog takes a moment to close; Escape must reach the menu,
+    // not the closing dialog.
+    await expect(
+        page.locator('[role="dialog"]', { hasText: "New shared game" }),
+    ).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     // Ana adds a radius question: a draft only seekers see.
@@ -118,6 +123,10 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
         "aria-disabled",
         "true",
     );
+    // The hider's phone is simply in hider mode: no switch to flip.
+    await expect(ben.getByRole("switch", { name: /^Hider mode/ })).toHaveCount(
+        0,
+    );
     await ben.keyboard.press("Escape");
     await expect(ben.getByTestId("question-game-state")).toHaveCount(0);
     // The settings came with the game: a small game.
@@ -138,9 +147,6 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(ben.locator('path[stroke="#60a5fa"]').first()).toBeAttached({
         timeout: 20_000,
     });
-    await openMenu(ben, "Hider");
-    await ben.getByRole("switch", { name: /^Hider mode/ }).click();
-    await ben.keyboard.press("Escape");
     await expect(benState).toContainText("Hider mode suggests: Yes", {
         timeout: 20_000,
     });

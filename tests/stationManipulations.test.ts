@@ -2,7 +2,10 @@ import * as turf from "@turf/turf";
 import { describe, expect, it } from "vitest";
 
 import type { StationPlace } from "@/maps/api";
-import { dedupeStations } from "@/maps/geo-utils/stationManipulations";
+import {
+    dedupeStations,
+    withoutUnreachable,
+} from "@/maps/geo-utils/stationManipulations";
 
 const stop = (
     id: string,
@@ -11,6 +14,16 @@ const stop = (
     lat: number,
     tags: Record<string, string> = { railway: "station" },
 ) => turf.point([lng, lat], { id, name, ...tags }) as unknown as StationPlace;
+
+describe("withoutUnreachable", () => {
+    it("drops the airport's airside Skymetro stop, keeps the real station", () => {
+        const kept = withoutUnreachable([
+            stop("node/1191403583", "Dock E", 8.555, 47.4612),
+            stop("node/1240260092", "Zürich Flughafen", 8.5619, 47.4501),
+        ]);
+        expect(kept.map((s) => s.properties.id)).toEqual(["node/1240260092"]);
+    });
+});
 
 describe("dedupeStations", () => {
     it("keeps one entry for a station that is also a tram and bus stop", () => {

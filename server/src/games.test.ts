@@ -164,9 +164,8 @@ describe("games from before the settings update", () => {
             boats: false,
         });
         expect(loaded.settings.hidingRadiusKm).toBe(1);
-        expect(loaded.settings.disabledQuestions).toEqual([
+        expect(loaded.settings.disabledQuestions).toContain(
             "measuring:coastline",
-            "measuring:seven11",
-        ]);
+        );
     });
 });

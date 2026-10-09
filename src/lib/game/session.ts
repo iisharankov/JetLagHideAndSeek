@@ -7,8 +7,11 @@ import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
+    chosenStation,
     disabledStations,
     gameSettings,
+    hiderMode,
+    leafletMapContext,
     mapGeoLocation,
     polyGeoJSON,
     questions,
@@ -66,6 +69,31 @@ export const suggestedAnswers = atom<
 
 const me = () => playerName.get().trim() || "Someone";
 const token = () => hiderTokens.get()[activeGameId.get()];
+
+/**
+ * The hider's phone is in hider mode, full stop: answers are suggested from
+ * the hider pin, which starts at the map's centre (the play area's, before
+ * the map is up).
+ */
+const ensureHiderMode = () => {
+    if (hiderMode.get() !== false) return;
+    const center = leafletMapContext.get()?.getCenter();
+    const [lat, lng] = mapGeoLocation.get().geometry.coordinates;
+    hiderMode.set({
+        latitude: center?.lat ?? lat,
+        longitude: center?.lng ?? lng,
+    });
+};
+
+/** The seekers' pick of the hider's station, as the server last had it. */
+let seekersStation = "";
+
+/** This phone's zone settings for the server: the hider's own station stays on their phone. */
+const zoneToSend = () => {
+    const zone = currentZoneSettings();
+    if (gameRole.get() === "hider") zone.chosenStation = seekersStation;
+    return zone;
+};
 
 // What this phone last had in common with the server.
 let synced = new Map<number, string>();
@@ -147,8 +175,11 @@ const receive = (received: GameState, force = false) => {
         const zone = JSON.stringify(state.zone);
         if (state.zone && zone !== syncedZone) {
             syncedZone = zone;
-            if (zone !== JSON.stringify(currentZoneSettings())) {
-                applyZoneSettings(parseZoneSettings(state.zone));
+            const parsed = parseZoneSettings(state.zone);
+            seekersStation = parsed.chosenStation ?? "";
+            if (gameRole.get() === "hider") delete parsed.chosenStation;
+            if (zone !== JSON.stringify(zoneToSend())) {
+                applyZoneSettings(parsed);
             }
         }
         // The game's settings are the server's.
@@ -231,7 +262,7 @@ const syncPlayArea = () => {
 };
 
 const syncZone = () => {
-    const zone = currentZoneSettings();
+    const zone = zoneToSend();
     const json = JSON.stringify(zone);
     if (json === syncedZone) return;
     syncedZone = json;
@@ -253,6 +284,10 @@ const listenForLocalChanges = () => {
         store.listen(() => inGame() && syncPlayArea());
     }
     disabledStations.listen(() => inGame() && syncZone());
+    // The hider's own station stays on their phone.
+    chosenStation.listen(
+        () => inGame() && gameRole.get() !== "hider" && syncZone(),
+    );
 };
 
 const disconnect = () => {
@@ -281,6 +316,7 @@ const connect = async () => {
         return;
     }
 
+    if (gameRole.get() === "hider") ensureHiderMode();
     const events = new EventSource(eventsUrl(id, token()));
     source = events;
     events.addEventListener("state", (event) => {
@@ -331,6 +367,7 @@ export const joinGame = (id: string) => {
 /** Back to playing alone; this phone keeps its copy of the questions. */
 export const leaveGame = () => {
     disconnect();
+    if (gameRole.get() === "hider") hiderMode.set(false);
     sessionGame = "";
     currentGameId.set("");
     activeGameId.set("");
@@ -346,7 +383,7 @@ export const leaveGame = () => {
 export const startGame = async () => {
     const { state } = await createGame({
         playArea: currentPlayArea(),
-        zone: currentZoneSettings(),
+        zone: { ...currentZoneSettings(), chosenStation: "" },
         settings: gameSettings.get(),
         questions: questions.get().map(toShared),
         by: me(),
@@ -363,6 +400,8 @@ export const claimHider = async (password: string) => {
     const { token: hiderToken } = await postHiderPassword(id, password);
     hiderTokens.set({ ...hiderTokens.get(), [id]: hiderToken });
     await connect();
+    // The seekers' pick isn't this phone's own station.
+    chosenStation.set("");
 };
 
 /** Stops being the hider on this phone (the role stays protected). */
@@ -370,6 +409,8 @@ export const forgetHider = () => {
     const { [activeGameId.get()]: removed, ...rest } = hiderTokens.get();
     void removed;
     hiderTokens.set(rest);
+    hiderMode.set(false);
+    chosenStation.set(seekersStation);
     void connect();
 };
 

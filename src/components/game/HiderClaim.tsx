@@ -55,7 +55,7 @@ export const HiderClaim = () => {
                             await claimHider(password);
                             setClaiming(false);
                             toast.success(
-                                "You're the hider on this phone. Turn on hider mode below.",
+                                "You're the hider on this phone. Hider mode is on: put the hider pin where you are.",
                             );
                         } catch (error) {
                             toast.error(errorMessage(error));
@@ -87,8 +87,8 @@ export const HiderClaim = () => {
                 </form>
             )}
             <p className="text-xs text-slate-400">
-                Hider mode (below) is for the hider only: it suggests an answer
-                to each question, which the hider then sends.
+                The hider&apos;s phone suggests an answer to each question from
+                the hider pin; the hider then sends it.
             </p>
         </section>
     );

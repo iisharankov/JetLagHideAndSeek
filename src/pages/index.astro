@@ -3,63 +3,41 @@ import Layout from "@/layouts/Layout.astro";
 // Each panel is wrapped in its own error boundary (see components/islands).
 import { Map } from "@/components/islands/Map";
 import { OptionDrawers } from "@/components/islands/OptionDrawers";
-import { PlacePicker } from "@/components/islands/PlacePicker";
+import { PlayAreaBar } from "@/components/islands/PlayAreaBar";
 import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
 import { TutorialDialog } from "@/components/islands/TutorialDialog";
-import { ZoneSidebar } from "@/components/islands/ZoneSidebar";
-import {
-    SidebarProvider as SidebarProviderL,
-    SidebarTrigger as SidebarTriggerL,
-} from "@/components/ui/sidebar-l";
-import {
-    SidebarProvider as SidebarProviderR,
-    SidebarTrigger as SidebarTriggerR,
-} from "@/components/ui/sidebar-r";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar-l";
 ---
 
 <Layout className="bg-jetlag">
-    <SidebarProviderL client:load>
-        <SidebarProviderR client:load defaultOpen={false}>
-            <QuestionSidebar client:only />
-            <main class="flex flex-col flex-grow group">
-                <div
-                    class="flex justify-center"
-                    id="map-modal-dialog-container-leaflet"
-                >
-                    <div class="w-full h-full relative">
-                        <div
-                            class="absolute top-[72px] md:top-2 left-2 z-[1030] group-[.fullscreen]:hidden"
-                            data-tutorial-id="left-sidebar-trigger"
-                        >
-                            <SidebarTriggerL client:load />
-                        </div>
-                        <div
-                            class="absolute top-[72px] md:top-2 right-2 z-[1030] group-[.fullscreen]:hidden"
-                        >
-                            <SidebarTriggerR client:load />
-                        </div>
-                        <div
-                            class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto group-[.fullscreen]:hidden"
-                        >
-                            <PlacePicker
-                                client:only
-                                className="m-4 overflow-hidden"
-                            />
-                        </div>
-                        <div
-                            class="bottom-5 right-2 mx-auto mb-2 w-fit absolute z-[1030] group-[.fullscreen]:hidden"
-                        >
-                            <OptionDrawers client:load />
-                        </div>
-                        <Map
-                            className="w-full group-[.fullscreen]:w-full group-[.fullscreen]:h-full"
-                            client:only
-                        />
+    <SidebarProvider client:load>
+        <QuestionSidebar client:only />
+        <main class="flex flex-col flex-grow group">
+            <div class="flex justify-center" id="map-modal-dialog-container-leaflet">
+                <div class="w-full h-full relative">
+                    <div
+                        class="absolute top-2 left-2 z-[1030] group-[.fullscreen]:hidden"
+                        data-tutorial-id="left-sidebar-trigger"
+                    >
+                        <SidebarTrigger client:load />
                     </div>
+                    <div
+                        class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto group-[.fullscreen]:hidden"
+                    >
+                        <PlayAreaBar client:only className="m-4" />
+                    </div>
+                    <div
+                        class="bottom-5 right-2 mx-auto mb-2 w-fit absolute z-[1030] group-[.fullscreen]:hidden"
+                    >
+                        <OptionDrawers client:load />
+                    </div>
+                    <Map
+                        className="w-full group-[.fullscreen]:w-full group-[.fullscreen]:h-full"
+                        client:only
+                    />
                 </div>
-            </main>
-            <ZoneSidebar client:only />
-            <TutorialDialog client:only />
-        </SidebarProviderR>
-    </SidebarProviderL>
+            </div>
+        </main>
+        <TutorialDialog client:only />
+    </SidebarProvider>
 </Layout>

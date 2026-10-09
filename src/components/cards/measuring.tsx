@@ -113,10 +113,9 @@ export const MeasuringQuestionComponent = ({
         case "seven11":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will eliminate hiding zones that don&apos;t
-                    fit the criteria. When you click on a zone, the parts of
-                    that zone that don&apos;t satisfy the criteria will be
-                    eliminated.
+                    Worked out per station, with hiding zones on (Stations tab):
+                    a station stays in play when it is closer to (or further
+                    from) one than the seeker.
                 </span>
             );
             break;
@@ -133,8 +132,9 @@ export const MeasuringQuestionComponent = ({
         case "park":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will only influence the map when you click on
-                    a hiding zone in the hiding zone sidebar.
+                    Worked out per station, with hiding zones on (Stations tab):
+                    a station stays in play when it is closer to (or further
+                    from) such a place than the seeker.
                 </span>
             );
             break;
@@ -253,7 +253,7 @@ export const MeasuringQuestionComponent = ({
                         .reduce(
                             (acc, [key, value]) => {
                                 const values = {
-                                    disabled: !$displayHidingZones,
+                                    disabled: false,
                                     options: value,
                                 };
 

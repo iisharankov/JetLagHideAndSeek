@@ -71,7 +71,15 @@ export const SegmentedControl = <T extends string>({
     onValueChange: (value: T) => void;
     disabled?: boolean;
 }) => (
-    <div role="radiogroup" aria-label={label} className="flex w-full gap-1">
+    <div
+        role="radiogroup"
+        aria-label={label}
+        // Four or more options go in two rows: a sidebar is narrow.
+        className={cn(
+            "w-full gap-1",
+            options.length > 3 ? "grid grid-cols-2" : "flex",
+        )}
+    >
         {options.map((option) => {
             const active = option.value === value;
             return (

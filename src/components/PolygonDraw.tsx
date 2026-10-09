@@ -17,6 +17,7 @@ import {
     autoSave,
     drawingQuestionKey,
     mapGeoJSON,
+    playAreaDrawing,
     polyGeoJSON,
     questionModified,
     questions,
@@ -239,13 +240,17 @@ const MeasuringPointMarker = ({
 export const PolygonDraw = () => {
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $questions = useStore(questions);
+    const $playAreaDrawing = useStore(playAreaDrawing);
 
     const featureRef = useRef<any | null>(null);
+    // The drawing tools show while the play area or a custom question is
+    // being drawn.
+    const tools = $playAreaDrawing || $drawingQuestionKey !== -1;
 
     let question: Question | undefined;
 
     if ($drawingQuestionKey === -1) {
-        L.drawLocal.draw.toolbar.buttons.polygon = "Draw the hiding zone!";
+        L.drawLocal.draw.toolbar.buttons.polygon = "Draw the play area";
     } else {
         question = $questions.find((q) => q.key === $drawingQuestionKey);
 
@@ -478,33 +483,35 @@ export const PolygonDraw = () => {
                         fill={false}
                     />
                 ))}
-            <EditControl
-                position="bottomleft"
-                draw={{
-                    rectangle: false,
-                    circle: false,
-                    circlemarker: false,
-                    marker:
-                        question?.id === "tentacles" ||
-                        (question?.id === "matching" &&
-                            question.data.type === "custom-points") ||
-                        question?.id === "measuring"
-                            ? true
-                            : false,
-                    polyline: question?.id === "measuring",
-                    polygon:
-                        question?.id === "tentacles" ||
-                        (question?.id === "matching" &&
-                            question.data.type === "custom-points")
-                            ? false
-                            : {
-                                  shapeOptions: { fillOpacity: 0 },
-                              },
-                }}
-                onCreated={onChange}
-                onEdited={onChange}
-                onDeleted={onChange}
-            />
+            {tools && (
+                <EditControl
+                    position="bottomleft"
+                    draw={{
+                        rectangle: false,
+                        circle: false,
+                        circlemarker: false,
+                        marker:
+                            question?.id === "tentacles" ||
+                            (question?.id === "matching" &&
+                                question.data.type === "custom-points") ||
+                            question?.id === "measuring"
+                                ? true
+                                : false,
+                        polyline: question?.id === "measuring",
+                        polygon:
+                            question?.id === "tentacles" ||
+                            (question?.id === "matching" &&
+                                question.data.type === "custom-points")
+                                ? false
+                                : {
+                                      shapeOptions: { fillOpacity: 0 },
+                                  },
+                    }}
+                    onCreated={onChange}
+                    onEdited={onChange}
+                    onDeleted={onChange}
+                />
+            )}
         </FeatureGroup>
     );
 };

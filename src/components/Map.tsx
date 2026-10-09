@@ -24,11 +24,13 @@ import {
     hidingRadiusUnits,
     leafletMapContext,
     mapGeoLocation,
+    polyGeoJSON,
     questions,
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
 import { newRadiusQuestion } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
+import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
@@ -250,11 +252,24 @@ export const Map = ({ className }: { className?: string }) => {
               .join(",")
         : "";
 
+    const $polyGeoJSON = useStore(polyGeoJSON);
     useEffect(() => {
         if (!map) return;
 
         requestMapRefresh(true);
-    }, [$questions, map, $hiderMode, zoneSettings, questionStates, $role]);
+    }, [
+        $questions,
+        map,
+        $hiderMode,
+        zoneSettings,
+        questionStates,
+        $role,
+        $mapGeoLocation,
+        $polyGeoJSON,
+    ]);
+
+    // The hiding zones follow the answers whichever panels are open.
+    useEffect(startHidingZoneLayer, []);
 
     useEffect(() => {
         const handleFullscreenChange = () => {

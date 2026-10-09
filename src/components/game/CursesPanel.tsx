@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { withBase } from "@/lib/config";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import type { GameSize } from "@/lib/game/types";
-import { type Curse, CURSES } from "@/lib/rules/cards";
+import { type Curse, CURSES, POWERUPS } from "@/lib/rules/cards";
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
 
@@ -38,14 +38,17 @@ export const CursesPanel = () => {
     const $role = useStore(gameRole);
     const [choosing, setChoosing] = useState(false);
     const [picked, setPicked] = useState<string | null>(null);
+    const [playing, setPlaying] = useState(false);
+    const [pickedPowerup, setPickedPowerup] = useState<string | null>(null);
     const size = $game?.settings.size;
 
     if (!$game) {
         return (
             <div className="flex flex-col gap-2 p-3 text-sm">
                 <p className="rounded-md bg-slate-800 p-2 text-xs text-slate-300">
-                    Start a shared game (Menu → Game) to track curses: the hider
-                    casts them, everyone sees them, the seekers clear them.
+                    Start a shared game (Menu → Game) to track curses and
+                    powerups: the hider casts or plays them, everyone sees them,
+                    the seekers clear curses.
                 </p>
                 <a
                     href={withBase("reference/#curses")}
@@ -61,6 +64,7 @@ export const CursesPanel = () => {
 
     const active = $game.curses.filter((c) => !c.clearedAt).reverse();
     const cleared = $game.curses.filter((c) => c.clearedAt).reverse();
+    const played = [...($game.powerups ?? [])].reverse();
 
     return (
         <div className="flex flex-col gap-3 p-3 text-sm">
@@ -177,6 +181,123 @@ export const CursesPanel = () => {
                     ))}
                 </section>
             )}
+
+            <section className="flex flex-col gap-2" data-testid="powerups">
+                <h3 className="font-semibold font-poppins">
+                    Powerups played ({played.length})
+                </h3>
+                {played.length === 0 && (
+                    <p className="text-xs text-slate-400">None this round.</p>
+                )}
+                {played.map((entry) => {
+                    const powerup = POWERUPS.find((p) => p.name === entry.name);
+                    return (
+                        <div
+                            key={entry.id}
+                            className="flex flex-col gap-1 rounded-md border border-amber-500/60 bg-amber-950/30 p-2"
+                            data-testid="played-powerup"
+                        >
+                            <p className="font-semibold">{entry.name}</p>
+                            {powerup && (
+                                <p>
+                                    <CardText
+                                        text={powerup.effect}
+                                        size={size}
+                                    />
+                                </p>
+                            )}
+                            <p className="text-xs text-slate-300">
+                                Played{" "}
+                                {new Date(entry.playedAt).toLocaleTimeString(
+                                    [],
+                                    { hour: "2-digit", minute: "2-digit" },
+                                )}
+                                {entry.by && ` by ${entry.by}`}
+                            </p>
+                        </div>
+                    );
+                })}
+                {$role === "hider" && !playing && (
+                    <Button variant="outline" onClick={() => setPlaying(true)}>
+                        Play a powerup
+                    </Button>
+                )}
+                {$role === "hider" && playing && (
+                    <section className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-semibold font-poppins">
+                                Play a powerup
+                            </h4>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setPlaying(false);
+                                    setPickedPowerup(null);
+                                }}
+                            >
+                                Close
+                            </Button>
+                        </div>
+                        {POWERUPS.map((powerup) => (
+                            <div
+                                key={powerup.name}
+                                className="flex flex-col gap-1 rounded-md bg-slate-900 p-2"
+                            >
+                                <button
+                                    type="button"
+                                    className="text-left font-semibold"
+                                    onClick={() =>
+                                        setPickedPowerup(
+                                            pickedPowerup === powerup.name
+                                                ? null
+                                                : powerup.name,
+                                        )
+                                    }
+                                >
+                                    {powerup.name}
+                                </button>
+                                {pickedPowerup === powerup.name && (
+                                    <>
+                                        <p>
+                                            <CardText
+                                                text={powerup.effect}
+                                                size={size}
+                                            />
+                                        </p>
+                                        {powerup.name === "Move" && (
+                                            <p className="text-xs text-slate-300">
+                                                Tell the seekers which station
+                                                you were at, then pick your new
+                                                one in Stations
+                                                (&quot;Mine&quot;).
+                                            </p>
+                                        )}
+                                        <Button
+                                            size="sm"
+                                            onClick={() => {
+                                                void sendOp({
+                                                    type: "playPowerup",
+                                                    name: powerup.name,
+                                                });
+                                                setPlaying(false);
+                                                setPickedPowerup(null);
+                                            }}
+                                        >
+                                            Play it (the seekers are told)
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                        <p className="text-xs text-slate-400">
+                            A wider hiding zone, where a card allows it: Menu →
+                            Game → hiding zone radius. The seekers&apos; map
+                            follows.
+                        </p>
+                    </section>
+                )}
+            </section>
 
             {cleared.length > 0 && (
                 <details>

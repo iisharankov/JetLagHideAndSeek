@@ -94,7 +94,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                 <div className="mt-1 flex flex-col gap-1">
                     <p>
                         {suggestion
-                            ? `Hider mode suggests: ${suggestion.label}. Send:`
+                            ? `Hider mode suggests: ${suggestion.label}`
                             : "Send the answer:"}
                     </p>
                     <div className="flex flex-wrap gap-1">

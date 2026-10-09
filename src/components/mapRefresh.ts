@@ -14,7 +14,6 @@ import {
     questionFinishedMapData,
     questions,
     questionStatuses,
-    remainingMapData,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { answerOf, describeAnswer } from "@/lib/game/answers";
@@ -234,7 +233,6 @@ const refresh = async () => {
         }
     }
     const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
-    remainingMapData.set(mapGeoData);
     questionFinishedMapData.set(eliminated);
 
     if (focus && autoZoom.get()) {

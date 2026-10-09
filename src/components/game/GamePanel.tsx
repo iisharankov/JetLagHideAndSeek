@@ -1,5 +1,4 @@
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
 import { toast } from "react-toastify";
 
 import {
@@ -17,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
-import { gameSettings } from "@/lib/context";
+import { gameSettings, setupDialog } from "@/lib/context";
 import {
     activeGameId,
     currentGameId,
@@ -34,8 +33,6 @@ import {
 import { describeStations, questionKey } from "@/lib/game/settings";
 import type { GameSettings } from "@/lib/game/types";
 import { shareOrFallback } from "@/lib/utils";
-
-import { GameSetupDialog } from "./GameSetupDialog";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -99,7 +96,6 @@ export const GamePanel = () => {
     const $connection = useStore(gameConnection);
     const $name = useStore(playerName);
     const $settings = useStore(gameSettings);
-    const [setup, setSetup] = useState<"solo" | "start" | null>(null);
 
     const settings = $game?.settings ?? $settings;
 
@@ -123,6 +119,11 @@ export const GamePanel = () => {
                                 Forget it
                             </Button>
                         </div>
+                        <p className="text-xs text-slate-400">
+                            Either way your copy of the questions stays on this
+                            phone (the others may still be playing). To start
+                            fresh: Clear all questions, in the sidebar.
+                        </p>
                     </section>
                 )}
                 <section className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3">
@@ -130,7 +131,10 @@ export const GamePanel = () => {
                         Game settings
                     </h3>
                     <SettingsSummary settings={settings} />
-                    <Button variant="outline" onClick={() => setSetup("solo")}>
+                    <Button
+                        variant="outline"
+                        onClick={() => setupDialog.set("solo")}
+                    >
                         Change game settings
                     </Button>
                 </section>
@@ -144,15 +148,10 @@ export const GamePanel = () => {
                         settings are decided when the game starts.
                     </p>
                     <NameInput />
-                    <Button onClick={() => setSetup("start")}>
+                    <Button onClick={() => setupDialog.set("start")}>
                         Start a shared game
                     </Button>
                 </section>
-                <GameSetupDialog
-                    open={setup !== null}
-                    onOpenChange={(open) => !open && setSetup(null)}
-                    mode={setup ?? "solo"}
-                />
             </>
         );
     }
@@ -276,6 +275,10 @@ export const GamePanel = () => {
                     Leave game
                 </Button>
             </div>
+            <p className="text-xs text-slate-400">
+                Leaving keeps your copy of the questions; the game goes on for
+                the others.
+            </p>
             {$name === "" && (
                 <p className="text-xs text-amber-400">
                     Add your name so the others see who changed what.

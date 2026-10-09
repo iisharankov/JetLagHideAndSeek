@@ -5,8 +5,6 @@
 export const TUTORIAL_STEP_IDS = [
     "welcome",
     "place-picker",
-    "place-manage",
-    "polygon",
     "open-sidebar",
     "question-types",
     "radius",

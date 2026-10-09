@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    ALWAYS_OFF,
     defaultGameSettings,
     describeStations,
     hidingRadiusDefaultKm,
@@ -20,6 +21,7 @@ describe("game settings", () => {
 
         const swiss = defaultGameSettings("medium", "switzerland");
         expect(swiss.disabledQuestions).toEqual([
+            ...ALWAYS_OFF,
             "measuring:coastline",
             "measuring:seven11",
         ]);
@@ -30,7 +32,7 @@ describe("game settings", () => {
         });
         expect(
             defaultGameSettings("large", "standard").disabledQuestions,
-        ).toEqual(["measuring:lake"]);
+        ).toEqual([...ALWAYS_OFF, "measuring:lake"]);
     });
 
     it("turns station kinds into hiding-zone filters and back", () => {

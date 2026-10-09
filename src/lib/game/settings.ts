@@ -18,16 +18,26 @@ export const LAKE_AREA_CHOICES = [10, 20, 25, 50];
 export const questionKey = (category: string, type: string) =>
     `${category}:${type}`;
 
+/** Mountain questions: too many unnamed peaks to know which one is meant. */
+export const ALWAYS_OFF = [
+    questionKey("matching", "peak"),
+    questionKey("matching", "peak-full"),
+    questionKey("measuring", "peak"),
+    questionKey("measuring", "peak-full"),
+];
+
 /** Question types a region's rules leave out. */
-export const regionDisabledQuestions = (region: GameSettings["region"]) =>
-    region === "switzerland"
+export const regionDisabledQuestions = (region: GameSettings["region"]) => [
+    ...ALWAYS_OFF,
+    ...(region === "switzerland"
         ? // Landlocked, and there are no 7-Elevens.
           [
               questionKey("measuring", "coastline"),
               questionKey("measuring", "seven11"),
           ]
         : // Lake shores stand in for the coast only under the Swiss rules.
-          [questionKey("measuring", "lake")];
+          [questionKey("measuring", "lake")]),
+];
 
 export const defaultGameSettings = (
     size: GameSize = "medium",

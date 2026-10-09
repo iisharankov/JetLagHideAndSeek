@@ -16,7 +16,6 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
     customInitPreference,
-    displayHidingZones,
     drawingQuestionKey,
     gameSettings,
     hiderMode,
@@ -56,7 +55,6 @@ export const MatchingQuestionComponent = ({
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
-    const $displayHidingZones = useStore(displayHidingZones);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
@@ -130,8 +128,9 @@ export const MatchingQuestionComponent = ({
         case "park":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will only influence the map when you click on
-                    a hiding zone in the hiding zone sidebar.
+                    Worked out per station, with hiding zones on (Stations tab):
+                    a station stays in play when its nearest such place is the
+                    seeker&apos;s (same) or another one (different).
                 </span>
             );
             break;
@@ -270,7 +269,7 @@ export const MatchingQuestionComponent = ({
                         .reduce(
                             (acc, [key, value]) => {
                                 const values = {
-                                    disabled: !$displayHidingZones,
+                                    disabled: false,
                                     options: value,
                                 };
 

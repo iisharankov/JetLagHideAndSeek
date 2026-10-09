@@ -2,6 +2,7 @@ import * as turf from "@turf/turf";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+    chosenStation,
     customPresets,
     disabledStations,
     gameSettings,
@@ -41,6 +42,7 @@ const zurich = {
     hidingRadius: 600,
     hidingRadiusUnits: "meters",
     disabledStations: ["node/1"],
+    chosenStation: "node/2",
     presets: [{ id: "p2", name: "Shared preset", type: "custom", data: {} }],
 };
 
@@ -66,6 +68,7 @@ describe("parseSharedGame", () => {
             hidingRadius: 600,
             hidingRadiusUnits: "meters",
             disabledStations: ["node/1"],
+            chosenStation: "node/2",
         });
     });
 
@@ -121,6 +124,7 @@ describe("applySharedGame", () => {
         expect(gameSettings.get().hidingRadiusKm).toBe(0.6);
         expect(hidingRadiusUnits.get()).toBe("kilometers");
         expect(disabledStations.get()).toEqual(["node/1"]);
+        expect(chosenStation.get()).toBe("node/2");
         expect(
             customPresets
                 .get()

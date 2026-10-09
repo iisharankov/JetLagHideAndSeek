@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { SidebarCloseIcon } from "lucide-react";
-import { useState } from "react";
 
+import { withErrorBoundary } from "@/components/ErrorBoundary";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,6 +32,7 @@ import {
     isLoading,
     questions,
     save,
+    sidebarTab,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { gameState } from "@/lib/game/session";
@@ -47,6 +48,16 @@ import {
     TentacleQuestionComponent,
     ThermometerQuestionComponent,
 } from "./QuestionCards";
+import { StationsPanel as Panel } from "./StationsPanel";
+
+// A crash in the stations panel keeps the question list working.
+const StationsPanel = withErrorBoundary(Panel, "stations panel", [
+    "displayHidingZones",
+    "displayHidingZonesStyle",
+    "displayHidingZonesOptions",
+    "disabledStations",
+    "chosenStation",
+]);
 
 export const QuestionSidebar = () => {
     useStore(triggerLocalRefresh);
@@ -54,9 +65,7 @@ export const QuestionSidebar = () => {
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
     const $game = useStore(gameState);
-    const [tab, setTab] = useState<"questions" | "photos" | "curses">(
-        "questions",
-    );
+    const tab = useStore(sidebarTab);
     const activeCurses =
         $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
     const waitingPhotos =
@@ -68,9 +77,11 @@ export const QuestionSidebar = () => {
                 <h2 className="ml-4 mt-4 font-poppins text-2xl">
                     {tab === "questions"
                         ? "Questions"
-                        : tab === "photos"
-                          ? "Photos"
-                          : "Curses"}
+                        : tab === "stations"
+                          ? "Stations"
+                          : tab === "photos"
+                            ? "Photos"
+                            : "Curses"}
                 </h2>
                 <a
                     href={withBase("reference/")}
@@ -92,6 +103,7 @@ export const QuestionSidebar = () => {
                     label="Sidebar section"
                     options={[
                         { value: "questions", label: "Questions" },
+                        { value: "stations", label: "Stations" },
                         {
                             value: "photos",
                             label: waitingPhotos
@@ -106,9 +118,12 @@ export const QuestionSidebar = () => {
                         },
                     ]}
                     value={tab}
-                    onValueChange={setTab}
+                    onValueChange={sidebarTab.set}
                 />
             </div>
+            <SidebarContent className={tab === "stations" ? "" : "hidden"}>
+                <StationsPanel />
+            </SidebarContent>
             {tab === "photos" && (
                 <SidebarContent>
                     <PhotosPanel />

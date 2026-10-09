@@ -58,6 +58,15 @@ export interface CurseEntry {
     clearedBy?: string;
 }
 
+/** A powerup the hider played, so the seekers know (e.g. Move). */
+export interface PowerupEntry {
+    id: string;
+    /** As in src/lib/rules/cards.ts, e.g. "Move". */
+    name: string;
+    playedAt: number;
+    by: string;
+}
+
 /** Which stops count as hiding-zone stations; trains always do. */
 export interface StationKinds {
     halts: boolean;
@@ -87,6 +96,7 @@ export interface PastRound {
     questions: QuestionEntry[];
     photoRequests: PhotoRequest[];
     curses: CurseEntry[];
+    powerups: PowerupEntry[];
 }
 
 export interface GameState {
@@ -103,6 +113,7 @@ export interface GameState {
     photoRequests: PhotoRequest[];
     photos: PhotoInfo[];
     curses: CurseEntry[];
+    powerups: PowerupEntry[];
     hasHider: boolean;
     rounds: PastRound[];
 }
@@ -143,4 +154,5 @@ export type GameOp =
     | { type: "deletePhotoRequest"; id: string }
     | { type: "castCurse"; name: string }
     | { type: "clearCurse"; id: string }
+    | { type: "playPowerup"; name: string }
     | { type: "newRound" };

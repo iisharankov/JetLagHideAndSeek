@@ -23,7 +23,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useTutorialStep } from "@/hooks/use-tutorial-step";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
     additionalMapGeoLocations,
@@ -99,10 +98,7 @@ export const PlacePicker = ({
     const _placeSeen: Record<string, number> = {};
 
     return (
-        <Popover
-            open={useTutorialStep(open, ["place-manage"])}
-            onOpenChange={setOpen}
-        >
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"

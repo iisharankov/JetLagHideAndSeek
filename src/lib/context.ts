@@ -203,10 +203,25 @@ export const gameSettings = persistentAtom<GameSettings>(
     },
 );
 
-/** The area still in play after the last refresh (the shading's inverse). */
-export const remainingMapData = atom<FeatureCollection<
-    Polygon | MultiPolygon
-> | null>(null);
+/**
+ * The station this phone picked: the hider's own station (the red circle is
+ * their boundary), or, for seekers, the station once they know it. Shared
+ * among the seekers through the game; the hider's stays on their phone.
+ */
+export const chosenStation = persistentAtom<string>("chosenStation", "");
+/** A station tapped on the map, for the Stations tab to point out. */
+export const highlightedStation = atom<string>("");
+/** The sidebar's open tab (a tap on a zone switches to Stations). */
+export const sidebarTab = atom<"questions" | "stations" | "photos" | "curses">(
+    "questions",
+);
+
+/** Game setup (Menu → Game): this phone's settings, or a new shared game. */
+export const setupDialog = atom<"solo" | "start" | null>(null);
+/** Choosing the play area on the map, and which setup to come back to. */
+export const playAreaEditing = atom<"solo" | "start" | false>(false);
+/** The drawing tools for the play area are on the map. */
+export const playAreaDrawing = atom<boolean>(false);
 
 /** A seeker's private note on the map: a place worth remembering. */
 export interface NotePin {

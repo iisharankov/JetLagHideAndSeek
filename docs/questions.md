@@ -109,3 +109,12 @@ From your earlier answers (rounds 1–4), already built or planned:
   plus "stations left" and "removed" lists; stations are de-duplicated
   automatically; zones are cut to the possible area; custom station lists are
   gone.
+- **Round 6 (after the second real game):** a station is in or out of an
+  answer by its own position, never the hider's spot (whole green circles,
+  no cutting, no per-zone check); the hider and the seekers each pick the
+  station (the hider's stays on their phone, the seekers' is shared); the
+  hider's phone is simply in hider mode; mountain questions are off; the
+  Stations tab replaces the right sidebar; the place search and drawing
+  tools live in game setup; powerups the hider plays are shown to everyone;
+  leaving a game keeps the questions on the phone; stations behind airport
+  security (Dock E) are left out through an editable list.

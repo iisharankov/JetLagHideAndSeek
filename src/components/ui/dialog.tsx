@@ -34,9 +34,12 @@ const DialogContent = React.forwardRef<
     }
 >(({ className, children, closeIcon = true, ...props }, ref) => (
     <DialogPortal
-        container={document.querySelector(
-            "#map-modal-dialog-container-leaflet",
-        )}
+        // Rendered on the server too (closed), where there is no document.
+        container={
+            typeof document === "undefined"
+                ? undefined
+                : document.querySelector("#map-modal-dialog-container-leaflet")
+        }
     >
         <DialogOverlay />
         <DialogPrimitive.Content

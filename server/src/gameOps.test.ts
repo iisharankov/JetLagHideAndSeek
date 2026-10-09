@@ -296,6 +296,29 @@ describe("photos and curses", () => {
     });
 });
 
+describe("powerups", () => {
+    it("the hider plays them, everyone sees which and when, a new round puts them away", () => {
+        expect(() =>
+            apply(fresh(), { type: "playPowerup", name: "Move" }),
+        ).toThrow(/Only the hider/);
+        let state = apply(
+            fresh(),
+            { type: "playPowerup", name: "Move" },
+            hider,
+            7000,
+        );
+        expect(state.powerups[0]).toMatchObject({
+            name: "Move",
+            playedAt: 7000,
+            by: "Ben",
+        });
+
+        state = apply(state, { type: "newRound" }, seeker, 9000);
+        expect(state.powerups).toEqual([]);
+        expect(state.rounds[0].powerups).toHaveLength(1);
+    });
+});
+
 describe("new round", () => {
     it("keeps the finished round and starts empty, with no hider", () => {
         let state = apply(fresh(), {

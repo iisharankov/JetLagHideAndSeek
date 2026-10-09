@@ -26,10 +26,12 @@ import {
     leafletMapContext,
     overpassCustomHost,
     planningModeEnabled,
+    playAreaEditing,
     questions,
     referencePlacesMode,
     regionChoice,
     save,
+    setupDialog,
     showTutorial,
     triggerLocalRefresh,
 } from "@/lib/context";
@@ -45,6 +47,7 @@ import { errorMessage } from "@/maps/errors";
 import type { RegionChoice } from "@/maps/regionRules";
 
 import { GamePanel } from "./game/GamePanel";
+import { GameSetupDialog } from "./game/GameSetupDialog";
 import { HiderClaim } from "./game/HiderClaim";
 import { LatitudeLongitude } from "./LatLngPicker";
 import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
@@ -111,6 +114,8 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const [menuTab, setMenuTab] = useState<MenuTab>("game");
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
+    const $setup = useStore(setupDialog);
+    const $playAreaEditing = useStore(playAreaEditing);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -129,6 +134,11 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 ),
             );
     }, []);
+
+    // Choosing the play area happens on the map, under the menu.
+    useEffect(() => {
+        if ($playAreaEditing) setOptionsOpen(false);
+    }, [$playAreaEditing]);
 
     /** Loads a game the player chose explicitly (file or clipboard). */
     const loadHidingZone = (text: string) => {
@@ -259,6 +269,11 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     return (
         <div className={cn("flex justify-end gap-2", className)}>
             <SharedGameDialog />
+            <GameSetupDialog
+                open={$setup !== null}
+                onOpenChange={(open) => !open && setupDialog.set(null)}
+                mode={$setup ?? "solo"}
+            />
             <input
                 ref={fileInputRef}
                 type="file"
@@ -407,12 +422,23 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                         }
                                         data-testid="hider-controls"
                                     >
-                                        <ToggleCard
-                                            title="Hider mode"
-                                            description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
-                                            checked={$hiderMode !== false}
-                                            onCheckedChange={setHiderMode}
-                                        />
+                                        {$game && $role === "hider" ? (
+                                            <p className="rounded-md bg-yellow-500/15 p-2 text-sm">
+                                                Hider mode is on: each question
+                                                gets a suggested answer, worked
+                                                out from the hider pin. Nothing
+                                                is sent until you tap an answer.
+                                                Your position stays on this
+                                                phone.
+                                            </p>
+                                        ) : (
+                                            <ToggleCard
+                                                title="Hider mode"
+                                                description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
+                                                checked={$hiderMode !== false}
+                                                onCheckedChange={setHiderMode}
+                                            />
+                                        )}
                                         {$hiderMode !== false && (
                                             <MenuGroup title="Hider location">
                                                 <p className="text-xs text-slate-400">

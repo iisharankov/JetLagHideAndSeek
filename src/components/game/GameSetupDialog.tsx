@@ -15,9 +15,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SegmentedControl, ToggleCard } from "@/components/ui/toggle-card";
-import { gameSettings, mapGeoLocation, polyGeoJSON } from "@/lib/context";
+import {
+    additionalMapGeoLocations,
+    gameSettings,
+    mapGeoLocation,
+    playAreaEditing,
+    polyGeoJSON,
+} from "@/lib/context";
 import { startGame } from "@/lib/game/session";
 import {
+    ALWAYS_OFF,
     hidingRadiusDefaultKm,
     LAKE_AREA_CHOICES,
     questionKey,
@@ -27,9 +34,19 @@ import {
 import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
 import { TYPES } from "@/lib/questionInfo";
+import type { OpenStreetMap } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
 
 const STEPS = ["Game", "Hiding zones", "Questions"] as const;
+
+/** "Zürich, Switzerland": a place as the search shows it. */
+const placeName = (location: OpenStreetMap) =>
+    [location.properties.name, location.properties.country]
+        .filter(Boolean)
+        .join(", ");
+
+/** The draft kept while the play area is being chosen on the map. */
+let pendingDraft: GameSettings | null = null;
 
 const CATEGORY_NAMES: Record<keyof typeof TYPES, string> = {
     matching: "Matching",
@@ -58,7 +75,8 @@ export const GameSetupDialog = ({
 
     useEffect(() => {
         if (open) {
-            setDraft(gameSettings.get());
+            setDraft(pendingDraft ?? gameSettings.get());
+            pendingDraft = null;
             setStep(0);
         }
     }, [open]);
@@ -99,9 +117,19 @@ export const GameSetupDialog = ({
         }
     };
 
-    const playArea = polyGeoJSON.get()
+    const $polyGeoJSON = useStore(polyGeoJSON);
+    const $mapGeoLocation = useStore(mapGeoLocation);
+    const $additional = useStore(additionalMapGeoLocations);
+    const playArea = $polyGeoJSON
         ? "a drawn area"
-        : (mapGeoLocation.get().properties.name ?? "no play area yet");
+        : [$mapGeoLocation, ...$additional.map((x) => x.location)]
+              .map(placeName)
+              .join("; ");
+    const changePlayArea = () => {
+        pendingDraft = draft;
+        onOpenChange(false);
+        playAreaEditing.set(mode);
+    };
     const lakeEnabled = !draft.disabledQuestions.includes(
         questionKey("measuring", "lake"),
     );
@@ -126,12 +154,23 @@ export const GameSetupDialog = ({
                 <div className="flex flex-col gap-3 overflow-y-auto pr-1 text-sm">
                     {step === 0 && (
                         <>
-                            <p className="text-slate-300">
-                                Play area: <strong>{playArea}</strong>
-                                <span className="text-xs text-slate-400">
-                                    {" "}
-                                    (chosen on the map, at the top)
+                            <Label>Play area</Label>
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-600 px-3 py-2">
+                                <span className="min-w-0 truncate font-semibold">
+                                    {playArea}
                                 </span>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={changePlayArea}
+                                    data-testid="change-play-area"
+                                >
+                                    Change
+                                </Button>
+                            </div>
+                            <p className="text-xs text-slate-400">
+                                Search for a place, or draw the area on the map.
+                                In a shared game everyone gets it.
                             </p>
                             <Label>Game size</Label>
                             <SegmentedControl<GameSize>
@@ -259,43 +298,53 @@ export const GameSetupDialog = ({
                                             {CATEGORY_NAMES[category]}
                                         </h3>
                                         <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                                            {Object.entries(
-                                                TYPES[category],
-                                            ).map(([type, info]) => {
-                                                const key = questionKey(
-                                                    category,
-                                                    type,
-                                                );
-                                                const enabled =
-                                                    !draft.disabledQuestions.includes(
-                                                        key,
+                                            {Object.entries(TYPES[category])
+                                                .filter(
+                                                    ([type]) =>
+                                                        !ALWAYS_OFF.includes(
+                                                            questionKey(
+                                                                category,
+                                                                type,
+                                                            ),
+                                                        ),
+                                                )
+                                                .map(([type, info]) => {
+                                                    const key = questionKey(
+                                                        category,
+                                                        type,
                                                     );
-                                                return (
-                                                    <li
-                                                        key={type}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <Checkbox
-                                                            id={`q-${key}`}
-                                                            checked={enabled}
-                                                            onCheckedChange={(
-                                                                checked,
-                                                            ) =>
-                                                                toggleQuestion(
-                                                                    key,
-                                                                    !!checked,
-                                                                )
-                                                            }
-                                                        />
-                                                        <label
-                                                            htmlFor={`q-${key}`}
-                                                            className="cursor-pointer"
+                                                    const enabled =
+                                                        !draft.disabledQuestions.includes(
+                                                            key,
+                                                        );
+                                                    return (
+                                                        <li
+                                                            key={type}
+                                                            className="flex items-center gap-2"
                                                         >
-                                                            {info.label}
-                                                        </label>
-                                                    </li>
-                                                );
-                                            })}
+                                                            <Checkbox
+                                                                id={`q-${key}`}
+                                                                checked={
+                                                                    enabled
+                                                                }
+                                                                onCheckedChange={(
+                                                                    checked,
+                                                                ) =>
+                                                                    toggleQuestion(
+                                                                        key,
+                                                                        !!checked,
+                                                                    )
+                                                                }
+                                                            />
+                                                            <label
+                                                                htmlFor={`q-${key}`}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                {info.label}
+                                                            </label>
+                                                        </li>
+                                                    );
+                                                })}
                                         </ul>
                                     </section>
                                 ),

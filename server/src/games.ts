@@ -118,6 +118,8 @@ export const createGameStore = (
         state.hasHider = found.hider_secret !== null;
         // Games from before a settings change get the defaults for what's new.
         state.settings = normalizeGameSettings(state.settings);
+        state.powerups ??= [];
+        for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
     const notify = (state: GameState) => {

@@ -187,6 +187,42 @@ Pfungen's station is just outside that disc, so its zone was still possible,
 even though most of its circle lay inside the shaded area. The circle was
 drawn whole, which looked wrong; zones are now clipped to the possible part.
 
+## Round 6: your second real game ✅ (2026-10-09)
+
+Your feedback from 2026-10-09 (late), and what was done:
+
+1. **Hiding zones are about the station's GPS, not the hider's spot.** A
+   station is in or out by its own position (`src/maps/hidingZoneLayer.ts`):
+   whole green circles, no cutting to the possible area, no per-zone "parts
+   ruled out" check. Place questions (zoo, museum…), McDonald's and the
+   station-name questions are worked out per station the same way. Much
+   cheaper, so "Show hiding zones" is quick again. The zones follow the
+   answers whichever panel is open (also on a phone with the sidebar closed).
+2. **Picking the station.** The Stations tab has a Pick button per station
+   ("Mine" for the hider). The hider's pick stays on their phone (the red
+   circle is the boundary); the seekers' pick is shared with all seekers
+   through the game. A pick an answer rules out is flagged. Tapping a zone
+   on the map points the tab at that station.
+3. Hider in a shared game: hider mode is simply on (no switch; Menu → Hider
+   says so). Leaving, or no longer being the hider, turns it off.
+4. A shared link opened in a fresh browser draws the play area straight away.
+5. "Hider mode suggests: Yes" without ". Send:".
+6. The greyed-out question types were the hiding-zone-only ones, disabled
+   until hiding zones were on; never greyed out now. Mountain questions are
+   off and not offered in setup (too many unnamed peaks).
+7. **Layout.** Stations is a tab in the sidebar (Questions · Stations ·
+   Photos · Curses); the right sidebar and its trigger are gone. The place
+   search and the drawing tools live in game setup: Menu → Game → Change
+   game settings → Play area → Change opens a card over the map (search, or
+   "Draw the area on the map" for the polygon tools); Done returns to setup.
+8. Powerups: the Curses tab has "Powerups played". The hider plays one and
+   the seekers see which and when (Move says what to do next). A changed
+   hiding radius (Menu → Game, hider only) reaches everyone, as before.
+9. Leaving or forgetting a game keeps the questions on the phone on purpose
+   (the others may still be playing); the Game tab says so.
+10. Dock E (airside at the airport) is left out through an editable list,
+    `src/maps/datasets/stations.ts`.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

@@ -1,6 +1,11 @@
 import * as turf from "@turf/turf";
 
 import type { StationPlace } from "@/maps/api/types";
+import { UNREACHABLE_STATIONS } from "@/maps/datasets/stations";
+
+/** Leaves out the stations players can't get to (datasets/stations.ts). */
+export const withoutUnreachable = (places: StationPlace[]): StationPlace[] =>
+    places.filter((place) => !(place.properties.id in UNREACHABLE_STATIONS));
 
 /** How a stop ranks when several share a name: the railway station wins. */
 const rank = (place: StationPlace) => {
