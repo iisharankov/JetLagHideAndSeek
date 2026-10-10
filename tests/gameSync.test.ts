@@ -55,6 +55,7 @@ const game = (entries: QuestionEntry[]): GameState => ({
     curses: [],
     powerups: [],
     endgame: null,
+    clock: null,
     hasHider: false,
     rounds: [],
 });

@@ -39,9 +39,10 @@ import {
 import { gameRole, gameState } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
-import { CursesPanel } from "./game/CursesPanel";
+import { CardsPanel } from "./game/CardsPanel";
 import { NotePinList } from "./game/NotePins";
 import { PhotosPanel } from "./game/PhotosPanel";
+import { RoundClock } from "./game/RoundClock";
 import { HiderPanel as HiderPanelPlain } from "./HiderPanel";
 import {
     MatchingQuestionComponent,
@@ -101,7 +102,7 @@ export const QuestionSidebar = () => {
                               : "Stations"
                           : tab === "photos"
                             ? "Photos"
-                            : "Curses"}
+                            : "Cards"}
                 </h2>
                 <a
                     href={withBase("reference/")}
@@ -141,14 +142,15 @@ export const QuestionSidebar = () => {
                         {
                             value: "curses",
                             label: activeCurses
-                                ? `Curses (${activeCurses})`
-                                : "Curses",
+                                ? `Cards (${activeCurses})`
+                                : "Cards",
                         },
                     ]}
                     value={tab}
                     onValueChange={sidebarTab.set}
                 />
             </div>
+            {$game && <RoundClock />}
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
@@ -159,7 +161,7 @@ export const QuestionSidebar = () => {
             )}
             {tab === "curses" && (
                 <SidebarContent>
-                    <CursesPanel />
+                    <CardsPanel />
                 </SidebarContent>
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>

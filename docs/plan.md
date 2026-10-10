@@ -267,6 +267,26 @@ Your feedback from 2026-10-10, and what was done:
 10. The hider doesn't ask: no "Add Question" (or map menu items) on the
     hider's phone in a shared game; the Questions tab counts what waits.
 
+## Round 8: clock, cards, small things ✅ (2026-10-10)
+
+1. **Hiding clock** (Q33), shared: at the top of the sidebar in a shared
+   game. Anyone starts it when the seekers set off; the hider pauses it for a
+   Move; the seekers stop it with "Found!"; then the hider sends the time
+   bonuses from their hand and everyone sees hiding time + bonuses. A new
+   round clears it (the finished round keeps it). `src/lib/game/clock.ts`,
+   `src/components/game/RoundClock.tsx`.
+2. **The hider's hand** (Q33): the Curses tab is the **Cards** tab. On the
+   hider's phone it starts with "Your hand": Draw cards → which question was
+   answered (the rulebook's draw N, keep M) → tap the cards kept; play
+   (curse → cast, powerup → played; Move discards the hand and pauses the
+   clock; Draw 1, Expand 1 raises the limit), discard, over-the-limit
+   warning, bonus total (a Duplicate counts as the biggest bonus). After
+   answering, a toast says what to draw. The hand never leaves the phone.
+3. Phones: no +/− zoom buttons and no fullscreen button (pinch instead).
+4. The sidebar button is a proper button now (thumb-sized, says which tab
+   it opens: Questions / Stations / Hider / Photos / Cards).
+5. Ideas for next time are Q34–Q39 in `docs/questions.md`.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

@@ -27,13 +27,42 @@ switch the rules pages too.
 
 **Answer:**
 
-**Q33.** Round timer and the hider's hand. The game is won on hiding time,
-plus the time bonuses the hider holds at the end. Want the shared game to
-track that? _Recommended: yes: a round clock (started when the hider sets
-off, stopped when found, paused during a Move), and for the hider a private
-hand of cards (time bonuses, powerups, curses) that adds up the bonus
-minutes at the end. Nothing private is sent to the seekers until the round
-ends._
+**Q34.** Answer timer. The rulebook gives the hider five minutes to answer
+a question. Show a countdown on every question waiting for an answer (both
+phones), amber in the last minute? _Recommended: yes._
+
+**Answer:**
+
+**Q35.** Asking again. A question asked a second time costs double (the
+hider draws twice). Count how often each exact question type was asked this
+round and tell both sides ("asked before: draw twice")? _Recommended: yes,
+small._
+
+**Answer:**
+
+**Q36.** Buzz. Vibrate (and, when the page is in the background, show a
+notification) when a question arrives for the hider, an answer arrives for
+the seekers, or a curse is cast. Phones in pockets miss toasts.
+_Recommended: yes, as a setting that's on by default._
+
+**Answer:**
+
+**Q37.** Scoreboard. Each round's hiding time plus bonuses, per hider, in
+Menu → Game; the best round wins (the rulebook counts only a player's best
+round). _Recommended: yes, now that the clock exists._
+
+**Answer:**
+
+**Q38.** Rest periods. The rulebook suggests agreed rest periods in long
+games. A shared "rest" switch that pauses the clock and freezes questions?
+_Recommended: later, if you play large games._
+
+**Answer:**
+
+**Q39.** Questions from before a game. Joining a shared game backs up the
+phone's own questions (`questions-before-game` in storage) but nothing brings
+them back. A "Restore my earlier questions" button in Menu → Game?
+_Recommended: yes, small._
 
 **Answer:**
 
@@ -126,3 +155,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   applied, undoable); halts are trains, funiculars are trams; "Share a copy"
   is one button; a games list with delete; no page zoom on phones; saved
   settings don't sync between tabs.
+- **Round 8 (Q33):** a shared hiding clock (start when the seekers set off,
+  pause for a Move, stop when found) at the top of the sidebar; the hider's
+  hand of cards on the hider's phone (Cards tab: draw per the rulebook's
+  "draw N, keep M", play, discard, hand limit 6 + expansions), with the time
+  bonuses sent to the seekers at the end of the round.

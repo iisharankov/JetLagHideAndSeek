@@ -101,15 +101,17 @@ div.leaflet-control-attribution.leaflet-control {
         --sidebar-ring: 217.2 91.2% 59.8%;
     }
 
-    main:not(.fullscreen)
-        .leaflet-control-container
-        .leaflet-top.leaflet-left
-        .leaflet-control {
-        @apply !mt-[104px] md:!mt-[40px];
+    /* Below the sidebar button. */
+    main:not(.fullscreen) .leaflet-top .leaflet-control {
+        @apply !mt-[56px];
     }
 
-    main:not(.fullscreen) .leaflet-top .leaflet-control {
-        @apply !mt-[104px] md:!mt-[40px];
+    /* Phones pinch to zoom and have no window to fill: no +/− or fullscreen. */
+    @media (max-width: 767px) {
+        .leaflet-control-zoom,
+        .leaflet-full-screen-specific-name {
+            display: none;
+        }
     }
 
     .selected-card-background-temporary {

@@ -2,6 +2,7 @@
 // are easy to test; games.ts stores the results and tells every phone.
 import { randomBytes } from "node:crypto";
 
+import { applyClockAction } from "@/lib/game/clock";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/game/types";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
+const CLOCK_ACTIONS = new Set(["start", "pause", "resume", "stop", "reset"]);
 
 /** A change the rules don't allow; the API answers with `status`. */
 export class GameRuleError extends Error {
@@ -56,6 +58,7 @@ export const newGameState = (
     curses: [],
     powerups: [],
     endgame: null,
+    clock: null,
     hasHider: false,
     rounds: [],
 });
@@ -277,6 +280,28 @@ export const applyOp = (
         case "endEndgame":
             state.endgame = null;
             break;
+        case "clock": {
+            if (!CLOCK_ACTIONS.has(op.action)) {
+                throw new GameRuleError("Unknown clock action.", 400);
+            }
+            state.clock = applyClockAction(state.clock, op.action, now);
+            break;
+        }
+        case "setBonus": {
+            assertHider(actor, "send the time bonuses");
+            if (!state.clock?.stoppedAt) {
+                throw new GameRuleError(
+                    "The round isn't over yet: the clock is still running.",
+                    409,
+                );
+            }
+            const minutes = Number(op.minutes);
+            if (!Number.isFinite(minutes) || minutes < 0 || minutes > 600) {
+                throw new GameRuleError("Bonus minutes must be a number.", 400);
+            }
+            state.clock.bonusMinutes = Math.round(minutes);
+            break;
+        }
         case "newRound":
             state.rounds.push({
                 endedAt: now,
@@ -285,12 +310,14 @@ export const applyOp = (
                 curses: state.curses,
                 powerups: state.powerups,
                 endgame: state.endgame,
+                clock: state.clock,
             });
             state.questions = {};
             state.photoRequests = [];
             state.curses = [];
             state.powerups = [];
             state.endgame = null;
+            state.clock = null;
             state.hasHider = false;
             break;
         default:

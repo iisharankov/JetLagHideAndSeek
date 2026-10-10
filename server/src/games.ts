@@ -126,6 +126,7 @@ export const createGameStore = (
         state.settings = normalizeGameSettings(state.settings);
         state.powerups ??= [];
         state.endgame ??= null;
+        state.clock ??= null;
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };

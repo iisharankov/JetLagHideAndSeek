@@ -6,7 +6,8 @@ import { OptionDrawers } from "@/components/islands/OptionDrawers";
 import { PlayAreaBar } from "@/components/islands/PlayAreaBar";
 import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
 import { TutorialDialog } from "@/components/islands/TutorialDialog";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar-l";
+import { SidebarButton } from "@/components/SidebarButton";
+import { SidebarProvider } from "@/components/ui/sidebar-l";
 ---
 
 <Layout className="bg-jetlag">
@@ -19,7 +20,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar-l";
                         class="absolute top-2 left-2 z-[1030] group-[.fullscreen]:hidden"
                         data-tutorial-id="left-sidebar-trigger"
                     >
-                        <SidebarTrigger client:load />
+                        <SidebarButton client:load />
                     </div>
                     <div
                         class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto group-[.fullscreen]:hidden"

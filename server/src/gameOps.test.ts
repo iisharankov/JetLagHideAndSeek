@@ -373,6 +373,42 @@ describe("end game", () => {
     });
 });
 
+describe("the hiding clock", () => {
+    it("runs for everyone; the hider adds bonuses once it's stopped", () => {
+        let state = apply(
+            fresh(),
+            { type: "clock", action: "start" },
+            seeker,
+            1000,
+        );
+        expect(state.clock?.startedAt).toBe(1000);
+        expect(() =>
+            apply(state, { type: "setBonus", minutes: 5 }, hider),
+        ).toThrow(/still running/);
+        expect(() => apply(state, { type: "clock", action: "dance" })).toThrow(
+            /Unknown clock action/,
+        );
+
+        state = apply(state, { type: "clock", action: "pause" }, hider, 2000);
+        state = apply(state, { type: "clock", action: "resume" }, hider, 3000);
+        state = apply(state, { type: "clock", action: "stop" }, seeker, 4000);
+        expect(state.clock).toMatchObject({
+            startedAt: 1000,
+            pausedMs: 1000,
+            stoppedAt: 4000,
+        });
+        expect(() => apply(state, { type: "setBonus", minutes: 5 })).toThrow(
+            /Only the hider/,
+        );
+        state = apply(state, { type: "setBonus", minutes: 5 }, hider);
+        expect(state.clock?.bonusMinutes).toBe(5);
+
+        state = apply(state, { type: "newRound" });
+        expect(state.clock).toBeNull();
+        expect(state.rounds[0].clock?.bonusMinutes).toBe(5);
+    });
+});
+
 describe("new round", () => {
     it("keeps the finished round and starts empty, with no hider", () => {
         let state = apply(fresh(), {

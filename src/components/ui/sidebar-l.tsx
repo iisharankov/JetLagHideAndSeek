@@ -292,17 +292,16 @@ Sidebar.displayName = "Sidebar";
 const SidebarTrigger = React.forwardRef<
     React.ElementRef<typeof Button>,
     React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
+>(({ className, onClick, children, ...props }, ref) => {
     const { toggleSidebar } = useStore(SidebarContext);
 
     return (
         <button
             ref={ref}
             data-sidebar="trigger"
-            size="icon"
             className={cn(
-                "bg-white hover:bg-[#f4f4f4] text-black rounded-sm border-2 border-black border-opacity-30 cursor-pointer py-1 px-2",
-                "flex items-center gap-1",
+                // Big enough for a thumb, and says what it opens.
+                "flex h-10 cursor-pointer items-center gap-2 rounded-md border-2 border-black/30 bg-white px-3 text-sm font-semibold text-black shadow-md hover:bg-[#f4f4f4]",
                 className,
             )}
             onClick={(event) => {
@@ -311,7 +310,8 @@ const SidebarTrigger = React.forwardRef<
             }}
             {...props}
         >
-            <TbMessage2Question />
+            <TbMessage2Question className="h-5 w-5" />
+            {children}
         </button>
     );
 });

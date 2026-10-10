@@ -190,15 +190,33 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     ).toBeVisible();
 
     // Curses: Ben casts one, Ana sees it and clears it.
-    await ben.getByRole("radio", { name: /Curses/ }).click();
+    await ben.getByRole("radio", { name: /Cards/ }).click();
     await ben.getByRole("button", { name: "Cast a curse" }).click();
     await ben.getByRole("button", { name: "Curse of the Cairn" }).click();
     await ben.getByRole("button", { name: /Cast it/ }).click();
-    await page.getByRole("radio", { name: /Curses/ }).click();
+    await page.getByRole("radio", { name: /Cards/ }).click();
     const curse = page.getByTestId("active-curse");
     await expect(curse).toContainText("Curse of the Cairn");
     await curse.getByRole("button", { name: "Cleared" }).click();
     await expect(ben.getByTestId("active-curse")).toHaveCount(0);
+
+    // The hiding clock: Ana starts it; Ben records a time bonus he drew
+    // (a small game: 2 min); Ana finds him; Ben sends his bonuses.
+    const anaClock = page.getByTestId("round-clock");
+    const benClock = ben.getByTestId("round-clock");
+    await anaClock.getByRole("button", { name: "Start" }).click();
+    await expect(benClock).toHaveAttribute("data-state", "running");
+    await ben.getByRole("button", { name: "Draw cards" }).click();
+    await ben.getByRole("button", { name: /^Radar/ }).click();
+    await ben.getByRole("button", { name: "Time bonus 2 min" }).click();
+    await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
+    await anaClock.getByRole("button", { name: "Found!" }).click();
+    await page.getByRole("button", { name: "Yes, found" }).click();
+    await expect(benClock).toContainText("Found after");
+    await ben
+        .getByRole("button", { name: /Send my bonuses \(2 min\)/ })
+        .click();
+    await expect(anaClock).toContainText("+ 2 min bonuses");
 
     // Opening the plain address later doesn't drop Ana back into the game;
     // the Game tab offers to rejoin.

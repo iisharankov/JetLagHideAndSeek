@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useState } from "react";
+import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { questions } from "@/lib/context";
@@ -8,6 +9,7 @@ import {
     describeAnswer,
     isCurrentAnswer,
 } from "@/lib/game/answers";
+import { DRAWS } from "@/lib/game/hand";
 import {
     gameRole,
     gameState,
@@ -122,6 +124,16 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                                         answer: choice.answer,
                                         basedOn: entry.updatedAt,
                                     });
+                                    const draw = DRAWS[question.id];
+                                    if ($role === "hider" && draw) {
+                                        toast.info(
+                                            `Draw ${draw.draw}, keep ${draw.keep}. Record what you kept in Cards.`,
+                                            {
+                                                toastId: "draw",
+                                                autoClose: 8000,
+                                            },
+                                        );
+                                    }
                                 }}
                             >
                                 {choice.label}

@@ -53,6 +53,12 @@ const PhotoButton = ({
                             requestId,
                         });
                         toast.success("Photo sent", { autoClose: 2000 });
+                        if (gameRole.get() === "hider") {
+                            toast.info(
+                                "Draw 1, keep 1. Record what you kept in Cards.",
+                                { toastId: "draw", autoClose: 8000 },
+                            );
+                        }
                     } catch (error) {
                         toast.error(errorMessage(error));
                     } finally {

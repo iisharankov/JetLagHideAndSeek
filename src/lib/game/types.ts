@@ -76,6 +76,21 @@ export interface StationKinds {
     boats: boolean;
 }
 
+/**
+ * The round's hiding clock: started when the seekers set off, paused during
+ * a Move, stopped when the hider is found (see lib/game/clock.ts).
+ */
+export interface RoundClock {
+    startedAt: number | null;
+    pausedAt: number | null;
+    /** Time paused so far, left out of the hiding time. */
+    pausedMs: number;
+    stoppedAt: number | null;
+    /** The hider's time bonuses at the end, once they've sent them. */
+    bonusMinutes?: number;
+}
+export type ClockAction = "start" | "pause" | "resume" | "stop" | "reset";
+
 /** A station as picked: its map-data id ("node/123") and position. */
 export interface StationPick {
     id: string;
@@ -120,6 +135,7 @@ export interface PastRound {
     curses: CurseEntry[];
     powerups: PowerupEntry[];
     endgame?: Endgame | null;
+    clock?: RoundClock | null;
 }
 
 export interface GameState {
@@ -138,6 +154,7 @@ export interface GameState {
     curses: CurseEntry[];
     powerups: PowerupEntry[];
     endgame: Endgame | null;
+    clock: RoundClock | null;
     hasHider: boolean;
     rounds: PastRound[];
 }
@@ -181,4 +198,6 @@ export type GameOp =
     | { type: "playPowerup"; name: string }
     | { type: "startEndgame"; station: StationPick }
     | { type: "endEndgame" }
+    | { type: "clock"; action: ClockAction }
+    | { type: "setBonus"; minutes: number }
     | { type: "newRound" };
