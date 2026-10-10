@@ -394,6 +394,8 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await expect(ben.getByTestId("hider-endgame")).toContainText(
         "your station",
     );
+    // At his station: his pin is fixed from now on.
+    await expect(ben.getByTestId("pin-locked")).toBeVisible();
     // Wrong station? Back to the whole map, for everyone; then for real.
     await page.getByRole("button", { name: "Wrong station? Undo" }).click();
     await expect(page.getByTestId("endgame")).toHaveCount(0);
@@ -449,6 +451,21 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
         .getByRole("button", { name: "Send my bonuses (13 min)" })
         .click();
     await expect(anaClock).toContainText("+ 13 min bonuses");
+    // Round over: the seekers see where the hider was (the "who hides
+    // next?" popup is up by now; it comes back from the clock bar).
+    await expect(page.locator('img[alt="Hider was here"]')).toHaveCount(1);
+    await page
+        .getByTestId("next-hider-dialog")
+        .getByRole("button", { name: "Later" })
+        .click();
+    await page
+        .getByLabel("Sidebar section")
+        .getByRole("radio", { name: "Stations" })
+        .click();
+    await expect(page.getByTestId("revealed-pin")).toContainText(
+        "the hider was at",
+    );
+    await anaClock.getByRole("button", { name: "Who hides next?" }).click();
 
     // Who hides next? Owls (Ana's team) claim it; Ben's phone sees that.
     const anaNext = page.getByTestId("next-hider-dialog");
@@ -734,4 +751,34 @@ test("whoever starts a game says who they are, and may be the hider", async ({
     await expect(mark).toContainText("Pick your hiding spot");
     await mark.getByRole("button", { name: "Got it" }).click();
     await expect(mark).toHaveCount(0);
+});
+
+test("the map's places can be reviewed before a game", async ({
+    page,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await mockStations(page);
+    await openMenu(page, "Game");
+    await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByTestId("place-review-setup")).toContainText(
+        "0 rejected",
+    );
+    await page
+        .getByRole("button", { name: "Review places on the map…" })
+        .click();
+    const bar = page.getByTestId("place-review-bar");
+    await expect(bar).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(bar.getByTestId("place-review-count")).toContainText(
+        "0 places",
+        { timeout: 20_000 },
+    );
+    await bar.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByText("3 of 3: Questions")).toBeVisible();
 });

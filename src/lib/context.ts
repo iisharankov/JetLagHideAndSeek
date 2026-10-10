@@ -265,6 +265,11 @@ export const setupDialog = atom<"solo" | "start" | null>(null);
 export const playAreaEditing = atom<"solo" | "start" | false>(false);
 /** The drawing tools for the play area are on the map. */
 export const playAreaDrawing = atom<boolean>(false);
+/** Reviewing the map's places (game setup): which kind, and which setup to come back to. */
+export const placeReview = atom<{
+    back: "solo" | "start";
+    kind: string;
+} | null>(null);
 
 /** A seeker's private note on the map: a place worth remembering. */
 export interface NotePin {

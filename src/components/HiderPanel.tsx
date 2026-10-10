@@ -20,6 +20,7 @@ import {
     hiderChoosing,
     hiderShowAll,
     pendingStation,
+    pinLocked,
     setHiderPin,
     showHiderPin,
 } from "@/lib/hiderSpot";
@@ -49,6 +50,7 @@ export const HiderPanel = () => {
     const $showAll = useStore(hiderShowAll);
     const $showPin = useStore(showHiderPin);
     const $pin = useStore(hiderMode);
+    const $pinLocked = useStore(pinLocked);
     const $endgame = useStore(endgame);
     const $game = useStore(gameState);
     useTick(!!$game?.move);
@@ -218,9 +220,23 @@ export const HiderPanel = () => {
                 checked={$showAll}
                 onCheckedChange={hiderShowAll.set}
             />
+            {$pinLocked && (
+                <p
+                    className="rounded-md border border-amber-500/60 bg-amber-950/30 p-2 text-xs"
+                    data-testid="pin-locked"
+                >
+                    <strong>Your pin is fixed.</strong> The end game is on at
+                    your station: the seekers must find you exactly where the
+                    pin is.
+                </p>
+            )}
             <ToggleCard
                 title="Show my pin"
-                description="Where you really are. It stays inside your zone; drag it, or use GPS below."
+                description={
+                    $pinLocked
+                        ? "Where you must be found."
+                        : "Where you really are. It stays inside your zone; drag it, or use GPS below. Keep it right as the seekers close in: once they start the end game at your station it can't move."
+                }
                 checked={$showPin}
                 onCheckedChange={showHiderPin.set}
             />
@@ -233,7 +249,7 @@ export const HiderPanel = () => {
                     <Button
                         size="sm"
                         variant="outline"
-                        disabled={$isLoading}
+                        disabled={$isLoading || $pinLocked}
                         onClick={() =>
                             void toast.promise(
                                 locate().then((position) => {

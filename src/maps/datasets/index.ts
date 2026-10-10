@@ -253,6 +253,7 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
             type: string,
             lat: number,
             lng: number,
+            accept?: (element: DatasetElement) => boolean,
         ): Promise<DatasetElement | undefined> => {
             const info = await manifest();
             if (!info || !within([lng, lat, lng, lat], info.bbox, 0)) {
@@ -260,7 +261,9 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
             }
             // Unnamed places can't be compared ("same nearest zoo?").
             const candidates = (await elements(`poi-${type}`))?.filter(
-                (element) => element.tags.name || element.tags["name:en"],
+                (element) =>
+                    (element.tags.name || element.tags["name:en"]) &&
+                    (!accept || accept(element)),
             );
             if (!candidates?.length) return undefined;
 

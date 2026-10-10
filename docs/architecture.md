@@ -243,6 +243,11 @@ progress, the hider's spot, and earlier rounds.
   (`hiderReady`): the seekers hear that, the clock starts. Before that the
   hider's Research tab holds `research` questions: never synced, answered
   from the tapped station or the pin, deleted on Done.
+- **Which places count** (`lib/placeRules.ts`): places rejected while
+  setting up (kept per play area on the phone, carried in the game's
+  settings) are out of every question, and duplicates (same name, within
+  300 m) are one place. Rejections bypass the pre-computed nearest-place
+  maps for that kind; the answer is then computed from the place list.
 - **The curses** (`curseRules.ts`, shared with the server): which curses
   stop the seekers from asking until cleared, which take questions away
   (the Drained Brain's three, the Spotty Memory's die), which end by

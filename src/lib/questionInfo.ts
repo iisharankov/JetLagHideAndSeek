@@ -84,7 +84,7 @@ const placeTypes = (page: RuleRef["page"]) =>
             [
                 `${type}-full`,
                 {
-                    label: `${label} (small and medium games)`,
+                    label,
                     note: ALL_PLACES_NOTE,
                     rules: { page, heading },
                 },
@@ -92,7 +92,7 @@ const placeTypes = (page: RuleRef["page"]) =>
             [
                 type,
                 {
-                    label: `${label} (hiding zones)`,
+                    label: `${label} (hiding zones only)`,
                     note: ZONE_MODE_NOTE,
                     rules: { page, heading },
                 },

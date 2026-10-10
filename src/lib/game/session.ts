@@ -5,6 +5,7 @@ import { atom, computed } from "nanostores";
 import { toast } from "react-toastify";
 
 import {
+    activeQuestionKey,
     additionalMapGeoLocations,
     disabledStations,
     endgame,
@@ -17,7 +18,12 @@ import {
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
-import { chosenStation, hiderChoosing, pendingStation } from "@/lib/hiderSpot";
+import {
+    chosenStation,
+    hiderChoosing,
+    pendingStation,
+    pinLocked,
+} from "@/lib/hiderSpot";
 import { persistentAtom } from "@/lib/persist";
 import {
     applyPlayArea,
@@ -166,6 +172,17 @@ const receive = (received: GameState, force = false) => {
     if (!force && current?.id === state.id && state.version < current.version) {
         return;
     }
+    // A question just asked is the hider's business: it becomes the active
+    // card, so the places it measures against show on the map.
+    if (gameRole.get() === "hider") {
+        const fresh = Object.values(state.questions).find(
+            (entry) =>
+                entry.state === "asked" &&
+                current?.questions[String(entry.question.key)]?.state !==
+                    "asked",
+        );
+        if (fresh) activeQuestionKey.set(fresh.question.key);
+    }
     gameState.set(state);
     lastUpdateAt.set(Date.now());
     // A new round: the hider's password is new, so everyone says who they
@@ -236,6 +253,9 @@ const receive = (received: GameState, force = false) => {
                 JSON.stringify(chosenStation.get())
             ) {
                 chosenStation.set(state.hider.station);
+            }
+            if (pinLocked.get() !== !!state.hider.pinLocked) {
+                pinLocked.set(!!state.hider.pinLocked);
             }
             const pin = state.hider.pin;
             const mine = hiderMode.get();
@@ -362,6 +382,7 @@ const listenForLocalChanges = () => {
     let pinTimer: ReturnType<typeof setTimeout> | undefined;
     hiderMode.listen((pin) => {
         if (!inGame() || gameRole.get() !== "hider" || pin === false) return;
+        if (pinLocked.get()) return;
         clearTimeout(pinTimer);
         pinTimer = setTimeout(
             () => void sendOp({ type: "setHiderPin", pin }),
@@ -474,6 +495,7 @@ const startOfRound = () => {
     chosenStation.set(null);
     pendingStation.set(null);
     hiderChoosing.set(false);
+    pinLocked.set(false);
     if (id) unmarkJoined(id);
 };
 
@@ -484,6 +506,7 @@ export const leaveGame = () => {
     sessionGame = "";
     roundsSeen = -1;
     pendingStation.set(null);
+    pinLocked.set(false);
     currentGameId.set("");
     activeGameId.set("");
     gameState.set(null);

@@ -120,6 +120,23 @@ describe("game settings", () => {
     });
 });
 
+describe("rejected places", () => {
+    it("keeps the sensible ones and drops the rest", () => {
+        const settings = normalizeGameSettings({
+            rejectedPlaces: [
+                { kind: "zoo", name: "Pet shop", lat: 47.37, lng: 8.54 },
+                { kind: "zoo", name: "No position", lat: "x", lng: 8.54 },
+                "nonsense",
+                { kind: 5, name: "Bad kind", lat: 47, lng: 8 },
+            ],
+        });
+        expect(settings.rejectedPlaces).toEqual([
+            { kind: "zoo", name: "Pet shop", lat: 47.37, lng: 8.54 },
+        ]);
+        expect(normalizeGameSettings({}).rejectedPlaces).toEqual([]);
+    });
+});
+
 describe("radar distances", () => {
     it("are tidied up, or fall back to the size's own", () => {
         expect(

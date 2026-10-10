@@ -4,6 +4,11 @@ import _ from "lodash";
 
 import { mapGeoJSON, regionRules } from "@/lib/context";
 import {
+    applyPlaceRules,
+    hasRejections,
+    mergeDuplicates,
+} from "@/lib/placeRules";
+import {
     findPlacesInZone,
     LOCATION_FIRST_TAG,
     prettifyLocation,
@@ -157,13 +162,16 @@ export const placesForMeasuring = async (
               seeker,
           )
         : null;
-    if (elements === null) return places.inPlayArea();
-    if (elements.length === 0) {
+    if (elements === null) {
+        return applyPlaceRules(kind, await places.inPlayArea());
+    }
+    const points = applyPlaceRules(kind, elements.map(toPoint));
+    if (points.length === 0) {
         throw new NotApplicableError(
             `There are no ${places.plural} in or near the play area.`,
         );
     }
-    return elements.map(toPoint);
+    return points;
 };
 
 /**
@@ -177,7 +185,9 @@ export const seekerNearestCell = async (
 ): Promise<Feature<Polygon | MultiPolygon> | undefined> => {
     const places = placeSet(kind);
     const bbox = playAreaBbox();
-    if (!bbox || !(await datasets.covers(bbox))) return undefined;
+    // Rejected places aren't in the pre-computed maps: computed instead.
+    if (!bbox || hasRejections(kind) || !(await datasets.covers(bbox)))
+        return undefined;
     const cell = await datasets.nearestCell(places.set, seeker.lat, seeker.lng);
     if (cell === null) {
         throw new NotApplicableError(
@@ -187,17 +197,8 @@ export const seekerNearestCell = async (
     return cell;
 };
 
-/** The places of a kind in the play area, as the fallback computes them. */
-export const placesInPlayArea = (kind: PlaceKind) =>
-    placeSet(kind).inPlayArea();
-
-/**
- * Places to draw on the map for a question: every place whose "nearest"
- * area reaches into the play area, or else those inside it.
- */
-export const placesToShow = async (
-    kind: PlaceKind,
-): Promise<Feature<Point>[]> => {
+/** Every place of a kind the map data has for the play area, as listed. */
+const rawPlaces = async (kind: PlaceKind): Promise<Feature<Point>[]> => {
     const places = placeSet(kind);
     const bbox = playAreaBbox();
     const cells =
@@ -212,4 +213,44 @@ export const placesToShow = async (
         );
     }
     return places.inPlayArea();
+};
+
+/**
+ * The places of a kind the questions count: every place whose "nearest"
+ * area reaches into the play area (or else those inside it), duplicates
+ * merged and rejected places left out.
+ */
+export const placesInPlayArea = async (kind: PlaceKind) =>
+    applyPlaceRules(kind, await rawPlaces(kind));
+
+/** Places to draw on the map for a question. */
+export const placesToShow = placesInPlayArea;
+
+/** The kinds of place the players can review before a game. */
+export const REVIEW_KINDS: PlaceKind[] = [
+    "airport",
+    "city",
+    "zoo",
+    "theme_park",
+    "aquarium",
+    "museum",
+    "hospital",
+    "cinema",
+    "library",
+    "golf_course",
+    "consulate",
+    "park",
+    "peak",
+];
+
+export const reviewKindLabel = (kind: PlaceKind) => {
+    const plural = placeSet(kind).plural;
+    return plural.charAt(0).toUpperCase() + plural.slice(1);
+};
+
+/** For the review: every place of a kind, duplicates merged, rejected ones included. */
+export const reviewPlaces = async (kind: PlaceKind) => {
+    const raw = await rawPlaces(kind);
+    const places = mergeDuplicates(raw);
+    return { places, merged: raw.length - places.length };
 };

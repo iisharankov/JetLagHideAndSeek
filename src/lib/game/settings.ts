@@ -1,6 +1,12 @@
 // The settings of a game, decided before it starts (Menu → Game) and fixed
 // while it runs. Shared with the server, which enforces the lock.
-import type { CustomCard, GameSettings, GameSize, StationKinds } from "./types";
+import type {
+    CustomCard,
+    GameSettings,
+    GameSize,
+    RejectedPlace,
+    StationKinds,
+} from "./types";
 
 export const GAME_SIZES: GameSize[] = ["small", "medium", "large"];
 
@@ -32,12 +38,34 @@ export const LAKE_AREA_CHOICES = [10, 20, 25, 50];
 export const questionKey = (category: string, type: string) =>
     `${category}:${type}`;
 
-/** Mountain questions: too many unnamed peaks to know which one is meant. */
+/** The place kinds matching and measuring questions use. */
+export const PLACE_TYPES = [
+    "aquarium",
+    "zoo",
+    "theme_park",
+    "peak",
+    "museum",
+    "hospital",
+    "cinema",
+    "library",
+    "golf_course",
+    "consulate",
+    "park",
+];
+
+/**
+ * Off for good: mountain questions (too many unnamed peaks to know which
+ * one is meant), and the "hiding zones only" versions of the place
+ * questions, which only narrowed the station list and confused everyone
+ * next to the full versions that shade the map.
+ */
 export const ALWAYS_OFF = [
-    questionKey("matching", "peak"),
     questionKey("matching", "peak-full"),
-    questionKey("measuring", "peak"),
     questionKey("measuring", "peak-full"),
+    ...PLACE_TYPES.flatMap((type) => [
+        questionKey("matching", type),
+        questionKey("measuring", type),
+    ]),
 ];
 
 /** Question types a region's rules leave out. */
@@ -72,7 +100,29 @@ export const defaultGameSettings = (
     seekersSeeStations: true,
     latePenalty: true,
     tentacleKm: tentacleDefaults(region),
+    rejectedPlaces: [],
 });
+
+const MAX_REJECTED = 2000;
+
+const normalizeRejected = (value: unknown): RejectedPlace[] =>
+    (Array.isArray(value) ? value : [])
+        .filter(
+            (entry): entry is RejectedPlace =>
+                !!entry &&
+                typeof entry === "object" &&
+                typeof entry.kind === "string" &&
+                typeof entry.name === "string" &&
+                Number.isFinite(entry.lat) &&
+                Number.isFinite(entry.lng),
+        )
+        .slice(0, MAX_REJECTED)
+        .map((entry) => ({
+            kind: entry.kind.slice(0, 40),
+            name: entry.name.slice(0, 120),
+            lat: entry.lat,
+            lng: entry.lng,
+        }));
 
 /** Tentacle distances (km): 2 and 10 under the Swiss rules, else 2 and 25. */
 export const tentacleDefaults = (
@@ -219,6 +269,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
         latePenalty: input.latePenalty !== false,
         tentacleKm:
             normalizeTentacleKm(input.tentacleKm) ?? defaults.tentacleKm,
+        rejectedPlaces: normalizeRejected(input.rejectedPlaces),
     };
 };
 

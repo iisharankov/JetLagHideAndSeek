@@ -427,6 +427,71 @@ describe("the hiding spot", () => {
     });
 });
 
+describe("the hider's pin", () => {
+    const mine = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+    const other = { id: "node/2", name: "Wetzikon", lat: 47.32, lng: 8.8 };
+    const pin = { latitude: 47.301, longitude: 8.701 };
+
+    it("is fixed once the end game is on at the hider's station, and shown after the round", () => {
+        let state = apply(
+            fresh(),
+            { type: "hiderReady", station: mine },
+            hider,
+            1000,
+        );
+        state = apply(state, { type: "setHiderPin", pin }, hider, 2000);
+        state = apply(
+            state,
+            { type: "startEndgame", station: mine },
+            seeker,
+            3000,
+        );
+        expect(state.hider?.pinLocked).toBe(true);
+        expect(() =>
+            apply(
+                state,
+                {
+                    type: "setHiderPin",
+                    pin: { latitude: 47.31, longitude: 8.71 },
+                },
+                hider,
+            ),
+        ).toThrow(/pin is fixed/);
+        // Not yet found: the seekers see nothing of it.
+        expect(viewFor(state, "seeker").revealedPin).toBeNull();
+        const found = apply(
+            state,
+            { type: "clock", action: "stop" },
+            seeker,
+            4000,
+        );
+        expect(viewFor(found, "seeker").revealedPin).toEqual(pin);
+        expect(viewFor(found, "seeker").hider).toBeNull();
+        // Undoing the end game frees the pin again.
+        const undone = apply(state, { type: "endEndgame" }, seeker);
+        expect(undone.hider?.pinLocked).toBe(false);
+    });
+
+    it("stays free when the seekers pick the wrong station", () => {
+        let state = apply(
+            fresh(),
+            { type: "hiderReady", station: mine },
+            hider,
+            1000,
+        );
+        state = apply(
+            state,
+            { type: "startEndgame", station: other },
+            seeker,
+            3000,
+        );
+        expect(state.hider?.pinLocked).toBeUndefined();
+        expect(
+            apply(state, { type: "setHiderPin", pin }, hider).hider?.pin,
+        ).toEqual(pin);
+    });
+});
+
 describe("the hiding clock", () => {
     const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
 

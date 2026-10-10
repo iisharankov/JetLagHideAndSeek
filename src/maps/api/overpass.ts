@@ -19,6 +19,7 @@ import {
     overpassCustomHost,
     polyGeoJSON,
 } from "@/lib/context";
+import { applyPlaceRules, isRejected } from "@/lib/placeRules";
 import { datasets } from "@/maps/datasets/load";
 import { safeUnion } from "@/maps/geo-utils";
 import { expandingSearch } from "@/maps/hidingZones";
@@ -165,7 +166,9 @@ out center;
             turf.point([element.center.lon, element.center.lat], { name }),
         );
     });
-    return response;
+    return turf.featureCollection(
+        applyPlaceRules(question.locationType, response.features),
+    );
 };
 
 export const findAdminBoundary = async (
@@ -470,6 +473,17 @@ export const nearestToQuestion = async (
         question.type,
         question.lat,
         question.lng,
+        // Places the players rejected while setting up don't count.
+        (element) => {
+            const lon = element.center ? element.center.lon : element.lon;
+            const lat = element.center ? element.center.lat : element.lat;
+            return !isRejected(
+                question.type,
+                element.tags["name:en"] ?? element.tags.name,
+                lat!,
+                lon!,
+            );
+        },
     );
     if (nearest) {
         const point = turf.point(

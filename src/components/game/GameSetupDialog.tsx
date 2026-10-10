@@ -21,6 +21,7 @@ import {
     additionalMapGeoLocations,
     gameSettings,
     mapGeoLocation,
+    placeReview,
     playAreaEditing,
     polyGeoJSON,
 } from "@/lib/context";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/game/settings";
 import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
+import { localRejections } from "@/lib/placeRules";
 import { playAreaParts } from "@/lib/sharedGame";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
@@ -47,6 +49,8 @@ const STEPS = ["Game", "Hiding zones", "Questions"] as const;
 
 /** The draft kept while the play area is being chosen on the map. */
 let pendingDraft: GameSettings | null = null;
+/** The screen to come back to after the map (the play area, the places). */
+let pendingStep = 0;
 
 /**
  * The game's settings, a few screens at a time: deck, play area, size and
@@ -72,9 +76,14 @@ export const GameSetupDialog = ({
 
     useEffect(() => {
         if (open) {
-            setDraft(pendingDraft ?? gameSettings.get());
+            // The places rejected for this play area come along.
+            setDraft({
+                ...(pendingDraft ?? gameSettings.get()),
+                rejectedPlaces: localRejections(),
+            });
             pendingDraft = null;
-            setStep(0);
+            setStep(pendingStep);
+            pendingStep = 0;
             setShowDeck(false);
             setShowQuestions(false);
         }
@@ -147,6 +156,12 @@ export const GameSetupDialog = ({
         pendingDraft = draft;
         onOpenChange(false);
         playAreaEditing.set(mode);
+    };
+    const reviewPlacesOnMap = () => {
+        pendingDraft = draft;
+        pendingStep = step;
+        onOpenChange(false);
+        placeReview.set({ back: mode, kind: "zoo" });
     };
     const deckSize = deckComposition(draft).length;
     const deckChanged =
@@ -478,14 +493,36 @@ export const GameSetupDialog = ({
                     )}
 
                     {step === 2 && (
-                        <QuestionsStep
-                            draft={draft}
-                            mode={mode}
-                            update={update}
-                            toggleQuestion={toggleQuestion}
-                            showQuestions={showQuestions}
-                            setShowQuestions={setShowQuestions}
-                        />
+                        <>
+                            <QuestionsStep
+                                draft={draft}
+                                mode={mode}
+                                update={update}
+                                toggleQuestion={toggleQuestion}
+                                showQuestions={showQuestions}
+                                setShowQuestions={setShowQuestions}
+                            />
+                            <section
+                                className="flex flex-col gap-1 rounded-lg border border-slate-600 px-3 py-2"
+                                data-testid="place-review-setup"
+                            >
+                                <p className="text-xs">
+                                    <strong>Places on the map.</strong>{" "}
+                                    {draft.rejectedPlaces.length} rejected.
+                                    Check the zoos, parks, museums… the
+                                    questions use, and reject the wrong ones;
+                                    the same place listed several times counts
+                                    once.
+                                </p>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={reviewPlacesOnMap}
+                                >
+                                    Review places on the map…
+                                </Button>
+                            </section>
+                        </>
                     )}
                 </div>
 

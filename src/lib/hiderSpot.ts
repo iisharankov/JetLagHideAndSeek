@@ -33,6 +33,11 @@ export const chosenStation = persistentAtom<StationPick | null>(
 export const pendingStation = atom<StationPick | null>(null);
 /** The hider is picking (or changing) their station on the map. */
 export const hiderChoosing = atom<boolean>(false);
+/**
+ * The end game is on at the hider's station: the pin is fixed, and the
+ * seekers must find the hider exactly there (from the game's state).
+ */
+export const pinLocked = atom<boolean>(false);
 /** The hider also shows what the seekers see: every station still in play. */
 export const hiderShowAll = atom<boolean>(false);
 /** The hider's pin (their real spot) is drawn on their map. */
@@ -70,7 +75,8 @@ const hidingRadiusKm = () =>
 export const setHiderPin = (
     latitude: number,
     longitude: number,
-): "ok" | "clamped" => {
+): "ok" | "clamped" | "locked" => {
+    if (pinLocked.get()) return "locked";
     const station = pendingStation.get() ?? chosenStation.get();
     let result: "ok" | "clamped" = "ok";
     if (station) {

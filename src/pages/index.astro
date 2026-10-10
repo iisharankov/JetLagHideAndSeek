@@ -3,6 +3,7 @@ import Layout from "@/layouts/Layout.astro";
 // Each panel is wrapped in its own error boundary (see components/islands).
 import { Map } from "@/components/islands/Map";
 import { OptionDrawers } from "@/components/islands/OptionDrawers";
+import { PlaceReviewBar } from "@/components/islands/PlaceReviewBar";
 import { PlayAreaBar } from "@/components/islands/PlayAreaBar";
 import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
 import { TutorialDialog } from "@/components/islands/TutorialDialog";
@@ -28,6 +29,7 @@ import { SidebarProvider } from "@/components/ui/sidebar-l";
                         class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto"
                     >
                         <PlayAreaBar client:only className="m-4" />
+                        <PlaceReviewBar client:only className="m-4" />
                     </div>
                     <!-- Above the phone's sheet, so the Menu opens whatever is up. -->
                     <div class="absolute top-2 right-2 z-[1036]">

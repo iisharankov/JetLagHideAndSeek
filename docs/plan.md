@@ -650,6 +650,25 @@ stay in `rules/cards.ts`.
     says it); Discard exists only while the hand is over its limit (a
     card's cost picks its own discards).
 
+30. **The hider's pin is fixed** once the seekers start the end game at
+    the hider's actual station: no dragging, no GPS updates, and the server
+    refuses moves. The hider's phone says so; the seekers must find them
+    exactly there. Once the round is over the seekers see where the hider
+    was (a pin on the map, the coordinates in the Stations tab).
+31. **One version of each place question.** The "hiding zones only"
+    variants of the zoo, museum, park… questions (they only narrowed the
+    station list, next to the full versions that shade the map) are off
+    for good; the full versions carry the plain names.
+32. **Reviewing the map's places** before a game (setup, last screen:
+    "Review places on the map…"): every zoo, park, museum, airport… the
+    questions use, as pins; a tap names one and rejects or restores it.
+    The same place listed several times counts once everywhere.
+    Rejections are kept per play area on that phone and travel with the
+    game, so no question counts them.
+33. **The places a question measures against** are bigger pins now, named
+    on a tap, and a question just asked becomes the hider's active card
+    so its places show at once.
+
 Not built, by your choice: dice (you roll real ones) and a hangman board.
 
 ## What's left ⏭️

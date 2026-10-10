@@ -202,37 +202,51 @@ const Select = <T extends string>({
                             </SelectItem>
                         ))}
                     {groups &&
-                        Object.entries(groups).map(([label, v]) => {
-                            const opts =
-                                v && typeof v === "object" && "options" in v
-                                    ? v.options
-                                    : (v as Options<T>);
-                            const groupDisabled =
-                                v && typeof v === "object" && "disabled" in v
-                                    ? !!v.disabled
-                                    : false;
-                            return (
-                                <div key={label}>
-                                    <div className="py-1.5 pl-8 pr-2 text-sm font-semibold">
-                                        {label}
+                        Object.entries(groups)
+                            // A group with nothing left to choose is not shown.
+                            .filter(
+                                ([, v]) =>
+                                    Object.keys(
+                                        v &&
+                                            typeof v === "object" &&
+                                            "options" in v
+                                            ? v.options
+                                            : (v as Options<T>),
+                                    ).length > 0,
+                            )
+                            .map(([label, v]) => {
+                                const opts =
+                                    v && typeof v === "object" && "options" in v
+                                        ? v.options
+                                        : (v as Options<T>);
+                                const groupDisabled =
+                                    v &&
+                                    typeof v === "object" &&
+                                    "disabled" in v
+                                        ? !!v.disabled
+                                        : false;
+                                return (
+                                    <div key={label}>
+                                        <div className="py-1.5 pl-8 pr-2 text-sm font-semibold">
+                                            {label}
+                                        </div>
+                                        {Object.entries(opts).map(
+                                            ([k, itemLabel]) => (
+                                                <SelectItem
+                                                    key={k}
+                                                    selected={k === value}
+                                                    disabled={groupDisabled}
+                                                    onSelect={() =>
+                                                        handleSelect(k as T)
+                                                    }
+                                                >
+                                                    {itemLabel as string}
+                                                </SelectItem>
+                                            ),
+                                        )}
                                     </div>
-                                    {Object.entries(opts).map(
-                                        ([k, itemLabel]) => (
-                                            <SelectItem
-                                                key={k}
-                                                selected={k === value}
-                                                disabled={groupDisabled}
-                                                onSelect={() =>
-                                                    handleSelect(k as T)
-                                                }
-                                            >
-                                                {itemLabel as string}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
                 </div>
                 {canHover && canScrollDown && (
                     <SelectScrollButton

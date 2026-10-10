@@ -139,6 +139,17 @@ export const StationsPanel = () => {
 
     return (
         <div className="flex flex-col gap-2 p-2 text-sm">
+            {$game?.revealedPin && (
+                <p
+                    className="rounded-md border border-green-500/60 bg-green-950/30 p-2 text-xs"
+                    data-testid="revealed-pin"
+                >
+                    Round over: the hider was at{" "}
+                    {$game.revealedPin.latitude.toFixed(5)}°N,{" "}
+                    {$game.revealedPin.longitude.toFixed(5)}°E (the pin on the
+                    map).
+                </p>
+            )}
             {$endgame && (
                 <section
                     className="flex flex-col gap-1 rounded-md border border-red-500/60 bg-red-950/30 p-2"

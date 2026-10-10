@@ -128,6 +128,7 @@ export const newGameState = (
     freeQuestions: 0,
     clockRequest: null,
     deleteRequests: {},
+    revealedPin: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -151,6 +152,11 @@ export const viewFor = (state: GameState, role: Role): GameState =>
               ...state,
               deck: state.deck ? deckForSeekers(state.deck) : null,
               hider: null,
+              // Once the round is over the seekers see where the hider was.
+              revealedPin:
+                  clockState(state.clock) === "stopped"
+                      ? (state.hider?.pin ?? null)
+                      : null,
           };
 
 const withoutLocalFields = (question: SharedQuestion): SharedQuestion => {
@@ -1045,6 +1051,12 @@ export const applyOp = (
             ) {
                 throw new GameRuleError("That isn't a position.", 400);
             }
+            if (state.hider?.pinLocked) {
+                throw new GameRuleError(
+                    "The end game is on at your station: your pin is fixed, and the seekers must find you there.",
+                    409,
+                );
+            }
             state.hider = {
                 station: state.hider?.station ?? null,
                 pin: { latitude: pin.latitude!, longitude: pin.longitude! },
@@ -1077,10 +1089,15 @@ export const applyOp = (
                 by: actor.name,
                 before: Object.keys(state.questions).map(Number),
             };
+            // The right station: the hider's pin is where they must be found.
+            if (state.hider?.station && state.hider.station.id === station.id) {
+                state.hider.pinLocked = true;
+            }
             break;
         }
         case "endEndgame":
             state.endgame = null;
+            if (state.hider) state.hider.pinLocked = false;
             break;
         case "clock": {
             if (!CLOCK_ACTIONS.has(op.action)) {

@@ -77,6 +77,15 @@ export interface CurseEntry {
     seconds?: number;
 }
 
+/** A place the players rejected while setting up: out of every question. */
+export interface RejectedPlace {
+    /** "zoo", "park", "airport"… (see maps/questions/places.ts). */
+    kind: string;
+    name: string;
+    lat: number;
+    lng: number;
+}
+
 /** A team: people hiding or seeking together (2 v 2, say). */
 export interface Team {
     id: string;
@@ -152,6 +161,8 @@ export interface ClockRequest extends AgreementRequest {
 export interface HiderSpot {
     station: StationPick | null;
     pin: { latitude: number; longitude: number } | null;
+    /** The end game is on at this station: the pin can't move; the seekers must find the hider there. */
+    pinLocked?: boolean;
 }
 
 /** The hider is moving to a new station (the Move card). */
@@ -263,6 +274,8 @@ export interface GameSettings {
     latePenalty: boolean;
     /** Tentacle distances in km: small places (museums…), then big ones (zoos, parks, aquariums). */
     tentacleKm: [number, number];
+    /** Places rejected while setting up: wrong "zoos", mis-tagged parks. */
+    rejectedPlaces: RejectedPlace[];
     /**
      * Seekers may show the hiding zones (the stations still in play). Off,
      * only the hider's phone shows them; the seekers keep the shaded map.
@@ -327,6 +340,8 @@ export interface GameState {
     clockRequest: ClockRequest | null;
     /** Deletions one side asked for, by question key, waiting for the other side. */
     deleteRequests: Record<string, AgreementRequest>;
+    /** The seekers' view once the round is over: where the hider was (their pin). */
+    revealedPin: { latitude: number; longitude: number } | null;
     /** The hider's name this round, once known (for the scoreboard). */
     hiderName: string | null;
     /** Minutes awarded to the hider this round, on top of the hand's bonuses. */

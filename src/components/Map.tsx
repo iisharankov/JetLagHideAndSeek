@@ -41,6 +41,7 @@ import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 
 import { DraggableMarkers } from "./DraggableMarkers";
 import { requestMapRefresh } from "./mapRefresh";
+import { PlaceReviewMarkers } from "./PlaceReviewMarkers";
 import { PMTilesLayer } from "./PMTilesLayer";
 import { PolygonDraw } from "./PolygonDraw";
 import { ReferenceMarkers } from "./ReferenceMarkers";
@@ -242,6 +243,7 @@ export const Map = ({ className }: { className?: string }) => {
                 {getTileLayer($baseTileLayer)}
                 <DraggableMarkers />
                 <ReferenceMarkers />
+                <PlaceReviewMarkers />
                 <PolygonDraw />
                 <ScaleControl position="bottomleft" />
             </MapContainer>

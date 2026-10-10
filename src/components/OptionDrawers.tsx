@@ -12,6 +12,7 @@ import {
 import { withBase } from "@/lib/config";
 import {
     menuOpen,
+    placeReview,
     playAreaEditing,
     setupDialog,
     showTutorial,
@@ -41,10 +42,12 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         resumeGame();
     }, []);
 
-    // Choosing the play area happens on the map, under the menu.
+    // Choosing the play area, or reviewing its places, happens on the map,
+    // under the menu.
+    const $placeReview = useStore(placeReview);
     useEffect(() => {
-        if ($playAreaEditing) setOptionsOpen(false);
-    }, [$playAreaEditing]);
+        if ($playAreaEditing || $placeReview) setOptionsOpen(false);
+    }, [$playAreaEditing, $placeReview]);
 
     return (
         <div className={cn("flex justify-end gap-2", className)}>

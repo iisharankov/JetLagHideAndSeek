@@ -32,6 +32,7 @@ const base = (): GameState => ({
     freeQuestions: 0,
     clockRequest: null,
     deleteRequests: {},
+    revealedPin: null,
     hiderName: null,
     awards: [],
     rounds: [],

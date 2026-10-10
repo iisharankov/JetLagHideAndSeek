@@ -152,6 +152,7 @@ export const createGameStore = (
         state.freeQuestions ??= 0;
         state.clockRequest ??= null;
         state.deleteRequests ??= {};
+        state.revealedPin ??= null;
         if (state.move && !state.move.endsAt) {
             state.move.endsAt =
                 state.move.startedAt +

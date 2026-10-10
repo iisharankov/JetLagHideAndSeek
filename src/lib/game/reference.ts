@@ -72,15 +72,18 @@ export const questionReference = async (
     question: Question,
 ): Promise<string | null> => {
     const data = question.data as Record<string, any>;
+    // "zoo-full" is the zoo question that shades the map; same places.
+    const baseType = String(data.type ?? "").replace(/-full$/, "");
     if (question.id === "matching") {
         if (STATION_TYPES.includes(data.type)) {
             const name = await nearestStationName(data.lat, data.lng);
             return name ? `The seekers' station: ${name}` : null;
         }
-        if (HOME_GAME.includes(data.type)) {
-            const nearest = await nearestToQuestion(
-                question.data as HomeGameMatchingQuestions,
-            );
+        if (HOME_GAME.includes(baseType)) {
+            const nearest = await nearestToQuestion({
+                ...question.data,
+                type: baseType,
+            } as HomeGameMatchingQuestions);
             const name = nearest?.properties?.name;
             return name
                 ? `The seekers' nearest of "${typeLabel("matching", data.type)}": ${name}`
@@ -102,10 +105,11 @@ export const questionReference = async (
         }
         return null;
     }
-    if (question.id === "measuring" && HOME_GAME.includes(data.type)) {
-        const nearest = await nearestToQuestion(
-            question.data as HomeGameMeasuringQuestions,
-        );
+    if (question.id === "measuring" && HOME_GAME.includes(baseType)) {
+        const nearest = await nearestToQuestion({
+            ...question.data,
+            type: baseType,
+        } as HomeGameMeasuringQuestions);
         const name = nearest?.properties?.name;
         const km = nearest?.properties?.distanceToPoint;
         return name

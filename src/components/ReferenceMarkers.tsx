@@ -66,15 +66,18 @@ export const ReferenceMarkers = () => {
                         },
                     }).addTo(layer);
                 }
+                // Every candidate place, big enough to tap: a tap (or a
+                // hover) names it.
                 for (const dot of reference.dots) {
                     L.circleMarker([dot.lat, dot.lng], {
                         renderer,
-                        radius: 3,
+                        radius: 6,
                         color,
-                        weight: 1,
-                        fillOpacity: 0.8,
+                        weight: 2,
+                        fillOpacity: 0.7,
                     })
                         .bindTooltip(escapeHtml(dot.name ?? ""))
+                        .bindPopup(escapeHtml(dot.name ?? "(unnamed)"))
                         .addTo(layer);
                 }
                 if (reference.star) {
@@ -84,6 +87,9 @@ export const ReferenceMarkers = () => {
                     })
                         .bindTooltip(
                             escapeHtml(reference.star.name ?? "Reference"),
+                        )
+                        .bindPopup(
+                            `${escapeHtml(reference.star.name ?? "Reference")} (the seekers' nearest)`,
                         )
                         .addTo(layer);
                 }

@@ -181,4 +181,7 @@ From your earlier answers (rounds 1–4), already built or planned:
   Send, with every real choice (all places within reach for tentacles);
   tentacle distances are a game setting in km; the late-answer penalty
   (setting); pause, resume and deleting asked questions take both sides;
-  no discards unless over the hand limit.
+  no discards unless over the hand limit. The hider's pin is fixed once
+  the end game is on at their station and shown to the seekers after the
+  round; one version of each place question; places can be reviewed and
+  rejected before a game, duplicates merged.

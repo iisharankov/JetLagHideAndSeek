@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 import type { DragEndEvent } from "leaflet";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
-import { Marker } from "react-leaflet";
+import { Marker, Tooltip } from "react-leaflet";
 import { toast } from "react-toastify";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -13,8 +13,8 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
-import { hiderPhone } from "@/lib/game/session";
-import { setHiderPin, showHiderPin } from "@/lib/hiderSpot";
+import { gameState, hiderPhone } from "@/lib/game/session";
+import { pinLocked, setHiderPin, showHiderPin } from "@/lib/hiderSpot";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
@@ -174,6 +174,13 @@ const ColoredMarker = ({
 
 /** Moves the hider pin; it is kept inside the hider's zone. */
 const movePin = (latitude: number, longitude: number) => {
+    if (pinLocked.get()) {
+        toast.info(
+            "Your pin is fixed: the end game is on at your station, and the seekers must find you there.",
+            { toastId: "pin-locked" },
+        );
+        return;
+    }
     if (setHiderPin(latitude, longitude) === "clamped") {
         toast.info("The pin stays inside your hiding zone.", {
             toastId: "pin-clamped",
@@ -183,6 +190,8 @@ const movePin = (latitude: number, longitude: number) => {
 
 export const DraggableMarkers = () => {
     const $questions = useStore(questions);
+    const $pinLocked = useStore(pinLocked);
+    const $revealed = useStore(gameState)?.revealedPin ?? null;
     const $hiderMode = useStore(hiderMode);
     const $hider = useStore(hiderPhone);
     const $showHiderPin = useStore(showHiderPin);
@@ -201,11 +210,24 @@ export const DraggableMarkers = () => {
                     questionKey={-1}
                     latitude={$hiderMode.latitude}
                     longitude={$hiderMode.longitude}
+                    draggable={!$pinLocked}
                     onChange={(e) => {
                         const { lat, lng } = e.target.getLatLng();
                         movePin(lat, lng);
                     }}
                 />
+            )}
+            {$revealed && (
+                <Marker
+                    position={[$revealed.latitude, $revealed.longitude]}
+                    icon={hiderIcon()}
+                    alt="Hider was here"
+                    title="The hider was here"
+                    zIndexOffset={1000}
+                    keyboard={false}
+                >
+                    <Tooltip>The hider was here</Tooltip>
+                </Marker>
             )}
             {$questions.map((question) => {
                 if (!question.data) return null;
