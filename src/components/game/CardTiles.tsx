@@ -106,7 +106,8 @@ export const HandTile = ({
     size: GameSize;
     onOpen: () => void;
     onPlay?: () => void;
-    onDiscard: () => void;
+    /** Only while the hand is over its limit (or a card's cost asks). */
+    onDiscard?: () => void;
     /** Choosing cards to discard for a "Discard N, draw M". */
     selected?: boolean;
     onSelect?: () => void;
@@ -147,14 +148,16 @@ export const HandTile = ({
                         {card.kind === "curse" ? "Cast" : "Play"}
                     </Button>
                 )}
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={onDiscard}
-                >
-                    Discard
-                </Button>
+                {onDiscard && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={onDiscard}
+                    >
+                        Discard
+                    </Button>
+                )}
             </div>
         )}
     </li>

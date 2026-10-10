@@ -20,7 +20,10 @@ export interface GameEvent {
         | "move"
         | "award"
         | "hider"
-        | "round";
+        | "round"
+        | "late"
+        | "clock"
+        | "delete";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
@@ -73,6 +76,29 @@ export const gameEvents = (
 
     for (const [key, entry] of Object.entries(after.questions)) {
         const previous = before.questions[key];
+        // The late-answer penalty: warned twice, then a free question.
+        if (entry.late && entry.late !== previous?.late) {
+            const third = entry.late % 3 === 0;
+            if (role === "hider") {
+                events.push({
+                    key: `late${key}`,
+                    kind: "late",
+                    title: third
+                        ? "Third late answer"
+                        : `Late answer: warning ${entry.late % 3} of 2`,
+                    body: third
+                        ? "Over five minutes again: the seekers' next question is free (no draw for you)."
+                        : "Over five minutes. The third late answer makes the seekers' next question free.",
+                });
+            } else if (third) {
+                events.push({
+                    key: `late${key}`,
+                    kind: "late",
+                    title: "Your next question is free",
+                    body: "The hider answered late for the third time: they draw nothing for it.",
+                });
+            }
+        }
         if (role === "hider") {
             if (
                 entry.state === "asked" &&
@@ -133,6 +159,36 @@ export const gameEvents = (
             kind: "round",
             title: `${team?.name ?? "A team"} hides next`,
             body: "Anyone can start the new round.",
+        });
+    }
+
+    // One side asked for something the other must agree to.
+    const clockRequest = after.clockRequest;
+    if (
+        clockRequest &&
+        clockRequest.role !== role &&
+        JSON.stringify(clockRequest) !== JSON.stringify(before.clockRequest)
+    ) {
+        events.push({
+            key: `ck${clockRequest.at}`,
+            kind: "clock",
+            title: `${clockRequest.by} asks to ${clockRequest.action} the clock`,
+            body: "Agree in the clock bar: it takes both sides.",
+        });
+    }
+    for (const [key, request] of Object.entries(after.deleteRequests)) {
+        if (request.role === role) continue;
+        if (
+            JSON.stringify(before.deleteRequests[key]) ===
+            JSON.stringify(request)
+        )
+            continue;
+        const question = after.questions[key]?.question;
+        events.push({
+            key: `dl${key}:${request.at}`,
+            kind: "delete",
+            title: `${request.by} asks to delete a question`,
+            body: `${question ? label(question) : "A question"}: agree in its card, or keep it.`,
         });
     }
 

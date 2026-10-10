@@ -156,12 +156,19 @@ describe("questions", () => {
                 question: radius(1, { lat: 46 }),
             }),
         ).toThrow(/answered/);
-        expect(() => apply(state, { type: "deleteQuestion", key: 1 })).toThrow(
-            /answered/,
-        );
-        // The hider can.
+        // Deleting an answered question takes both sides: a seeker's delete
+        // is a request, and the question stays until the hider agrees.
+        const asked = apply(state, { type: "deleteQuestion", key: 1 });
+        expect(asked.questions["1"]).toBeDefined();
+        expect(asked.deleteRequests["1"]?.role).toBe("seeker");
+        // The hider's delete is a request too; with both sides', it goes.
         expect(
             apply(state, { type: "deleteQuestion", key: 1 }, hider).questions[
+                "1"
+            ],
+        ).toBeDefined();
+        expect(
+            apply(asked, { type: "deleteQuestion", key: 1 }, hider).questions[
                 "1"
             ],
         ).toBeUndefined();
@@ -1073,6 +1080,160 @@ describe("the hider's station", () => {
         expect(() =>
             apply(fresh(), { type: "hiderReady", station: null }, hider),
         ).toThrow(/Pick a station first/);
+    });
+});
+
+describe("the late-answer penalty", () => {
+    const asked = (state: GameState, key: number, at: number) => {
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(key) },
+            seeker,
+            at,
+        );
+        return apply(state, { type: "sendQuestion", key }, seeker, at);
+    };
+    const answered = (state: GameState, key: number, at: number) =>
+        apply(
+            state,
+            {
+                type: "answerQuestion",
+                key,
+                answer: { within: true },
+                basedOn: state.questions[String(key)].updatedAt,
+            },
+            hider,
+            at,
+        );
+    const MIN = 60_000;
+
+    it("warns twice, then gives the seekers a free question", () => {
+        let state = asked(fresh(), 1, 1000);
+        state = answered(state, 1, 1000 + 4 * MIN);
+        expect(state.questions["1"].late).toBeUndefined();
+        expect(state.lateAnswers).toBe(0);
+        state = asked(state, 2, 10_000);
+        state = answered(state, 2, 10_000 + 6 * MIN);
+        expect(state.questions["2"].late).toBe(1);
+        state = asked(state, 3, 20_000);
+        state = answered(state, 3, 20_000 + 5 * MIN + 1);
+        expect(state.questions["3"].late).toBe(2);
+        expect(state.freeQuestions).toBe(0);
+        state = asked(state, 4, 30_000);
+        state = answered(state, 4, 30_000 + 7 * MIN);
+        expect(state.lateAnswers).toBe(3);
+        expect(state.freeQuestions).toBe(1);
+        // The next answered question is the free one (real deck: a note).
+        state = asked(state, 5, 40_000);
+        state = answered(state, 5, 40_000 + MIN);
+        expect(state.freeQuestions).toBe(0);
+    });
+
+    it("counts for the digital deck as a free draw, and can be turned off", () => {
+        let state = newGameState(
+            "g8",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        for (const key of [1, 2, 3]) {
+            state = asked(state, key, key * 10_000);
+            state = answered(state, key, key * 10_000 + 6 * MIN);
+        }
+        expect(state.deck?.freeQuestions).toBe(1);
+
+        let off = newGameState(
+            "g9",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    latePenalty: false,
+                },
+            },
+            1000,
+        );
+        off = asked(off, 1, 1000);
+        off = answered(off, 1, 1000 + 9 * MIN);
+        expect(off.lateAnswers).toBe(0);
+        expect(off.questions["1"].late).toBeUndefined();
+    });
+});
+
+describe("the clock by agreement", () => {
+    it("pauses and resumes only when both sides ask", () => {
+        let state = apply(
+            fresh(),
+            { type: "clock", action: "start" },
+            seeker,
+            1000,
+        );
+        state = apply(state, { type: "clock", action: "pause" }, hider, 2000);
+        expect(state.clock?.pausedAt).toBeNull();
+        expect(state.clockRequest).toEqual({
+            action: "pause",
+            by: "Ben",
+            role: "hider",
+            at: 2000,
+        });
+        // The same side asking again changes nothing.
+        state = apply(state, { type: "clock", action: "pause" }, hider, 2500);
+        expect(state.clockRequest?.at).toBe(2000);
+        state = apply(state, { type: "clock", action: "pause" }, seeker, 3000);
+        expect(state.clock?.pausedAt).toBe(3000);
+        expect(state.clockRequest).toBeNull();
+        state = apply(state, { type: "clock", action: "resume" }, seeker, 4000);
+        expect(state.clock?.pausedAt).toBe(3000);
+        expect(state.clockRequest?.action).toBe("resume");
+        state = apply(state, { type: "clock", action: "cancel" }, hider, 4500);
+        expect(state.clockRequest).toBeNull();
+        state = apply(state, { type: "clock", action: "resume" }, hider, 5000);
+        state = apply(state, { type: "clock", action: "resume" }, seeker, 6000);
+        expect(state.clock?.pausedAt).toBeNull();
+        expect(state.clock?.pausedMs).toBe(3000);
+    });
+
+    it("refuses a pause when the clock isn't running", () => {
+        expect(() =>
+            apply(fresh(), { type: "clock", action: "pause" }, seeker),
+        ).toThrow(/isn't running/);
+    });
+});
+
+describe("deleting by agreement", () => {
+    it("deletes a draft at once, an asked question only when both sides agree", () => {
+        let state = apply(
+            fresh(),
+            { type: "putQuestion", question: radius(1) },
+            seeker,
+            1000,
+        );
+        expect(
+            apply(state, { type: "deleteQuestion", key: 1 }, seeker).questions[
+                "1"
+            ],
+        ).toBeUndefined();
+        state = apply(state, { type: "sendQuestion", key: 1 }, seeker, 2000);
+        state = apply(state, { type: "deleteQuestion", key: 1 }, hider, 3000);
+        expect(state.questions["1"]).toBeDefined();
+        expect(state.deleteRequests["1"]).toEqual({
+            by: "Ben",
+            role: "hider",
+            at: 3000,
+        });
+        const kept = apply(state, { type: "keepQuestion", key: 1 }, seeker);
+        expect(kept.deleteRequests["1"]).toBeUndefined();
+        expect(kept.questions["1"]).toBeDefined();
+        state = apply(state, { type: "deleteQuestion", key: 1 }, seeker, 4000);
+        expect(state.questions["1"]).toBeUndefined();
+        expect(state.deleteRequests["1"]).toBeUndefined();
     });
 });
 

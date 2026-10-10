@@ -12,6 +12,7 @@ import {
     normalizeGameSettings,
     radarDefaultKm,
     stationFilters,
+    tentacleRadiusKm,
 } from "@/lib/game/settings";
 import type { GameSettings } from "@/lib/game/types";
 
@@ -50,6 +51,10 @@ export const hiddenTypesFor = (
         .map((key) => key.slice(category.length + 1));
 
 /** A new radar question at a point, with the radius for the game size. */
+/** The tentacle distance (km) for a kind of place, in this game. */
+export const tentacleKmFor = (locationType: string) =>
+    tentacleRadiusKm(locationType, gameSettings.get().tentacleKm);
+
 export const newRadiusQuestion = (lat: number, lng: number) => ({
     id: "radius" as const,
     data: {

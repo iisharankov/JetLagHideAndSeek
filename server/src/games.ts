@@ -148,6 +148,10 @@ export const createGameStore = (
         state.teams ??= [];
         state.hiderTeamId ??= null;
         state.nextHiderTeamId ??= null;
+        state.lateAnswers ??= 0;
+        state.freeQuestions ??= 0;
+        state.clockRequest ??= null;
+        state.deleteRequests ??= {};
         if (state.move && !state.move.endsAt) {
             state.move.endsAt =
                 state.move.startedAt +

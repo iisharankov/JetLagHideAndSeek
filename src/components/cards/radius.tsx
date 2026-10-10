@@ -23,7 +23,7 @@ import { gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
-import { QuestionCard, useGameQuestionState } from "./base";
+import { QuestionCard, useFrozen } from "./base";
 
 const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
 
@@ -48,9 +48,8 @@ export const RadiusQuestionComponent = ({
     const $game = useStore(gameState);
     const $settings = useStore(gameSettings);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
-    const gameQuestionState = useGameQuestionState(questionKey);
-    const answered =
-        gameQuestionState === "answered" || gameQuestionState === "vetoed";
+    // Asked or answered: what was asked is a statement, not a choice.
+    const frozen = useFrozen(questionKey);
     // The game's radar distances, as cards; anything else is "custom".
     const radii = ($game?.settings ?? $settings).radarKm;
     const listed = data.unit === "kilometers" && radii.includes(data.radius);
@@ -74,52 +73,76 @@ export const RadiusQuestionComponent = ({
             sub={sub}
             className={className}
         >
-            <SidebarMenuItem>
-                <div
-                    className={cn(MENU_ITEM_CLASSNAME, "flex flex-wrap gap-1")}
-                    role="group"
-                    aria-label="Radius"
-                >
-                    {radii.map((km) => {
-                        const on = !showCustom && data.radius === km;
-                        const taken = gone.includes(km);
-                        return (
-                            <button
-                                key={km}
-                                type="button"
-                                disabled={locked || taken}
-                                aria-pressed={on}
-                                title={
-                                    taken
-                                        ? "Taken away by the Curse of the Drained Brain"
-                                        : undefined
-                                }
-                                className={cn(
-                                    CHIP,
-                                    on ? CHIP_ON : CHIP_OFF,
-                                    taken && "line-through",
-                                )}
-                                onClick={() => {
-                                    set({ radius: km, unit: "kilometers" });
-                                    setCustom(false);
-                                }}
-                            >
-                                {kmLabel(km)}
-                            </button>
-                        );
-                    })}
-                    <button
-                        type="button"
-                        disabled={locked}
-                        aria-pressed={showCustom}
-                        className={cn(CHIP, showCustom ? CHIP_ON : CHIP_OFF)}
-                        onClick={() => setCustom(true)}
+            {frozen && (
+                <SidebarMenuItem>
+                    <p
+                        className={cn(MENU_ITEM_CLASSNAME, "text-sm")}
+                        data-testid="radius-fact"
                     >
-                        Custom
-                    </button>
-                </div>
-            </SidebarMenuItem>
-            {showCustom && (
+                        Within{" "}
+                        <strong>
+                            {data.unit === "kilometers"
+                                ? kmLabel(data.radius)
+                                : `${data.radius} ${data.unit}`}
+                        </strong>
+                        .
+                    </p>
+                </SidebarMenuItem>
+            )}
+            {!frozen && (
+                <SidebarMenuItem>
+                    <div
+                        className={cn(
+                            MENU_ITEM_CLASSNAME,
+                            "flex flex-wrap gap-1",
+                        )}
+                        role="group"
+                        aria-label="Radius"
+                    >
+                        {radii.map((km) => {
+                            const on = !showCustom && data.radius === km;
+                            const taken = gone.includes(km);
+                            return (
+                                <button
+                                    key={km}
+                                    type="button"
+                                    disabled={locked || taken}
+                                    aria-pressed={on}
+                                    title={
+                                        taken
+                                            ? "Taken away by the Curse of the Drained Brain"
+                                            : undefined
+                                    }
+                                    className={cn(
+                                        CHIP,
+                                        on ? CHIP_ON : CHIP_OFF,
+                                        taken && "line-through",
+                                    )}
+                                    onClick={() => {
+                                        set({ radius: km, unit: "kilometers" });
+                                        setCustom(false);
+                                    }}
+                                >
+                                    {kmLabel(km)}
+                                </button>
+                            );
+                        })}
+                        <button
+                            type="button"
+                            disabled={locked}
+                            aria-pressed={showCustom}
+                            className={cn(
+                                CHIP,
+                                showCustom ? CHIP_ON : CHIP_OFF,
+                            )}
+                            onClick={() => setCustom(true)}
+                        >
+                            Custom
+                        </button>
+                    </div>
+                </SidebarMenuItem>
+            )}
+            {!frozen && showCustom && (
                 <SidebarMenuItem>
                     <div
                         className={cn(
@@ -154,8 +177,9 @@ export const RadiusQuestionComponent = ({
                     set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
                 }
                 disabled={locked}
+                readOnly={frozen}
             />
-            {!answered && (
+            {!frozen && (
                 <div className="flex items-center gap-2 px-2 py-1">
                     <Label
                         className={cn(

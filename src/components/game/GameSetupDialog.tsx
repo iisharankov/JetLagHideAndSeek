@@ -32,6 +32,7 @@ import {
     radarDefaultKm,
     radarDefaults,
     regionDisabledQuestions,
+    tentacleDefaults,
 } from "@/lib/game/settings";
 import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
@@ -99,7 +100,11 @@ export const GameSetupDialog = ({
     };
 
     const setRegion = (region: GameSettings["region"]) =>
-        update({ region, disabledQuestions: regionDisabledQuestions(region) });
+        update({
+            region,
+            disabledQuestions: regionDisabledQuestions(region),
+            tentacleKm: tentacleDefaults(region),
+        });
 
     const toggleQuestion = (key: string, enabled: boolean) =>
         update({
@@ -403,6 +408,72 @@ export const GameSetupDialog = ({
                                     update({ seekersSeeStations })
                                 }
                             />
+                            <Label>The hider</Label>
+                            <ToggleCard
+                                title="Late answers cost"
+                                description="Over five minutes to answer: two warnings, then the seekers' next question is free (the hider draws nothing for it)."
+                                checked={draft.latePenalty}
+                                onCheckedChange={(latePenalty) =>
+                                    update({ latePenalty })
+                                }
+                            />
+                            <Label>Tentacle distances (km)</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="flex flex-col gap-1 text-xs">
+                                    Museums, hospitals, cinemas…
+                                    <Input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min={0.1}
+                                        step={0.5}
+                                        aria-label="Tentacle distance, small places (km)"
+                                        value={draft.tentacleKm[0]}
+                                        debounce={0}
+                                        onChange={(event) => {
+                                            const km = Number(
+                                                event.target.value,
+                                            );
+                                            if (km > 0) {
+                                                update({
+                                                    tentacleKm: [
+                                                        km,
+                                                        draft.tentacleKm[1],
+                                                    ],
+                                                });
+                                            }
+                                        }}
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-1 text-xs">
+                                    Zoos, parks, aquariums
+                                    <Input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min={0.1}
+                                        step={0.5}
+                                        aria-label="Tentacle distance, big places (km)"
+                                        value={draft.tentacleKm[1]}
+                                        debounce={0}
+                                        onChange={(event) => {
+                                            const km = Number(
+                                                event.target.value,
+                                            );
+                                            if (km > 0) {
+                                                update({
+                                                    tentacleKm: [
+                                                        draft.tentacleKm[0],
+                                                        km,
+                                                    ],
+                                                });
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                            <p className="text-xs text-slate-400">
+                                Under the Swiss rules 2 and 10 km; the
+                                rulebook&apos;s 2 and 25 km otherwise.
+                            </p>
                         </>
                     )}
 

@@ -176,4 +176,9 @@ From your earlier answers (rounds 1–4), already built or planned:
   counts only once confirmed (a refresh forgets it); the clock starts at
   that confirmation; teams (one hides, the rest seek; the next hider team
   is claimed after each round, then everyone re-joins); a Research tab for
-  the hider's own probing questions before the station is set.
+  the hider's own probing questions before the station is set. Asked
+  questions are statements; the hider's answers preview on the map before
+  Send, with every real choice (all places within reach for tentacles);
+  tentacle distances are a game setting in km; the late-answer penalty
+  (setting); pause, resume and deleting asked questions take both sides;
+  no discards unless over the hand limit.

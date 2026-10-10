@@ -28,6 +28,10 @@ const base = (): GameState => ({
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,
+    lateAnswers: 0,
+    freeQuestions: 0,
+    clockRequest: null,
+    deleteRequests: {},
     hiderName: null,
     awards: [],
     rounds: [],
@@ -77,6 +81,27 @@ describe("game events", () => {
         expect(gameEvents(before, after, "seeker")).toEqual([]);
         // The first state of a game is never news.
         expect(gameEvents(null, after, "hider")).toEqual([]);
+    });
+
+    it("warns the hider about late answers and tells the other side about requests", () => {
+        const before = { ...base(), questions: { "1": entry("asked") } };
+        const late: GameState = {
+            ...base(),
+            questions: {
+                "1": { ...entry("answered", { within: true }), late: 3 },
+            },
+            clockRequest: { action: "pause", by: "Ana", role: "seeker", at: 5 },
+            deleteRequests: { "1": { by: "Ana", role: "seeker", at: 6 } },
+        };
+        const hider = gameEvents(before, late, "hider");
+        expect(hider.map((e) => e.kind)).toEqual(["late", "clock", "delete"]);
+        expect(hider[0].title).toBe("Third late answer");
+        expect(hider[1].title).toBe("Ana asks to pause the clock");
+        expect(hider[2].body).toMatch(/^Radar 5 km: agree/);
+        // The seekers hear about the free question, not their own requests.
+        const seekers = gameEvents(before, late, "seeker");
+        expect(seekers.map((e) => e.kind)).toEqual(["late", "answer"]);
+        expect(seekers[0].title).toBe("Your next question is free");
     });
 
     it("announces a new round and the team that hides next", () => {

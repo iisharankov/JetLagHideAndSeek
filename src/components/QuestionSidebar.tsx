@@ -320,6 +320,18 @@ export const QuestionSidebar = () => {
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
                 <CurseBanner />
+                {$game &&
+                    $role === "seeker" &&
+                    (($game.deck?.freeQuestions ?? 0) > 0 ||
+                        ($game.freeQuestions ?? 0) > 0) && (
+                        <p
+                            className="mx-2 mt-2 rounded-md border border-green-500/60 bg-green-950/40 px-2 py-1 text-xs"
+                            data-testid="free-question-note"
+                        >
+                            Your next question is free: the hider draws nothing
+                            for it.
+                        </p>
+                    )}
                 <SidebarMenu
                     className="px-2 pt-2"
                     data-tutorial-id="add-questions-buttons"

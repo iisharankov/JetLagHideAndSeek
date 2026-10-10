@@ -28,9 +28,8 @@ import {
     polyGeoJSON,
     questions,
 } from "@/lib/context";
-import { gameRole, gameState } from "@/lib/game/session";
-import { tentacleRadiusKm } from "@/lib/game/settings";
-import { newRadiusQuestion } from "@/lib/gameSettings";
+import { gameRole, gameState, previewAnswers } from "@/lib/game/session";
+import { newRadiusQuestion, tentacleKmFor } from "@/lib/gameSettings";
 import {
     currentPosition,
     describeGeoError,
@@ -160,7 +159,7 @@ export const Map = ({ className }: { className?: string }) => {
                                 data: {
                                     lat: e.latlng.lat,
                                     lng: e.latlng.lng,
-                                    radius: tentacleRadiusKm("theme_park"),
+                                    radius: tentacleKmFor("theme_park"),
                                     unit: "kilometers",
                                 },
                             });
@@ -279,12 +278,15 @@ export const Map = ({ className }: { className?: string }) => {
     // What the map follows: each question's data, hidden or locked (a folded
     // card isn't its business).
     const questionsKey = questionsMapKey($questions);
+    // The hider's answer previews shade the map before they're sent.
+    const previewsKey = JSON.stringify(useStore(previewAnswers));
     useEffect(() => {
         if (!map) return;
 
         requestMapRefresh(true);
     }, [
         questionsKey,
+        previewsKey,
         map,
         $hiderMode,
         zoneSettings,

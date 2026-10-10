@@ -5,13 +5,11 @@ import { useEffect, useState } from "react";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { UnitToggle } from "@/components/UnitToggle";
 import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     drawingQuestionKey,
@@ -22,8 +20,8 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
-import { tentacleRadiusKm } from "@/lib/game/settings";
-import { hiddenTypesFor } from "@/lib/gameSettings";
+import { gameState } from "@/lib/game/session";
+import { hiddenTypesFor, tentacleKmFor } from "@/lib/gameSettings";
 import { cn, mapToObj } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
@@ -36,7 +34,21 @@ import {
     type TraditionalTentacleQuestion,
 } from "@/maps/schema";
 
-import { QuestionCard, useGameQuestionState } from "./base";
+import { QuestionCard, useFrozen } from "./base";
+
+/** "Zoos", "Museums"…: the kind of place, as the list names it. */
+const typeLabel = (locationType: string) => {
+    for (const option of tentacleQuestionSchema.options) {
+        for (const choice of determineUnionizedStrings(
+            option.shape.locationType,
+        )) {
+            if ((choice._def as any).value === locationType) {
+                return choice.description ?? locationType;
+            }
+        }
+    }
+    return locationType.replace(/[-_]/g, " ");
+};
 
 export const TentacleQuestionComponent = ({
     data,
@@ -54,9 +66,14 @@ export const TentacleQuestionComponent = ({
     const $isLoading = useStore(isLoading);
     const $gameSettings = useStore(gameSettings);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
-    const gameQuestionState = useGameQuestionState(questionKey);
-    const answered =
-        gameQuestionState === "answered" || gameQuestionState === "vetoed";
+    const frozen = useFrozen(questionKey);
+    const $game = useStore(gameState);
+    // The game's distances: the big places (zoos, parks, aquariums) and the rest.
+    const [smallKm, bigKm] = ($game?.settings ?? $gameSettings).tentacleKm;
+    const groupLabel = (description: string | undefined) =>
+        description?.includes("15")
+            ? `Within ${bigKm} km (zoos, parks, aquariums)`
+            : `Within ${smallKm} km`;
     // Types left out of this game are hidden (the current one stays).
     const hidden = [
         ...hiddenTypesFor("tentacles", $gameSettings),
@@ -80,85 +97,95 @@ export const TentacleQuestionComponent = ({
             className={className}
         >
             <SidebarMenuItem>
-                <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
-                    <Input
-                        type="number"
-                        className="rounded-md p-2 w-16"
-                        value={data.radius}
-                        onChange={(e) =>
-                            set({ radius: parseFloat(e.target.value) })
-                        }
-                        disabled={!data.drag || $isLoading}
-                    />
-                    <UnitToggle
-                        unit={data.unit}
-                        onChange={(unit) => set({ unit })}
-                        disabled={!data.drag || $isLoading}
-                    />
-                </div>
-            </SidebarMenuItem>
-            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <Select
-                    trigger="Location Type"
-                    options={Object.fromEntries(
-                        tentacleQuestionSchema.options
-                            .filter((x) => x.description === NO_GROUP)
-                            .flatMap((x) =>
-                                determineUnionizedStrings(x.shape.locationType),
-                            )
-                            .map((x) => [(x._def as any).value, x.description])
-                            .filter(([type]) => inGame(type)),
+                <p
+                    className={cn(MENU_ITEM_CLASSNAME, "text-sm")}
+                    data-testid="tentacle-fact"
+                >
+                    {frozen ? (
+                        <>
+                            <strong>{typeLabel(data.locationType)}</strong>{" "}
+                            within <strong>{data.radius} km</strong>.
+                        </>
+                    ) : (
+                        <>
+                            Within <strong>{data.radius} km</strong> (the
+                            game&apos;s distance for this kind of place).
+                        </>
                     )}
-                    groups={Object.fromEntries(
-                        tentacleQuestionSchema.options
-                            .filter((x) => x.description !== NO_GROUP)
-                            .map((x) => [
-                                x.description,
-                                Object.fromEntries(
+                </p>
+            </SidebarMenuItem>
+            {!frozen && (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <Select
+                        trigger="Location Type"
+                        options={Object.fromEntries(
+                            tentacleQuestionSchema.options
+                                .filter((x) => x.description === NO_GROUP)
+                                .flatMap((x) =>
                                     determineUnionizedStrings(
                                         x.shape.locationType,
-                                    )
-                                        .map((x) => [
-                                            (x._def as any).value,
-                                            x.description,
-                                        ])
-                                        .filter(([type]) => inGame(type)),
-                                ),
-                            ]),
-                    )}
-                    value={data.locationType}
-                    onValueChange={async (value) => {
-                        if (value === "custom") {
-                            const priorLocations = await findTentacleLocations(
-                                data as TraditionalTentacleQuestion,
-                            );
-                            set({
-                                locationType: "custom",
-                                places: priorLocations.features.map((x) => ({
-                                    ...x,
-                                    properties: {
-                                        ...x.properties,
-                                        name:
-                                            x.properties?.["name:en"] ??
-                                            x.properties?.name,
-                                    },
-                                })),
-                                location: false,
-                            } as QuestionPatch);
-                        } else {
-                            set({
-                                location: false,
-                                locationType: value,
-                                // The book's distance for this kind of place.
-                                radius: tentacleRadiusKm(value),
-                                unit: "kilometers",
-                            } as QuestionPatch);
-                        }
-                    }}
-                    disabled={!data.drag || $isLoading}
-                />
-            </SidebarMenuItem>
-            {data.locationType === "custom" && data.drag && (
+                                    ),
+                                )
+                                .map((x) => [
+                                    (x._def as any).value,
+                                    x.description,
+                                ])
+                                .filter(([type]) => inGame(type)),
+                        )}
+                        groups={Object.fromEntries(
+                            tentacleQuestionSchema.options
+                                .filter((x) => x.description !== NO_GROUP)
+                                .map((x) => [
+                                    groupLabel(x.description),
+                                    Object.fromEntries(
+                                        determineUnionizedStrings(
+                                            x.shape.locationType,
+                                        )
+                                            .map((x) => [
+                                                (x._def as any).value,
+                                                x.description,
+                                            ])
+                                            .filter(([type]) => inGame(type)),
+                                    ),
+                                ]),
+                        )}
+                        value={data.locationType}
+                        onValueChange={async (value) => {
+                            if (value === "custom") {
+                                const priorLocations =
+                                    await findTentacleLocations(
+                                        data as TraditionalTentacleQuestion,
+                                    );
+                                set({
+                                    locationType: "custom",
+                                    places: priorLocations.features.map(
+                                        (x) => ({
+                                            ...x,
+                                            properties: {
+                                                ...x.properties,
+                                                name:
+                                                    x.properties?.["name:en"] ??
+                                                    x.properties?.name,
+                                            },
+                                        }),
+                                    ),
+                                    location: false,
+                                } as QuestionPatch);
+                            } else {
+                                set({
+                                    location: false,
+                                    locationType: value,
+                                    // The book's distance for this kind of place.
+                                    radius: tentacleKmFor(value),
+                                    unit: "kilometers",
+                                } as QuestionPatch);
+                            }
+                        }}
+                        disabled={!data.drag || $isLoading}
+                    />
+                </SidebarMenuItem>
+            )}
+            {data.locationType === "custom" && data.drag && !frozen && (
                 <>
                     <p className="px-2 mb-1 text-center text-orange-500">
                         To modify tentacle locations, enable it:
@@ -193,8 +220,11 @@ export const TentacleQuestionComponent = ({
                     set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
                 }
                 disabled={!data.drag || $isLoading}
+                readOnly={frozen}
             />
-            {!answered && (
+            {/* Alone, the answer is typed here; in a game the hider answers
+                from the game bar and the seekers' draft shows its slices. */}
+            {!frozen && !$game && (
                 <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                     <TentacleLocationSelector
                         data={data}
@@ -207,13 +237,13 @@ export const TentacleQuestionComponent = ({
     );
 };
 
-type TentacleOptions =
+export type TentacleOptions =
     | { status: "loading" }
     | { status: "error"; message: string }
     | { status: "ready"; features: any[] };
 
 /** The places the hider can name: those of the type within the radius. */
-const useTentacleOptions = (data: TentacleQuestion): TentacleOptions => {
+export const useTentacleOptions = (data: TentacleQuestion): TentacleOptions => {
     const [options, setOptions] = useState<TentacleOptions>({
         status: "loading",
     });

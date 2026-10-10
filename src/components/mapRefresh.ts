@@ -23,7 +23,12 @@ import {
 } from "@/lib/context";
 import { answerOf, describeAnswer } from "@/lib/game/answers";
 import { draftsToApply } from "@/lib/game/drafts";
-import { gameState, hiderPhone, suggestedAnswers } from "@/lib/game/session";
+import {
+    gameState,
+    hiderPhone,
+    previewAnswers,
+    suggestedAnswers,
+} from "@/lib/game/session";
 import { roleOnMap } from "@/lib/game/sync";
 import type { Endgame } from "@/lib/game/types";
 import { createLatestRunner } from "@/lib/jobs";
@@ -289,13 +294,40 @@ const refresh = async () => {
     const confirmed = inPlay.filter((q) => roleOnMap(q, game) === "confirmed");
     const drafts = inPlay.filter((q) => roleOnMap(q, game) === "speculative");
     // All drafts, or only the active card's (the others just outlined).
-    const speculative = game
+    let speculative = game
         ? draftsToApply(drafts, draftsOnMap.get(), activeQuestionKey.get())
         : drafts;
     const outlinedDrafts = drafts.filter((q) => !speculative.includes(q));
-    const waiting = inPlay.filter((q) => roleOnMap(q, game) === "waiting");
+    const previews = previewAnswers.get();
+    // The hider's chosen answer, not sent yet: shown as speculation.
+    const previewed = inPlay
+        .filter((q) => roleOnMap(q, game) === "waiting" && previews[q.key])
+        .map(
+            (q) =>
+                ({
+                    ...q,
+                    data: { ...q.data, ...previews[q.key] },
+                }) as Question,
+        );
+    const waiting = inPlay.filter(
+        (q) => roleOnMap(q, game) === "waiting" && !previews[q.key],
+    );
     const vetoed = inPlay.filter((q) => roleOnMap(q, game) === "vetoed");
-    if (hider && game) await suggestAnswers(waiting, hiderModeErrors);
+    if (hider && game) {
+        await suggestAnswers(
+            inPlay.filter((q) => roleOnMap(q, game) === "waiting"),
+            hiderModeErrors,
+        );
+    }
+    // A seekers' tentacle draft has no answer yet: its slices (the places
+    // within reach) are drawn, nothing is applied.
+    const slicesOnly = (q: Question) =>
+        !!game &&
+        q.id === "tentacles" &&
+        q.data.location === false &&
+        !q.data.research;
+    speculative = [...speculative.filter((q) => !slicesOnly(q)), ...previewed];
+    outlinedDrafts.push(...drafts.filter(slicesOnly));
 
     removeLayers(map, (layer) => layer.questionKey !== undefined);
     const drawOutline = (
@@ -407,13 +439,16 @@ const refresh = async () => {
         ...Object.fromEntries(known.statuses),
         ...Object.fromEntries(guessedStatuses),
         ...Object.fromEntries(
-            outlinedDrafts.map((q) => [
-                q.key,
-                {
-                    state: "skipped",
-                    reason: "inactive-draft",
-                } as QuestionStatus,
-            ]),
+            outlinedDrafts
+                // A tentacle draft's slices are its whole showing: nothing skipped.
+                .filter((q) => !slicesOnly(q))
+                .map((q) => [
+                    q.key,
+                    {
+                        state: "skipped",
+                        reason: "inactive-draft",
+                    } as QuestionStatus,
+                ]),
         ),
         ...Object.fromEntries(
             waiting.map((q) => [

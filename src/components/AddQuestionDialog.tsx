@@ -21,8 +21,7 @@ import {
 import { disabledCategory, kindRefusal } from "@/lib/game/curseRules";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameState } from "@/lib/game/session";
-import { tentacleRadiusKm } from "@/lib/game/settings";
-import { newRadiusQuestion } from "@/lib/gameSettings";
+import { newRadiusQuestion, tentacleKmFor } from "@/lib/gameSettings";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
 
 /**
@@ -111,13 +110,13 @@ export const AddQuestionDialog = ({
                       lng: center.lng,
                       locationType: "custom",
                       places: [],
-                      radius: tentacleRadiusKm("theme_park"),
+                      radius: tentacleKmFor("theme_park"),
                       unit: "kilometers",
                   }
                 : {
                       lat: center.lat,
                       lng: center.lng,
-                      radius: tentacleRadiusKm("theme_park"),
+                      radius: tentacleKmFor("theme_park"),
                       unit: "kilometers",
                   },
         });

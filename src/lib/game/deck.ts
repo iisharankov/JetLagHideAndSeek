@@ -336,4 +336,5 @@ export const deckForSeekers = (deck: Deck): Deck => ({
     owed: [],
     limit: deck.limit,
     log: deck.log,
+    ...(deck.freeQuestions ? { freeQuestions: deck.freeQuestions } : {}),
 });

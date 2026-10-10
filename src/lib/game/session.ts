@@ -104,6 +104,12 @@ export const suggestedAnswers = atom<
     >
 >({});
 
+/**
+ * The hider's chosen answers, not sent yet: the map shows what each would
+ * rule out, so the hider sees the outcome before tapping Send.
+ */
+export const previewAnswers = atom<Record<number, Record<string, unknown>>>({});
+
 const me = () => (playerName.get() ?? "").trim() || "Someone";
 const token = () => hiderTokens.get()[activeGameId.get()];
 /** This phone's hider token for the game it's in, if it is the hider. */
@@ -444,6 +450,7 @@ export const joinGame = (id: string) => {
         roundsSeen = -1;
         gameState.set(null);
         suggestedAnswers.set({});
+        previewAnswers.set({});
     }
     currentGameId.set(id);
     activeGameId.set(id);

@@ -157,6 +157,9 @@ export const RoundClock = () => {
     if (!$game) return null;
 
     const act = (action: ClockAction) => void sendOp({ type: "clock", action });
+    // Pausing and resuming take both sides: one asks, the other agrees.
+    const request = $game.clockRequest;
+    const otherSide = $role === "hider" ? "the seekers" : "the hider";
     // The clock runs on the server's time, so every phone shows the same.
     const elapsed = formatDuration(hidingTimeMs(clock, serverNow()));
     const total =
@@ -213,16 +216,15 @@ export const RoundClock = () => {
                 <>
                     <span className="font-mono text-base">⏱ {elapsed}</span>
                     {bonusTag}
-                    {$role === "hider" ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            title="A Move pauses the clock"
-                            onClick={() => act("pause")}
-                        >
-                            Pause
-                        </Button>
-                    ) : (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        title="Both sides must agree to a pause (a Move pauses by itself)"
+                        onClick={() => act("pause")}
+                    >
+                        Pause
+                    </Button>
+                    {$role === "seeker" &&
                         // Only once the seekers have picked the station (the
                         // end game): no stopping the clock on a hunch.
                         $endgame && (
@@ -253,9 +255,48 @@ export const RoundClock = () => {
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                        )
-                    )}
+                        )}
                 </>
+            )}
+            {request && (
+                <p
+                    className="basis-full text-center"
+                    data-testid="clock-request"
+                >
+                    {request.role === $role ? (
+                        <>
+                            Waiting for {otherSide} to {request.action} too.{" "}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => act("cancel")}
+                            >
+                                Withdraw
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <strong>{request.by}</strong> asks to{" "}
+                            {request.action} the clock.{" "}
+                            <Button
+                                size="sm"
+                                onClick={() => act(request.action)}
+                            >
+                                {request.action === "pause"
+                                    ? "Pause"
+                                    : "Resume"}{" "}
+                                too
+                            </Button>{" "}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => act("cancel")}
+                            >
+                                Decline
+                            </Button>
+                        </>
+                    )}
+                </p>
             )}
             {state === "paused" && (
                 <>

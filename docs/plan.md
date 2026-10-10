@@ -626,6 +626,30 @@ stay in `rules/cards.ts`.
     map draws. Confirming the station deletes them and brings the normal
     tabs back.
 
+23. **An asked question is a statement.** Once sent, the cards show what
+    was asked (the radius, the kind of place, the coordinates) and the
+    answer, no chips, selects or result toggles, on both phones.
+24. **The hider's answer previews on the map,** then Send. Every question
+    offers its real choices: all the places within reach for a tentacle
+    question (a list when there are many), hotter or colder with the half
+    it rules out shaded, and a line saying what the seekers' question is
+    measured against (their station for "same first letter", their zone,
+    their nearest zoo…). The thermometer draws an arrow from start to end.
+25. **Tentacle distances are the game's:** set in the setup (Swiss rules
+    2 and 10 km, otherwise 2 and 25 km), shown in km; no radius input on
+    the card. A seekers' tentacle draft shows its slices on the map and no
+    answer list.
+26. **The late-answer penalty** (a setting, on by default): an answer over
+    five minutes warns the hider, twice; the third makes the seekers'
+    next question free (no draw). Both sides are told.
+27. **Pausing and resuming the clock take both sides:** one asks, the
+    clock bar tells the other, who taps the same. Both roles can ask.
+28. **Deleting an asked or answered question takes both sides** the same
+    way (the card shows the request; Delete too or Keep it).
+29. **Cards:** the "Time bonuses in hand" line is gone (the clock's +mm:ss
+    says it); Discard exists only while the hand is over its limit (a
+    card's cost picks its own discards).
+
 Not built, by your choice: dice (you roll real ones) and a hangman board.
 
 ## What's left ⏭️

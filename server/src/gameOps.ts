@@ -2,6 +2,7 @@
 // are easy to test; games.ts stores the results and tells every phone.
 import { randomBytes, randomInt } from "node:crypto";
 
+import { ANSWER_TIME_MS } from "@/lib/game/answerTimer";
 import { applyClockAction, clockState } from "@/lib/game/clock";
 import {
     blockingCurses,
@@ -52,7 +53,14 @@ import { TYPES } from "@/lib/questionInfo";
 import { photoNamesFor } from "@/lib/rules/photoQuestions";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
-const CLOCK_ACTIONS = new Set(["start", "pause", "resume", "stop", "reset"]);
+const CLOCK_ACTIONS = new Set([
+    "start",
+    "pause",
+    "resume",
+    "stop",
+    "reset",
+    "cancel",
+]);
 
 /** "Discard N, draw M": the cards discarded, then drawn and kept. */
 const DISCARD_DRAW: Record<string, { discard: number; draw: number }> = {
@@ -116,6 +124,10 @@ export const newGameState = (
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,
+    lateAnswers: 0,
+    freeQuestions: 0,
+    clockRequest: null,
+    deleteRequests: {},
     hiderName: null,
     awards: [],
     rounds: [],
@@ -202,7 +214,7 @@ const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
         state.deck.freeQuestions = (state.deck.freeQuestions ?? 1) - 1;
         state.deck.log.push({
             at: now,
-            text: "That question was free (Curse of the Impressionable Consumer): no draw.",
+            text: "That question was free (a curse, or the late-answer penalty): no draw.",
         });
         return;
     }
@@ -353,7 +365,10 @@ const variantsOf = (
             patch: {
                 [field]: type,
                 ...(category === "tentacles"
-                    ? { radius: tentacleRadiusKm(type), unit: "kilometers" }
+                    ? {
+                          radius: tentacleRadiusKm(type, settings.tentacleKm),
+                          unit: "kilometers",
+                      }
                     : {}),
                 ...(category === "matching" &&
                 (type === "zone" || type === "letter-zone")
@@ -401,6 +416,29 @@ export const teamOf = (state: GameState, name: string) =>
     state.teams.find((team) => team.members.includes(name));
 export const teamById = (state: GameState, id: string | null) =>
     id ? state.teams.find((team) => team.id === id) : undefined;
+
+/**
+ * The late-answer penalty: an answer over the five minutes is a warning,
+ * twice; the third time the seekers' next question is free (no draw).
+ */
+const noteLateAnswer = (
+    state: GameState,
+    entry: QuestionEntry,
+    now: number,
+) => {
+    if (!state.settings.latePenalty) return;
+    const askedAt = entry.askedAt ?? entry.createdAt;
+    if (now - askedAt <= ANSWER_TIME_MS) return;
+    state.lateAnswers += 1;
+    entry.late = state.lateAnswers;
+    if (state.lateAnswers % 3 === 0) {
+        if (state.deck) {
+            state.deck.freeQuestions = (state.deck.freeQuestions ?? 0) + 1;
+        } else {
+            state.freeQuestions += 1;
+        }
+    }
+};
 
 const photoKey = (name: string) => name.trim().toLowerCase();
 
@@ -511,6 +549,7 @@ const startMove = (
     };
     // A new station is next; the pin stays where the hider is.
     state.hider = { station: null, pin: state.hider?.pin ?? null };
+    state.clockRequest = null;
     state.clock = applyClockAction(state.clock, "pause", now);
     if (state.deck) state.deck = discardHand(state.deck);
     state.powerups.push({
@@ -570,10 +609,30 @@ export const applyOp = (
         }
         case "deleteQuestion": {
             const entry = visibleEntry(state, op.key, actor);
-            assertMayChangeAnswered(state, entry, actor);
-            delete state.questions[String(op.key)];
+            const key = String(op.key);
+            if (entry.state === "draft") {
+                delete state.questions[key];
+                delete state.deleteRequests[key];
+                break;
+            }
+            // Asked or answered: both sides must agree. One side asks, the
+            // other deletes too.
+            const request = state.deleteRequests[key];
+            if (request && request.role !== actor.role) {
+                delete state.questions[key];
+                delete state.deleteRequests[key];
+            } else if (!request) {
+                state.deleteRequests[key] = {
+                    by: actor.name,
+                    role: actor.role,
+                    at: now,
+                };
+            }
             break;
         }
+        case "keepQuestion":
+            delete state.deleteRequests[String(op.key)];
+            break;
         case "sendQuestion": {
             assertNotMoving(state);
             const entry = visibleEntry(state, op.key, actor);
@@ -608,7 +667,15 @@ export const applyOp = (
             entry.answeredAt = now;
             entry.updatedBy = actor.name;
             entry.updatedAt = now;
-            if (firstAnswer) oweDraws(state, entry, now);
+            if (firstAnswer) {
+                // With the real deck a free question is just a note to the
+                // hider: this one was it.
+                if (!state.deck && state.freeQuestions > 0) {
+                    state.freeQuestions -= 1;
+                }
+                oweDraws(state, entry, now);
+                noteLateAnswer(state, entry, now);
+            }
             break;
         }
         case "vetoQuestion": {
@@ -993,6 +1060,7 @@ export const applyOp = (
                 assertHider(actor, "continue after a move");
             }
             state.move = null;
+            state.clockRequest = null;
             state.clock = applyClockAction(state.clock, "resume", now);
             break;
         case "startEndgame": {
@@ -1018,6 +1086,38 @@ export const applyOp = (
             if (!CLOCK_ACTIONS.has(op.action)) {
                 throw new GameRuleError("Unknown clock action.", 400);
             }
+            if (op.action === "cancel") {
+                state.clockRequest = null;
+                break;
+            }
+            if (op.action === "pause" || op.action === "resume") {
+                // Both sides must agree: one asks, the other does the same.
+                const running = clockState(state.clock);
+                if (op.action === "pause" && running !== "running") {
+                    throw new GameRuleError("The clock isn't running.", 409);
+                }
+                if (op.action === "resume" && running !== "paused") {
+                    throw new GameRuleError("The clock isn't paused.", 409);
+                }
+                const request = state.clockRequest;
+                if (
+                    request &&
+                    request.action === op.action &&
+                    request.role !== actor.role
+                ) {
+                    state.clockRequest = null;
+                    state.clock = applyClockAction(state.clock, op.action, now);
+                } else if (!request || request.action !== op.action) {
+                    state.clockRequest = {
+                        action: op.action,
+                        by: actor.name,
+                        role: actor.role,
+                        at: now,
+                    };
+                }
+                break;
+            }
+            state.clockRequest = null;
             state.clock = applyClockAction(state.clock, op.action, now);
             break;
         }
@@ -1273,6 +1373,10 @@ export const applyOp = (
             state.hiderTeamId = next?.id ?? null;
             state.hiderName = next?.name ?? null;
             state.nextHiderTeamId = null;
+            state.lateAnswers = 0;
+            state.freeQuestions = 0;
+            state.clockRequest = null;
+            state.deleteRequests = {};
             break;
         }
         default:

@@ -33,6 +33,8 @@ export interface QuestionEntry {
     randomizedFrom?: string;
     /** The kinds it has been asked as (questionIdentity), before randomizing. */
     askedAs?: string[];
+    /** Answered over the five minutes: which late answer of the round it was (1, 2, 3…). */
+    late?: number;
 }
 
 export interface PhotoInfo {
@@ -123,7 +125,24 @@ export interface RoundClock {
     /** The hider's time bonuses at the end, once they've sent them. */
     bonusMinutes?: number;
 }
-export type ClockAction = "start" | "pause" | "resume" | "stop" | "reset";
+export type ClockAction =
+    | "start"
+    | "pause"
+    | "resume"
+    | "stop"
+    | "reset"
+    /** Withdraws a pause or resume one side asked for. */
+    | "cancel";
+
+/** One side asks, the other agrees: pausing the clock, deleting a question. */
+export interface AgreementRequest {
+    by: string;
+    role: Role;
+    at: number;
+}
+export interface ClockRequest extends AgreementRequest {
+    action: "pause" | "resume";
+}
 
 /**
  * The hiding spot, shared between the hider's phones (two people hiding
@@ -240,6 +259,10 @@ export interface GameSettings {
     customCards: CustomCard[];
     /** Which cards the hider plays pop up on the seekers' phones. */
     cardPopups: "important" | "all";
+    /** Late answers (over five minutes): two warnings, the third makes the seekers' next question free. */
+    latePenalty: boolean;
+    /** Tentacle distances in km: small places (museums…), then big ones (zoos, parks, aquariums). */
+    tentacleKm: [number, number];
     /**
      * Seekers may show the hiding zones (the stations still in play). Off,
      * only the hider's phone shows them; the seekers keep the shaded map.
@@ -296,6 +319,14 @@ export interface GameState {
     hiderTeamId: string | null;
     /** After a round: the team that claimed the next one. */
     nextHiderTeamId: string | null;
+    /** Answers over the five minutes this round (with the late-answer penalty on). */
+    lateAnswers: number;
+    /** Questions the hider draws nothing for (physical deck; the digital deck keeps its own count). */
+    freeQuestions: number;
+    /** A pause or resume one side asked for, waiting for the other side. */
+    clockRequest: ClockRequest | null;
+    /** Deletions one side asked for, by question key, waiting for the other side. */
+    deleteRequests: Record<string, AgreementRequest>;
     /** The hider's name this round, once known (for the scoreboard). */
     hiderName: string | null;
     /** Minutes awarded to the hider this round, on top of the hand's bonuses. */
@@ -362,6 +393,7 @@ export type GameOp =
     /** Randomize Question: the asked question becomes another of its category. */
     | { type: "randomizeQuestion"; key: number }
     | { type: "randomizePhoto"; id: string }
+    | { type: "keepQuestion"; key: number }
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "hiderReady"; station: StationPick }
     | { type: "joinTeam"; name: string }

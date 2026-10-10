@@ -256,6 +256,7 @@ export const LatitudeLongitude = ({
     colorName,
     disabled,
     inlineEdit = false,
+    readOnly = false,
 }: {
     latitude: number;
     longitude: number;
@@ -266,6 +267,8 @@ export const LatitudeLongitude = ({
     children?: React.ReactNode;
     disabled?: boolean;
     inlineEdit?: boolean;
+    /** A statement, not a control: coordinates and copy only. */
+    readOnly?: boolean;
 }) => {
     const $isLoading = useStore(isLoading);
     const color = colorName ? ICON_COLORS[colorName] : "transparent";
@@ -404,52 +407,56 @@ export const LatitudeLongitude = ({
             <span className="min-w-0 flex-1 truncate tabular-nums font-oxygen">
                 {coordinatesText(latitude, longitude)}
             </span>
-            <Dialog>
-                <DialogTrigger asChild>
+            {!readOnly && (
+                <>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <button
+                                type="button"
+                                className={ICON_BUTTON}
+                                disabled={disabled}
+                                title="Edit coordinates"
+                            >
+                                <EditIcon />
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl">
+                                    Update {label}
+                                </DialogTitle>
+                            </DialogHeader>
+                            <LatLngEditForm
+                                latitude={latitude}
+                                longitude={longitude}
+                                onChange={onChange}
+                                disabled={disabled}
+                            />
+                            <DialogFooter className="gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={paste}
+                                    disabled={disabled}
+                                >
+                                    <ClipboardPasteIcon /> Paste from clipboard
+                                </Button>
+                                <DialogClose asChild>
+                                    <Button>Done</Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                     <button
                         type="button"
                         className={ICON_BUTTON}
+                        onClick={locateMe}
                         disabled={disabled}
-                        title="Edit coordinates"
+                        title="Set to current location"
                     >
-                        <EditIcon />
+                        <LocateIcon />
                     </button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl">
-                            Update {label}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <LatLngEditForm
-                        latitude={latitude}
-                        longitude={longitude}
-                        onChange={onChange}
-                        disabled={disabled}
-                    />
-                    <DialogFooter className="gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={paste}
-                            disabled={disabled}
-                        >
-                            <ClipboardPasteIcon /> Paste from clipboard
-                        </Button>
-                        <DialogClose asChild>
-                            <Button>Done</Button>
-                        </DialogClose>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <button
-                type="button"
-                className={ICON_BUTTON}
-                onClick={locateMe}
-                disabled={disabled}
-                title="Set to current location"
-            >
-                <LocateIcon />
-            </button>
+                </>
+            )}
             <button
                 type="button"
                 className={ICON_BUTTON}

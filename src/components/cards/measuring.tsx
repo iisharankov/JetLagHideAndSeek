@@ -28,6 +28,7 @@ import {
     updateQuestion,
 } from "@/lib/context";
 import { hiddenTypesFor } from "@/lib/gameSettings";
+import { TYPES } from "@/lib/questionInfo";
 import { cn } from "@/lib/utils";
 import { elevation } from "@/maps/elevation";
 import { determineMeasuringBoundary } from "@/maps/questions/measuring";
@@ -39,7 +40,7 @@ import {
     NO_GROUP,
 } from "@/maps/schema";
 
-import { QuestionCard, useGameQuestionState } from "./base";
+import { QuestionCard, useFrozen } from "./base";
 
 export const MeasuringQuestionComponent = ({
     data,
@@ -71,9 +72,7 @@ export const MeasuringQuestionComponent = ({
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
-    const gameQuestionState = useGameQuestionState(questionKey);
-    const answered =
-        gameQuestionState === "answered" || gameQuestionState === "vetoed";
+    const frozen = useFrozen(questionKey);
     /** The drawn shapes of a custom question (none to start with). */
     const customGeo = (features: unknown = []) =>
         ({ type: "FeatureCollection", features }) as const;
@@ -210,99 +209,113 @@ export const MeasuringQuestionComponent = ({
                     setCustomDialogOpen(false);
                 }}
             />
-            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <Select
-                    trigger="Measuring Type"
-                    options={adaptTypeOptions(
-                        Object.fromEntries(
-                            measuringQuestionSchema.options
-                                .filter((x) => x.description === NO_GROUP)
-                                .flatMap((x) =>
-                                    determineUnionizedStrings(x.shape.type),
-                                )
-                                .map((x) => [
-                                    (x._def as any).value,
-                                    x.description,
-                                ]),
-                        ),
-                        gameRules,
-                        data.type,
-                    )}
-                    groups={measuringQuestionSchema.options
-                        .filter((x) => x.description !== NO_GROUP)
-                        .map((x): [string, Record<string, string>] => [
-                            x.description ?? "",
-                            adaptTypeOptions(
-                                Object.fromEntries(
-                                    determineUnionizedStrings(x.shape.type).map(
-                                        (x) => [
+            {frozen ? (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <p className="text-sm" data-testid="measuring-fact">
+                        <strong>
+                            {TYPES.measuring[
+                                data.type as keyof typeof TYPES.measuring
+                            ]?.label ?? data.type.replace(/[-_]/g, " ")}
+                        </strong>
+                    </p>
+                </SidebarMenuItem>
+            ) : (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <Select
+                        trigger="Measuring Type"
+                        options={adaptTypeOptions(
+                            Object.fromEntries(
+                                measuringQuestionSchema.options
+                                    .filter((x) => x.description === NO_GROUP)
+                                    .flatMap((x) =>
+                                        determineUnionizedStrings(x.shape.type),
+                                    )
+                                    .map((x) => [
+                                        (x._def as any).value,
+                                        x.description,
+                                    ]),
+                            ),
+                            gameRules,
+                            data.type,
+                        )}
+                        groups={measuringQuestionSchema.options
+                            .filter((x) => x.description !== NO_GROUP)
+                            .map((x): [string, Record<string, string>] => [
+                                x.description ?? "",
+                                adaptTypeOptions(
+                                    Object.fromEntries(
+                                        determineUnionizedStrings(
+                                            x.shape.type,
+                                        ).map((x) => [
                                             (x._def as any).value,
                                             x.description,
-                                        ],
+                                        ]),
                                     ),
+                                    gameRules,
+                                    data.type,
                                 ),
-                                gameRules,
-                                data.type,
-                            ),
-                        ])
-                        .reduce(
-                            (acc, [key, value]) => {
-                                const values = {
-                                    disabled: false,
-                                    options: value,
-                                };
-
-                                if (acc[key]) {
-                                    acc[key].options = {
-                                        ...acc[key].options,
-                                        ...value,
+                            ])
+                            .reduce(
+                                (acc, [key, value]) => {
+                                    const values = {
+                                        disabled: false,
+                                        options: value,
                                     };
-                                } else {
-                                    acc[key] = values;
-                                }
 
-                                return acc;
-                            },
-                            {} as Record<
-                                string,
-                                {
-                                    disabled: boolean;
-                                    options: Record<string, string>;
+                                    if (acc[key]) {
+                                        acc[key].options = {
+                                            ...acc[key].options,
+                                            ...value,
+                                        };
+                                    } else {
+                                        acc[key] = values;
+                                    }
+
+                                    return acc;
+                                },
+                                {} as Record<
+                                    string,
+                                    {
+                                        disabled: boolean;
+                                        options: Record<string, string>;
+                                    }
+                                >,
+                            )}
+                        value={data.type}
+                        onValueChange={async (value) => {
+                            if (value === "custom-measure") {
+                                if ($customInitPref === "ask") {
+                                    setCustomDialogOpen(true);
+                                    return;
                                 }
-                            >,
-                        )}
-                    value={data.type}
-                    onValueChange={async (value) => {
-                        if (value === "custom-measure") {
-                            if ($customInitPref === "ask") {
-                                setCustomDialogOpen(true);
+                                const patch: Record<string, unknown> = {
+                                    type: value,
+                                };
+                                if ($customInitPref === "blank") {
+                                    patch.geo = customGeo();
+                                } else if ($customInitPref === "prefill") {
+                                    const boundary =
+                                        await determineMeasuringBoundary(data);
+                                    patch.geo = customGeo(
+                                        boundary ? boundary : [],
+                                    );
+                                }
+                                set(patch as QuestionPatch);
                                 return;
                             }
-                            const patch: Record<string, unknown> = {
+                            const cat = (data as { cat?: unknown }).cat;
+                            set({
                                 type: value,
-                            };
-                            if ($customInitPref === "blank") {
-                                patch.geo = customGeo();
-                            } else if ($customInitPref === "prefill") {
-                                const boundary =
-                                    await determineMeasuringBoundary(data);
-                                patch.geo = customGeo(boundary ? boundary : []);
-                            }
-                            set(patch as QuestionPatch);
-                            return;
-                        }
-                        const cat = (data as { cat?: unknown }).cat;
-                        set({
-                            type: value,
-                            ...(value === "admin-measure" && !cat
-                                ? { cat: { adminLevel: 4 } }
-                                : {}),
-                        } as QuestionPatch);
-                    }}
-                    disabled={!data.drag || $isLoading}
-                />
-            </SidebarMenuItem>
-            {questionSpecific}
+                                ...(value === "admin-measure" && !cat
+                                    ? { cat: { adminLevel: 4 } }
+                                    : {}),
+                            } as QuestionPatch);
+                        }}
+                        disabled={!data.drag || $isLoading}
+                    />
+                </SidebarMenuItem>
+            )}
+            {!frozen && questionSpecific}
             <LatitudeLongitude
                 latitude={data.lat}
                 longitude={data.lng}
@@ -311,8 +324,9 @@ export const MeasuringQuestionComponent = ({
                     set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
                 }
                 disabled={!data.drag || $isLoading}
+                readOnly={frozen}
             />
-            {!answered && (
+            {!frozen && (
                 <div className="flex items-center gap-2 px-2 py-1">
                     <Label
                         className={cn(

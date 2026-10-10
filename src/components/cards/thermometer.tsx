@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { arcDistance } from "@/maps/geo-utils";
 import type { ThermometerQuestion } from "@/maps/schema";
 
-import { QuestionCard, useGameQuestionState } from "./base";
+import { QuestionCard, useFrozen } from "./base";
 
 export const ThermometerQuestionComponent = ({
     data,
@@ -34,9 +34,7 @@ export const ThermometerQuestionComponent = ({
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
-    const gameQuestionState = useGameQuestionState(questionKey);
-    const answered =
-        gameQuestionState === "answered" || gameQuestionState === "vetoed";
+    const frozen = useFrozen(questionKey);
 
     const $defaultUnit = useStore(defaultUnit);
     const DISTANCE_UNIT = $defaultUnit ?? "miles";
@@ -99,6 +97,7 @@ export const ThermometerQuestionComponent = ({
                     set({ latA: lat ?? data.latA, lngA: lng ?? data.lngA })
                 }
                 disabled={!data.drag || $isLoading}
+                readOnly={frozen}
             />
 
             <LatitudeLongitude
@@ -110,6 +109,7 @@ export const ThermometerQuestionComponent = ({
                     set({ latB: lat ?? data.latB, lngB: lng ?? data.lngB })
                 }
                 disabled={!data.drag || $isLoading}
+                readOnly={frozen}
             />
 
             {distanceValue !== null && (
@@ -121,7 +121,7 @@ export const ThermometerQuestionComponent = ({
                 </div>
             )}
 
-            {!answered && (
+            {!frozen && (
                 <div className="flex items-center gap-2 px-2 py-1">
                     <Label
                         className={cn(

@@ -218,11 +218,12 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     const benState = ben.getByTestId("question-game-state");
     await expect(benState).toHaveAttribute("data-state", "asked");
-    // Before answering, Ben's map shows the question's pin and its outline.
+    // Before answering, Ben's map shows the question's pin, and hider mode's
+    // suggested answer previews what it would rule out (dashed, like a draft).
     await expect(ben.locator('img[alt="Question"]')).toHaveCount(1);
-    await expect(ben.locator('path[stroke="#60a5fa"]').first()).toBeAttached({
-        timeout: 20_000,
-    });
+    await expect(
+        ben.locator('path[stroke-dasharray="6 4"]').first(),
+    ).toBeAttached({ timeout: 20_000 });
     await expect(benState).toContainText("Hider mode suggests: Yes", {
         timeout: 20_000,
     });
@@ -231,18 +232,33 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(
         benState.getByRole("button", { name: /^(Yes|No)$/ }),
     ).toHaveText(["Yes", "No"]);
+    // Once asked, the question is a statement on both phones: no chips, no
+    // result toggle.
+    await expect(page.getByTestId("radius-fact")).toContainText("Within 5 km");
+    await expect(
+        page.getByRole("button", { name: "5 km", exact: true }),
+    ).toHaveCount(0);
+    await expect(ben.getByRole("radio", { name: "Inside" })).toHaveCount(0);
+    // Ben picks "No": his map previews it; Send makes it the answer.
     await ben.getByRole("button", { name: "No", exact: true }).click();
+    await ben.getByRole("button", { name: /^Send answer/ }).click();
 
     // Ana's phone shows the answer, now as a confirmed answer on the map.
     await expect(anaState).toHaveAttribute("data-state", "answered");
     await expect(anaState).toContainText("Answered: No");
     await expect(speculation).toHaveCount(0, { timeout: 20_000 });
-    // Seekers can't delete an answered question (so no "deleted" banner),
-    // and the answer isn't theirs to toggle any more: the card shows none.
-    await expect(
-        page.getByRole("button", { name: "Delete question" }),
-    ).toBeDisabled();
     await expect(page.getByRole("radio", { name: "Inside" })).toHaveCount(0);
+    // Deleting an answered question takes both sides: Ana asks, Ben keeps it.
+    await page.getByRole("button", { name: "Delete question" }).click();
+    await page.getByRole("button", { name: "Ask to delete" }).click();
+    await expect(page.getByTestId("delete-request")).toContainText(
+        "Waiting for the other side",
+    );
+    const benRequest = ben.getByTestId("delete-request");
+    await expect(benRequest).toContainText("Ana asks to delete");
+    await benRequest.getByRole("button", { name: "Keep it" }).click();
+    await expect(page.getByTestId("delete-request")).toHaveCount(0);
+    await expect(anaState).toHaveAttribute("data-state", "answered");
 
     // Photos: Ana asks for a tree, Ben sends one, Ana sees it.
     await page.getByRole("radio", { name: /Photos/ }).click();
@@ -408,6 +424,20 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
         "data-state",
         "running",
     );
+    // Pausing takes both sides: Ana asks, Ben agrees; resuming likewise.
+    await anaClock.getByRole("button", { name: "Pause" }).click();
+    await expect(anaClock.getByTestId("clock-request")).toContainText(
+        "Waiting for the hider to pause too",
+    );
+    const benClock = ben.getByTestId("round-clock");
+    await expect(benClock.getByTestId("clock-request")).toContainText(
+        "Ana asks to pause the clock",
+    );
+    await benClock.getByRole("button", { name: "Pause too" }).click();
+    await expect(anaClock).toHaveAttribute("data-state", "paused");
+    await benClock.getByRole("button", { name: "Resume" }).click();
+    await anaClock.getByRole("button", { name: "Resume too" }).click();
+    await expect(anaClock).toHaveAttribute("data-state", "running");
     await anaClock.getByRole("button", { name: "Found!" }).click();
     await page.getByRole("button", { name: "Yes, found" }).click();
     await expect(ben.getByTestId("round-clock")).toContainText("Found after");
@@ -491,6 +521,7 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     await ben.getByRole("button", { name: "No", exact: true }).click();
+    await ben.getByRole("button", { name: /^Send answer/ }).click();
 
     // Answering earned a draw, dealt at once: 2 cards, Ben keeps 1.
     await ben.getByRole("radio", { name: /Cards/ }).click();

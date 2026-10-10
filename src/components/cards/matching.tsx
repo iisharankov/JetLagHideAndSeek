@@ -27,6 +27,7 @@ import {
     updateQuestion,
 } from "@/lib/context";
 import { hiddenTypesFor } from "@/lib/gameSettings";
+import { TYPES } from "@/lib/questionInfo";
 import { cn } from "@/lib/utils";
 import {
     determineMatchingBoundary,
@@ -40,7 +41,7 @@ import {
     NO_GROUP,
 } from "@/maps/schema";
 
-import { QuestionCard, useGameQuestionState } from "./base";
+import { QuestionCard, useFrozen } from "./base";
 
 /** Types whose places can be copied into a custom-points question. */
 const PREFILLABLE = [
@@ -78,9 +79,7 @@ export const MatchingQuestionComponent = ({
     const $gameSettings = useStore(gameSettings);
     const takenAway = useTakenAway("matching");
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
-    const gameQuestionState = useGameQuestionState(questionKey);
-    const answered =
-        gameQuestionState === "answered" || gameQuestionState === "vetoed";
+    const frozen = useFrozen(questionKey);
     // The game's own list of question types, plus the local rules' labels.
     const gameRules = {
         ...$regionRules,
@@ -236,124 +235,143 @@ export const MatchingQuestionComponent = ({
                     setCustomDialogOpen(false);
                 }}
             />
-            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <Select
-                    trigger="Matching Type"
-                    options={adaptTypeOptions(
-                        Object.fromEntries(
-                            matchingQuestionSchema.options
-                                .filter((x) => x.description === NO_GROUP)
-                                .flatMap((x) =>
-                                    determineUnionizedStrings(x.shape.type),
-                                )
-                                .map((x) => [
-                                    (x._def as any).value,
-                                    x.description,
-                                ]),
-                        ),
-                        gameRules,
-                        data.type,
-                    )}
-                    groups={matchingQuestionSchema.options
-                        .filter((x) => x.description !== NO_GROUP)
-                        .map((x): [string, Record<string, string>] => [
-                            x.description ?? "",
-                            adaptTypeOptions(
-                                Object.fromEntries(
-                                    determineUnionizedStrings(x.shape.type).map(
-                                        (x) => [
+            {frozen ? (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <p className="text-sm" data-testid="matching-fact">
+                        <strong>
+                            {TYPES.matching[
+                                data.type as keyof typeof TYPES.matching
+                            ]?.label ?? data.type.replace(/[-_]/g, " ")}
+                        </strong>
+                    </p>
+                </SidebarMenuItem>
+            ) : (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <Select
+                        trigger="Matching Type"
+                        options={adaptTypeOptions(
+                            Object.fromEntries(
+                                matchingQuestionSchema.options
+                                    .filter((x) => x.description === NO_GROUP)
+                                    .flatMap((x) =>
+                                        determineUnionizedStrings(x.shape.type),
+                                    )
+                                    .map((x) => [
+                                        (x._def as any).value,
+                                        x.description,
+                                    ]),
+                            ),
+                            gameRules,
+                            data.type,
+                        )}
+                        groups={matchingQuestionSchema.options
+                            .filter((x) => x.description !== NO_GROUP)
+                            .map((x): [string, Record<string, string>] => [
+                                x.description ?? "",
+                                adaptTypeOptions(
+                                    Object.fromEntries(
+                                        determineUnionizedStrings(
+                                            x.shape.type,
+                                        ).map((x) => [
                                             (x._def as any).value,
                                             x.description,
-                                        ],
+                                        ]),
                                     ),
+                                    gameRules,
+                                    data.type,
                                 ),
-                                gameRules,
-                                data.type,
-                            ),
-                        ])
-                        .reduce(
-                            (acc, [key, value]) => {
-                                const values = {
-                                    disabled: false,
-                                    options: value,
-                                };
-
-                                if (acc[key]) {
-                                    acc[key].options = {
-                                        ...acc[key].options,
-                                        ...value,
+                            ])
+                            .reduce(
+                                (acc, [key, value]) => {
+                                    const values = {
+                                        disabled: false,
+                                        options: value,
                                     };
-                                } else {
-                                    acc[key] = values;
-                                }
 
-                                return acc;
-                            },
-                            {} as Record<
-                                string,
-                                {
-                                    disabled: boolean;
-                                    options: Record<string, string>;
+                                    if (acc[key]) {
+                                        acc[key].options = {
+                                            ...acc[key].options,
+                                            ...value,
+                                        };
+                                    } else {
+                                        acc[key] = values;
+                                    }
+
+                                    return acc;
+                                },
+                                {} as Record<
+                                    string,
+                                    {
+                                        disabled: boolean;
+                                        options: Record<string, string>;
+                                    }
+                                >,
+                            )}
+                        value={data.type}
+                        onValueChange={async (value) => {
+                            // A zone question needs its category; keep any.
+                            const cat = (data as { cat?: unknown }).cat ?? {
+                                adminLevel: 4,
+                            };
+                            if (
+                                value === "custom-zone" ||
+                                value === "custom-points"
+                            ) {
+                                if ($customInitPref === "ask") {
+                                    setPendingCustomType(value);
+                                    setCustomDialogOpen(true);
+                                    return;
                                 }
-                            >,
-                        )}
-                    value={data.type}
-                    onValueChange={async (value) => {
-                        // A zone question needs its category; keep any.
-                        const cat = (data as { cat?: unknown }).cat ?? {
-                            adminLevel: 4,
-                        };
-                        if (
-                            value === "custom-zone" ||
-                            value === "custom-points"
-                        ) {
-                            if ($customInitPref === "ask") {
-                                setPendingCustomType(value);
-                                setCustomDialogOpen(true);
+                                // Apply the preference without the dialog.
+                                const patch: Record<string, unknown> = {
+                                    type: value,
+                                    cat,
+                                };
+                                if ($customInitPref === "blank") {
+                                    patch.geo =
+                                        value === "custom-zone"
+                                            ? undefined
+                                            : [];
+                                    toast.info(
+                                        value === "custom-zone"
+                                            ? "Please draw the zone on the map."
+                                            : "Please draw the points on the map.",
+                                    );
+                                } else if ($customInitPref === "prefill") {
+                                    if (value === "custom-zone") {
+                                        patch.geo =
+                                            await determineMatchingBoundary(
+                                                data,
+                                            );
+                                    } else if (
+                                        PREFILLABLE.includes(data.type)
+                                    ) {
+                                        patch.geo =
+                                            await findMatchingPlaces(data);
+                                    } else {
+                                        patch.geo = [];
+                                        toast.info(
+                                            "Please draw the points on the map.",
+                                        );
+                                    }
+                                }
+                                set(patch as QuestionPatch);
                                 return;
                             }
-                            // Apply the preference without the dialog.
-                            const patch: Record<string, unknown> = {
+
+                            set({
                                 type: value,
                                 cat,
-                            };
-                            if ($customInitPref === "blank") {
-                                patch.geo =
-                                    value === "custom-zone" ? undefined : [];
-                                toast.info(
-                                    value === "custom-zone"
-                                        ? "Please draw the zone on the map."
-                                        : "Please draw the points on the map.",
-                                );
-                            } else if ($customInitPref === "prefill") {
-                                if (value === "custom-zone") {
-                                    patch.geo =
-                                        await determineMatchingBoundary(data);
-                                } else if (PREFILLABLE.includes(data.type)) {
-                                    patch.geo = await findMatchingPlaces(data);
-                                } else {
-                                    patch.geo = [];
-                                    toast.info(
-                                        "Please draw the points on the map.",
-                                    );
-                                }
-                            }
-                            set(patch as QuestionPatch);
-                            return;
-                        }
-
-                        set({
-                            type: value,
-                            cat,
-                            ...(value === "same-length-station"
-                                ? { lengthComparison: "same", same: true }
-                                : {}),
-                        } as QuestionPatch);
-                    }}
-                    disabled={!data.drag || $isLoading}
-                />
-            </SidebarMenuItem>
-            {questionSpecific}
+                                ...(value === "same-length-station"
+                                    ? { lengthComparison: "same", same: true }
+                                    : {}),
+                            } as QuestionPatch);
+                        }}
+                        disabled={!data.drag || $isLoading}
+                    />
+                </SidebarMenuItem>
+            )}
+            {!frozen && questionSpecific}
 
             {data.type !== "custom-zone" && (
                 <LatitudeLongitude
@@ -364,9 +382,10 @@ export const MatchingQuestionComponent = ({
                         set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
                     }
                     disabled={!data.drag || $isLoading}
+                    readOnly={frozen}
                 />
             )}
-            {!answered && (
+            {!frozen && (
                 <div
                     className={cn(
                         "flex items-center gap-2 px-2 py-1",

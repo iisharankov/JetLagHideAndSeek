@@ -32,11 +32,9 @@ import {
     castingCostText,
     CURSE_COSTS,
     CUSTOM_PREFIX,
-    handBonusMinutes,
 } from "@/lib/game/deck";
 import { deckAct, localDeck, newLocalDeck } from "@/lib/game/deckSession";
 import {
-    bonusMinutes,
     discardCard,
     discardHand as discardRealHand,
     hand,
@@ -324,6 +322,7 @@ export const CardsPanel = () => {
             : undefined;
     const freeNext =
         (deck?.freeQuestions ?? 0) > 0 ||
+        ($game?.freeQuestions ?? 0) > 0 ||
         (!digital &&
             active.some((entry) => curseRule(entry.name).freeQuestion));
     const cleared = ($game?.curses ?? []).filter((c) => c.clearedAt).reverse();
@@ -365,8 +364,8 @@ export const CardsPanel = () => {
                             className="text-xs text-amber-300"
                             data-testid="free-question"
                         >
-                            The seekers&apos; next question is free (Curse of
-                            the Impressionable Consumer): no draw for it.
+                            The seekers&apos; next question is free (a curse, or
+                            three late answers): no draw for it.
                         </p>
                     )}
                     {deck.pending.length === 0 && (
@@ -506,11 +505,16 @@ export const CardsPanel = () => {
                                                 ? undefined
                                                 : () => playDigital(index)
                                         }
-                                        onDiscard={() =>
-                                            deckAct({
-                                                type: "discardCard",
-                                                index,
-                                            })
+                                        onDiscard={
+                                            // Only down to the hand limit; a
+                                            // card's cost picks its own.
+                                            deck.hand.length > deck.limit
+                                                ? () =>
+                                                      deckAct({
+                                                          type: "discardCard",
+                                                          index,
+                                                      })
+                                                : undefined
                                         }
                                         selected={
                                             selecting &&
@@ -543,14 +547,6 @@ export const CardsPanel = () => {
                             })}
                         </ul>
                     )}
-                    <p className="text-xs">
-                        Time bonuses in hand:{" "}
-                        <strong>
-                            {handBonusMinutes(deck.hand, size, custom)} min
-                        </strong>
-                        . Added to your hiding time when the round ends (the
-                        clock at the bottom).
-                    </p>
                     {!$game && (
                         <details>
                             <summary className="cursor-pointer text-xs text-slate-400">
@@ -609,8 +605,8 @@ export const CardsPanel = () => {
                             </p>
                             {freeNext && (
                                 <p className="text-xs text-amber-300">
-                                    The seekers&apos; next question is free
-                                    (Impressionable Consumer): no draw for it.
+                                    The seekers&apos; next question is free (a
+                                    curse, or three late answers): no draw.
                                 </p>
                             )}
                             {active.some(
@@ -715,18 +711,16 @@ export const CardsPanel = () => {
                                                 ? undefined
                                                 : () => playReal(card)
                                         }
-                                        onDiscard={() => discardCard(card.id)}
+                                        onDiscard={
+                                            $hand.length > $limit
+                                                ? () => discardCard(card.id)
+                                                : undefined
+                                        }
                                     />
                                 );
                             })}
                         </ul>
                     )}
-                    <p className="text-xs">
-                        Time bonuses in hand:{" "}
-                        <strong>{bonusMinutes($hand)} min</strong>. Added to
-                        your hiding time when the round ends (the clock at the
-                        bottom).
-                    </p>
                 </section>
             )}
 

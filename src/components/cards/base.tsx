@@ -14,6 +14,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
     SidebarGroup,
@@ -33,8 +34,7 @@ import {
     updateQuestions,
 } from "@/lib/context";
 import { DRAWS } from "@/lib/game/deck";
-import { gameRole, gameState } from "@/lib/game/session";
-import { canChangeQuestion } from "@/lib/game/sync";
+import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
 import { QuestionInfoButton } from "./QuestionInfoButton";
@@ -46,6 +46,15 @@ const ICON_BUTTON =
 export const useGameQuestionState = (questionKey: number) => {
     const $game = useStore(gameState);
     return $game?.questions[String(questionKey)]?.state ?? null;
+};
+
+/**
+ * Once a question has gone to the hider nothing about it can change: the
+ * card shows what was asked and what was answered, no controls.
+ */
+export const useFrozen = (questionKey: number) => {
+    const state = useGameQuestionState(questionKey);
+    return state !== null && state !== "draft";
 };
 
 /**
@@ -74,7 +83,10 @@ export const QuestionCard = ({
     const isActive = useStore(activeQuestionKey) === questionKey;
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
-    const lockedByGame = !canChangeQuestion(questionKey, $game, $role);
+    const entry = $game?.questions[String(questionKey)];
+    // Asked or answered: deleting takes both sides.
+    const byAgreement = !!entry && entry.state !== "draft";
+    const deleteRequest = $game?.deleteRequests?.[String(questionKey)];
 
     const isCollapsed = question?.data.collapsed ?? false;
     const locked = question ? !question.data.drag : false;
@@ -177,10 +189,10 @@ export const QuestionCard = ({
                                 <button
                                     type="button"
                                     className={ICON_BUTTON}
-                                    disabled={$isLoading || lockedByGame}
+                                    disabled={$isLoading}
                                     title={
-                                        lockedByGame
-                                            ? "Answered: only the hider can delete it"
+                                        byAgreement
+                                            ? "Ask to delete it (the other side must agree)"
                                             : "Delete question"
                                     }
                                     aria-label="Delete question"
@@ -194,8 +206,9 @@ export const QuestionCard = ({
                                         Delete this question?
                                     </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        You can undo this for a few seconds
-                                        afterwards.
+                                        {byAgreement
+                                            ? "It's part of the game: the other side gets a note and must agree before it goes."
+                                            : "You can undo this for a few seconds afterwards."}
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -203,15 +216,24 @@ export const QuestionCard = ({
                                         Cancel
                                     </AlertDialogCancel>
                                     <AlertDialogAction
-                                        onClick={() =>
+                                        onClick={() => {
+                                            if (byAgreement) {
+                                                void sendOp({
+                                                    type: "deleteQuestion",
+                                                    key: questionKey,
+                                                });
+                                                return;
+                                            }
                                             showUndoToast(
                                                 "Question deleted.",
                                                 deleteQuestion(questionKey),
-                                            )
-                                        }
+                                            );
+                                        }}
                                         className="mb-2 sm:mb-0"
                                     >
-                                        Delete Question
+                                        {byAgreement
+                                            ? "Ask to delete"
+                                            : "Delete Question"}
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -233,6 +255,66 @@ export const QuestionCard = ({
                         )}
                     </div>
                     {!research && <QuestionGameBar questionKey={questionKey} />}
+                    {deleteRequest && (
+                        <div
+                            className="mx-2 mb-1 rounded-md border border-red-500/60 bg-red-950/40 px-2 py-1 text-xs"
+                            data-testid="delete-request"
+                        >
+                            {deleteRequest.role === $role ? (
+                                <>
+                                    <p>
+                                        Waiting for the other side to agree to
+                                        deleting this question.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="mt-1"
+                                        onClick={() =>
+                                            void sendOp({
+                                                type: "keepQuestion",
+                                                key: questionKey,
+                                            })
+                                        }
+                                    >
+                                        Withdraw
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <p>
+                                        <strong>{deleteRequest.by}</strong> asks
+                                        to delete this question.
+                                    </p>
+                                    <div className="mt-1 flex gap-1">
+                                        <Button
+                                            size="sm"
+                                            onClick={() =>
+                                                void sendOp({
+                                                    type: "deleteQuestion",
+                                                    key: questionKey,
+                                                })
+                                            }
+                                        >
+                                            Delete too
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                void sendOp({
+                                                    type: "keepQuestion",
+                                                    key: questionKey,
+                                                })
+                                            }
+                                        >
+                                            Keep it
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                     {status?.state === "skipped" &&
                         status.reason === "inactive-draft" && (
                             <p

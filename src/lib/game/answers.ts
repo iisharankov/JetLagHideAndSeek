@@ -14,9 +14,15 @@ export const answerOf = (question: Question): Answer =>
         ).map((field) => [field, (question.data as any)[field]]),
     );
 
-interface Choice {
+export interface Choice {
     label: string;
     answer: Answer;
+}
+
+/** A place a tentacle question can be answered with. */
+export interface TentaclePlace {
+    name: string;
+    feature: unknown;
 }
 
 const LENGTHS: Choice[] = [
@@ -25,8 +31,8 @@ const LENGTHS: Choice[] = [
     { label: "Longer", answer: { lengthComparison: "longer" } },
 ];
 
-/** Every answer the hider could give. */
-const allChoices = (question: Question): Choice[] => {
+/** Every answer the hider could give (tentacles: the places within reach). */
+const allChoices = (question: Question, places?: TentaclePlace[]): Choice[] => {
     const data = question.data as any;
     switch (question.id) {
         case "radius":
@@ -55,20 +61,27 @@ const allChoices = (question: Question): Choice[] => {
                       { label: "Closer", answer: { hiderCloser: true } },
                       { label: "Further", answer: { hiderCloser: false } },
                   ];
-        case "tentacles":
-            return [
-                ...(data.location
+        case "tentacles": {
+            const listed =
+                places ??
+                (data.location
                     ? [
                           {
-                              label:
+                              name:
                                   data.location.properties?.name ??
                                   "Named place",
-                              answer: { location: data.location },
+                              feature: data.location,
                           },
                       ]
-                    : []),
+                    : []);
+            return [
+                ...listed.map((place) => ({
+                    label: place.name,
+                    answer: { location: place.feature },
+                })),
                 { label: "Not within reach", answer: { location: false } },
             ];
+        }
         default:
             return [];
     }
@@ -90,8 +103,10 @@ export const describeAnswer = (question: Question) => {
 };
 
 /** The possible answers, always in the same order (so buttons don't move). */
-export const answerChoices = (question: Question): Choice[] =>
-    allChoices(question);
+export const answerChoices = (
+    question: Question,
+    places?: TentaclePlace[],
+): Choice[] => allChoices(question, places);
 
 /** Whether a choice is the question's current answer. */
 export const isCurrentAnswer = (question: Question, choice: Choice) =>

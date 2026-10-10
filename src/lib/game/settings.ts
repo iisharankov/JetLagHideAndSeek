@@ -70,7 +70,25 @@ export const defaultGameSettings = (
     customCards: [],
     cardPopups: "important",
     seekersSeeStations: true,
+    latePenalty: true,
+    tentacleKm: tentacleDefaults(region),
 });
+
+/** Tentacle distances (km): 2 and 10 under the Swiss rules, else 2 and 25. */
+export const tentacleDefaults = (
+    region: GameSettings["region"],
+): [number, number] => (region === "switzerland" ? [2, 10] : [2, 25]);
+
+const normalizeTentacleKm = (value: unknown): [number, number] | undefined => {
+    if (!Array.isArray(value) || value.length !== 2) return undefined;
+    const [small, large] = value.map(Number);
+    return Number.isFinite(small) &&
+        Number.isFinite(large) &&
+        small > 0 &&
+        large > 0
+        ? [small, large]
+        : undefined;
+};
 
 const MAX_COPIES = 40;
 const MAX_PHOTO_CHARS = 200_000;
@@ -198,6 +216,9 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
             .slice(0, 50),
         cardPopups: input.cardPopups === "all" ? "all" : "important",
         seekersSeeStations: input.seekersSeeStations !== false,
+        latePenalty: input.latePenalty !== false,
+        tentacleKm:
+            normalizeTentacleKm(input.tentacleKm) ?? defaults.tentacleKm,
     };
 };
 
@@ -207,9 +228,14 @@ export const describeStations = (kinds: StationKinds) =>
         .filter(Boolean)
         .join(", ");
 
+/** The big-place tentacle kinds (the book's 15 miles): parks, zoos, aquariums. */
+export const BIG_TENTACLES = ["theme_park", "zoo", "aquarium"];
+
 /**
- * The metric book's tentacle distance for a kind of place: 25 km for the
- * large-game places (amusement parks, zoos, aquariums), 2 km otherwise.
+ * The game's tentacle distance for a kind of place: the second figure for
+ * the big places (amusement parks, zoos, aquariums), the first otherwise.
  */
-export const tentacleRadiusKm = (locationType: string) =>
-    ["theme_park", "zoo", "aquarium"].includes(locationType) ? 25 : 2;
+export const tentacleRadiusKm = (
+    locationType: string,
+    km: [number, number] = [2, 25],
+) => (BIG_TENTACLES.includes(locationType) ? km[1] : km[0]);
