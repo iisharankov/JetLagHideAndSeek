@@ -41,6 +41,21 @@ export const setLocalRejections = (list: RejectedPlace[]) =>
 /** The rejections in force: the game's (every phone has the same). */
 export const rejections = () => gameSettings.get().rejectedPlaces ?? [];
 
+/** Rejections by kind and name, built once per list (lists are replaced, never mutated). */
+const indexes = new WeakMap<RejectedPlace[], Map<string, RejectedPlace[]>>();
+const indexOf = (list: RejectedPlace[]) => {
+    let index = indexes.get(list);
+    if (!index) {
+        index = new Map();
+        for (const entry of list) {
+            const key = `${entry.kind}|${nameKey(entry.name)}`;
+            index.set(key, [...(index.get(key) ?? []), entry]);
+        }
+        indexes.set(list, index);
+    }
+    return index;
+};
+
 export const isRejected = (
     kind: string,
     name: string | undefined,
@@ -49,11 +64,8 @@ export const isRejected = (
     list: RejectedPlace[] = rejections(),
 ) =>
     !!name &&
-    list.some(
-        (entry) =>
-            entry.kind === kind &&
-            nameKey(entry.name) === nameKey(name) &&
-            km(lat, lng, entry.lat, entry.lng) <= REJECT_KM,
+    (indexOf(list).get(`${kind}|${nameKey(name)}`) ?? []).some(
+        (entry) => km(lat, lng, entry.lat, entry.lng) <= REJECT_KM,
     );
 
 export const hasRejections = (
@@ -78,35 +90,45 @@ export const toggleRejection = (
           )
         : [...list, place];
 
-/** The same place listed several times (same name, close together) once. */
+/**
+ * The same place listed several times (same name, close together) once.
+ * Only places of the same name are compared, so thousands of parks stay
+ * cheap.
+ */
 export const mergeDuplicates = <F extends Feature<Point>>(points: F[]): F[] => {
     const kept: F[] = [];
+    const byName = new Map<string, F[]>();
     for (const point of points) {
         const name = point.properties?.name as string | undefined;
+        if (!name) {
+            kept.push(point);
+            continue;
+        }
+        const key = nameKey(name);
         const [lng, lat] = point.geometry.coordinates;
-        const twin =
-            !!name &&
-            kept.some((other) => {
-                const otherName = other.properties?.name as string | undefined;
-                const [otherLng, otherLat] = other.geometry.coordinates;
-                return (
-                    !!otherName &&
-                    nameKey(otherName) === nameKey(name) &&
-                    km(lat, lng, otherLat, otherLng) <= DUPLICATE_KM
-                );
-            });
-        if (!twin) kept.push(point);
+        const twins = byName.get(key) ?? [];
+        const twin = twins.some((other) => {
+            const [otherLng, otherLat] = other.geometry.coordinates;
+            return km(lat, lng, otherLat, otherLng) <= DUPLICATE_KM;
+        });
+        if (twin) continue;
+        twins.push(point);
+        byName.set(key, twins);
+        kept.push(point);
     }
     return kept;
 };
 
-/** Duplicates merged, rejected places dropped. */
+/** A place the questions can name. */
+export const named = (point: Feature<Point>) => !!point.properties?.name;
+
+/** Unnamed places dropped, duplicates merged, rejected places dropped. */
 export const applyPlaceRules = <F extends Feature<Point>>(
     kind: string,
     points: F[],
     list: RejectedPlace[] = rejections(),
 ): F[] =>
-    mergeDuplicates(points).filter((point) => {
+    mergeDuplicates(points.filter(named)).filter((point) => {
         const [lng, lat] = point.geometry.coordinates;
         return !isRejected(kind, point.properties?.name, lat, lng, list);
     });

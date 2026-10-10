@@ -485,7 +485,7 @@ describe("the hider's pin", () => {
             seeker,
             3000,
         );
-        expect(state.hider?.pinLocked).toBeUndefined();
+        expect(state.hider?.pinLocked).toBeFalsy();
         expect(
             apply(state, { type: "setHiderPin", pin }, hider).hider?.pin,
         ).toEqual(pin);
@@ -564,7 +564,12 @@ describe("teams", () => {
     });
 
     it("let one team claim the next round once the round is over", () => {
-        let state = withTeams();
+        let state = apply(
+            withTeams(),
+            { type: "clock", action: "start" },
+            seeker,
+            500,
+        );
         expect(() =>
             apply(
                 state,
@@ -1145,6 +1150,15 @@ describe("the hider's station", () => {
         expect(() =>
             apply(fresh(), { type: "hiderReady", station: null }, hider),
         ).toThrow(/Pick a station first/);
+    });
+
+    it("shares a tapped station with the hider's other phone until Done", () => {
+        let state = apply(fresh(), { type: "setHiderPending", station }, hider);
+        expect(state.hider?.pending).toEqual(station);
+        expect(state.hider?.station).toBeNull();
+        state = apply(state, { type: "hiderReady", station }, hider);
+        expect(state.hider?.pending).toBeNull();
+        expect(state.hider?.station).toEqual(station);
     });
 });
 

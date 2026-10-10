@@ -50,7 +50,6 @@ import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
 import {
     findPlacesSpecificInZone,
-    nearestToQuestion,
     QuestionSpecificLocation,
     type StationCircle,
     type StationPlace,
@@ -64,32 +63,13 @@ import {
     safeUnion,
 } from "@/maps/geo-utils";
 import { loadStationPlaces } from "@/maps/hidingZoneStations";
-import type {
-    HomeGameMatchingQuestions,
-    HomeGameMeasuringQuestions,
-    Question,
-} from "@/maps/schema";
+import type { Question } from "@/maps/schema";
 import {
     applyStationNameQuestion,
     nearestStation,
     stationSignName,
 } from "@/maps/stationNames";
 import { sharesTrainLineWith } from "@/maps/trainLines";
-
-/** Question types answered by the nearest place of a kind (zoo, museum…). */
-const PLACE_TYPES = [
-    "aquarium",
-    "zoo",
-    "theme_park",
-    "peak",
-    "museum",
-    "hospital",
-    "cinema",
-    "library",
-    "golf_course",
-    "consulate",
-    "park",
-];
 
 /** The station's map-data id ("node/123"). */
 export const stationId = (station: StationCircle): string =>
@@ -194,35 +174,6 @@ const applyQuestionToHidingZones = async (
                 return data.same ? onLine : !onLine;
             });
         }
-    }
-
-    if (
-        (question.id === "matching" || question.id === "measuring") &&
-        PLACE_TYPES.includes(question.data.type)
-    ) {
-        // Matching: the station's nearest place is the seeker's (or isn't).
-        // Measuring: the station is closer to one than the seeker (or not).
-        const data = question.data as HomeGameMatchingQuestions &
-            HomeGameMeasuringQuestions;
-        const seekerNearest = await nearestToQuestion(data);
-        const eligible = await Promise.all(
-            circles.map(async (circle) => {
-                const [lng, lat] = turf.getCoord(circle.properties);
-                const nearest = await nearestToQuestion({ ...data, lat, lng });
-                if (question.id === "matching") {
-                    const same =
-                        turf.getCoord(nearest).join() ===
-                        turf.getCoord(seekerNearest).join();
-                    return question.data.same ? same : !same;
-                }
-                return question.data.hiderCloser
-                    ? nearest.properties.distanceToPoint <
-                          seekerNearest.properties.distanceToPoint
-                    : nearest.properties.distanceToPoint >
-                          seekerNearest.properties.distanceToPoint;
-            }),
-        );
-        return circles.filter((_, index) => eligible[index]);
     }
 
     if (

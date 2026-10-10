@@ -28,7 +28,6 @@ import {
     findAdminBoundary,
     findPlacesInZone,
     findPlacesSpecificInZone,
-    nearestToQuestion,
     QuestionSpecificLocation,
 } from "@/maps/api";
 import { datasets } from "@/maps/datasets/load";
@@ -44,11 +43,7 @@ import {
     modifyMapData,
 } from "@/maps/geo-utils";
 import { loadStationPlaces } from "@/maps/hidingZoneStations";
-import type {
-    APILocations,
-    HomeGameMeasuringQuestions,
-    MeasuringQuestion,
-} from "@/maps/schema";
+import type { APILocations, MeasuringQuestion } from "@/maps/schema";
 
 import { type PlaceKind, placesForMeasuring } from "./places";
 
@@ -421,17 +416,6 @@ export const determineMeasuringBoundary = async (
             return turf.combine(
                 turf.featureCollection((question as any).geo.features),
             ).features;
-        case "aquarium":
-        case "zoo":
-        case "theme_park":
-        case "peak":
-        case "museum":
-        case "hospital":
-        case "cinema":
-        case "library":
-        case "golf_course":
-        case "consulate":
-        case "park":
         case "mcdonalds":
         case "seven11":
         case "rail-measure":
@@ -505,43 +489,6 @@ export const adjustPerMeasuring = async (
 export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
     const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
-        return question;
-    }
-
-    if (
-        [
-            "aquarium",
-            "zoo",
-            "theme_park",
-            "peak",
-            "museum",
-            "hospital",
-            "cinema",
-            "library",
-            "golf_course",
-            "consulate",
-            "park",
-        ].includes(question.type)
-    ) {
-        const questionNearest = await nearestToQuestion(
-            question as HomeGameMeasuringQuestions,
-        );
-        const hiderNearest = await nearestToQuestion({
-            lat: $hiderMode.latitude,
-            lng: $hiderMode.longitude,
-            hiderCloser: true,
-            research: false,
-            type: (question as HomeGameMeasuringQuestions).type,
-            drag: false,
-            color: "black",
-            collapsed: false,
-            hidden: false,
-        });
-
-        question.hiderCloser =
-            questionNearest.properties.distanceToPoint >
-            hiderNearest.properties.distanceToPoint;
-
         return question;
     }
 

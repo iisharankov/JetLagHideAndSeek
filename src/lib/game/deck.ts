@@ -323,9 +323,9 @@ export const handBonusMinutes = (
 };
 
 /**
- * What the seekers may see of the deck: nothing in it, not even how many
- * cards the hider holds or how many are left; only the hand limit and the
- * log of what everyone witnessed.
+ * What the seekers may see of the deck: nothing in it, not how many cards
+ * the hider holds or has left, nor what they drew; only the hand limit and
+ * whether their next question is free.
  */
 export const deckForSeekers = (deck: Deck): Deck => ({
     remaining: [],
@@ -335,6 +335,7 @@ export const deckForSeekers = (deck: Deck): Deck => ({
     pendingKeep: 0,
     owed: [],
     limit: deck.limit,
-    log: deck.log,
+    // Not what they drew either: the log stays with the hider.
+    log: [],
     ...(deck.freeQuestions ? { freeQuestions: deck.freeQuestions } : {}),
 });

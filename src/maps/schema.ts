@@ -279,22 +279,6 @@ const zoneMatchingQuestionsSchema = baseMatchingQuestionSchema.extend({
         .default(() => ({ adminLevel: 4 }) as { adminLevel: 4 }),
 });
 
-const homeGameMatchingQuestionsSchema = baseMatchingQuestionSchema.extend({
-    type: z.union([
-        z.literal("aquarium").describe("Aquarium Question"),
-        z.literal("zoo").describe("Zoo Question"),
-        z.literal("theme_park").describe("Theme Park Question"),
-        z.literal("peak").describe("Mountain Question"),
-        z.literal("museum").describe("Museum Question"),
-        z.literal("hospital").describe("Hospital Question"),
-        z.literal("cinema").describe("Cinema Question"),
-        z.literal("library").describe("Library Question"),
-        z.literal("golf_course").describe("Golf Course Question"),
-        z.literal("consulate").describe("Foreign Consulate Question"),
-        z.literal("park").describe("Park Question"),
-    ]),
-});
-
 const hidingZoneMatchingQuestionsSchema = baseMatchingQuestionSchema.extend({
     type: z.union([
         z
@@ -322,7 +306,6 @@ export const matchingQuestionSchema = z.union([
     ordinaryMatchingQuestionSchema.describe(NO_GROUP),
     customMatchingQuestionSchema.describe(NO_GROUP),
     hidingZoneMatchingQuestionsSchema.describe("Stations"),
-    homeGameMatchingQuestionsSchema.describe("Hiding zones only"),
 ]);
 
 const baseMeasuringQuestionSchema = ordinaryBaseQuestionSchema.extend({
@@ -410,22 +393,6 @@ const hidingZoneMeasuringQuestionsSchema = baseMeasuringQuestionSchema.extend({
     ]),
 });
 
-const homeGameMeasuringQuestionsSchema = baseMeasuringQuestionSchema.extend({
-    type: z.union([
-        z.literal("aquarium").describe("Aquarium Question"),
-        z.literal("zoo").describe("Zoo Question"),
-        z.literal("theme_park").describe("Theme Park Question"),
-        z.literal("peak").describe("Mountain Question"),
-        z.literal("museum").describe("Museum Question"),
-        z.literal("hospital").describe("Hospital Question"),
-        z.literal("cinema").describe("Cinema Question"),
-        z.literal("library").describe("Library Question"),
-        z.literal("golf_course").describe("Golf Course Question"),
-        z.literal("consulate").describe("Foreign Consulate Question"),
-        z.literal("park").describe("Park Question"),
-    ]),
-});
-
 const customMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
     type: z.literal("custom-measure").describe("Custom Measuring Question"),
     geo: z.any(),
@@ -435,7 +402,6 @@ export const measuringQuestionSchema = z.union([
     ordinaryMeasuringQuestionSchema.describe(NO_GROUP),
     customMeasuringQuestionSchema.describe(NO_GROUP),
     hidingZoneMeasuringQuestionsSchema.describe("Stations and chains"),
-    homeGameMeasuringQuestionsSchema.describe("Hiding zones only"),
 ]);
 
 export const questionSchema = z.union([
@@ -474,9 +440,12 @@ export type ThermometerQuestion = z.infer<typeof thermometerQuestionSchema>;
 export type TentacleQuestion = z.infer<typeof tentacleQuestionSchema>;
 export type APILocations = z.infer<typeof apiLocationSchema>;
 export type MatchingQuestion = z.infer<typeof matchingQuestionSchema>;
-export type HomeGameMatchingQuestions = z.infer<
-    typeof homeGameMatchingQuestionsSchema
->;
+/** A point and a kind of place: "the nearest zoo to here". */
+export interface PlaceQuery {
+    lat: number;
+    lng: number;
+    type: APILocations;
+}
 export type CustomMatchingQuestion = z.infer<
     typeof customMatchingQuestionSchema
 >;
@@ -484,9 +453,6 @@ export type CustomMeasuringQuestion = z.infer<
     typeof customMeasuringQuestionSchema
 >;
 export type MeasuringQuestion = z.infer<typeof measuringQuestionSchema>;
-export type HomeGameMeasuringQuestions = z.infer<
-    typeof homeGameMeasuringQuestionsSchema
->;
 export type Question = z.infer<typeof questionSchema>;
 export type Questions = z.infer<typeof questionsSchema>;
 export type DeepPartial<T> = {

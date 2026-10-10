@@ -139,25 +139,6 @@ export const MatchingQuestionComponent = ({
                 </span>
             );
             break;
-        case "aquarium":
-        case "hospital":
-        case "peak":
-        case "museum":
-        case "theme_park":
-        case "zoo":
-        case "cinema":
-        case "library":
-        case "golf_course":
-        case "consulate":
-        case "park":
-            questionSpecific = (
-                <span className="px-2 text-center text-orange-500">
-                    Worked out per station, with hiding zones on (Stations tab):
-                    a station stays in play when its nearest such place is the
-                    seeker&apos;s (same) or another one (different).
-                </span>
-            );
-            break;
         case "custom-zone":
         case "custom-points":
             if (data.drag) {

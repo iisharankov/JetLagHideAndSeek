@@ -53,19 +53,10 @@ export const PLACE_TYPES = [
     "park",
 ];
 
-/**
- * Off for good: mountain questions (too many unnamed peaks to know which
- * one is meant), and the "hiding zones only" versions of the place
- * questions, which only narrowed the station list and confused everyone
- * next to the full versions that shade the map.
- */
+/** Mountain questions: too many unnamed peaks to know which one is meant. */
 export const ALWAYS_OFF = [
     questionKey("matching", "peak-full"),
     questionKey("measuring", "peak-full"),
-    ...PLACE_TYPES.flatMap((type) => [
-        questionKey("matching", type),
-        questionKey("measuring", type),
-    ]),
 ];
 
 /** Question types a region's rules leave out. */

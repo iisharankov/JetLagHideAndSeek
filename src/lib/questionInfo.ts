@@ -58,7 +58,7 @@ const CITY_NOTE =
 const ALL_PLACES_NOTE =
     "Every such place counts, including ones just outside the play area, so the answer is right near the edges.";
 const ZONE_MODE_NOTE =
-    "Hiding-zone version: it only narrows down the hiding zones (in the right sidebar), one zone at a time.";
+    "Worked out per station, with the hiding zones on (Stations tab).";
 const STATION_NOTE =
     "Uses each player's nearest train station (halts count). Names are as on the station sign; accents don't matter for first letters.";
 
@@ -86,14 +86,6 @@ const placeTypes = (page: RuleRef["page"]) =>
                 {
                     label,
                     note: ALL_PLACES_NOTE,
-                    rules: { page, heading },
-                },
-            ],
-            [
-                type,
-                {
-                    label: `${label} (hiding zones only)`,
-                    note: ZONE_MODE_NOTE,
                     rules: { page, heading },
                 },
             ],

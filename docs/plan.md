@@ -669,30 +669,35 @@ stay in `rules/cards.ts`.
     on a tap, and a question just asked becomes the hider's active card
     so its places show at once.
 
+34. **Cleanup after the second audit:** unnamed places are out of every
+    list; a Move clears delete requests; answer previews clear on leaving;
+    the deck log stays with the hider; a tapped station shows on the
+    hider's other phone too; the voronoi fallback for a kind with rejected
+    places uses the 400 nearest places; `lib/format.ts` holds the shared
+    "ago" and clock-time helpers; the "hiding zones only" question
+    variants are gone from the schema, the cards, the zone layer and the
+    references.
+
 Not built, by your choice: dice (you roll real ones) and a hangman board.
 
 ## What's left ⏭️
 
-From [the audit](audit-2026-10.md), roughly in order of value:
+From [the second audit](audit-2026-10b.md), roughly in order of value:
 
-1. **A shakedown game** and the fixes it brings.
-2. **Open question** Q38 (rest periods), parked until you play longer games.
-3. **Live view without the archive** (`rounds`, the deck log), later deltas
-   keyed by version.
-4. **Keep splitting** what is still big: CardsPanel's hand flows,
-   GameSetupDialog's Game step, context.ts's stores.
-5. **Geometry worker**, only if a real game still stutters after round 12's
-   cache (the question modules would need their own copies of the stores
-   and caches).
-6. **Bundle:** try Turf's planar buffers instead of ArcGIS (1.2 MB + wasm;
-   metres of error at this scale), lazy-load the references/voronoi code
-   (the 472 kB `thermometer` chunk), keep the first load's `context` chunk
-   (496 kB) smaller.
-7. **Phone polish:** bigger buttons, a "remaining area" figure (km² and %
-   left); the shared-game browser tests still run with desktop viewports.
+1. **A shakedown game** with teams and the new curses, and the fixes it
+   brings.
+2. **Shared-game tests on the phone project** (the sheet layout of the
+   new dialogs has only run on desktop).
+3. **Split `CardsPanel.tsx`** (the rules file's helpers now live in
+   `server/src/rules/`; its 38-case switch is still one function).
+4. **Live view without the archive** (`rounds`, `moves`, the deck log),
+   later deltas keyed by version.
+5. **Open question** Q38 (rest periods), parked until you play longer games.
+6. **Geometry worker**, only if a real game still stutters.
+7. **Bundle:** Turf's planar buffers instead of ArcGIS (1.2 MB + wasm),
+   lazy-load the references/voronoi code, a smaller first-load chunk.
 8. **Authelia** in front of the site.
-9. **No offline map:** a dead spot means a grey map; caching the play
-   area's tiles would be a feature of its own.
+9. **No offline map:** a dead spot means a grey map.
 
 ## Later / dropped 💤
 

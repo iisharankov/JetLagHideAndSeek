@@ -6,6 +6,7 @@ import type { FeatureCollection, Point } from "geojson";
 import osmtogeojson from "osmtogeojson";
 
 import { mapGeoLocation } from "@/lib/context";
+import { PLACE_TYPES } from "@/lib/game/settings";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import { TYPES } from "@/lib/questionInfo";
 import { adminLevelLabel } from "@/maps/adminBorders";
@@ -15,26 +16,9 @@ import {
     nearestToQuestion,
 } from "@/maps/api";
 import { DEFAULT_STATION_FILTERS } from "@/maps/hidingZones";
-import type {
-    HomeGameMatchingQuestions,
-    HomeGameMeasuringQuestions,
-    Question,
-} from "@/maps/schema";
+import type { PlaceQuery, Question } from "@/maps/schema";
 import { stationSignName } from "@/maps/stationNames";
 
-const HOME_GAME = [
-    "aquarium",
-    "zoo",
-    "theme_park",
-    "peak",
-    "museum",
-    "hospital",
-    "cinema",
-    "library",
-    "golf_course",
-    "consulate",
-    "park",
-];
 const STATION_TYPES = [
     "same-first-letter-station",
     "same-length-station",
@@ -79,11 +63,11 @@ export const questionReference = async (
             const name = await nearestStationName(data.lat, data.lng);
             return name ? `The seekers' station: ${name}` : null;
         }
-        if (HOME_GAME.includes(baseType)) {
+        if (PLACE_TYPES.includes(baseType)) {
             const nearest = await nearestToQuestion({
                 ...question.data,
                 type: baseType,
-            } as HomeGameMatchingQuestions);
+            } as PlaceQuery);
             const name = nearest?.properties?.name;
             return name
                 ? `The seekers' nearest of "${typeLabel("matching", data.type)}": ${name}`
@@ -105,11 +89,11 @@ export const questionReference = async (
         }
         return null;
     }
-    if (question.id === "measuring" && HOME_GAME.includes(baseType)) {
+    if (question.id === "measuring" && PLACE_TYPES.includes(baseType)) {
         const nearest = await nearestToQuestion({
             ...question.data,
             type: baseType,
-        } as HomeGameMeasuringQuestions);
+        } as PlaceQuery);
         const name = nearest?.properties?.name;
         const km = nearest?.properties?.distanceToPoint;
         return name

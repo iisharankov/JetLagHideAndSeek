@@ -257,6 +257,12 @@ const receive = (received: GameState, force = false) => {
             if (pinLocked.get() !== !!state.hider.pinLocked) {
                 pinLocked.set(!!state.hider.pinLocked);
             }
+            const pending = state.hider.pending ?? null;
+            if (
+                JSON.stringify(pending) !== JSON.stringify(pendingStation.get())
+            ) {
+                pendingStation.set(pending);
+            }
             const pin = state.hider.pin;
             const mine = hiderMode.get();
             if (
@@ -377,6 +383,11 @@ const listenForLocalChanges = () => {
     chosenStation.listen((station) => {
         if (inGame() && gameRole.get() === "hider") {
             void sendOp({ type: "setHiderStation", station });
+        }
+    });
+    pendingStation.listen((station) => {
+        if (inGame() && gameRole.get() === "hider") {
+            void sendOp({ type: "setHiderPending", station });
         }
     });
     let pinTimer: ReturnType<typeof setTimeout> | undefined;
@@ -507,6 +518,7 @@ export const leaveGame = () => {
     roundsSeen = -1;
     pendingStation.set(null);
     pinLocked.set(false);
+    previewAnswers.set({});
     currentGameId.set("");
     activeGameId.set("");
     gameState.set(null);

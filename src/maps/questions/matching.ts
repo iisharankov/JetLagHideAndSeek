@@ -17,25 +17,22 @@ import {
 import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import { adminLevelLabel } from "@/maps/adminBorders";
-import {
-    findAdminBoundary,
-    findPlacesInZone,
-    nearestToQuestion,
-} from "@/maps/api";
+import { findAdminBoundary, findPlacesInZone } from "@/maps/api";
 import { datasets } from "@/maps/datasets/load";
 import { NotApplicableError } from "@/maps/errors";
 import { holedMask, modifyMapData, safeUnion } from "@/maps/geo-utils";
 import { geoSpatialVoronoi } from "@/maps/geo-utils";
 import { DEFAULT_STATION_FILTERS } from "@/maps/hidingZones";
-import type {
-    APILocations,
-    HomeGameMatchingQuestions,
-    MatchingQuestion,
-} from "@/maps/schema";
+import type { APILocations, MatchingQuestion } from "@/maps/schema";
 import { firstLetter, nameLength, stationSignName } from "@/maps/stationNames";
 import { sharesTrainLineWith } from "@/maps/trainLines";
 
-import { type PlaceKind, placesInPlayArea, seekerNearestCell } from "./places";
+import {
+    nearestSites,
+    type PlaceKind,
+    placesInPlayArea,
+    seekerNearestCell,
+} from "./places";
 
 const zoneLabel = (adminLevel: number) =>
     adminLevelLabel(adminLevel, mapGeoLocation.get().properties.countrycode);
@@ -92,17 +89,6 @@ export const determineMatchingBoundary = memoizeAsync(
         let boundary;
 
         switch (question.type) {
-            case "aquarium":
-            case "zoo":
-            case "theme_park":
-            case "peak":
-            case "museum":
-            case "hospital":
-            case "cinema":
-            case "library":
-            case "golf_course":
-            case "consulate":
-            case "park":
             case "same-first-letter-station":
             case "same-length-station":
             case "same-train-line": {
@@ -220,7 +206,13 @@ export const determineMatchingBoundary = memoizeAsync(
                     break;
                 }
 
-                const data = await findMatchingPlaces(question);
+                const found = await findMatchingPlaces(question);
+                const points: Feature<Point>[] = Array.isArray(found)
+                    ? found
+                    : (found?.features ?? []);
+                const data = turf.featureCollection(
+                    nearestSites(points, question),
+                );
 
                 const voronoi = geoSpatialVoronoi(data);
                 const point = turf.point([question.lng, question.lat]);
@@ -268,42 +260,6 @@ export const adjustPerMatching = async (
 export const hiderifyMatching = async (question: MatchingQuestion) => {
     const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
-        return question;
-    }
-
-    if (
-        [
-            "aquarium",
-            "zoo",
-            "theme_park",
-            "peak",
-            "museum",
-            "hospital",
-            "cinema",
-            "library",
-            "golf_course",
-            "consulate",
-            "park",
-        ].includes(question.type)
-    ) {
-        const questionNearest = await nearestToQuestion(
-            question as HomeGameMatchingQuestions,
-        );
-        const hiderNearest = await nearestToQuestion({
-            lat: $hiderMode.latitude,
-            lng: $hiderMode.longitude,
-            same: true,
-            research: false,
-            type: (question as HomeGameMatchingQuestions).type,
-            drag: false,
-            color: "black",
-            collapsed: false,
-            hidden: false,
-        });
-
-        question.same =
-            questionNearest.properties.name === hiderNearest.properties.name;
-
         return question;
     }
 

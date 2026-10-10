@@ -60,3 +60,19 @@ describe("place rules", () => {
         expect(toggleRejection(on, { ...zoo, lat: 47.3701 })).toEqual([]);
     });
 });
+
+describe("place rules at scale", () => {
+    it("merges thousands of places without choking", () => {
+        const many = Array.from({ length: 4000 }, (_, i) =>
+            place(
+                `Park ${i % 500}`,
+                47 + (i % 40) * 0.01,
+                8 + Math.floor(i / 40) * 0.01,
+            ),
+        );
+        const started = Date.now();
+        const merged = mergeDuplicates(many);
+        expect(Date.now() - started).toBeLessThan(2000);
+        expect(merged.length).toBeLessThanOrEqual(many.length);
+    });
+});

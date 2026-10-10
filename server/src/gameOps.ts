@@ -1,17 +1,11 @@
 // The rules of a shared game: who may change what. Pure functions, so they
-// are easy to test; games.ts stores the results and tells every phone.
-import { randomBytes, randomInt } from "node:crypto";
-
-import { ANSWER_TIME_MS } from "@/lib/game/answerTimer";
+// are easy to test; games.ts stores the results and tells every phone. The
+// helpers live in rules/ by feature.
 import { applyClockAction, clockState } from "@/lib/game/clock";
 import {
-    blockingCurses,
-    curseEndsAt,
     curseRule,
     kindCategory,
-    kindRefusal,
     lastsTheRun,
-    moveMinutes,
     photoKind,
     QUESTION_CATEGORIES,
     questionKind,
@@ -25,34 +19,59 @@ import {
     deckForSeekers,
     discardHand,
     drawCards,
-    DRAWS,
     handBonusMinutes,
     keepCards,
     newDeck,
     removeFromHand,
 } from "@/lib/game/deck";
 import { questionIdentity } from "@/lib/game/questionIdentity";
-import {
-    ALWAYS_OFF,
-    normalizeGameSettings,
-    questionKey,
-    tentacleRadiusKm,
-} from "@/lib/game/settings";
+import { normalizeGameSettings } from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
     type GameOp,
     type GameSettings,
     type GameState,
-    LOCAL_FIELDS,
-    type QuestionEntry,
     type Role,
-    type SharedQuestion,
-    type StationPick,
 } from "@/lib/game/types";
-import { TYPES } from "@/lib/questionInfo";
-import { photoNamesFor } from "@/lib/rules/photoQuestions";
+
+import {
+    activeCurse,
+    assertMayAsk,
+    awardedMinutes,
+    castCurse,
+    passTime,
+    rollAgain,
+} from "./rules/curses";
+import { hiderWith, startMove, stationOf } from "./rules/hider";
+import {
+    noteLateAnswer,
+    oweDraws,
+    payRandomize,
+    randomPhotoName,
+    randomVariant,
+    variantLabel,
+} from "./rules/questions";
+import {
+    type Actor,
+    assertHider,
+    assertMayChangeAnswered,
+    assertNotMoving,
+    cardOrCopy,
+    deckOf,
+    DISCARD_DRAW,
+    DUPLICATE,
+    GameRuleError,
+    ruleError,
+    shortId,
+    VETO,
+    visibleEntry,
+    withoutLocalFields,
+} from "./rules/shared";
+import { teamById, teamOf } from "./rules/teams";
+export { type Actor, GameRuleError } from "./rules/shared";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
+
 const CLOCK_ACTIONS = new Set([
     "start",
     "pause",
@@ -63,34 +82,6 @@ const CLOCK_ACTIONS = new Set([
 ]);
 
 /** "Discard N, draw M": the cards discarded, then drawn and kept. */
-const DISCARD_DRAW: Record<string, { discard: number; draw: number }> = {
-    powerup_discard_1_draw_2: { discard: 1, draw: 2 },
-    powerup_discard_2_draw_3: { discard: 2, draw: 3 },
-};
-
-/** "For the next three questions, you may draw an additional card." */
-const CHALICE = "Curse of the Overflowing Chalice";
-const CHALICE_QUESTIONS = 3;
-const RANDOMIZE = "powerup_randomize_question";
-const VETO = "powerup_veto_question";
-const DUPLICATE = "powerup_duplicate_another_card";
-
-/** A change the rules don't allow; the API answers with `status`. */
-export class GameRuleError extends Error {
-    constructor(
-        message: string,
-        readonly status: 400 | 403 | 404 | 409 = 403,
-    ) {
-        super(message);
-    }
-}
-
-export interface Actor {
-    name: string;
-    role: Role;
-}
-
-const shortId = () => randomBytes(6).toString("base64url");
 
 export const newGameState = (
     id: string,
@@ -159,414 +150,6 @@ export const viewFor = (state: GameState, role: Role): GameState =>
                       : null,
           };
 
-const withoutLocalFields = (question: SharedQuestion): SharedQuestion => {
-    const data = { ...question.data };
-    for (const field of LOCAL_FIELDS) delete data[field];
-    return { id: question.id, key: question.key, data };
-};
-
-const visibleEntry = (state: GameState, key: number, actor: Actor) => {
-    const entry = state.questions[String(key)];
-    if (!entry || (actor.role === "hider" && entry.state === "draft")) {
-        throw new GameRuleError("That question doesn't exist (any more).", 404);
-    }
-    return entry;
-};
-
-/** Answered (or vetoed) questions are the hider's, unless the game lets seekers answer. */
-const assertMayChangeAnswered = (
-    state: GameState,
-    entry: QuestionEntry,
-    actor: Actor,
-) => {
-    if (
-        (entry.state === "answered" || entry.state === "vetoed") &&
-        actor.role !== "hider" &&
-        !state.settings.seekersCanAnswer
-    ) {
-        throw new GameRuleError(
-            "This question is answered: only the hider can change it.",
-        );
-    }
-};
-
-const assertHider = (actor: Actor, what: string) => {
-    if (actor.role !== "hider") {
-        throw new GameRuleError(`Only the hider can ${what}.`);
-    }
-};
-
-/** While the hider moves, the seekers are frozen: no asking. */
-const assertNotMoving = (state: GameState) => {
-    if (state.move) {
-        throw new GameRuleError(
-            "The hider is on the move: no questions until they continue.",
-            409,
-        );
-    }
-};
-
-/**
- * With the digital deck, an answered question earns the hider draws: the
- * rulebook's draw, again for the same question asked again, and one card
- * more while the Overflowing Chalice is on.
- */
-const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
-    if (!state.deck) return;
-    const draw = DRAWS[entry.question.id];
-    if (!draw) return;
-    // Curse of the Impressionable Consumer: "the seekers' next question is free".
-    if ((state.deck.freeQuestions ?? 0) > 0) {
-        state.deck.freeQuestions = (state.deck.freeQuestions ?? 1) - 1;
-        state.deck.log.push({
-            at: now,
-            text: "That question was free (a curse, or the late-answer penalty): no draw.",
-        });
-        return;
-    }
-    const identity = questionIdentity(entry.question);
-    const times = Object.values(state.questions).filter(
-        (other) =>
-            other.state === "answered" &&
-            questionIdentity(other.question) === identity,
-    ).length;
-    const chalice = (state.deck.chaliceLeft ?? 0) > 0;
-    for (let i = 0; i < Math.max(1, times); i++) {
-        const label = i === 0 ? draw.label : `${draw.label} (asked again)`;
-        state.deck.owed.push({
-            ...draw,
-            draw: draw.draw + (chalice ? 1 : 0),
-            label: chalice ? `${label} + Overflowing Chalice` : label,
-        });
-    }
-    if (chalice) {
-        state.deck.chaliceLeft = (state.deck.chaliceLeft ?? 1) - 1;
-        if (state.deck.chaliceLeft === 0) {
-            const curse = state.curses.find(
-                (c) => c.name === CHALICE && !c.clearedAt,
-            );
-            if (curse) {
-                curse.clearedAt = now;
-                curse.clearedBy = "the game";
-            }
-        }
-    }
-    state.deck = advanceDeck(state.deck, now);
-};
-
-/** The hider casts a curse; the Overflowing Chalice also starts counting. */
-const castCurse = (state: GameState, name: string, now: number) => {
-    const rule = curseRule(name);
-    if (rule.notInEndgame && state.endgame) {
-        throw new GameRuleError(
-            `${name} can't be cast during the end game.`,
-            409,
-        );
-    }
-    state.curses.push({ id: shortId(), name, castAt: now });
-    if (name === CHALICE && state.deck) {
-        state.deck.chaliceLeft = CHALICE_QUESTIONS;
-    }
-    if (rule.freeQuestion && state.deck) {
-        state.deck.freeQuestions = (state.deck.freeQuestions ?? 0) + 1;
-    }
-};
-
-/** Timed curses end by themselves; a Move's period runs out by itself. */
-const passTime = (state: GameState, now: number) => {
-    for (const entry of state.curses) {
-        if (entry.clearedAt) continue;
-        const endsAt = curseEndsAt(entry, state.settings.size);
-        if (endsAt !== null && endsAt <= now) {
-            entry.clearedAt = endsAt;
-            entry.clearedBy = "time";
-        }
-    }
-    if (state.move && now >= state.move.endsAt) {
-        state.move = null;
-        state.clock = applyClockAction(state.clock, "resume", now);
-    }
-};
-
-/** The curses on the seekers may stop them from asking, or from asking a kind. */
-const assertMayAsk = (state: GameState, kind: string, now: number) => {
-    const blocking = blockingCurses(state, now)[0];
-    if (blocking) {
-        throw new GameRuleError(
-            `${blocking.name}: the seekers can't ask until it's done and cleared (Cards tab).`,
-            409,
-        );
-    }
-    const refusal = kindRefusal(state, kind, now);
-    if (refusal) throw new GameRuleError(refusal, 409);
-};
-
-/** Spotty Memory: after a question is asked, the seekers roll again. */
-const rollAgain = (state: GameState) => {
-    for (const entry of state.curses) {
-        if (!entry.clearedAt && curseRule(entry.name).takes === "category") {
-            delete entry.category;
-        }
-    }
-};
-
-/** A curse entry still in force, or a refusal. */
-const activeCurse = (state: GameState, id: string, now: number) => {
-    const entry = state.curses.find((c) => c.id === id);
-    if (!entry || entry.clearedAt) {
-        throw new GameRuleError("That curse isn't on the seekers.", 404);
-    }
-    const endsAt = curseEndsAt(entry, state.settings.size);
-    if (endsAt !== null && endsAt <= now) {
-        throw new GameRuleError("That curse is over.", 409);
-    }
-    return entry;
-};
-
-/** The hider's bonus at the end: the hand (or what they typed) plus the awards. */
-const awardedMinutes = (state: GameState) =>
-    state.awards.reduce((sum, award) => sum + award.minutes, 0);
-
-/** A variant of a question: what makes it a different question. */
-interface Variant {
-    identity: string;
-    label: string;
-    patch: Record<string, unknown>;
-}
-
-/** Every question of a category this game allows (custom ones aside). */
-const variantsOf = (
-    settings: GameSettings,
-    question: SharedQuestion,
-): Variant[] => {
-    const data = question.data as Record<string, unknown>;
-    if (question.id === "radius") {
-        return settings.radarKm.map((km) => ({
-            identity: `radius:${km}kilometers`,
-            label: `Radar ${km} km`,
-            patch: { radius: km, unit: "kilometers" },
-        }));
-    }
-    if (
-        question.id !== "matching" &&
-        question.id !== "measuring" &&
-        question.id !== "tentacles"
-    ) {
-        return [];
-    }
-    const category = question.id;
-    const field = category === "tentacles" ? "locationType" : "type";
-    return Object.entries(TYPES[category])
-        .filter(
-            ([type]) =>
-                !type.startsWith("custom") &&
-                !ALWAYS_OFF.includes(questionKey(category, type)) &&
-                !settings.disabledQuestions.includes(
-                    questionKey(category, type),
-                ),
-        )
-        .map(([type, info]) => ({
-            identity: `${category}:${type}`,
-            label: info.label,
-            patch: {
-                [field]: type,
-                ...(category === "tentacles"
-                    ? {
-                          radius: tentacleRadiusKm(type, settings.tentacleKm),
-                          unit: "kilometers",
-                      }
-                    : {}),
-                ...(category === "matching" &&
-                (type === "zone" || type === "letter-zone")
-                    ? { cat: data.cat ?? { adminLevel: 4 } }
-                    : {}),
-            },
-        }));
-};
-
-/** What the question is now, in the words of the setup screens. */
-const variantLabel = (settings: GameSettings, question: SharedQuestion) =>
-    variantsOf(settings, question).find(
-        (variant) => variant.identity === questionIdentity(question),
-    )?.label ?? questionIdentity(question);
-
-/**
- * Randomize Question: "a new unasked question from the same category is
- * chosen, at random". The questions asked this round don't come up again.
- */
-const randomVariant = (state: GameState, question: SharedQuestion) => {
-    const asked = new Set(
-        Object.values(state.questions)
-            .filter((entry) => entry.state !== "draft")
-            .flatMap((entry) => [
-                questionIdentity(entry.question),
-                ...(entry.askedAs ?? []),
-            ]),
-    );
-    const candidates = variantsOf(state.settings, question).filter(
-        (variant) => !asked.has(variant.identity),
-    );
-    if (candidates.length === 0) {
-        throw new GameRuleError(
-            question.id === "thermometer"
-                ? "Thermometer questions have no variants to randomize."
-                : "Every question of this kind has been asked already: nothing to randomize to.",
-            409,
-        );
-    }
-    return candidates[randomInt(candidates.length)];
-};
-
-/** The team a player is in, by name. */
-export const teamOf = (state: GameState, name: string) =>
-    state.teams.find((team) => team.members.includes(name));
-export const teamById = (state: GameState, id: string | null) =>
-    id ? state.teams.find((team) => team.id === id) : undefined;
-
-/**
- * The late-answer penalty: an answer over the five minutes is a warning,
- * twice; the third time the seekers' next question is free (no draw).
- */
-const noteLateAnswer = (
-    state: GameState,
-    entry: QuestionEntry,
-    now: number,
-) => {
-    if (!state.settings.latePenalty) return;
-    const askedAt = entry.askedAt ?? entry.createdAt;
-    if (now - askedAt <= ANSWER_TIME_MS) return;
-    state.lateAnswers += 1;
-    entry.late = state.lateAnswers;
-    if (state.lateAnswers % 3 === 0) {
-        if (state.deck) {
-            state.deck.freeQuestions = (state.deck.freeQuestions ?? 0) + 1;
-        } else {
-            state.freeQuestions += 1;
-        }
-    }
-};
-
-const photoKey = (name: string) => name.trim().toLowerCase();
-
-/**
- * Randomize Question on a photo question: another photo question of this
- * game's size, not asked this round (under any name it had).
- */
-const randomPhotoName = (state: GameState) => {
-    const asked = new Set(
-        state.photoRequests
-            .flatMap((request) => [request.name, ...(request.askedAs ?? [])])
-            .map(photoKey),
-    );
-    const candidates = photoNamesFor(state.settings.size).filter(
-        (name) => !asked.has(photoKey(name)),
-    );
-    if (candidates.length === 0) {
-        throw new GameRuleError(
-            "Every photo question has been asked already: nothing to randomize to.",
-            409,
-        );
-    }
-    return candidates[randomInt(candidates.length)];
-};
-
-/** Randomize Question costs the card, with the digital deck. */
-const payRandomize = (state: GameState) => {
-    if (!state.deck) return;
-    const index = cardOrCopy(state.deck.hand, RANDOMIZE);
-    if (index === -1) {
-        throw new GameRuleError(
-            "No Randomize Question card in your hand.",
-            409,
-        );
-    }
-    state.deck = removeFromHand(state.deck, index);
-};
-
-const ruleError = (error: unknown) =>
-    new GameRuleError(
-        error instanceof Error ? error.message : String(error),
-        409,
-    );
-
-/** Where a card is in the hand, or a Duplicate Another Card standing in for it. */
-const cardOrCopy = (hand: string[], id: string) => {
-    const own = hand.indexOf(id);
-    return own !== -1 ? own : hand.indexOf(DUPLICATE);
-};
-
-/** The deck, in a game that has one. */
-const deckOf = (state: GameState) => {
-    if (!state.deck) {
-        throw new GameRuleError("This game uses the real deck of cards.", 409);
-    }
-    return state.deck;
-};
-
-/** A station as a phone sent it, checked; null when there is none. */
-const stationOf = (raw: unknown): StationPick | null => {
-    const station = raw as Partial<StationPick> | null | undefined;
-    if (
-        !station ||
-        typeof station.id !== "string" ||
-        !Number.isFinite(station.lat) ||
-        !Number.isFinite(station.lng)
-    ) {
-        return null;
-    }
-    return {
-        id: station.id.slice(0, 80),
-        name: String(station.name ?? "").slice(0, 200),
-        lat: station.lat!,
-        lng: station.lng!,
-    };
-};
-
-/**
- * The Move card: the hider leaves for a new station. The seekers are told
- * the old one and frozen, the questions so far are put away (the map starts
- * over), the clock pauses, and the hider's hand is discarded.
- */
-const startMove = (
-    state: GameState,
-    actor: Actor,
-    station: StationPick | null,
-    now: number,
-) => {
-    if (state.move)
-        throw new GameRuleError("A move is already under way.", 409);
-    if (state.endgame) {
-        throw new GameRuleError(
-            "Move can't be played during the end game.",
-            409,
-        );
-    }
-    state.moves.push({
-        at: now,
-        station,
-        questions: Object.values(state.questions),
-    });
-    state.questions = {};
-    state.move = {
-        station,
-        startedAt: now,
-        endsAt: now + moveMinutes(state.settings.size) * 60_000,
-        by: actor.name,
-    };
-    // A new station is next; the pin stays where the hider is.
-    state.hider = { station: null, pin: state.hider?.pin ?? null };
-    state.clockRequest = null;
-    state.clock = applyClockAction(state.clock, "pause", now);
-    if (state.deck) state.deck = discardHand(state.deck);
-    state.powerups.push({
-        id: shortId(),
-        name: "Move",
-        playedAt: now,
-        by: actor.name,
-    });
-};
-
-/** Applies one change, returning the new state (the old one is untouched). */
 export const applyOp = (
     current: GameState,
     op: GameOp,
@@ -947,10 +530,12 @@ export const applyOp = (
             break;
         case "setHiderStation":
             assertHider(actor, "pick the hiding station");
-            state.hider = {
-                station: stationOf(op.station),
-                pin: state.hider?.pin ?? null,
-            };
+            state.hider = hiderWith(state, { station: stationOf(op.station) });
+            break;
+        case "setHiderPending":
+            // Tapped, not confirmed: the hider's other phone shows it too.
+            assertHider(actor, "pick the hiding station");
+            state.hider = hiderWith(state, { pending: stationOf(op.station) });
             break;
         case "hiderReady": {
             // The hider has their station for the round: the seekers hear
@@ -959,7 +544,11 @@ export const applyOp = (
             assertHider(actor, "pick the hiding station");
             const station = stationOf(op.station);
             if (!station) throw new GameRuleError("Pick a station first.", 400);
-            state.hider = { station, pin: state.hider?.pin ?? null };
+            state.hider = hiderWith(state, {
+                station,
+                pending: null,
+                pinLocked: false,
+            });
             state.hiderReadyAt = now;
             // The hiding clock runs from here, unless someone started it
             // sooner.
@@ -1003,9 +592,14 @@ export const applyOp = (
             }
             break;
         case "claimNextRound": {
-            // After a round, a team says it hides next; only one can.
-            if (clockState(state.clock) !== "stopped") {
-                throw new GameRuleError("The round isn't over yet.", 409);
+            // After a round, a team says it hides next; only one can. A
+            // round that never got going (no clock) can be handed over too.
+            const going = clockState(state.clock);
+            if (going === "running" || going === "paused") {
+                throw new GameRuleError(
+                    "The round isn't over yet: the clock is still going.",
+                    409,
+                );
             }
             const mine = teamOf(state, actor.name);
             if (!mine) {
@@ -1057,10 +651,9 @@ export const applyOp = (
                     409,
                 );
             }
-            state.hider = {
-                station: state.hider?.station ?? null,
+            state.hider = hiderWith(state, {
                 pin: { latitude: pin.latitude!, longitude: pin.longitude! },
-            };
+            });
             break;
         }
         case "resumeMove":

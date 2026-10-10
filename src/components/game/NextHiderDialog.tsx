@@ -30,6 +30,8 @@ export const NextHiderDialog = () => {
     const askedFor = useRef<number | null>(null);
     const clock = $game?.clock ?? null;
     const over = clockState(clock) === "stopped";
+    // Claiming: once the round is over, or when it never got going.
+    const claimable = !["running", "paused"].includes(clockState(clock));
     const teams = $game?.teams ?? [];
     const bonusesSent = clock?.bonusMinutes !== undefined;
     const stoppedAt = clock?.stoppedAt ?? null;
@@ -69,7 +71,9 @@ export const NextHiderDialog = () => {
                     <DialogDescription>
                         {over
                             ? `Round ${round} is over. `
-                            : `Round ${round} is still on. `}
+                            : claimable
+                              ? `Round ${round} hasn't got going. `
+                              : `Round ${round} is still on. `}
                         One team claims the next round; then anyone starts it,
                         and everyone says who they are again.
                     </DialogDescription>
@@ -95,7 +99,7 @@ export const NextHiderDialog = () => {
                     ))}
                 </ul>
                 <div className="flex flex-col gap-2">
-                    {!next && mine && over && (
+                    {!next && mine && claimable && (
                         <Button
                             onClick={() =>
                                 void sendOp({

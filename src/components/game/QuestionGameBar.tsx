@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useTick } from "@/hooks/useTick";
 import { questions } from "@/lib/context";
+import { ago } from "@/lib/format";
 import {
     answerChoices,
     answerOf,
@@ -41,13 +42,6 @@ import { findTentacleLocations } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
 import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import type { Question } from "@/maps/schema";
-
-const ago = (time: number) => {
-    const minutes = Math.round((serverNow() - time) / 60000);
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes} min ago`;
-    return `${Math.round(minutes / 60)} h ago`;
-};
 
 const STATE_TEXT = {
     draft: "Draft: only seekers see this",
@@ -349,7 +343,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     {entry.updatedBy === entry.createdBy
                         ? `By ${entry.createdBy}`
                         : `Changed by ${entry.updatedBy}`}{" "}
-                    · {ago(entry.updatedAt)}
+                    · {ago(entry.updatedAt, serverNow())}
                 </p>
             </div>
             {timeLeft !== null && (

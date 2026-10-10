@@ -169,6 +169,7 @@ describe("the digital hider deck", () => {
         expect(seen.hand).toEqual([]);
         expect(seen.remaining).toEqual([]);
         expect(seen.limit).toBe(7);
+        expect(seen.log).toEqual([]);
         expect(JSON.stringify(seen)).not.toMatch(/Size/);
     });
 });

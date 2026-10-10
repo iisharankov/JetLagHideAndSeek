@@ -163,6 +163,8 @@ export interface HiderSpot {
     pin: { latitude: number; longitude: number } | null;
     /** The end game is on at this station: the pin can't move; the seekers must find the hider there. */
     pinLocked?: boolean;
+    /** A station tapped but not confirmed yet, so the hider's other phone sees it too. */
+    pending?: StationPick | null;
 }
 
 /** The hider is moving to a new station (the Move card). */
@@ -411,6 +413,7 @@ export type GameOp =
     | { type: "keepQuestion"; key: number }
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "hiderReady"; station: StationPick }
+    | { type: "setHiderPending"; station: StationPick | null }
     | { type: "joinTeam"; name: string }
     | { type: "leaveTeam" }
     | { type: "claimNextRound"; teamId: string | null }

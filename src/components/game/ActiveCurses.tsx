@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CardText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import { useTick } from "@/hooks/useTick";
+import { clockTime } from "@/lib/format";
 import { formatDuration } from "@/lib/game/clock";
 import {
     CATEGORY_LABELS,
@@ -19,9 +20,6 @@ import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, sendOp } from "@/lib/game/session";
 import type { CurseEntry, CustomCard, GameSize } from "@/lib/game/types";
 import { CURSES } from "@/lib/rules/cards";
-
-const time = (at: number) =>
-    new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /**
  * Curse of the Bird Guide, on the hider's phone: film a bird for as long
@@ -140,7 +138,7 @@ export const ActiveCurses = ({
                         )}
                         {!curse && own && <p>{own.text}</p>}
                         <p className="text-xs text-slate-300">
-                            Cast {time(entry.castAt)}
+                            Cast {clockTime(entry.castAt)}
                             {endsAt !== null &&
                                 ` · ${formatDuration(Math.max(0, endsAt - now))} left`}
                         </p>

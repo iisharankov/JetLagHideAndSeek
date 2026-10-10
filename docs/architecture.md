@@ -60,6 +60,8 @@ src/
                             curseRules.ts (what each curse does to the game)
     activeQuestion.ts       which question draws its reference places
     jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
+    format.ts               "3 min ago", "14:05": the panels' shared formatters
+    placeRules.ts           which places count: rejections, duplicates, unnamed places
     sharedGame.ts           a game's play area and zone settings: names, checks, applying
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
@@ -105,8 +107,9 @@ src/
     TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
     CoachMark.tsx           a one-off pointer in the tutorial's style (lib/coachMark.ts), e.g. "pick your hiding spot"
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
-                            gameOps.ts (the rules: applyOp, viewFor), push.ts (push
-                            notifications, VAPID keys)
+                            gameOps.ts (the rules: applyOp, viewFor) with its helpers in
+                            rules/ (shared checks, questions, curses, hider, teams), push.ts
+                            (push notifications, VAPID keys)
 server/datasets/            builds the reference data (build.ts; nearest.ts, routes.ts, elevation.ts)
 deploy/                     Docker Compose stack, nginx configs, data scripts, guide
 tests/, e2e/                unit and browser tests

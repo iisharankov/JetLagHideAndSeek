@@ -9,7 +9,6 @@ import {
     findAdminBoundary,
     findPlacesInZone,
     findPlacesSpecificInZone,
-    nearestToQuestion,
     QuestionSpecificLocation,
 } from "@/maps/api";
 import { datasets } from "@/maps/datasets/load";
@@ -26,11 +25,7 @@ import {
     placesToShow,
     seekerNearestCell,
 } from "@/maps/questions/places";
-import type {
-    HomeGameMatchingQuestions,
-    HomeGameMeasuringQuestions,
-    Question,
-} from "@/maps/schema";
+import type { Question } from "@/maps/schema";
 import { stationSignName } from "@/maps/stationNames";
 
 // What a question is measured against, to show on the map: a star on the
@@ -48,20 +43,6 @@ export interface QuestionReference {
     dots: ReferencePlace[];
     outline?: Feature<Polygon | MultiPolygon>;
 }
-
-const HOME_GAME_TYPES = [
-    "aquarium",
-    "zoo",
-    "theme_park",
-    "peak",
-    "museum",
-    "hospital",
-    "cinema",
-    "library",
-    "golf_course",
-    "consulate",
-    "park",
-];
 
 const toPlace = (point: Feature<Point, any>): ReferencePlace => {
     const [lng, lat] = point.geometry.coordinates;
@@ -173,13 +154,6 @@ const stationReference = async (seeker: {
     };
 };
 
-const homeGameReference = async (
-    question: HomeGameMatchingQuestions | HomeGameMeasuringQuestions,
-): Promise<QuestionReference> => ({
-    star: toPlace(await nearestToQuestion(question)),
-    dots: [],
-});
-
 const computeReference = async (
     question: Question,
 ): Promise<QuestionReference | null> => {
@@ -191,9 +165,6 @@ const computeReference = async (
         }
         if (data.type === "zone" || data.type === "letter-zone") {
             return zoneReference(data.lat, data.lng, data.cat.adminLevel);
-        }
-        if (HOME_GAME_TYPES.includes(data.type)) {
-            return homeGameReference(data as HomeGameMatchingQuestions);
         }
         if (
             data.type === "same-first-letter-station" ||
@@ -243,9 +214,6 @@ const computeReference = async (
                 )
             ).features as Feature<Point>[];
             return { star: nearestOf(data, points), dots: points.map(toPlace) };
-        }
-        if (HOME_GAME_TYPES.includes(data.type)) {
-            return homeGameReference(data as HomeGameMeasuringQuestions);
         }
         return null;
     }

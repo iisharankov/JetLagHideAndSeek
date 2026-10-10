@@ -7,6 +7,7 @@ import {
     applyPlaceRules,
     hasRejections,
     mergeDuplicates,
+    named,
 } from "@/lib/placeRules";
 import {
     findPlacesInZone,
@@ -250,7 +251,28 @@ export const reviewKindLabel = (kind: PlaceKind) => {
 
 /** For the review: every place of a kind, duplicates merged, rejected ones included. */
 export const reviewPlaces = async (kind: PlaceKind) => {
-    const raw = await rawPlaces(kind);
+    const raw = (await rawPlaces(kind)).filter(named);
     const places = mergeDuplicates(raw);
     return { places, merged: raw.length - places.length };
+};
+
+/**
+ * Above this many places a voronoi diagram on the phone is too slow. The
+ * seeker's cell is decided by the places near them, so those are enough.
+ */
+export const MAX_VORONOI_SITES = 400;
+
+/** The places nearest a point, at most `max` of them. */
+export const nearestSites = <F extends Feature<Point>>(
+    points: F[],
+    seeker: { lat: number; lng: number },
+    max = MAX_VORONOI_SITES,
+): F[] => {
+    if (points.length <= max) return points;
+    const from = turf.point([seeker.lng, seeker.lat]);
+    return [...points]
+        .map((point) => ({ point, km: turf.distance(from, point) }))
+        .sort((a, b) => a.km - b.km)
+        .slice(0, max)
+        .map((entry) => entry.point);
 };

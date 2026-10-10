@@ -1,5 +1,6 @@
 // Cards → History.
 import { CardText } from "@/components/RulesText";
+import { clockTime } from "@/lib/format";
 import type {
     CurseEntry,
     GameSize,
@@ -7,9 +8,6 @@ import type {
     PowerupEntry,
 } from "@/lib/game/types";
 import { POWERUPS } from "@/lib/rules/cards";
-
-const time = (at: number) =>
-    new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /** Cards → History: moves, cards played, curses cleared, the deck's log. */
 export const CardHistory = ({
@@ -45,12 +43,13 @@ export const CardHistory = ({
                 )}
                 {hiderReadyAt && (
                     <p className="text-slate-300" data-testid="hider-ready">
-                        {time(hiderReadyAt)} The hider picked their station.
+                        {clockTime(hiderReadyAt)} The hider picked their
+                        station.
                     </p>
                 )}
                 {moves.map((entry, index) => (
                     <p key={`m${index}`} className="text-slate-300">
-                        Move at {time(entry.at)}
+                        Move at {clockTime(entry.at)}
                         {entry.station && ` from ${entry.station.name}`}:{" "}
                         {entry.questions.length} question
                         {entry.questions.length === 1 ? "" : "s"} put away.
@@ -65,7 +64,8 @@ export const CardHistory = ({
                             data-testid="played-powerup"
                         >
                             <p className="font-semibold">
-                                {entry.name} · played {time(entry.playedAt)}
+                                {entry.name} · played{" "}
+                                {clockTime(entry.playedAt)}
                                 {entry.by && ` by ${entry.by}`}
                             </p>
                             {powerup && (
@@ -81,13 +81,13 @@ export const CardHistory = ({
                 })}
                 {cleared.map((entry) => (
                     <p key={entry.id} className="text-slate-300">
-                        {entry.name}: cast {time(entry.castAt)}, cleared by{" "}
+                        {entry.name}: cast {clockTime(entry.castAt)}, cleared by{" "}
                         {entry.clearedBy}
                     </p>
                 ))}
                 {log.map((entry, index) => (
                     <p key={`l${index}`} className="text-slate-300">
-                        {time(entry.at)} {entry.text}
+                        {clockTime(entry.at)} {entry.text}
                     </p>
                 ))}
             </div>

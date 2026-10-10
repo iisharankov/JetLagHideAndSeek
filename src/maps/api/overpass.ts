@@ -34,8 +34,7 @@ import {
 } from "./overpassClient";
 import type {
     EncompassingTentacleQuestionSchema,
-    HomeGameMatchingQuestions,
-    HomeGameMeasuringQuestions,
+    PlaceQuery,
     QuestionSpecificLocation,
 } from "./types";
 import { CacheType } from "./types";
@@ -464,9 +463,7 @@ export const findPlacesSpecificInZone = async (
 };
 
 /** The place of the question's type nearest to the question's location. */
-export const nearestToQuestion = async (
-    question: HomeGameMatchingQuestions | HomeGameMeasuringQuestions,
-) => {
+export const nearestToQuestion = async (question: PlaceQuery) => {
     const questionPoint = turf.point([question.lng, question.lat]);
 
     const nearest = await datasets.nearestPlace(

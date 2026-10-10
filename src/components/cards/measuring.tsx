@@ -131,25 +131,6 @@ export const MeasuringQuestionComponent = ({
                 </span>
             );
             break;
-        case "aquarium":
-        case "hospital":
-        case "peak":
-        case "museum":
-        case "theme_park":
-        case "zoo":
-        case "cinema":
-        case "library":
-        case "golf_course":
-        case "consulate":
-        case "park":
-            questionSpecific = (
-                <span className="px-2 text-center text-orange-500">
-                    Worked out per station, with hiding zones on (Stations tab):
-                    a station stays in play when it is closer to (or further
-                    from) such a place than the seeker.
-                </span>
-            );
-            break;
         case "custom-measure":
             if (data.drag) {
                 questionSpecific = (
