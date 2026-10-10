@@ -23,7 +23,6 @@ import {
     displayHidingZonesStyle,
     endgame,
     hiderChoosing,
-    hiderMode,
     hiderShowAll,
     hidingRadius,
     hidingRadiusUnits,
@@ -36,12 +35,7 @@ import {
     sidebarTab,
     trainStations,
 } from "@/lib/context";
-import {
-    activeGameId,
-    gameRole,
-    gameState,
-    isHiderPhone,
-} from "@/lib/game/session";
+import { activeGameId, gameState, hiderPhone } from "@/lib/game/session";
 import type { StationPick } from "@/lib/game/types";
 import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
@@ -262,7 +256,7 @@ const applyQuestionToHidingZones = async (
 
 const computeHidingZones = async () => {
     const eliminated = questionFinishedMapData.get();
-    if (!(displayHidingZones.get() || isHiderPhone()) || !eliminated) return;
+    if (!(displayHidingZones.get() || hiderPhone.get()) || !eliminated) return;
 
     if (displayHidingZonesOptions.get().length === 0) {
         toast.error("Choose at least one kind of station for hiding zones.");
@@ -387,7 +381,7 @@ const draw = () => {
     if (!map) return;
     removeZoneLayers(map);
 
-    const hider = isHiderPhone();
+    const hider = hiderPhone.get();
     const mine = hider ? chosenStation.get() : null;
     const choosing = hider && (hiderChoosing.get() || !mine);
     const showStations = hider
@@ -495,8 +489,7 @@ export const startHidingZoneLayer = () => {
             displayHidingZonesOptions,
             hidingRadius,
             hidingRadiusUnits,
-            hiderMode,
-            gameRole,
+            hiderPhone,
         ],
         () => void requestHidingZoneRefresh(),
     );
@@ -509,11 +502,10 @@ export const startHidingZoneLayer = () => {
             chosenStation,
             hiderChoosing,
             hiderShowAll,
-            hiderMode,
+            hiderPhone,
             endgame,
             hidingRadius,
             hidingRadiusUnits,
-            gameRole,
             activeGameId,
             leafletMapContext,
         ],

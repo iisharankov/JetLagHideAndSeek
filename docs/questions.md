@@ -152,3 +152,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   card to read, and draws without a choice go straight to the hand.
   The hider's station and pin are shared between the hider's phones (hidden
   from the seekers), so two hiders always have the same spot.
+- **Round 12 (audit):** no new behaviour: questions are only ever replaced,
+  never changed in place; one `hiderPhone` store; the map remembers each
+  question's result and recomputes from the first change on; auto-save off
+  now means the map and the shared game take the edits on Save (the cards
+  and pins follow at once).

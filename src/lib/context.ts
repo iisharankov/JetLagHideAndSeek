@@ -104,16 +104,40 @@ export const questions = persistentAtom<Questions>("questions", [], {
 export const addQuestion = (question: DeepPartial<Question>) => {
     const parsed = questionSchema.parse(question);
     activeQuestionKey.set(parsed.key);
-    questionModified(questions.get().push(parsed));
+    questions.set([...questions.get(), parsed]);
 };
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const questionModified = (..._: any[]) => {
-    if (autoSave.get()) {
-        questions.set([...questions.get()]);
-    } else {
-        triggerLocalRefresh.set(Math.random());
-    }
+
+/** A change to a question's data (any of its fields). */
+export type QuestionPatch = Partial<Question["data"]>;
+
+/**
+ * Changes some questions' data. Questions are never changed in place: each
+ * changed one is replaced by a new object, so the stores, React and the
+ * game sync all see the change, and an unchanged question keeps its
+ * identity (which the map's result cache relies on).
+ */
+export const updateQuestions = (keys: number[], patch: QuestionPatch) => {
+    const fields = Object.entries(patch);
+    const changes = (q: Question) =>
+        keys.includes(q.key) &&
+        fields.some(
+            ([field, value]) =>
+                !Object.is((q.data as Record<string, unknown>)[field], value),
+        );
+    const before = questions.get();
+    if (!before.some(changes)) return;
+    questions.set(
+        before.map((q) =>
+            changes(q)
+                ? ({ ...q, data: { ...q.data, ...patch } } as Question)
+                : q,
+        ),
+    );
 };
+
+/** Changes one question's data; nothing happens if it's gone. */
+export const updateQuestion = (key: number, patch: QuestionPatch) =>
+    updateQuestions([key], patch);
 
 /** Removes a question. Returns an undo function (safe to call twice). */
 export const deleteQuestion = (key: number) => {
@@ -153,7 +177,6 @@ export const hiderMode = persistentAtom<
     encode: JSON.stringify,
     decode: JSON.parse,
 });
-export const triggerLocalRefresh = atom<number>(0);
 export const displayHidingZones = persistentAtom<boolean>(
     "displayHidingZones",
     false,
@@ -362,18 +385,18 @@ export const disabledStations = persistentAtom<string[]>(
         decode: JSON.parse,
     },
 );
+/** Edits reach the map at once; off, they wait for Save (see saveTick). */
 export const autoSave = persistentAtom<boolean>("autoSave", true, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
-export const save = () => {
-    questions.set([...questions.get()]);
-    const $hiderMode = hiderMode.get();
-
-    if ($hiderMode !== false) {
-        hiderMode.set({ ...$hiderMode });
-    }
-};
+/**
+ * With auto-save off, the questions are edited as usual but the map (and
+ * the shared game) only take the edits when the player taps Save: this
+ * counts the saves.
+ */
+export const saveTick = atom<number>(0);
+export const save = () => saveTick.set(saveTick.get() + 1);
 
 /* Presets for custom questions (savable / sharable / editable) */
 export type CustomPreset = {

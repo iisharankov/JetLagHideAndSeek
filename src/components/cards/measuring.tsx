@@ -21,10 +21,10 @@ import {
     gameSettings,
     hiderMode,
     isLoading,
-    questionModified,
+    type QuestionPatch,
     questions,
     regionRules,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
 import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,6 @@ export const MeasuringQuestionComponent = ({
     sub?: string;
     className?: string;
 }) => {
-    useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $displayHidingZones = useStore(displayHidingZones);
@@ -66,6 +65,10 @@ export const MeasuringQuestionComponent = ({
     };
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
+    const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    /** The drawn shapes of a custom question (none to start with). */
+    const customGeo = (features: unknown = []) =>
+        ({ type: "FeatureCollection", features }) as const;
     const label = `Measuring
     ${
         $questions
@@ -85,10 +88,11 @@ export const MeasuringQuestionComponent = ({
                             lat={data.lat}
                             lng={data.lng}
                             value={(data as any).cat?.adminLevel ?? 4}
-                            onChange={(level) => {
-                                (data as any).cat = { adminLevel: level };
-                                questionModified();
-                            }}
+                            onChange={(level) =>
+                                set({
+                                    cat: { adminLevel: level },
+                                } as QuestionPatch)
+                            }
                             disabled={!data.drag || $isLoading}
                         />
                     </SidebarMenuItem>
@@ -105,6 +109,7 @@ export const MeasuringQuestionComponent = ({
             questionSpecific = (
                 <AltitudeInput
                     data={data}
+                    questionKey={questionKey}
                     disabled={!data.drag || $isLoading}
                 />
             );
@@ -161,6 +166,7 @@ export const MeasuringQuestionComponent = ({
                         <div className="flex justify-center mb-2">
                             <PresetsDialog
                                 data={data}
+                                questionKey={questionKey}
                                 presetTypeHint={data.type}
                             />
                         </div>
@@ -176,42 +182,23 @@ export const MeasuringQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
-            collapsed={data.collapsed}
-            setCollapsed={(collapsed) => {
-                data.collapsed = collapsed; // Doesn't trigger a re-render so no need for questionModified
-            }}
-            locked={!data.drag}
-            setLocked={(locked) => questionModified((data.drag = !locked))}
-            hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <CustomInitDialog
                 open={customDialogOpen}
                 onOpenChange={setCustomDialogOpen}
                 onBlank={async () => {
-                    if (!(data as any).geo) {
-                        (data as any).geo = {
-                            type: "FeatureCollection",
-                            features: [],
-                        };
-                    } else {
-                        (data as any).geo.features = [];
-                    }
-                    data.type = "custom-measure";
-                    questionModified();
+                    set({
+                        type: "custom-measure",
+                        geo: customGeo(),
+                    } as QuestionPatch);
                     setCustomDialogOpen(false);
                 }}
                 onPrefill={async () => {
                     const boundary = await determineMeasuringBoundary(data);
-                    if (!(data as any).geo) {
-                        (data as any).geo = {
-                            type: "FeatureCollection",
-                            features: [],
-                        };
-                    }
-                    (data as any).geo.features = boundary ? boundary : [];
-                    data.type = "custom-measure";
-                    questionModified();
+                    set({
+                        type: "custom-measure",
+                        geo: customGeo(boundary ? boundary : []),
+                    } as QuestionPatch);
                     setCustomDialogOpen(false);
                 }}
             />
@@ -283,37 +270,26 @@ export const MeasuringQuestionComponent = ({
                                 setCustomDialogOpen(true);
                                 return;
                             }
+                            const patch: Record<string, unknown> = {
+                                type: value,
+                            };
                             if ($customInitPref === "blank") {
-                                if (!(data as any).geo) {
-                                    (data as any).geo = {
-                                        type: "FeatureCollection",
-                                        features: [],
-                                    };
-                                } else {
-                                    (data as any).geo.features = [];
-                                }
+                                patch.geo = customGeo();
                             } else if ($customInitPref === "prefill") {
                                 const boundary =
                                     await determineMeasuringBoundary(data);
-                                if (!(data as any).geo) {
-                                    (data as any).geo = {
-                                        type: "FeatureCollection",
-                                        features: [],
-                                    };
-                                }
-                                (data as any).geo.features = boundary
-                                    ? boundary
-                                    : [];
+                                patch.geo = customGeo(boundary ? boundary : []);
                             }
-                            data.type = value;
-                            questionModified();
+                            set(patch as QuestionPatch);
                             return;
                         }
-                        if (value === "admin-measure" && !(data as any).cat) {
-                            (data as any).cat = { adminLevel: 4 };
-                        }
-                        data.type = value;
-                        questionModified();
+                        const cat = (data as { cat?: unknown }).cat;
+                        set({
+                            type: value,
+                            ...(value === "admin-measure" && !cat
+                                ? { cat: { adminLevel: 4 } }
+                                : {}),
+                        } as QuestionPatch);
                     }}
                     disabled={!data.drag || $isLoading}
                 />
@@ -323,15 +299,9 @@ export const MeasuringQuestionComponent = ({
                 latitude={data.lat}
                 longitude={data.lng}
                 colorName={data.color}
-                onChange={(lat, lng) => {
-                    if (lat !== null) {
-                        data.lat = lat;
-                    }
-                    if (lng !== null) {
-                        data.lng = lng;
-                    }
-                    questionModified();
-                }}
+                onChange={(lat, lng) =>
+                    set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
+                }
                 disabled={!data.drag || $isLoading}
             />
             <div className="flex gap-2 items-center p-2">
@@ -348,9 +318,7 @@ export const MeasuringQuestionComponent = ({
                     type="single"
                     value={data.hiderCloser ? "closer" : "further"}
                     onValueChange={(value: "closer" | "further") =>
-                        questionModified(
-                            (data.hiderCloser = value === "closer"),
-                        )
+                        set({ hiderCloser: value === "closer" })
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >
@@ -377,9 +345,11 @@ export const MeasuringQuestionComponent = ({
  */
 const AltitudeInput = ({
     data,
+    questionKey,
     disabled,
 }: {
     data: MeasuringQuestion & { seekerAltitude?: number };
+    questionKey: number;
     disabled: boolean;
 }) => {
     const [ground, setGround] = React.useState<number | null>(null);
@@ -405,9 +375,10 @@ const AltitudeInput = ({
                 placeholder={ground === null ? "from map" : `${ground} (map)`}
                 onChange={(event) => {
                     const value = event.target.value.trim();
-                    data.seekerAltitude =
-                        value === "" ? undefined : Number(value);
-                    questionModified();
+                    updateQuestion(questionKey, {
+                        seekerAltitude:
+                            value === "" ? undefined : Number(value),
+                    } as QuestionPatch);
                 }}
                 disabled={disabled}
             />

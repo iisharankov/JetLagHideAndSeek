@@ -1,11 +1,12 @@
 // This phone's connection to a shared game: joins by link, keeps the
 // questions, play area and hiding zone settings in step with everyone else,
 // and sends this phone's changes. The rules are on the server (gameOps.ts).
-import { atom } from "nanostores";
+import { atom, computed } from "nanostores";
 import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
+    autoSave,
     chosenStation,
     disabledStations,
     endgame,
@@ -15,6 +16,7 @@ import {
     mapGeoLocation,
     polyGeoJSON,
     questions,
+    saveTick,
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
@@ -76,10 +78,15 @@ export const knownGames = persistentAtom<Record<string, KnownGame>>(
     { encode: JSON.stringify, decode: JSON.parse },
 );
 
-/** This phone is the hider's: hider mode, and the hider's role in a game. */
-export const isHiderPhone = () =>
-    hiderMode.get() !== false &&
-    (gameState.get() === null || gameRole.get() === "hider");
+/**
+ * This phone is the hider's: hider mode, and (in a shared game) the hider's
+ * role. The one place this is worked out; it only tells its listeners when
+ * it flips.
+ */
+export const hiderPhone = computed(
+    [hiderMode, gameState, gameRole],
+    (pin, game, role) => pin !== false && (game === null || role === "hider"),
+);
 export const gameConnection = atom<"off" | "connecting" | "live" | "retrying">(
     "off",
 );
@@ -258,7 +265,9 @@ const receive = (received: GameState, force = false) => {
     } finally {
         applyingRemote = false;
     }
-    if (diffLocal(questions.get(), synced).length > 0) scheduleSync();
+    if (autoSave.get() && diffLocal(questions.get(), synced).length > 0) {
+        scheduleSync();
+    }
 };
 
 /** Reloads the game from the server, e.g. after a refused change. */
@@ -342,7 +351,9 @@ let listening = false;
 const listenForLocalChanges = () => {
     if (listening) return;
     listening = true;
-    questions.listen(() => inGame() && scheduleSync());
+    // Auto-save off: edits wait for Save before they go to the game.
+    questions.listen(() => inGame() && autoSave.get() && scheduleSync());
+    saveTick.listen(() => inGame() && scheduleSync());
     for (const store of [
         polyGeoJSON,
         mapGeoLocation,

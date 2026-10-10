@@ -1,6 +1,9 @@
 import * as turf from "@turf/turf";
 import type { Feature, FeatureCollection } from "geojson";
 
+import { yieldToUi } from "@/lib/jobs";
+import { questionGeometryKey } from "@/lib/questionKey";
+
 import { errorMessage, NotApplicableError } from "./errors";
 import {
     adjustPerMatching,
@@ -143,9 +146,33 @@ const asFeatureCollection = (data: any) =>
         : { type: "FeatureCollection", features: [data] };
 
 /**
+ * A question's result, remembered by the chain that led to it: the area it
+ * started from, then each question applied so far. Editing the newest
+ * question recomputes one step; the steps before it are reused.
+ */
+type Step = { mapGeoData: any; status: QuestionStatus };
+const STEPS_REMEMBERED = 32;
+const steps = new Map<string, Step>();
+
+const rememberStep = (key: string, step: Step) => {
+    steps.delete(key);
+    steps.set(key, step);
+    if (steps.size > STEPS_REMEMBERED) {
+        steps.delete(steps.keys().next().value!);
+    }
+};
+
+/** Forgets every remembered result. */
+export const clearGeometryCache = () => steps.clear();
+
+/**
  * Narrows the play area by each question in turn. A question that fails, or
  * whose answer would leave no area at all, is recorded in `statuses` and
  * skipped, so one bad question can't silently break the others.
+ *
+ * With `baseKey` (what identifies `mapGeoData`), each step's result is
+ * remembered and reused next time the same questions follow the same area;
+ * the returned `key` identifies the result the same way.
  */
 export async function applyQuestionsToMapGeoData(
     questions: Questions,
@@ -155,8 +182,14 @@ export async function applyQuestionsToMapGeoData(
         polygon: FeatureCollection | Feature,
         question: Question,
     ) => void,
-): Promise<{ mapGeoData: any; statuses: Map<number, QuestionStatus> }> {
+    baseKey?: string,
+): Promise<{
+    mapGeoData: any;
+    statuses: Map<number, QuestionStatus>;
+    key: string;
+}> {
     const statuses = new Map<number, QuestionStatus>();
+    let key = baseKey ?? "";
 
     for (const question of questions) {
         if (question.data.hidden) {
@@ -177,20 +210,37 @@ export async function applyQuestionsToMapGeoData(
                 continue;
             }
 
+            const stepKey =
+                baseKey === undefined
+                    ? undefined
+                    : `${key}\n${questionGeometryKey(question)}`;
+            const remembered =
+                stepKey === undefined ? undefined : steps.get(stepKey);
+            if (remembered && stepKey) {
+                mapGeoData = remembered.mapGeoData;
+                statuses.set(question.key, remembered.status);
+                key = stepKey;
+                continue;
+            }
+
             const adjusted = await adjustMapGeoDataForQuestion(
                 question,
                 mapGeoData,
             );
+            let status: QuestionStatus;
             if (!adjusted || turf.area(adjusted) === 0) {
-                statuses.set(question.key, {
-                    state: "error",
-                    message: NO_AREA_LEFT,
-                });
-                continue;
+                status = { state: "error", message: NO_AREA_LEFT };
+            } else {
+                mapGeoData = asFeatureCollection(adjusted);
+                status = { state: "ok" };
             }
-
-            mapGeoData = asFeatureCollection(adjusted);
-            statuses.set(question.key, { state: "ok" });
+            statuses.set(question.key, status);
+            if (stepKey) {
+                rememberStep(stepKey, { mapGeoData, status });
+                key = stepKey;
+            }
+            // Between the heavy steps the page gets to paint.
+            await yieldToUi();
         } catch (error) {
             statuses.set(
                 question.key,
@@ -201,5 +251,5 @@ export async function applyQuestionsToMapGeoData(
         }
     }
 
-    return { mapGeoData, statuses };
+    return { mapGeoData, statuses, key };
 }

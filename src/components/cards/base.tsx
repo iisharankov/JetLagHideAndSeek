@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { VscChevronDown, VscShare, VscTrash } from "react-icons/vsc";
 
 import { QuestionGameBar } from "@/components/game/QuestionGameBar";
@@ -39,7 +39,8 @@ import {
     isLoading,
     questions,
     questionStatuses,
-    triggerLocalRefresh,
+    updateQuestion,
+    updateQuestions,
 } from "@/lib/context";
 import { DRAWS } from "@/lib/game/deck";
 import { gameRole, gameState } from "@/lib/game/session";
@@ -48,32 +49,24 @@ import { cn } from "@/lib/utils";
 
 import { QuestionInfoButton } from "./QuestionInfoButton";
 
+/**
+ * The frame of a question card: the title, folding, the lock and hide
+ * buttons, sharing and deleting. Folded, locked and hidden are the
+ * question's own fields, so every card follows the saved question.
+ */
 export const QuestionCard = ({
     children,
     questionKey,
     className,
     label,
     sub,
-    collapsed,
-    locked,
-    hidden,
-    setLocked,
-    setHidden,
-    setCollapsed,
 }: {
     children: React.ReactNode;
     questionKey: number;
     className?: string;
     label?: string;
     sub?: string;
-    collapsed?: boolean;
-    locked?: boolean;
-    hidden?: boolean;
-    setLocked?: (locked: boolean) => void;
-    setHidden?: (hidden: boolean) => void;
-    setCollapsed?: (collapsed: boolean) => void;
 }) => {
-    const [isCollapsed, setIsCollapsed] = useState(collapsed ?? false);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
     const status = useStore(questionStatuses)[questionKey];
@@ -84,10 +77,9 @@ export const QuestionCard = ({
     const $role = useStore(gameRole);
     const lockedByGame = !canChangeQuestion(questionKey, $game, $role);
 
-    // The card follows its question's saved state (another card may fold it).
-    useEffect(() => {
-        if (collapsed !== undefined) setIsCollapsed(collapsed);
-    }, [collapsed]);
+    const isCollapsed = question?.data.collapsed ?? false;
+    const locked = question ? !question.data.drag : false;
+    const hidden = question?.data.hidden ?? false;
     const draw = question ? DRAWS[question.id] : undefined;
     const isDraft =
         !!$game &&
@@ -96,29 +88,25 @@ export const QuestionCard = ({
     /** "Only the open card" drafts: this one opens, the other drafts fold. */
     const focusDraft = () => {
         if (!isDraft || draftsOnMap.get() !== "active") return;
-        for (const other of questions.get()) {
-            if (
-                other.key !== questionKey &&
-                ($game?.questions[String(other.key)]?.state ?? "draft") ===
-                    "draft"
-            ) {
-                other.data.collapsed = true;
-            }
-        }
-        setCollapsed?.(false);
-        setIsCollapsed(false);
-        triggerLocalRefresh.set(Math.random());
+        const otherDrafts = questions
+            .get()
+            .filter(
+                (other) =>
+                    other.key !== questionKey &&
+                    ($game?.questions[String(other.key)]?.state ?? "draft") ===
+                        "draft",
+            )
+            .map((other) => other.key);
+        updateQuestions(otherDrafts, { collapsed: true });
+        updateQuestion(questionKey, { collapsed: false });
     };
 
     const toggleCollapse = () => {
-        if (setCollapsed) {
-            setCollapsed(!isCollapsed);
-        }
         if (isCollapsed) {
             activeQuestionKey.set(questionKey);
             focusDraft();
         }
-        setIsCollapsed((prevState) => !prevState);
+        updateQuestion(questionKey, { collapsed: !isCollapsed });
     };
 
     return (
@@ -370,20 +358,30 @@ export const QuestionCard = ({
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                            {locked !== undefined && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setLocked!(!locked)}
-                                    disabled={$isLoading}
-                                >
-                                    {locked ? <LockIcon /> : <UnlockIcon />}
-                                </Button>
-                            )}
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setHidden!(!hidden)}
+                                onClick={() =>
+                                    updateQuestion(questionKey, {
+                                        drag: locked,
+                                    })
+                                }
+                                disabled={$isLoading}
+                                aria-label={
+                                    locked ? "Unlock question" : "Lock question"
+                                }
+                                aria-pressed={locked}
+                            >
+                                {locked ? <LockIcon /> : <UnlockIcon />}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    updateQuestion(questionKey, {
+                                        hidden: !hidden,
+                                    })
+                                }
                                 disabled={$isLoading}
                                 aria-label={
                                     hidden ? "Show question" : "Hide question"

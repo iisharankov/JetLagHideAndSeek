@@ -62,6 +62,11 @@ test fails, say so with the output; don't paper over it.
   station's own position; the hider's station never leaves the hider's
   phone; saved settings don't sync between tabs; …) — they're in
   `docs/plan.md` and `docs/questions.md`.
+- Questions are never changed in place: go through `updateQuestion(key,
+  patch)` (`src/lib/context.ts`), which replaces the question with a new
+  object. The map's result cache and the game sync rely on that. "Is this
+  the hider's phone?" is `hiderPhone` in `src/lib/game/session.ts`, nowhere
+  else.
 
 ## Hand-over message
 

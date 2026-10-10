@@ -41,7 +41,6 @@ import {
     regionChoice,
     setupDialog,
     showTutorial,
-    triggerLocalRefresh,
 } from "@/lib/context";
 import {
     askNotifications,
@@ -102,7 +101,6 @@ const readSharedGameFromUrl = async (
 };
 
 export const OptionDrawers = ({ className }: { className?: string }) => {
-    useStore(triggerLocalRefresh);
     const $defaultCustomQuestions = useStore(defaultCustomQuestions);
     const $defaultUnit = useStore(defaultUnit);
     const $regionChoice = useStore(regionChoice);

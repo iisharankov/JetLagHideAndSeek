@@ -20,10 +20,10 @@ import {
     gameSettings,
     hiderMode,
     isLoading,
-    questionModified,
+    type QuestionPatch,
     questions,
     regionRules,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
 import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,23 @@ import {
 
 import { QuestionCard } from "./base";
 
+/** Types whose places can be copied into a custom-points question. */
+const PREFILLABLE = [
+    "airport",
+    "major-city",
+    "aquarium-full",
+    "zoo-full",
+    "theme_park-full",
+    "peak-full",
+    "museum-full",
+    "hospital-full",
+    "cinema-full",
+    "library-full",
+    "golf_course-full",
+    "consulate-full",
+    "park-full",
+];
+
 export const MatchingQuestionComponent = ({
     data,
     questionKey,
@@ -52,13 +69,13 @@ export const MatchingQuestionComponent = ({
     sub?: string;
     className?: string;
 }) => {
-    useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
     const $gameSettings = useStore(gameSettings);
+    const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     // The game's own list of question types, plus the local rules' labels.
     const gameRules = {
         ...$regionRules,
@@ -90,7 +107,7 @@ export const MatchingQuestionComponent = ({
                             lng={data.lng}
                             value={data.cat.adminLevel}
                             onChange={(level) =>
-                                questionModified((data.cat.adminLevel = level))
+                                set({ cat: { ...data.cat, adminLevel: level } })
                             }
                             disabled={!data.drag || $isLoading}
                         />
@@ -160,6 +177,7 @@ export const MatchingQuestionComponent = ({
                         <div className="flex justify-center mb-2">
                             <PresetsDialog
                                 data={data}
+                                questionKey={questionKey}
                                 presetTypeHint={data.type}
                             />
                         </div>
@@ -174,14 +192,6 @@ export const MatchingQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
-            collapsed={data.collapsed}
-            setCollapsed={(collapsed) => {
-                data.collapsed = collapsed; // Doesn't trigger a re-render so no need for questionModified
-            }}
-            locked={!data.drag}
-            setLocked={(locked) => questionModified((data.drag = !locked))}
-            hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -189,45 +199,32 @@ export const MatchingQuestionComponent = ({
                 onBlank={async () => {
                     if (!pendingCustomType) return;
                     if (pendingCustomType === "custom-zone") {
-                        (data as any).geo = undefined;
+                        set({
+                            type: "custom-zone",
+                            geo: undefined,
+                        } as QuestionPatch);
                         toast.info("Please draw the zone on the map.");
                     } else {
-                        (data as any).geo = [];
+                        set({
+                            type: "custom-points",
+                            geo: [],
+                        } as QuestionPatch);
                         toast.info("Please draw the points on the map.");
                     }
-                    data.type = pendingCustomType;
-                    questionModified();
                     setCustomDialogOpen(false);
                 }}
                 onPrefill={async () => {
                     if (!pendingCustomType) return;
+                    let geo: unknown;
                     if (pendingCustomType === "custom-zone") {
-                        (data as any).geo =
-                            await determineMatchingBoundary(data);
+                        geo = await determineMatchingBoundary(data);
+                    } else if (PREFILLABLE.includes(data.type)) {
+                        geo = await findMatchingPlaces(data);
                     } else {
-                        if (
-                            data.type === "airport" ||
-                            data.type === "major-city" ||
-                            data.type === "aquarium-full" ||
-                            data.type === "zoo-full" ||
-                            data.type === "theme_park-full" ||
-                            data.type === "peak-full" ||
-                            data.type === "museum-full" ||
-                            data.type === "hospital-full" ||
-                            data.type === "cinema-full" ||
-                            data.type === "library-full" ||
-                            data.type === "golf_course-full" ||
-                            data.type === "consulate-full" ||
-                            data.type === "park-full"
-                        ) {
-                            (data as any).geo = await findMatchingPlaces(data);
-                        } else {
-                            (data as any).geo = [];
-                            toast.info("Please draw the points on the map.");
-                        }
+                        geo = [];
+                        toast.info("Please draw the points on the map.");
                     }
-                    data.type = pendingCustomType;
-                    questionModified();
+                    set({ type: pendingCustomType, geo } as QuestionPatch);
                     setCustomDialogOpen(false);
                 }}
             />
@@ -294,6 +291,10 @@ export const MatchingQuestionComponent = ({
                         )}
                     value={data.type}
                     onValueChange={async (value) => {
+                        // A zone question needs its category; keep any.
+                        const cat = (data as { cat?: unknown }).cat ?? {
+                            adminLevel: 4,
+                        };
                         if (
                             value === "custom-zone" ||
                             value === "custom-points"
@@ -303,67 +304,43 @@ export const MatchingQuestionComponent = ({
                                 setCustomDialogOpen(true);
                                 return;
                             }
-                            // Apply preference without dialog
+                            // Apply the preference without the dialog.
+                            const patch: Record<string, unknown> = {
+                                type: value,
+                                cat,
+                            };
                             if ($customInitPref === "blank") {
+                                patch.geo =
+                                    value === "custom-zone" ? undefined : [];
+                                toast.info(
+                                    value === "custom-zone"
+                                        ? "Please draw the zone on the map."
+                                        : "Please draw the points on the map.",
+                                );
+                            } else if ($customInitPref === "prefill") {
                                 if (value === "custom-zone") {
-                                    (data as any).geo = undefined;
-                                    toast.info(
-                                        "Please draw the zone on the map.",
-                                    );
+                                    patch.geo =
+                                        await determineMatchingBoundary(data);
+                                } else if (PREFILLABLE.includes(data.type)) {
+                                    patch.geo = await findMatchingPlaces(data);
                                 } else {
-                                    (data as any).geo = [];
+                                    patch.geo = [];
                                     toast.info(
                                         "Please draw the points on the map.",
                                     );
                                 }
-                            } else if ($customInitPref === "prefill") {
-                                if (value === "custom-zone") {
-                                    (data as any).geo =
-                                        await determineMatchingBoundary(data);
-                                } else {
-                                    if (
-                                        data.type === "airport" ||
-                                        data.type === "major-city" ||
-                                        data.type === "aquarium-full" ||
-                                        data.type === "zoo-full" ||
-                                        data.type === "theme_park-full" ||
-                                        data.type === "peak-full" ||
-                                        data.type === "museum-full" ||
-                                        data.type === "hospital-full" ||
-                                        data.type === "cinema-full" ||
-                                        data.type === "library-full" ||
-                                        data.type === "golf_course-full" ||
-                                        data.type === "consulate-full" ||
-                                        data.type === "park-full"
-                                    ) {
-                                        (data as any).geo =
-                                            await findMatchingPlaces(data);
-                                    } else {
-                                        (data as any).geo = [];
-                                        toast.info(
-                                            "Please draw the points on the map.",
-                                        );
-                                    }
-                                }
                             }
-                            // The category should be defined such that no error is thrown if this is a zone question.
-                            if (!(data as any).cat) {
-                                (data as any).cat = { adminLevel: 4 };
-                            }
-                            questionModified((data.type = value));
+                            set(patch as QuestionPatch);
                             return;
                         }
 
-                        if (value === "same-length-station") {
-                            data.lengthComparison = "same";
-                            data.same = true;
-                        }
-
-                        // The category should be defined such that no error is thrown if this is a zone question.
-                        if (!(data as any).cat) {
-                            (data as any).cat = { adminLevel: 4 };
-                        }
-                        questionModified((data.type = value));
+                        set({
+                            type: value,
+                            cat,
+                            ...(value === "same-length-station"
+                                ? { lengthComparison: "same", same: true }
+                                : {}),
+                        } as QuestionPatch);
                     }}
                     disabled={!data.drag || $isLoading}
                 />
@@ -375,15 +352,9 @@ export const MatchingQuestionComponent = ({
                     latitude={data.lat}
                     longitude={data.lng}
                     colorName={data.color}
-                    onChange={(lat, lng) => {
-                        if (lat !== null) {
-                            data.lat = lat;
-                        }
-                        if (lng !== null) {
-                            data.lng = lng;
-                        }
-                        questionModified();
-                    }}
+                    onChange={(lat, lng) =>
+                        set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
+                    }
                     disabled={!data.drag || $isLoading}
                 />
             )}
@@ -419,16 +390,11 @@ export const MatchingQuestionComponent = ({
                             value: "shorter" | "same" | "longer" | "different",
                         ) => {
                             if (value === "shorter" || value === "longer") {
-                                questionModified(
-                                    (data.lengthComparison = value),
-                                );
+                                set({ lengthComparison: value });
                             } else if (value === "same") {
-                                questionModified(
-                                    (data.lengthComparison = "same"),
-                                );
-                                questionModified((data.same = true));
+                                set({ lengthComparison: "same", same: true });
                             } else if (value === "different") {
-                                questionModified((data.same = false));
+                                set({ same: false });
                             }
                         }}
                         disabled={!!$hiderMode || !data.drag || $isLoading}
@@ -446,9 +412,9 @@ export const MatchingQuestionComponent = ({
                         value={data.same ? "same" : "different"}
                         onValueChange={(value) => {
                             if (value === "same") {
-                                questionModified((data.same = true));
+                                set({ same: true });
                             } else if (value === "different") {
-                                questionModified((data.same = false));
+                                set({ same: false });
                             }
                         }}
                         disabled={!!$hiderMode || !data.drag || $isLoading}

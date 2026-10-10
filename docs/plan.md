@@ -369,12 +369,54 @@ From the photos of the metric edition and the counted deck:
    game lingers. A new round clears it; a Move clears the station.
 7. The card tiles' buttons are stacked, so nothing is cut off in the sidebar.
 
+## Audit (2026-10-10)
+
+See [audit-2026-10.md](audit-2026-10.md): what's left, the architecture's
+weak points (in-place mutation, main-thread geometry, full-state
+broadcast), open risks, and why a rewrite isn't worth it.
+
+## Round 12: one truth for questions, one hider store, geometry cache ✅ (2026-10-10)
+
+Audit items 1, 2 (the cache half) and 5; no new behaviour.
+
+1. **Questions are never changed in place.** `updateQuestion(key, patch)`
+   and `updateQuestions(keys, patch)` (`src/lib/context.ts`) replace a
+   changed question with a new object, so the stores, React and the game
+   sync all see every change; `questionModified()` and
+   `triggerLocalRefresh` are gone (61 call sites). The card frame
+   (`cards/base.tsx`) owns folding, locking and hiding; each card has a
+   `set(patch)`; the drawing tool's point editors and presets patch the
+   question too. A patch that changes nothing writes nothing.
+2. **One hider store.** `hiderPhone` (`src/lib/game/session.ts`, computed
+   from hider mode, the game and the role) replaces the four inline
+   derivations and only tells its listeners when it flips.
+3. **Geometry cache.** `applyQuestionsToMapGeoData` remembers each
+   question's result by the chain of questions before it
+   (`src/maps/index.ts`); the refresh keeps the masks, the draft patches
+   and the end-game clip by the same keys; the map only refreshes for
+   changes it can see (`questionsMapKey`: folding a card isn't one); the
+   hiding zones only recompute when the remaining area changed; between
+   heavy steps the page gets to paint. Measured in Node with a
+   1,500-vertex play area and 12 radius questions: 296 ms cold, 0 ms for a
+   repeat, 12 ms after editing the newest question, 118 ms after editing
+   the third one.
+4. **Hider mode alone:** the pin's answers are worked out on copies and
+   written back only for questions whose answer changed, never over a
+   question the player edited meanwhile.
+5. **Auto-save off** now means: edits are kept at once (cards and pins
+   follow) and the map and the shared game take them on *Save*.
+
+Still open from the audit: the Web Worker (the question modules read the
+stores and the Overpass caches directly, so they'd need their own copies of
+that state) and the live view without the archive.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a
   "remaining area" figure (km² and % left).
-- Heavy geometry in a background worker, so the map never freezes.
-- Split ZoneSidebar and OptionDrawers; stop mutating questions in place.
+- Heavy geometry in a background worker, so the map never freezes (the
+  per-question cache from Round 12 covers the common edits).
+- Split OptionDrawers, CardsPanel and GameSetupDialog by feature.
 
 ## Later / dropped 💤
 

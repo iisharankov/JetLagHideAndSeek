@@ -17,9 +17,9 @@ import {
     gameSettings,
     hiderMode,
     isLoading,
-    questionModified,
+    type QuestionPatch,
     questions,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
 import { tentacleRadiusKm } from "@/lib/game/settings";
 import { hiddenTypesFor } from "@/lib/gameSettings";
@@ -52,6 +52,7 @@ export const TentacleQuestionComponent = ({
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $gameSettings = useStore(gameSettings);
+    const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     // Types left out of this game are hidden (the current one stays).
     const hidden = hiddenTypesFor("tentacles", $gameSettings);
     const inGame = (type: string) =>
@@ -70,14 +71,6 @@ export const TentacleQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
-            collapsed={data.collapsed}
-            setCollapsed={(collapsed) => {
-                data.collapsed = collapsed; // Doesn't trigger a re-render so no need for questionModified
-            }}
-            locked={!data.drag}
-            setLocked={(locked) => questionModified((data.drag = !locked))}
-            hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <SidebarMenuItem>
                 <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
@@ -86,17 +79,13 @@ export const TentacleQuestionComponent = ({
                         className="rounded-md p-2 w-16"
                         value={data.radius}
                         onChange={(e) =>
-                            questionModified(
-                                (data.radius = parseFloat(e.target.value)),
-                            )
+                            set({ radius: parseFloat(e.target.value) })
                         }
                         disabled={!data.drag || $isLoading}
                     />
                     <UnitSelect
                         unit={data.unit}
-                        onChange={(unit) =>
-                            questionModified((data.unit = unit))
-                        }
+                        onChange={(unit) => set({ unit })}
                         disabled={!data.drag || $isLoading}
                     />
                 </div>
@@ -136,26 +125,28 @@ export const TentacleQuestionComponent = ({
                             const priorLocations = await findTentacleLocations(
                                 data as TraditionalTentacleQuestion,
                             );
-
-                            data.locationType = "custom";
-                            data.places = priorLocations.features.map((x) => ({
-                                ...x,
-                                properties: {
-                                    ...x.properties,
-                                    name:
-                                        x.properties?.["name:en"] ??
-                                        x.properties?.name,
-                                },
-                            }));
-                            data.location = false;
+                            set({
+                                locationType: "custom",
+                                places: priorLocations.features.map((x) => ({
+                                    ...x,
+                                    properties: {
+                                        ...x.properties,
+                                        name:
+                                            x.properties?.["name:en"] ??
+                                            x.properties?.name,
+                                    },
+                                })),
+                                location: false,
+                            } as QuestionPatch);
                         } else {
-                            data.location = false;
-                            data.locationType = value;
-                            // The book's distance for this kind of place.
-                            data.radius = tentacleRadiusKm(value);
-                            data.unit = "kilometers";
+                            set({
+                                location: false,
+                                locationType: value,
+                                // The book's distance for this kind of place.
+                                radius: tentacleRadiusKm(value),
+                                unit: "kilometers",
+                            } as QuestionPatch);
                         }
-                        questionModified();
                     }}
                     disabled={!data.drag || $isLoading}
                 />
@@ -181,6 +172,7 @@ export const TentacleQuestionComponent = ({
                     <div className="flex justify-center mb-2">
                         <PresetsDialog
                             data={data}
+                            questionKey={questionKey}
                             presetTypeHint="custom-tentacles"
                         />
                     </div>
@@ -190,20 +182,15 @@ export const TentacleQuestionComponent = ({
                 latitude={data.lat}
                 longitude={data.lng}
                 colorName={data.color}
-                onChange={(lat, lng) => {
-                    if (lat !== null) {
-                        data.lat = lat;
-                    }
-                    if (lng !== null) {
-                        data.lng = lng;
-                    }
-                    questionModified();
-                }}
+                onChange={(lat, lng) =>
+                    set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
+                }
                 disabled={!data.drag || $isLoading}
             />
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                 <TentacleLocationSelector
                     data={data}
+                    questionKey={questionKey}
                     disabled={!data.drag || $isLoading}
                 />
             </SidebarMenuItem>
@@ -267,12 +254,13 @@ const useTentacleOptions = (data: TentacleQuestion): TentacleOptions => {
 
 const TentacleLocationSelector = ({
     data,
+    questionKey,
     disabled,
 }: {
     data: TentacleQuestion;
+    questionKey: number;
     disabled: boolean;
 }) => {
-    useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const options = useTentacleOptions(data);
 
@@ -282,8 +270,7 @@ const TentacleLocationSelector = ({
         if (options.status !== "ready" || !data.location) return;
         const name = data.location.properties?.name;
         if (!options.features.some((f) => f.properties.name === name)) {
-            data.location = false;
-            questionModified();
+            updateQuestion(questionKey, { location: false });
         }
     }, [options]);
 
@@ -314,16 +301,17 @@ const TentacleLocationSelector = ({
                 ]),
             }}
             value={data.location ? data.location.properties.name : "false"}
-            onValueChange={(value) => {
-                data.location =
-                    value === "false"
-                        ? false
-                        : options.features.find(
-                              (feature: any) =>
-                                  feature.properties.name === value,
-                          );
-                questionModified();
-            }}
+            onValueChange={(value) =>
+                updateQuestion(questionKey, {
+                    location:
+                        value === "false"
+                            ? false
+                            : options.features.find(
+                                  (feature: any) =>
+                                      feature.properties.name === value,
+                              ),
+                })
+            }
             disabled={!!$hiderMode || disabled}
         />
     );

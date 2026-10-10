@@ -9,11 +9,12 @@ import {
     deleteCustomPreset,
     saveCustomPreset,
     updateCustomPreset,
+    updateQuestion,
 } from "@/lib/context";
-import { questionModified } from "@/lib/context";
 
 type Props = {
     data: any;
+    questionKey: number;
     presetTypeHint: string;
 };
 
@@ -22,7 +23,11 @@ const safeClone = (v: any) =>
         ? structuredClone(v)
         : JSON.parse(JSON.stringify(v));
 
-const CustomPresets: React.FC<Props> = ({ data, presetTypeHint }) => {
+const CustomPresets: React.FC<Props> = ({
+    data,
+    questionKey,
+    presetTypeHint,
+}) => {
     const $presets = useStore(customPresets);
 
     const presets = $presets.filter((p) =>
@@ -42,13 +47,9 @@ const CustomPresets: React.FC<Props> = ({ data, presetTypeHint }) => {
     };
 
     const handleLoad = (preset: CustomPreset) => {
-        // copy fields from preset.data into the question data so user can deviate
-        const src = safeClone(preset.data);
-        Object.keys(src).forEach((k) => {
-            (data as any)[k] = src[k];
-        });
-        // ensure nested objects replaced where appropriate (geo etc)
-        questionModified();
+        // The preset's fields go over the question's, so the player can
+        // then deviate from the preset.
+        updateQuestion(questionKey, safeClone(preset.data));
         toast.info(`Loaded preset "${preset.name}"`);
     };
 
@@ -91,11 +92,7 @@ const CustomPresets: React.FC<Props> = ({ data, presetTypeHint }) => {
                 toast.error("Clipboard JSON is not a preset (missing data)");
                 return;
             }
-            const src = safeClone(payload.data);
-            Object.keys(src).forEach((k) => {
-                (data as any)[k] = src[k];
-            });
-            questionModified();
+            updateQuestion(questionKey, safeClone(payload.data));
             toast.info(`Applied preset "${payload.name ?? "from clipboard"}"`);
         } catch {
             toast.error("Could not read or parse clipboard JSON");

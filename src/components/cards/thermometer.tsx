@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { defaultUnit } from "@/lib/context";
 import {
+    defaultUnit,
     hiderMode,
     isLoading,
-    questionModified,
+    type QuestionPatch,
     questions,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
 import { arcDistance } from "@/maps/geo-utils";
@@ -30,10 +30,10 @@ export const ThermometerQuestionComponent = ({
     sub?: string;
     className?: string;
 }) => {
-    useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
+    const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
 
     const $defaultUnit = useStore(defaultUnit);
     const DISTANCE_UNIT = $defaultUnit ?? "miles";
@@ -86,25 +86,15 @@ export const ThermometerQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
-            collapsed={data.collapsed}
-            setCollapsed={(collapsed) => {
-                data.collapsed = collapsed;
-            }}
-            locked={!data.drag}
-            setLocked={(locked) => questionModified((data.drag = !locked))}
-            hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <LatitudeLongitude
                 latitude={data.latA}
                 longitude={data.lngA}
                 label="Start"
                 colorName={data.colorA}
-                onChange={(lat, lng) => {
-                    if (lat !== null) data.latA = lat;
-                    if (lng !== null) data.lngA = lng;
-                    questionModified();
-                }}
+                onChange={(lat, lng) =>
+                    set({ latA: lat ?? data.latA, lngA: lng ?? data.lngA })
+                }
                 disabled={!data.drag || $isLoading}
             />
 
@@ -113,11 +103,9 @@ export const ThermometerQuestionComponent = ({
                 longitude={data.lngB}
                 label="End"
                 colorName={data.colorB}
-                onChange={(lat, lng) => {
-                    if (lat !== null) data.latB = lat;
-                    if (lng !== null) data.lngB = lng;
-                    questionModified();
-                }}
+                onChange={(lat, lng) =>
+                    set({ latB: lat ?? data.latB, lngB: lng ?? data.lngB })
+                }
                 disabled={!data.drag || $isLoading}
             />
 
@@ -144,7 +132,7 @@ export const ThermometerQuestionComponent = ({
                     type="single"
                     value={data.warmer ? "warmer" : "colder"}
                     onValueChange={(value: "warmer" | "colder") =>
-                        questionModified((data.warmer = value === "warmer"))
+                        set({ warmer: value === "warmer" })
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >

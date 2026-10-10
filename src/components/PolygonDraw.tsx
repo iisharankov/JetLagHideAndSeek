@@ -19,9 +19,9 @@ import {
     mapGeoJSON,
     playAreaDrawing,
     polyGeoJSON,
-    questionModified,
     questions,
     save,
+    updateQuestion,
 } from "@/lib/context";
 import { CacheType, clearCache } from "@/maps/api";
 import { lngLatToText } from "@/maps/geo-utils";
@@ -41,6 +41,13 @@ import {
     SidebarMenuItem,
 } from "./ui/sidebar-l";
 
+/** A shape drawn on the map, as kept in a custom question. */
+type DrawnFeature = {
+    type: "Feature";
+    geometry: { type: string; coordinates: any };
+    properties?: any;
+};
+
 const swapCoordinates = (geojson: any) => {
     return JSON.parse(JSON.stringify(geojson), (key, value) => {
         if (
@@ -57,11 +64,25 @@ const swapCoordinates = (geojson: any) => {
 
 const TentacleMarker = ({
     point,
+    onChange,
 }: {
     point: CustomTentacleQuestion["places"][number];
+    /** The point as edited: a new object, the question is never changed in place. */
+    onChange: (point: CustomTentacleQuestion["places"][number]) => void;
 }) => {
     const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
+    const moveTo = (lat: number | null, lng: number | null) =>
+        onChange({
+            ...point,
+            geometry: {
+                ...point.geometry,
+                coordinates: [
+                    lng || point.geometry.coordinates[0],
+                    lat || point.geometry.coordinates[1],
+                ],
+            },
+        });
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -83,26 +104,22 @@ const TentacleMarker = ({
                     <Input
                         className="text-center !text-2xl font-bold font-poppins mt-3"
                         value={point.properties?.name}
-                        onChange={(e) => {
-                            point.properties.name = e.target.value;
-                            questionModified();
-                        }}
+                        onChange={(e) =>
+                            onChange({
+                                ...point,
+                                properties: {
+                                    ...point.properties,
+                                    name: e.target.value,
+                                },
+                            })
+                        }
                     />
                     <SidebarMenu>
                         <LatitudeLongitude
                             latitude={point.geometry.coordinates[1]}
                             longitude={point.geometry.coordinates[0]}
                             inlineEdit
-                            onChange={(lat, lng) => {
-                                if (lat) {
-                                    point.geometry.coordinates[1] = lat;
-                                }
-                                if (lng) {
-                                    point.geometry.coordinates[0] = lng;
-                                }
-
-                                questionModified();
-                            }}
+                            onChange={moveTo}
                         />
                         {!$autoSave && (
                             <SidebarMenuItem>
@@ -123,11 +140,25 @@ const TentacleMarker = ({
 
 const MatchingPointMarker = ({
     point,
+    onChange,
 }: {
     point: CustomMatchingQuestion["geo"][number];
+    /** The point as edited: a new object, the question is never changed in place. */
+    onChange: (point: CustomMatchingQuestion["geo"][number]) => void;
 }) => {
     const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
+    const moveTo = (lat: number | null, lng: number | null) =>
+        onChange({
+            ...point,
+            geometry: {
+                ...point.geometry,
+                coordinates: [
+                    lng || point.geometry.coordinates[0],
+                    lat || point.geometry.coordinates[1],
+                ],
+            },
+        });
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -151,16 +182,7 @@ const MatchingPointMarker = ({
                             latitude={point.geometry.coordinates[1]}
                             longitude={point.geometry.coordinates[0]}
                             inlineEdit
-                            onChange={(lat, lng) => {
-                                if (lat) {
-                                    point.geometry.coordinates[1] = lat;
-                                }
-                                if (lng) {
-                                    point.geometry.coordinates[0] = lng;
-                                }
-
-                                questionModified();
-                            }}
+                            onChange={moveTo}
                         />
                         {!$autoSave && (
                             <SidebarMenuItem>
@@ -181,11 +203,27 @@ const MatchingPointMarker = ({
 
 const MeasuringPointMarker = ({
     point,
+    onChange,
 }: {
     point: CustomMeasuringQuestion["geo"]["features"][number];
+    /** The point as edited: a new object, the question is never changed in place. */
+    onChange: (
+        point: CustomMeasuringQuestion["geo"]["features"][number],
+    ) => void;
 }) => {
     const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
+    const moveTo = (lat: number | null, lng: number | null) =>
+        onChange({
+            ...point,
+            geometry: {
+                ...point.geometry,
+                coordinates: [
+                    lng || point.geometry.coordinates[0],
+                    lat || point.geometry.coordinates[1],
+                ],
+            },
+        });
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -209,16 +247,7 @@ const MeasuringPointMarker = ({
                             latitude={point.geometry.coordinates[1]}
                             longitude={point.geometry.coordinates[0]}
                             inlineEdit
-                            onChange={(lat, lng) => {
-                                if (lat) {
-                                    point.geometry.coordinates[1] = lat;
-                                }
-                                if (lng) {
-                                    point.geometry.coordinates[0] = lng;
-                                }
-
-                                questionModified();
-                            }}
+                            onChange={moveTo}
                         />
                         {!$autoSave && (
                             <SidebarMenuItem>
@@ -304,10 +333,12 @@ export const PolygonDraw = () => {
             });
             const geoJSON = turf.featureCollection(geoJSONs);
 
-            question.data.places = _.uniqBy(
-                geoJSON.features as CustomTentacleQuestion["places"],
-                (x) => x.geometry.coordinates.join(","),
-            ); // Sometimes keys are duplicated
+            updateQuestion(question.key, {
+                places: _.uniqBy(
+                    geoJSON.features as CustomTentacleQuestion["places"],
+                    (x) => x.geometry.coordinates.join(","),
+                ), // Sometimes keys are duplicated
+            });
             if (featureRef.current) {
                 Object.values(featureRef.current._layers).map((layer: any) => {
                     if (!layer.options.properties) {
@@ -315,7 +346,6 @@ export const PolygonDraw = () => {
                     }
                 });
             }
-            questionModified();
         } else if (
             question?.id === "matching" &&
             question.data.type === "custom-zone"
@@ -329,7 +359,7 @@ export const PolygonDraw = () => {
             const geoJSON = turf.combine(turf.featureCollection(geoJSONs))
                 .features[0];
 
-            question.data.geo = geoJSON;
+            updateQuestion(question.key, { geo: geoJSON });
             if (featureRef.current) {
                 Object.values(featureRef.current._layers).map((layer: any) => {
                     if (!layer.options.isSpecial) {
@@ -337,7 +367,6 @@ export const PolygonDraw = () => {
                     }
                 });
             }
-            questionModified();
         } else if (
             question?.id === "matching" &&
             question.data.type === "custom-points"
@@ -350,10 +379,12 @@ export const PolygonDraw = () => {
             );
             const geoJSON = turf.featureCollection(geoJSONs);
 
-            question.data.geo = _.uniqBy(
-                geoJSON.features as CustomTentacleQuestion["places"],
-                (x) => x.geometry.coordinates.join(","),
-            ); // Sometimes keys are duplicated
+            updateQuestion(question.key, {
+                geo: _.uniqBy(
+                    geoJSON.features as CustomTentacleQuestion["places"],
+                    (x) => x.geometry.coordinates.join(","),
+                ), // Sometimes keys are duplicated
+            });
             if (featureRef.current) {
                 Object.values(featureRef.current._layers).map((layer: any) => {
                     if (!layer.options.isDialog) {
@@ -361,7 +392,6 @@ export const PolygonDraw = () => {
                     }
                 });
             }
-            questionModified();
         } else if (
             question?.id === "measuring" &&
             question.data.type === "custom-measure"
@@ -374,12 +404,14 @@ export const PolygonDraw = () => {
             );
             const geoJSON = turf.featureCollection(geoJSONs);
 
-            question.data.geo = turf.featureCollection(
-                _.uniqBy(
-                    geoJSON.features as CustomTentacleQuestion["places"],
-                    (x) => x.geometry.coordinates.join(","),
-                ),
-            ); // Sometimes keys are duplicated
+            updateQuestion(question.key, {
+                geo: turf.featureCollection(
+                    _.uniqBy(
+                        geoJSON.features as CustomTentacleQuestion["places"],
+                        (x) => x.geometry.coordinates.join(","),
+                    ),
+                ), // Sometimes keys are duplicated
+            });
             if (featureRef.current) {
                 Object.values(featureRef.current._layers).map((layer: any) => {
                     if (!layer.options.isSpecial && !layer.options.isDialog) {
@@ -387,7 +419,6 @@ export const PolygonDraw = () => {
                     }
                 });
             }
-            questionModified();
         }
     };
 
@@ -397,36 +428,73 @@ export const PolygonDraw = () => {
         }
     }, [$drawingQuestionKey]);
 
+    // Each marker edits its own point: the point is replaced in a copy of
+    // the question's list (nothing is changed in place).
+    const questionKey = question?.key ?? -1;
+    const tentaclePlaces =
+        question?.id === "tentacles" && question.data.locationType === "custom"
+            ? question.data.places
+            : null;
+    // The schema leaves a custom question's drawn shapes untyped.
+    const matchingPoints: DrawnFeature[] | null =
+        question?.id === "matching" && question.data.type === "custom-points"
+            ? question.data.geo
+            : null;
+    const measuringGeo: { features: DrawnFeature[] } | null =
+        question?.id === "measuring" && question.data.type === "custom-measure"
+            ? question.data.geo
+            : null;
+    const samePoint = (a: DrawnFeature, b: DrawnFeature) =>
+        turf.getType(a as any) === "Point" &&
+        a.geometry.coordinates.join(",") === b.geometry.coordinates.join(",");
+
     return (
         <FeatureGroup ref={featureRef}>
-            {question &&
-                question.id === "tentacles" &&
-                question.data.locationType === "custom" &&
-                question.data.places.map((x) => (
-                    <TentacleMarker
-                        key={x.geometry.coordinates.join(",")}
-                        point={x}
-                    />
-                ))}
-            {question &&
-                question.id === "matching" &&
-                question.data.type === "custom-points" &&
-                question.data.geo.map((x: any) => (
-                    <MatchingPointMarker
-                        key={x.geometry.coordinates.join(",")}
-                        point={x}
-                    />
-                ))}
-            {question &&
-                question.id === "measuring" &&
-                question.data.type === "custom-measure" &&
+            {tentaclePlaces?.map((x, index) => (
+                <TentacleMarker
+                    key={x.geometry.coordinates.join(",")}
+                    point={x}
+                    onChange={(point) =>
+                        updateQuestion(questionKey, {
+                            places: tentaclePlaces.map((p, i) =>
+                                i === index ? point : p,
+                            ),
+                        })
+                    }
+                />
+            ))}
+            {matchingPoints?.map((x, index) => (
+                <MatchingPointMarker
+                    key={x.geometry.coordinates.join(",")}
+                    point={x}
+                    onChange={(point) =>
+                        updateQuestion(questionKey, {
+                            geo: matchingPoints.map((p, i) =>
+                                i === index ? point : p,
+                            ),
+                        })
+                    }
+                />
+            ))}
+            {measuringGeo &&
                 turf
-                    .flatten(question.data.geo)
+                    .flatten(measuringGeo as any)
                     .features.filter((x: any) => turf.getType(x) === "Point")
-                    .map((x: any) => (
+                    .map((x: DrawnFeature) => (
                         <MeasuringPointMarker
                             key={x.geometry.coordinates.join(",")}
                             point={x}
+                            onChange={(point) =>
+                                updateQuestion(questionKey, {
+                                    geo: {
+                                        ...measuringGeo,
+                                        features: measuringGeo.features.map(
+                                            (f) =>
+                                                samePoint(f, x) ? point : f,
+                                        ),
+                                    },
+                                })
+                            }
                         />
                     ))}
             {question &&

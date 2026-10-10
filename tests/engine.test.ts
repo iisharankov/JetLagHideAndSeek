@@ -1,15 +1,22 @@
 import * as turf from "@turf/turf";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyQuestionsToMapGeoData } from "@/maps";
+import { applyQuestionsToMapGeoData, clearGeometryCache } from "@/maps";
 import { NotApplicableError } from "@/maps/errors";
 import { adjustPerMatching } from "@/maps/questions/matching";
+import { adjustPerRadius } from "@/maps/questions/radius";
 import { type Question, questionSchema } from "@/maps/schema";
 
 vi.mock("@/maps/questions/matching", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/maps/questions/matching")>()),
     adjustPerMatching: vi.fn(),
 }));
+// The real thing, but counted.
+vi.mock("@/maps/questions/radius", async (importOriginal) => {
+    const original =
+        await importOriginal<typeof import("@/maps/questions/radius")>();
+    return { ...original, adjustPerRadius: vi.fn(original.adjustPerRadius) };
+});
 
 // Roughly the canton of Zürich, as a box.
 const playArea = turf.featureCollection([
@@ -141,5 +148,88 @@ describe("applyQuestionsToMapGeoData", () => {
             message:
                 "This answer contradicts the earlier ones: no area is left.",
         });
+    });
+});
+
+describe("remembering results between refreshes", () => {
+    const apply = (list: Question[], area = "zurich-box") =>
+        applyQuestionsToMapGeoData(list, playArea, false, undefined, area);
+    const computed = () => vi.mocked(adjustPerRadius).mock.calls.length;
+
+    beforeEach(() => {
+        clearGeometryCache();
+        vi.mocked(adjustPerRadius).mockClear();
+    });
+
+    it("reuses the result when the questions and the area are the same", async () => {
+        const q1 = radius();
+        const q2 = radius({ radius: 3 });
+
+        const first = await apply([q1, q2]);
+        expect(computed()).toBe(2);
+        const second = await apply([q1, q2]);
+
+        expect(computed()).toBe(2);
+        expect(second.mapGeoData).toBe(first.mapGeoData);
+        expect(second.key).toBe(first.key);
+        expect(second.statuses.get(q2.key)).toEqual({ state: "ok" });
+    });
+
+    it("recomputes from the first changed question on", async () => {
+        const q1 = radius();
+        const q2 = radius({ radius: 3 });
+        await apply([q1, q2]);
+        vi.mocked(adjustPerRadius).mockClear();
+
+        const q2b = { ...q2, data: { ...q2.data, radius: 2 } } as Question;
+        const result = await apply([q1, q2b]);
+
+        expect(computed()).toBe(1);
+        expect(areaKm2(result.mapGeoData)).toBeCloseTo(Math.PI * 4, 0);
+    });
+
+    it("doesn't mind how the card is shown", async () => {
+        const q = radius();
+        await apply([q]);
+        vi.mocked(adjustPerRadius).mockClear();
+
+        const folded = {
+            ...q,
+            data: { ...q.data, collapsed: true },
+        } as Question;
+        await apply([folded]);
+
+        expect(computed()).toBe(0);
+    });
+
+    it("starts over for another play area", async () => {
+        const q = radius();
+        await apply([q], "zurich-box");
+        await apply([q], "bern-box");
+        expect(computed()).toBe(2);
+    });
+
+    it("doesn't remember failures", async () => {
+        const q = radius();
+        vi.mocked(adjustPerRadius).mockRejectedValueOnce(new Error("boom"));
+
+        const first = await apply([q]);
+        expect(first.statuses.get(q.key)).toEqual({
+            state: "error",
+            message: "boom",
+        });
+        const second = await apply([q]);
+
+        expect(computed()).toBe(2);
+        expect(second.statuses.get(q.key)).toEqual({ state: "ok" });
+    });
+
+    it("remembers nothing without an area key", async () => {
+        const q = radius();
+        const first = await applyQuestionsToMapGeoData([q], playArea, false);
+        const second = await applyQuestionsToMapGeoData([q], playArea, false);
+
+        expect(computed()).toBe(2);
+        expect(second.mapGeoData).not.toBe(first.mapGeoData);
     });
 });

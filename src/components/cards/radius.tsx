@@ -12,9 +12,9 @@ import { UnitSelect } from "@/components/UnitSelect";
 import {
     hiderMode,
     isLoading,
-    questionModified,
+    type QuestionPatch,
     questions,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
 import { RADAR_KM } from "@/lib/game/settings";
 import { cn } from "@/lib/utils";
@@ -33,10 +33,10 @@ export const RadiusQuestionComponent = ({
     sub?: string;
     className?: string;
 }) => {
-    useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
+    const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     const label = `Radius
     ${
         $questions
@@ -51,14 +51,6 @@ export const RadiusQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
-            collapsed={data.collapsed}
-            setCollapsed={(collapsed) => {
-                data.collapsed = collapsed; // Doesn't trigger a re-render so no need for questionModified
-            }}
-            locked={!data.drag}
-            setLocked={(locked) => questionModified((data.drag = !locked))}
-            hidden={data.hidden}
-            setHidden={(hidden) => questionModified((data.hidden = hidden))}
         >
             <SidebarMenuItem>
                 <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
@@ -68,17 +60,13 @@ export const RadiusQuestionComponent = ({
                         value={data.radius}
                         disabled={!data.drag || $isLoading}
                         onChange={(e) =>
-                            questionModified(
-                                (data.radius = parseFloat(e.target.value)),
-                            )
+                            set({ radius: parseFloat(e.target.value) })
                         }
                     />
                     <UnitSelect
                         unit={data.unit}
                         disabled={!data.drag || $isLoading}
-                        onChange={(unit) =>
-                            questionModified((data.unit = unit))
-                        }
+                        onChange={(unit) => set({ unit })}
                     />
                 </div>
             </SidebarMenuItem>
@@ -98,10 +86,7 @@ export const RadiusQuestionComponent = ({
                                     : "bg-slate-700",
                             )}
                             onClick={() =>
-                                questionModified(
-                                    (data.radius = km),
-                                    (data.unit = "kilometers"),
-                                )
+                                set({ radius: km, unit: "kilometers" })
                             }
                         >
                             {km < 1 ? `${km * 1000} m` : `${km} km`}
@@ -113,15 +98,9 @@ export const RadiusQuestionComponent = ({
                 latitude={data.lat}
                 longitude={data.lng}
                 colorName={data.color}
-                onChange={(lat, lng) => {
-                    if (lat !== null) {
-                        data.lat = lat;
-                    }
-                    if (lng !== null) {
-                        data.lng = lng;
-                    }
-                    questionModified();
-                }}
+                onChange={(lat, lng) =>
+                    set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
+                }
                 disabled={!data.drag || $isLoading}
             />
             <div className="flex gap-2 items-center p-2">
@@ -138,7 +117,7 @@ export const RadiusQuestionComponent = ({
                     type="single"
                     value={data.within ? "inside" : "outside"}
                     onValueChange={(value: "inside" | "outside") =>
-                        questionModified((data.within = value === "inside"))
+                        set({ within: value === "inside" })
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >

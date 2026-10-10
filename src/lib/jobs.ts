@@ -62,3 +62,7 @@ export const createLatestRunner = (task: () => Promise<void>) => {
 
     return run;
 };
+
+/** Lets the page paint and react between the heavy steps of a task. */
+export const yieldToUi = () =>
+    new Promise<void>((resolve) => setTimeout(resolve, 0));

@@ -11,14 +11,13 @@ import {
     autoSave,
     hiderMode,
     notePins,
-    questionModified,
     questions,
     save,
     setHiderPin,
     showHiderPin,
-    triggerLocalRefresh,
+    updateQuestion,
 } from "@/lib/context";
-import { gameRole, gameState } from "@/lib/game/session";
+import { gameState, hiderPhone } from "@/lib/game/session";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
@@ -208,13 +207,10 @@ const movePin = (latitude: number, longitude: number) => {
 };
 
 export const DraggableMarkers = () => {
-    useStore(triggerLocalRefresh);
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
+    const $hider = useStore(hiderPhone);
     const $showHiderPin = useStore(showHiderPin);
-
-    const $game = useStore(gameState);
-    const $role = useStore(gameRole);
     const $notes = useStore(notePins);
 
     return (
@@ -222,22 +218,20 @@ export const DraggableMarkers = () => {
             {$notes.map((note) => (
                 <NotePinMarker key={note.id} note={note} />
             ))}
-            {$hiderMode !== false &&
-                $showHiderPin &&
-                !($game && $role !== "hider") && (
-                    <ColoredMarker
-                        color="green"
-                        key="hider"
-                        sub="Hider Location"
-                        questionKey={-1}
-                        latitude={$hiderMode.latitude}
-                        longitude={$hiderMode.longitude}
-                        onChange={(e) => {
-                            const { lat, lng } = e.target.getLatLng();
-                            movePin(lat, lng);
-                        }}
-                    />
-                )}
+            {$hiderMode !== false && $hider && $showHiderPin && (
+                <ColoredMarker
+                    color="green"
+                    key="hider"
+                    sub="Hider Location"
+                    questionKey={-1}
+                    latitude={$hiderMode.latitude}
+                    longitude={$hiderMode.longitude}
+                    onChange={(e) => {
+                        const { lat, lng } = e.target.getLatLng();
+                        movePin(lat, lng);
+                    }}
+                />
+            )}
             {$questions.map((question) => {
                 if (!question.data) return null;
                 if (question.data.hidden) return null;
@@ -262,11 +256,8 @@ export const DraggableMarkers = () => {
                                 latitude={question.data.lat}
                                 longitude={question.data.lng}
                                 onChange={(e) => {
-                                    question.data.lat =
-                                        e.target.getLatLng().lat;
-                                    question.data.lng =
-                                        e.target.getLatLng().lng;
-                                    questionModified();
+                                    const { lat, lng } = e.target.getLatLng();
+                                    updateQuestion(question.key, { lat, lng });
                                 }}
                             />
                         );
@@ -282,11 +273,12 @@ export const DraggableMarkers = () => {
                                     latitude={question.data.latA}
                                     longitude={question.data.lngA}
                                     onChange={(e) => {
-                                        question.data.latA =
-                                            e.target.getLatLng().lat;
-                                        question.data.lngA =
-                                            e.target.getLatLng().lng;
-                                        questionModified();
+                                        const { lat, lng } =
+                                            e.target.getLatLng();
+                                        updateQuestion(question.key, {
+                                            latA: lat,
+                                            lngA: lng,
+                                        });
                                     }}
                                 />
                                 <ColoredMarker
@@ -298,11 +290,12 @@ export const DraggableMarkers = () => {
                                     latitude={question.data.latB}
                                     longitude={question.data.lngB}
                                     onChange={(e) => {
-                                        question.data.latB =
-                                            e.target.getLatLng().lat;
-                                        question.data.lngB =
-                                            e.target.getLatLng().lng;
-                                        questionModified();
+                                        const { lat, lng } =
+                                            e.target.getLatLng();
+                                        updateQuestion(question.key, {
+                                            latB: lat,
+                                            lngB: lng,
+                                        });
                                     }}
                                 />
                             </Fragment>

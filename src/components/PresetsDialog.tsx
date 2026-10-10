@@ -11,12 +11,14 @@ import {
 
 type Props = {
     data: any;
+    questionKey: number;
     presetTypeHint: string;
     triggerLabel?: string;
 };
 
 const PresetsDialog: React.FC<Props> = ({
     data,
+    questionKey,
     presetTypeHint,
     triggerLabel = "Use presets",
 }) => {
@@ -29,7 +31,11 @@ const PresetsDialog: React.FC<Props> = ({
             </DialogTrigger>
             <DialogContent>
                 <DialogTitle>Custom Presets</DialogTitle>
-                <CustomPresets data={data} presetTypeHint={presetTypeHint} />
+                <CustomPresets
+                    data={data}
+                    questionKey={questionKey}
+                    presetTypeHint={presetTypeHint}
+                />
             </DialogContent>
         </Dialog>
     );

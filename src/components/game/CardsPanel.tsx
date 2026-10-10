@@ -22,7 +22,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { withBase } from "@/lib/config";
-import { chosenStation, gameSettings, hiderMode } from "@/lib/context";
+import { chosenStation, gameSettings } from "@/lib/context";
 import {
     type CardInfo,
     cardInfo,
@@ -42,7 +42,7 @@ import {
     handLimit,
     keepCard,
 } from "@/lib/game/hand";
-import { gameRole, gameState, sendOp } from "@/lib/game/session";
+import { gameState, hiderPhone, sendOp } from "@/lib/game/session";
 import type {
     CurseEntry,
     CustomCard,
@@ -241,8 +241,7 @@ const DrawButtons = ({ onPick }: { onPick: (draw: Draw) => void }) => (
 export const CardsPanel = () => {
     useTick();
     const $game = useStore(gameState);
-    const $role = useStore(gameRole);
-    const $hiderMode = useStore(hiderMode);
+    const hider = useStore(hiderPhone);
     const $settings = useStore(gameSettings);
     const $hand = useStore(hand);
     const $limit = useStore(handLimit);
@@ -266,7 +265,6 @@ export const CardsPanel = () => {
     const size = settings.size;
     const custom = settings.customCards;
     const digital = settings.deck === "virtual";
-    const hider = $hiderMode !== false && (!$game || $role === "hider");
     const deck = $game ? $game.deck : digital ? $localDeck : null;
 
     // Playing alone with the digital deck: this phone shuffles one.
@@ -809,7 +807,7 @@ export const CardsPanel = () => {
                             </div>
                         );
                     })}
-                    {$role !== "hider" && digital && deck && (
+                    {!hider && digital && deck && (
                         <p className="text-xs text-slate-400">
                             The hider holds {deck.handSize ?? 0} card
                             {deck.handSize === 1 ? "" : "s"};{" "}

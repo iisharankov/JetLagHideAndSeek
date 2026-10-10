@@ -1,5 +1,5 @@
 import * as turf from "@turf/turf";
-import type { Feature } from "geojson";
+import type { Feature, FeatureCollection } from "geojson";
 import * as L from "leaflet";
 import { toast } from "react-toastify";
 
@@ -10,7 +10,6 @@ import {
     busy,
     draftsOnMap,
     endgame,
-    hiderMode,
     hidingRadius,
     hidingRadiusUnits,
     leafletMapContext,
@@ -20,12 +19,12 @@ import {
     questionFinishedMapData,
     questions,
     questionStatuses,
-    triggerLocalRefresh,
 } from "@/lib/context";
 import { answerOf, describeAnswer } from "@/lib/game/answers";
 import { draftsToApply } from "@/lib/game/drafts";
-import { gameRole, gameState, suggestedAnswers } from "@/lib/game/session";
+import { gameState, hiderPhone, suggestedAnswers } from "@/lib/game/session";
 import { roleOnMap } from "@/lib/game/sync";
+import type { Endgame } from "@/lib/game/types";
 import { createLatestRunner } from "@/lib/jobs";
 import {
     applyQuestionsToMapGeoData,
@@ -68,13 +67,73 @@ const draftColor = (question: Question) =>
         (question.data as { color?: string }).color as keyof typeof ICON_COLORS
     ] ?? "#f59e0b";
 
+// What was worked out last time is kept, so a refresh only recomputes what
+// changed: each area object gets an id, the engine remembers each
+// question's result by the chain of questions before it (see
+// applyQuestionsToMapGeoData), and the masks and draft patches are kept by
+// the same keys.
+
+const areaIds = new WeakMap<object, number>();
+let nextAreaId = 1;
+/** Identifies an area object (the play area, clipped or not). */
+const areaKey = (area: object) => {
+    let id = areaIds.get(area);
+    if (id === undefined) {
+        id = nextAreaId++;
+        areaIds.set(area, id);
+    }
+    return `area:${id}`;
+};
+
+/** The newest few results by key. */
+const keepLatest = <T>(size: number) => {
+    const entries = new Map<string, T>();
+    return (key: string, compute: () => T): T => {
+        if (entries.has(key)) return entries.get(key)!;
+        const value = compute();
+        entries.set(key, value);
+        if (entries.size > size) entries.delete(entries.keys().next().value!);
+        return value;
+    };
+};
+const masks = keepLatest<Feature | null>(8);
+const patches = keepLatest<Feature | null>(16);
+const clippedAreas = keepLatest<FeatureCollection>(2);
+
+/**
+ * The end game: the seekers picked the hider's station, so only its zone is
+ * left (and the questions from before no longer apply).
+ */
+const endgameArea = (
+    playArea: FeatureCollection,
+    $endgame: Endgame,
+): FeatureCollection => {
+    const radius = hidingRadius.get();
+    const units = hidingRadiusUnits.get();
+    const key = `${areaKey(playArea)}|${$endgame.station.lat},${$endgame.station.lng}|${radius} ${units}`;
+    return clippedAreas(key, () => {
+        const circle = turf.circle(
+            [$endgame.station.lng, $endgame.station.lat],
+            turf.convertLength(radius, units, "kilometers"),
+            { steps: 64, units: "kilometers" },
+        );
+        const inside = turf.intersect(
+            turf.featureCollection([
+                safeUnion(playArea as FeatureCollection<any>),
+                circle,
+            ]),
+        );
+        return turf.featureCollection([inside ?? circle]);
+    });
+};
+
 /**
  * Hider in a shared game: hider mode suggests an answer for each question
  * waiting for one, worked out on a copy (nothing is sent until the hider
  * confirms it).
  */
 const suggestAnswers = async (
-    questionsToAnswer: ReturnType<typeof questions.get>,
+    questionsToAnswer: Question[],
     errors: Record<number, QuestionStatus>,
 ) => {
     const game = gameState.get();
@@ -98,6 +157,55 @@ const suggestAnswers = async (
         }
     }
     suggestedAnswers.set(suggestions);
+};
+
+/**
+ * Playing alone in hider mode: the answers follow the hider pin. They are
+ * worked out on copies, and the questions whose answer changed are written
+ * back (which brings the refresh round once more, cheaply, as the rest is
+ * remembered). A question the player changed meanwhile is left alone.
+ */
+const answerFromPin = async (
+    inPlay: Question[],
+    errors: Record<number, QuestionStatus>,
+) => {
+    const answered: Question[] = [];
+    for (const question of inPlay) {
+        if (!question.data.drag) {
+            answered.push(question);
+            continue;
+        }
+        try {
+            const copy = await hiderifyQuestion(structuredClone(question));
+            answered.push(
+                JSON.stringify(copy.data) === JSON.stringify(question.data)
+                    ? question
+                    : copy,
+            );
+        } catch (error) {
+            errors[question.key] = {
+                state: "error",
+                message: `Couldn't answer automatically: ${errorMessage(error)}`,
+            };
+            answered.push(question);
+        }
+    }
+    const changed = new Map(
+        answered.filter((q, i) => q !== inPlay[i]).map((q) => [q.key, q]),
+    );
+    if (changed.size > 0) {
+        const seen = new Map(inPlay.map((q) => [q.key, q]));
+        questions.set(
+            questions
+                .get()
+                .map((q) =>
+                    changed.has(q.key) && seen.get(q.key) === q
+                        ? changed.get(q.key)!
+                        : q,
+                ),
+        );
+    }
+    return answered;
 };
 
 const removeLayers = (map: L.Map, matches: (layer: TaggedLayer) => boolean) => {
@@ -124,6 +232,8 @@ const loadPlayArea = async () => {
 };
 
 let focusNextRun = false;
+/** The key of the area last handed to the hiding zones. */
+let eliminatedKey = "";
 
 const refresh = async () => {
     const map = leafletMapContext.get();
@@ -135,7 +245,7 @@ const refresh = async () => {
 
     if ($questions.length === 0) await clearCache();
 
-    let playArea;
+    let playArea: FeatureCollection;
     try {
         playArea = await loadPlayArea();
     } catch (error) {
@@ -145,30 +255,19 @@ const refresh = async () => {
         return;
     }
 
-    // The end game: the seekers picked the hider's station, so only its
-    // zone is left, and the questions from before no longer apply.
     const $endgame = endgame.get();
     const before = new Set($endgame?.before ?? []);
-    const inPlay = $endgame
+    let inPlay = $endgame
         ? $questions.filter((q) => !before.has(q.key))
         : $questions;
-    if ($endgame) {
-        const circle = turf.circle(
-            [$endgame.station.lng, $endgame.station.lat],
-            turf.convertLength(
-                hidingRadius.get(),
-                hidingRadiusUnits.get(),
-                "kilometers",
-            ),
-            { steps: 64, units: "kilometers" },
-        );
-        const inside = turf.intersect(
-            turf.featureCollection([safeUnion(playArea), circle]),
-        );
-        playArea = turf.featureCollection([inside ?? circle]);
-    }
+    if ($endgame) playArea = endgameArea(playArea, $endgame);
+    const baseKey = areaKey(playArea);
 
     const game = gameState.get();
+    const hider = hiderPhone.get();
+    const hiderModeErrors: Record<number, QuestionStatus> = {};
+    if (hider && !game) inPlay = await answerFromPin(inPlay, hiderModeErrors);
+
     const confirmed = inPlay.filter((q) => roleOnMap(q, game) === "confirmed");
     const drafts = inPlay.filter((q) => roleOnMap(q, game) === "speculative");
     // All drafts, or only the active card's (the others just outlined).
@@ -178,24 +277,7 @@ const refresh = async () => {
     const outlinedDrafts = drafts.filter((q) => !speculative.includes(q));
     const waiting = inPlay.filter((q) => roleOnMap(q, game) === "waiting");
     const vetoed = inPlay.filter((q) => roleOnMap(q, game) === "vetoed");
-
-    const hiderModeErrors: Record<number, QuestionStatus> = {};
-    if (hiderMode.get() !== false && game && gameRole.get() === "hider") {
-        await suggestAnswers(waiting, hiderModeErrors);
-    } else if (hiderMode.get() !== false && !game) {
-        for (const question of inPlay) {
-            try {
-                await hiderifyQuestion(question);
-            } catch (error) {
-                hiderModeErrors[question.key] = {
-                    state: "error",
-                    message: `Couldn't answer automatically: ${errorMessage(error)}`,
-                };
-            }
-        }
-        // Show the new answers in the sidebar without re-running this refresh.
-        triggerLocalRefresh.set(Math.random());
-    }
+    if (hider && game) await suggestAnswers(waiting, hiderModeErrors);
 
     removeLayers(map, (layer) => layer.questionKey !== undefined);
     const drawOutline = (
@@ -212,33 +294,42 @@ const refresh = async () => {
         playArea,
         planningModeEnabled.get(),
         drawOutline,
+        baseKey,
     );
     // Each draft on its own, so its ruled-out area can be drawn in its colour.
     const guessedStatuses = new Map<number, QuestionStatus>();
-    const patches: { question: (typeof speculative)[number]; area: Feature }[] =
-        [];
+    const patched: { question: Question; area: Feature }[] = [];
     let current = known.mapGeoData;
+    let currentKey = known.key;
     for (const draft of speculative) {
         const step = await applyQuestionsToMapGeoData(
             [draft],
             current,
             planningModeEnabled.get(),
             drawOutline,
+            currentKey,
         );
         for (const [key, status] of step.statuses)
             guessedStatuses.set(key, status);
-        try {
-            const area = turf.difference(
-                turf.featureCollection([
-                    safeUnion(current),
-                    safeUnion(step.mapGeoData),
-                ]),
-            );
-            if (area) patches.push({ question: draft, area });
-        } catch {
-            // Nothing drawable for this draft.
+        if (step.mapGeoData !== current) {
+            const from = current;
+            const area = patches(step.key, () => {
+                try {
+                    return turf.difference(
+                        turf.featureCollection([
+                            safeUnion(from),
+                            safeUnion(step.mapGeoData),
+                        ]),
+                    );
+                } catch {
+                    // Nothing drawable for this draft.
+                    return null;
+                }
+            });
+            if (area) patched.push({ question: draft, area });
         }
         current = step.mapGeoData;
+        currentKey = step.key;
     }
     const mapGeoData = current;
     for (const question of outlinedDrafts) {
@@ -317,12 +408,13 @@ const refresh = async () => {
     });
 
     removeLayers(map, (layer) => layer.eliminationGeoJSON === true);
+    const knownMask = masks(known.key, () => holedMask(known.mapGeoData));
     const shading = L.geoJSON(
-        turf.featureCollection([holedMask(known.mapGeoData)!]),
+        turf.featureCollection([knownMask!]),
     ) as L.GeoJSON & TaggedLayer;
     shading.eliminationGeoJSON = true;
     shading.addTo(map);
-    for (const patch of patches) {
+    for (const patch of patched) {
         const layer = L.geoJSON(patch.area, {
             style: speculativeStyle(draftColor(patch.question)),
             interactive: false,
@@ -330,8 +422,15 @@ const refresh = async () => {
         layer.eliminationGeoJSON = true;
         layer.addTo(map);
     }
-    const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
-    questionFinishedMapData.set(eliminated);
+    // The hiding zones follow what's left; they only recompute when it changed.
+    if (
+        currentKey !== eliminatedKey ||
+        questionFinishedMapData.get() === null
+    ) {
+        eliminatedKey = currentKey;
+        const mask = masks(currentKey, () => holedMask(mapGeoData));
+        questionFinishedMapData.set(turf.featureCollection([mask!]));
+    }
 
     if (focus && autoZoom.get()) {
         const [minLng, minLat, maxLng, maxLat] = turf.bbox(mapGeoData);

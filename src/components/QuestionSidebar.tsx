@@ -31,15 +31,13 @@ import { withBase } from "@/lib/config";
 import {
     autoSave,
     clearQuestions,
-    hiderMode,
     isLoading,
     questions,
     save,
     sidebarTab,
-    triggerLocalRefresh,
 } from "@/lib/context";
 import { hand, handLimit } from "@/lib/game/hand";
-import { gameRole, gameState, sendOp } from "@/lib/game/session";
+import { gameRole, gameState, hiderPhone, sendOp } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
@@ -71,16 +69,14 @@ const HiderPanel = withErrorBoundary(HiderPanelPlain, "hider panel", [
 ]);
 
 export const QuestionSidebar = () => {
-    useStore(triggerLocalRefresh);
     const $questions = useStore(questions);
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
-    const $hiderMode = useStore(hiderMode);
     const tab = useStore(sidebarTab);
     // The hider's phone: the Stations tab is the Hider tab.
-    const hider = $hiderMode !== false && (!$game || $role === "hider");
+    const hider = useStore(hiderPhone);
     // Too many cards in the hand: the hider stays in Cards until it's fixed.
     const $hand = useStore(hand);
     const $limit = useStore(handLimit);
