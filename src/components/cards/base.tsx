@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VscChevronDown, VscShare, VscTrash } from "react-icons/vsc";
 
 import { QuestionGameBar } from "@/components/game/QuestionGameBar";
@@ -35,10 +35,13 @@ import { showUndoToast } from "@/components/undoToast";
 import {
     activeQuestionKey,
     deleteQuestion,
+    draftsOnMap,
     isLoading,
     questions,
     questionStatuses,
+    triggerLocalRefresh,
 } from "@/lib/context";
+import { DRAWS } from "@/lib/game/deck";
 import { gameRole, gameState } from "@/lib/game/session";
 import { canChangeQuestion } from "@/lib/game/sync";
 import { cn } from "@/lib/utils";
@@ -81,11 +84,40 @@ export const QuestionCard = ({
     const $role = useStore(gameRole);
     const lockedByGame = !canChangeQuestion(questionKey, $game, $role);
 
+    // The card follows its question's saved state (another card may fold it).
+    useEffect(() => {
+        if (collapsed !== undefined) setIsCollapsed(collapsed);
+    }, [collapsed]);
+    const draw = question ? DRAWS[question.id] : undefined;
+    const isDraft =
+        !!$game &&
+        ($game.questions[String(questionKey)]?.state ?? "draft") === "draft";
+
+    /** "Only the open card" drafts: this one opens, the other drafts fold. */
+    const focusDraft = () => {
+        if (!isDraft || draftsOnMap.get() !== "active") return;
+        for (const other of questions.get()) {
+            if (
+                other.key !== questionKey &&
+                ($game?.questions[String(other.key)]?.state ?? "draft") ===
+                    "draft"
+            ) {
+                other.data.collapsed = true;
+            }
+        }
+        setCollapsed?.(false);
+        setIsCollapsed(false);
+        triggerLocalRefresh.set(Math.random());
+    };
+
     const toggleCollapse = () => {
         if (setCollapsed) {
             setCollapsed(!isCollapsed);
         }
-        if (isCollapsed) activeQuestionKey.set(questionKey);
+        if (isCollapsed) {
+            activeQuestionKey.set(questionKey);
+            focusDraft();
+        }
         setIsCollapsed((prevState) => !prevState);
     };
 
@@ -98,7 +130,12 @@ export const QuestionCard = ({
                         "bg-blue-500/10 ring-1 ring-inset ring-blue-500/60",
                     className,
                 )}
-                onPointerDown={() => activeQuestionKey.set(questionKey)}
+                onPointerDown={() => {
+                    if (activeQuestionKey.get() !== questionKey) {
+                        activeQuestionKey.set(questionKey);
+                        focusDraft();
+                    }
+                }}
                 data-active={isActive || undefined}
             >
                 <div className="relative">
@@ -116,6 +153,14 @@ export const QuestionCard = ({
                         onClick={toggleCollapse}
                     >
                         {label} {sub && `(${sub})`}
+                        {draw && (
+                            <span
+                                className="ml-2 text-[10px] font-normal text-slate-400"
+                                title="What the hider draws from the deck for answering"
+                            >
+                                hider draws {draw.draw}, keeps {draw.keep}
+                            </span>
+                        )}
                     </SidebarGroupLabel>
                     {question && (
                         <QuestionInfoButton
@@ -133,6 +178,16 @@ export const QuestionCard = ({
                         />
                     )}
                     <QuestionGameBar questionKey={questionKey} />
+                    {status?.state === "skipped" &&
+                        status.reason === "inactive-draft" && (
+                            <p
+                                role="status"
+                                className="mx-2 mb-1 rounded-md bg-slate-700/60 px-2 py-1 text-xs text-slate-200"
+                            >
+                                Draft only outlined: tap the card to show it on
+                                the map (Settings → drafts: only the open card).
+                            </p>
+                        )}
                     {status?.state === "skipped" &&
                         status.reason === "vetoed" && (
                             <p

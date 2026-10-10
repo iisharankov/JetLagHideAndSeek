@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
+    chosenStation,
     disabledStations,
     endgame,
     gameSettings,
@@ -226,6 +227,27 @@ const receive = (received: GameState, force = false) => {
         if (JSON.stringify(remoteEndgame) !== JSON.stringify(endgame.get())) {
             endgame.set(remoteEndgame);
         }
+        // The hiding spot is shared between the hider's phones (two people
+        // hiding together): a station picked on one is the station on both,
+        // and nothing from an earlier game lingers.
+        if (gameRole.get() === "hider" && state.hider) {
+            if (
+                JSON.stringify(state.hider.station) !==
+                JSON.stringify(chosenStation.get())
+            ) {
+                chosenStation.set(state.hider.station);
+            }
+            const pin = state.hider.pin;
+            const mine = hiderMode.get();
+            if (
+                pin &&
+                (mine === false ||
+                    mine.latitude !== pin.latitude ||
+                    mine.longitude !== pin.longitude)
+            ) {
+                hiderMode.set(pin);
+            }
+        }
         // The game's settings are the server's.
         applyGameSettings(state.settings);
         remember(state);
@@ -329,6 +351,21 @@ const listenForLocalChanges = () => {
         store.listen(() => inGame() && syncPlayArea());
     }
     disabledStations.listen(() => inGame() && syncZone());
+    // The hider's station and pin go to the hider's other phones.
+    chosenStation.listen((station) => {
+        if (inGame() && gameRole.get() === "hider") {
+            void sendOp({ type: "setHiderStation", station });
+        }
+    });
+    let pinTimer: ReturnType<typeof setTimeout> | undefined;
+    hiderMode.listen((pin) => {
+        if (!inGame() || gameRole.get() !== "hider" || pin === false) return;
+        clearTimeout(pinTimer);
+        pinTimer = setTimeout(
+            () => void sendOp({ type: "setHiderPin", pin }),
+            300,
+        );
+    });
 };
 
 const disconnect = () => {

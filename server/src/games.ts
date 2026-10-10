@@ -131,6 +131,7 @@ export const createGameStore = (
         state.deck ??= null;
         state.move ??= null;
         state.moves ??= [];
+        state.hider ??= { station: null, pin: null };
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };

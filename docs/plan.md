@@ -345,6 +345,30 @@ From the photos of the metric edition and the counted deck:
 6. The hider's clock shows **+mm:ss** — the bonuses in hand if caught now.
 7. Vetoed questions stay in the list, marked, and aren't applied.
 
+## Round 11: drafts on the map, alerts, card tidy-ups ✅ (2026-10-10)
+
+1. **Drafts on the map** (Settings → Questions): *All, each in its colour*
+   (each draft's ruled-out area in its pin colour, dashed) or *Only the open
+   card* (tapping a draft card shows just that one and folds the other
+   drafts; the rest are outlined in their colour, with a note on the card).
+2. **"hider draws N, keeps M"** on every question card and in the Photos tab.
+3. **Alerts** (`src/lib/game/alerts.ts`, `events.ts`): the hider's phone gets
+   a toast, a buzz and a beep for new questions and photo questions; the
+   seekers' for answers, vetoes, photos; cards played still pop up. A
+   Settings → Alerts switch, and "Allow notifications in the background"
+   (system notification while the app is open in the background; on iPhone
+   only the installed app, iOS 16.4+). Help explains how to install the app.
+4. Toasts can be swiped away.
+5. Cards: the big view no longer repeats the text above the picture; when
+   picking cards to keep (or to discard), tapping a card opens it to read —
+   a Keep / Discard toggle under it picks it. Draws with nothing to choose
+   (photo 1 → 1, discard-and-draw) go straight into the hand.
+6. **Two hiders, one spot:** the hider's station and pin now live in the
+   game (visible to the hider's phones only, never the seekers'), so a
+   second hider phone sees the same station and nothing from an earlier
+   game lingers. A new round clears it; a Move clears the station.
+7. The card tiles' buttons are stacked, so nothing is cut off in the sidebar.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

@@ -109,6 +109,10 @@ export const PhotosPanel = () => {
 
             {$game && $game.photoRequests.length > 0 && (
                 <section className="flex flex-col gap-2">
+                    <p className="text-xs text-slate-400">
+                        For each photo answered, the hider draws 1 card and
+                        keeps it.
+                    </p>
                     <h3 className="font-semibold font-poppins">Asked</h3>
                     {[...$game.photoRequests].reverse().map((request) => (
                         <div

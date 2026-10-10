@@ -1,11 +1,14 @@
 import * as turf from "@turf/turf";
+import type { Feature } from "geojson";
 import * as L from "leaflet";
 import { toast } from "react-toastify";
 
 import {
+    activeQuestionKey,
     animateMapMovements,
     autoZoom,
     busy,
+    draftsOnMap,
     endgame,
     hiderMode,
     hidingRadius,
@@ -20,6 +23,7 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 import { answerOf, describeAnswer } from "@/lib/game/answers";
+import { draftsToApply } from "@/lib/game/drafts";
 import { gameRole, gameState, suggestedAnswers } from "@/lib/game/session";
 import { roleOnMap } from "@/lib/game/sync";
 import { createLatestRunner } from "@/lib/jobs";
@@ -31,8 +35,9 @@ import {
     type QuestionStatus,
     safeUnion,
 } from "@/maps";
-import { clearCache, determineMapBoundaries } from "@/maps/api";
+import { clearCache, determineMapBoundaries, ICON_COLORS } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
+import type { Question } from "@/maps/schema";
 
 /** Layers this module owns are tagged so they can be found again. */
 type TaggedLayer = L.Layer & {
@@ -48,14 +53,20 @@ const WAITING_STYLE: L.PathOptions = {
     fill: false,
 };
 
-/** Areas ruled out only by seekers' draft questions (speculation). */
-const SPECULATIVE_STYLE: L.PathOptions = {
-    color: "#f59e0b",
-    fillColor: "#f59e0b",
+/** Areas ruled out only by a seekers' draft question (speculation), in its colour. */
+const speculativeStyle = (color: string): L.PathOptions => ({
+    color,
+    fillColor: color,
     fillOpacity: 0.3,
     weight: 2,
     dashArray: "6 4",
-};
+});
+
+/** A draft's colour: its pin's, amber without one. */
+const draftColor = (question: Question) =>
+    ICON_COLORS[
+        (question.data as { color?: string }).color as keyof typeof ICON_COLORS
+    ] ?? "#f59e0b";
 
 /**
  * Hider in a shared game: hider mode suggests an answer for each question
@@ -159,9 +170,12 @@ const refresh = async () => {
 
     const game = gameState.get();
     const confirmed = inPlay.filter((q) => roleOnMap(q, game) === "confirmed");
-    const speculative = inPlay.filter(
-        (q) => roleOnMap(q, game) === "speculative",
-    );
+    const drafts = inPlay.filter((q) => roleOnMap(q, game) === "speculative");
+    // All drafts, or only the active card's (the others just outlined).
+    const speculative = game
+        ? draftsToApply(drafts, draftsOnMap.get(), activeQuestionKey.get())
+        : drafts;
+    const outlinedDrafts = drafts.filter((q) => !speculative.includes(q));
     const waiting = inPlay.filter((q) => roleOnMap(q, game) === "waiting");
     const vetoed = inPlay.filter((q) => roleOnMap(q, game) === "vetoed");
 
@@ -199,13 +213,54 @@ const refresh = async () => {
         planningModeEnabled.get(),
         drawOutline,
     );
-    const guessed = await applyQuestionsToMapGeoData(
-        speculative,
-        known.mapGeoData,
-        planningModeEnabled.get(),
-        drawOutline,
-    );
-    const mapGeoData = guessed.mapGeoData;
+    // Each draft on its own, so its ruled-out area can be drawn in its colour.
+    const guessedStatuses = new Map<number, QuestionStatus>();
+    const patches: { question: (typeof speculative)[number]; area: Feature }[] =
+        [];
+    let current = known.mapGeoData;
+    for (const draft of speculative) {
+        const step = await applyQuestionsToMapGeoData(
+            [draft],
+            current,
+            planningModeEnabled.get(),
+            drawOutline,
+        );
+        for (const [key, status] of step.statuses)
+            guessedStatuses.set(key, status);
+        try {
+            const area = turf.difference(
+                turf.featureCollection([
+                    safeUnion(current),
+                    safeUnion(step.mapGeoData),
+                ]),
+            );
+            if (area) patches.push({ question: draft, area });
+        } catch {
+            // Nothing drawable for this draft.
+        }
+        current = step.mapGeoData;
+    }
+    const mapGeoData = current;
+    for (const question of outlinedDrafts) {
+        try {
+            const outline = await questionOutline(question);
+            if (outline) {
+                const layer = L.geoJSON(outline, {
+                    style: {
+                        color: draftColor(question),
+                        weight: 2,
+                        dashArray: "4 4",
+                        fill: false,
+                    },
+                    interactive: false,
+                }) as L.GeoJSON & TaggedLayer;
+                layer.questionKey = question.key;
+                layer.addTo(map);
+            }
+        } catch {
+            // Nothing to draw for this one.
+        }
+    }
     // Questions waiting for the hider are drawn, not applied, so the hider
     // (and everyone) sees what's being asked.
     for (const question of waiting) {
@@ -225,7 +280,16 @@ const refresh = async () => {
     }
     questionStatuses.set({
         ...Object.fromEntries(known.statuses),
-        ...Object.fromEntries(guessed.statuses),
+        ...Object.fromEntries(guessedStatuses),
+        ...Object.fromEntries(
+            outlinedDrafts.map((q) => [
+                q.key,
+                {
+                    state: "skipped",
+                    reason: "inactive-draft",
+                } as QuestionStatus,
+            ]),
+        ),
         ...Object.fromEntries(
             waiting.map((q) => [
                 q.key,
@@ -258,21 +322,13 @@ const refresh = async () => {
     ) as L.GeoJSON & TaggedLayer;
     shading.eliminationGeoJSON = true;
     shading.addTo(map);
-    if (speculative.length > 0) {
-        const ruledOutByGuesses = turf.difference(
-            turf.featureCollection([
-                safeUnion(known.mapGeoData),
-                safeUnion(mapGeoData),
-            ]),
-        );
-        if (ruledOutByGuesses) {
-            const layer = L.geoJSON(ruledOutByGuesses, {
-                style: SPECULATIVE_STYLE,
-                interactive: false,
-            }) as L.GeoJSON & TaggedLayer;
-            layer.eliminationGeoJSON = true;
-            layer.addTo(map);
-        }
+    for (const patch of patches) {
+        const layer = L.geoJSON(patch.area, {
+            style: speculativeStyle(draftColor(patch.question)),
+            interactive: false,
+        }) as L.GeoJSON & TaggedLayer;
+        layer.eliminationGeoJSON = true;
+        layer.addTo(map);
     }
     const eliminated = turf.featureCollection([holedMask(mapGeoData)!]);
     questionFinishedMapData.set(eliminated);

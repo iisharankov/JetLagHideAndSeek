@@ -110,6 +110,21 @@ describe("the digital hider deck", () => {
         expect(deck.log.at(-1)?.text).toMatch(/deck is empty/);
     });
 
+    it("keeps a draw with nothing to choose by itself", () => {
+        let deck = {
+            ...newDeck(),
+            remaining: ["a", "b", "c"],
+            owed: [
+                { draw: 1, keep: 1, label: "Photo" },
+                { draw: 2, keep: 2, label: "Discard 1, Draw 2" },
+            ],
+        };
+        deck = advanceDeck(deck, 1000);
+        expect(deck.hand).toEqual(["a", "b", "c"]);
+        expect(deck.pending).toEqual([]);
+        expect(deck.owed).toEqual([]);
+    });
+
     it("shuffles the discard pile back in when the deck runs short", () => {
         let deck = { ...newDeck(), remaining: ["a"], discard: ["x", "y"] };
         deck = drawCards(deck, { draw: 2, keep: 1, label: "Radar" }, () => 0);

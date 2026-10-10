@@ -183,10 +183,36 @@ export const drawCards = (
     };
 };
 
+/** Keeps the picked cards of the draw (by index); the rest are discarded. */
+export const keepCards = (deck: Deck, picks: number[]): Deck => {
+    const chosen = [...new Set(picks)].filter(
+        (index) =>
+            Number.isInteger(index) &&
+            index >= 0 &&
+            index < deck.pending.length,
+    );
+    if (chosen.length !== deck.pendingKeep) {
+        throw new Error(
+            `Pick ${deck.pendingKeep} card${deck.pendingKeep === 1 ? "" : "s"}.`,
+        );
+    }
+    return {
+        ...deck,
+        hand: [...deck.hand, ...chosen.map((index) => deck.pending[index])],
+        discard: [
+            ...deck.discard,
+            ...deck.pending.filter((_, index) => !chosen.includes(index)),
+        ],
+        pending: [],
+        pendingKeep: 0,
+    };
+};
+
 /**
  * Deals the next draw the hider is owed, as soon as nothing is pending: the
- * cards just come. An empty deck (discard pile included) drops the draw with
- * a note.
+ * cards just come. A draw with nothing to choose ("draw 1, keep 1", "draw
+ * and keep 2") goes straight to the hand. An empty deck (discard pile
+ * included) drops the draw with a note.
  */
 export const advanceDeck = (
     deck: Deck,
@@ -211,33 +237,17 @@ export const advanceDeck = (
             continue;
         }
         next = drawCards({ ...next, owed }, draw, random);
+        if (
+            next.pending.length > 0 &&
+            next.pendingKeep >= next.pending.length
+        ) {
+            next = keepCards(
+                next,
+                next.pending.map((_, index) => index),
+            );
+        }
     }
     return next;
-};
-
-/** Keeps the picked cards of the draw (by index); the rest are discarded. */
-export const keepCards = (deck: Deck, picks: number[]): Deck => {
-    const chosen = [...new Set(picks)].filter(
-        (index) =>
-            Number.isInteger(index) &&
-            index >= 0 &&
-            index < deck.pending.length,
-    );
-    if (chosen.length !== deck.pendingKeep) {
-        throw new Error(
-            `Pick ${deck.pendingKeep} card${deck.pendingKeep === 1 ? "" : "s"}.`,
-        );
-    }
-    return {
-        ...deck,
-        hand: [...deck.hand, ...chosen.map((index) => deck.pending[index])],
-        discard: [
-            ...deck.discard,
-            ...deck.pending.filter((_, index) => !chosen.includes(index)),
-        ],
-        pending: [],
-        pendingKeep: 0,
-    };
 };
 
 /** A card leaves the hand (played or discarded). */

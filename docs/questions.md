@@ -23,13 +23,6 @@ _Recommended: yes, small._
 
 **Answer:**
 
-**Q36.** Buzz. Vibrate (and, when the page is in the background, show a
-notification) when a question arrives for the hider, an answer arrives for
-the seekers, or a curse is cast. Phones in pockets miss toasts.
-_Recommended: yes, as a setting that's on by default._
-
-**Answer:**
-
 **Q37.** Scoreboard. Each round's hiding time plus bonuses, per hider, in
 Menu → Game; the best round wins (the rulebook counts only a player's best
 round). _Recommended: yes, now that the clock exists._
@@ -153,3 +146,9 @@ From your earlier answers (rounds 1–4), already built or planned:
   or a photo; the digital deck deals draws by itself (no drawing by hand);
   Move puts the questions away and freezes the seekers until the hider
   continues; played cards pop up for the seekers.
+- **Round 11 (Q36):** buzz, beep and background notifications for the game's
+  news; drafts on the map per colour or only the open card; the draw per
+  question type shown on the cards; toasts swipe away; card picks open the
+  card to read, and draws without a choice go straight to the hand.
+  The hider's station and pin are shared between the hider's phones (hidden
+  from the seekers), so two hiders always have the same spot.

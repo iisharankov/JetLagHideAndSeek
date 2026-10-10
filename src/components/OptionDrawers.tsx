@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/drawer";
 import { withBase } from "@/lib/config";
 import {
+    alertsEnabled,
     allowPublicOverpass,
     animateMapMovements,
     autoSave,
@@ -27,6 +28,7 @@ import {
     customInitPreference,
     defaultCustomQuestions,
     defaultUnit,
+    draftsOnMap,
     followMe,
     hidingZone,
     leafletMapContext,
@@ -41,6 +43,11 @@ import {
     showTutorial,
     triggerLocalRefresh,
 } from "@/lib/context";
+import {
+    askNotifications,
+    notificationsState,
+    type NotificationState,
+} from "@/lib/game/alerts";
 import { resumeGame } from "@/lib/game/session";
 import { downloadSharedGame, uploadSharedGame } from "@/lib/shareApi";
 import {
@@ -108,6 +115,11 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const $customInitPref = useStore(customInitPreference);
     const $allowPublicOverpass = useStore(allowPublicOverpass);
     const $autoSave = useStore(autoSave);
+    const $draftsOnMap = useStore(draftsOnMap);
+    const $alerts = useStore(alertsEnabled);
+    const [notifications, setNotifications] =
+        useState<NotificationState>("default");
+    useEffect(() => setNotifications(notificationsState()), []);
     const $overpassCustomHost = useStore(overpassCustomHost);
     const isOptionsOpen = useStore(menuOpen);
     const setOptionsOpen = menuOpen.set;
@@ -373,6 +385,22 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                 Tutorial
                                             </Button>
                                         </div>
+                                        <details className="text-xs text-slate-400">
+                                            <summary className="cursor-pointer text-slate-200">
+                                                Install on your phone
+                                            </summary>
+                                            <p className="mt-1">
+                                                Android (Chrome): the ⋮ menu →
+                                                &quot;Add to Home screen&quot;
+                                                or &quot;Install app&quot;.
+                                                iPhone (Safari): Share →
+                                                &quot;Add to Home Screen&quot;.
+                                                It then opens full-screen like
+                                                an app; background notifications
+                                                need the installed app on iOS
+                                                16.4 or later.
+                                            </p>
+                                        </details>
                                     </MenuGroup>
                                 </>
                             )}
@@ -472,6 +500,31 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                         />
                                     </MenuGroup>
                                     <MenuGroup title="Questions">
+                                        <Label>
+                                            Seekers&apos; drafts on the map
+                                        </Label>
+                                        <SegmentedControl
+                                            label="Drafts on the map"
+                                            options={[
+                                                {
+                                                    value: "all",
+                                                    label: "All, each in its colour",
+                                                },
+                                                {
+                                                    value: "active",
+                                                    label: "Only the open card",
+                                                },
+                                            ]}
+                                            value={$draftsOnMap}
+                                            onValueChange={draftsOnMap.set}
+                                        />
+                                        <p className="text-xs text-slate-400">
+                                            Drafts are questions not sent to the
+                                            hider yet. &quot;Only the open
+                                            card&quot;: tapping a draft shows
+                                            just that one; the others are
+                                            outlined.
+                                        </p>
                                         <ToggleCard
                                             title="Planning mode"
                                             description="Unlocked questions only draw where they would split the map, without applying an answer."
@@ -506,6 +559,42 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                 )
                                             }
                                         />
+                                    </MenuGroup>
+                                    <MenuGroup title="Alerts">
+                                        <ToggleCard
+                                            title="Buzz and beep"
+                                            description="New questions (hider), answers and cards played (seekers). The beep works after your first tap on the page."
+                                            checked={$alerts}
+                                            onCheckedChange={alertsEnabled.set}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            disabled={
+                                                notifications === "granted" ||
+                                                notifications === "unsupported"
+                                            }
+                                            onClick={async () =>
+                                                setNotifications(
+                                                    await askNotifications(),
+                                                )
+                                            }
+                                        >
+                                            {notifications === "granted"
+                                                ? "Notifications allowed ✓"
+                                                : notifications === "denied"
+                                                  ? "Notifications blocked in the browser's site settings"
+                                                  : notifications ===
+                                                      "unsupported"
+                                                    ? "No notifications on this browser"
+                                                    : "Allow notifications in the background"}
+                                        </Button>
+                                        <p className="text-xs text-slate-400">
+                                            Notifications reach you while the
+                                            app is open in the background. On an
+                                            iPhone, install the app first (Share
+                                            → Add to Home Screen; iOS 16.4 or
+                                            later).
+                                        </p>
                                     </MenuGroup>
                                     <MenuGroup title="Map data">
                                         <p className="text-xs text-slate-400">

@@ -61,6 +61,6 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
     </head>
     <body class:list={[className, "dark"]}>
         <slot />
-        <ToastContainer client:only />
+        <ToastContainer client:only draggable closeOnClick draggablePercent={40} />
     </body>
 </html>

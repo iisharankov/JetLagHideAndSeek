@@ -1,20 +1,21 @@
 import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 
-import { CardText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { withBase } from "@/lib/config";
+import { notify } from "@/lib/game/alerts";
 import { type CardInfo, CARDS, customCardInfo } from "@/lib/game/deck";
+import { gameEvents } from "@/lib/game/events";
 import { gameRole, gameState } from "@/lib/game/session";
 import type { GameState } from "@/lib/game/types";
-import { cardImage } from "@/lib/rules/cards";
+
+import { CardFace } from "./CardFace";
 
 /** Powerups the seekers must know about at once. */
 const IMPORTANT = new Set(["Veto Question", "Randomize Question", "Move"]);
@@ -35,73 +36,51 @@ const cardNamed = (state: GameState, name: string) => {
 };
 
 /**
- * What the hider plays pops up on the seekers' phones: curses always, and
- * the powerups that change their game (veto, randomize, move), or every
- * card when the game is set up that way.
+ * The news of a shared game, as it reaches this phone: a toast with a buzz
+ * and a beep for questions, answers and photos; a popup with the card for
+ * curses and the powerups that change the seekers' game (or every card,
+ * when the game is set up that way).
  */
 export const GamePopups = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
-    const seen = useRef<{ game: string; ids: Set<string> } | null>(null);
+    const previous = useRef<GameState | null>(null);
     const [queue, setQueue] = useState<Popup[]>([]);
 
     useEffect(() => {
-        if (!$game) {
-            seen.current = null;
-            return;
-        }
-        const ids = new Set([
-            ...$game.curses.map((curse) => `c${curse.id}`),
-            ...$game.powerups.map((powerup) => `p${powerup.id}`),
-        ]);
-        // The first state of a game: nothing new to announce.
-        if (!seen.current || seen.current.game !== $game.id) {
-            seen.current = { game: $game.id, ids };
-            return;
-        }
-        const before = seen.current.ids;
-        seen.current = { game: $game.id, ids };
-        if ($role === "hider") return;
-
-        const fresh: Popup[] = [];
-        for (const curse of $game.curses) {
-            if (before.has(`c${curse.id}`)) continue;
-            fresh.push({
-                key: `c${curse.id}`,
-                title: `The hider cast ${curse.name}`,
-                ...cardNamed($game, curse.name),
-            });
-        }
-        for (const powerup of $game.powerups) {
-            if (before.has(`p${powerup.id}`)) continue;
+        const before = previous.current;
+        previous.current = $game;
+        if (!$game) return;
+        const events = gameEvents(before, $game, $role);
+        const popups: Popup[] = [];
+        for (const event of events) {
             if (
+                event.kind === "powerup" &&
                 $game.settings.cardPopups !== "all" &&
-                !IMPORTANT.has(powerup.name)
+                !IMPORTANT.has(event.name ?? "")
             ) {
                 continue;
             }
-            fresh.push({
-                key: `p${powerup.id}`,
-                title: `${powerup.by || "The hider"} played ${powerup.name}`,
-                ...cardNamed($game, powerup.name),
-                note:
-                    powerup.name === "Move"
-                        ? `The hider is moving to a new station${
-                              $game.move?.station
-                                  ? ` and was at ${$game.move.station.name}`
-                                  : ""
-                          }. No questions until they continue; the questions so far are put away (Cards → History).`
-                        : undefined,
-            });
-        }
-        if (fresh.length > 0) {
-            setQueue((current) => [...current, ...fresh]);
-            try {
-                navigator.vibrate?.(200);
-            } catch {
-                // No vibration on this device.
+            if (
+                event.kind === "curse" ||
+                event.kind === "powerup" ||
+                event.kind === "move"
+            ) {
+                popups.push({
+                    key: event.key,
+                    title: event.title,
+                    ...cardNamed($game, event.name ?? ""),
+                    note: event.body,
+                });
+            } else {
+                toast.info(
+                    event.body ? `${event.title}: ${event.body}` : event.title,
+                    { toastId: event.key, autoClose: 8000 },
+                );
             }
         }
+        if (events.length > 0) notify(events[0].title, events[0].body);
+        if (popups.length > 0) setQueue((current) => [...current, ...popups]);
     }, [$game, $role]);
 
     const current = queue[0];
@@ -117,28 +96,15 @@ export const GamePopups = () => {
                     <>
                         <DialogHeader>
                             <DialogTitle>{current.title}</DialogTitle>
-                            {current.card?.effect && (
-                                <DialogDescription>
-                                    <CardText
-                                        text={current.card.effect}
-                                        size={$game?.settings.size}
-                                    />
-                                </DialogDescription>
-                            )}
                         </DialogHeader>
-                        {current.card?.image ? (
-                            <img
-                                src={withBase(cardImage(current.card.image))}
-                                alt={current.card.name}
-                                className="mx-auto max-h-[50vh] rounded-md"
+                        {current.card && (
+                            <CardFace
+                                card={current.card}
+                                size={$game?.settings.size}
+                                photo={current.photo}
+                                className="mx-auto max-h-[55vh] max-w-[340px]"
                             />
-                        ) : current.photo ? (
-                            <img
-                                src={current.photo}
-                                alt={current.card?.name ?? ""}
-                                className="mx-auto max-h-[50vh] rounded-md"
-                            />
-                        ) : null}
+                        )}
                         {current.note && (
                             <p className="text-sm">{current.note}</p>
                         )}

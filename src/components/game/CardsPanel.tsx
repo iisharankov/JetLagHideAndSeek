@@ -50,8 +50,10 @@ import type {
     GameSize,
     PowerupEntry,
 } from "@/lib/game/types";
-import { cardImage, CURSES, POWERUPS } from "@/lib/rules/cards";
+import { CURSES, POWERUPS } from "@/lib/rules/cards";
 import { cn } from "@/lib/utils";
+
+import { CardFace } from "./CardFace";
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
 
@@ -80,45 +82,31 @@ const customPhoto = (card: CardInfo, custom: CustomCard[]) =>
 const CardPicture = ({
     card,
     custom,
+    size,
     onOpen,
     selected,
     className,
 }: {
     card: CardInfo;
     custom: CustomCard[];
+    size: GameSize;
     onOpen: () => void;
     selected?: boolean;
     className?: string;
-}) => {
-    const photo = customPhoto(card, custom);
-    return (
-        <button
-            type="button"
-            aria-label={card.name}
-            onClick={onOpen}
-            className={cn(
-                "block w-full overflow-hidden rounded-md border-2 border-transparent",
-                selected && "border-blue-400 ring-2 ring-blue-400",
-                className,
-            )}
-        >
-            {card.image ? (
-                <img
-                    src={withBase(cardImage(card.image))}
-                    alt={card.name}
-                    loading="lazy"
-                    className="w-full"
-                />
-            ) : photo ? (
-                <img src={photo} alt={card.name} className="w-full" />
-            ) : (
-                <span className="flex aspect-[5/7] w-full flex-col items-center justify-center bg-white p-2 text-center text-[11px] font-bold uppercase leading-tight text-slate-800">
-                    {card.name}
-                </span>
-            )}
-        </button>
-    );
-};
+}) => (
+    <button
+        type="button"
+        aria-label={card.name}
+        onClick={onOpen}
+        className={cn(
+            "block w-full overflow-hidden rounded-md border-2 border-transparent",
+            selected && "border-blue-400 ring-2 ring-blue-400",
+            className,
+        )}
+    >
+        <CardFace card={card} size={size} photo={customPhoto(card, custom)} />
+    </button>
+);
 
 /** The big view of a card, with its text. */
 const CardDialog = ({
@@ -140,25 +128,18 @@ const CardDialog = ({
                         <DialogTitle>
                             {cardLabel(card.id, size, custom)}
                         </DialogTitle>
-                        {card.effect && (
-                            <DialogDescription>
-                                <CardText text={card.effect} size={size} />
-                            </DialogDescription>
-                        )}
+                        <DialogDescription>
+                            {card.kind === "time"
+                                ? "Counts at the end of the round if it's still in your hand."
+                                : "Tap outside to close."}
+                        </DialogDescription>
                     </DialogHeader>
-                    {card.image ? (
-                        <img
-                            src={withBase(cardImage(card.image))}
-                            alt={card.name}
-                            className="mx-auto max-h-[65vh] rounded-md"
-                        />
-                    ) : customPhoto(card, custom) ? (
-                        <img
-                            src={customPhoto(card, custom)}
-                            alt={card.name}
-                            className="mx-auto max-h-[65vh] rounded-md"
-                        />
-                    ) : null}
+                    <CardFace
+                        card={card}
+                        size={size}
+                        photo={customPhoto(card, custom)}
+                        className="mx-auto max-h-[70vh] max-w-[360px]"
+                    />
                 </>
             )}
         </DialogContent>
@@ -190,19 +171,29 @@ const HandTile = ({
         <CardPicture
             card={card}
             custom={custom}
+            size={size}
             selected={selected}
-            onOpen={onSelect ?? onOpen}
+            onOpen={onOpen}
         />
         <p className="line-clamp-2 text-center text-xs leading-tight">
             {cardLabel(card.id, size, custom)}
         </p>
+        {onSelect && (
+            <Button
+                size="sm"
+                variant={selected ? "default" : "outline"}
+                onClick={onSelect}
+            >
+                {selected ? "Discard ✓" : "Discard this"}
+            </Button>
+        )}
         {!onSelect && (
-            <div className="flex gap-1">
+            <div className="flex flex-col gap-1">
                 {onPlay && (
                     <Button
                         size="sm"
                         className={cn(
-                            "flex-1",
+                            "w-full",
                             card.kind === "curse"
                                 ? "bg-red-700 hover:bg-red-600"
                                 : "bg-amber-700 hover:bg-amber-600",
@@ -215,7 +206,7 @@ const HandTile = ({
                 <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1"
+                    className="w-full"
                     onClick={onDiscard}
                 >
                     Discard
@@ -435,28 +426,47 @@ export const CardsPanel = () => {
                                 {deck.pending.length}. Tap to pick.
                             </p>
                             <ul className="grid grid-cols-2 gap-2">
-                                {deck.pending.map((id, index) => (
-                                    <li key={index}>
-                                        <CardPicture
-                                            card={info(id)}
-                                            custom={custom}
-                                            selected={picks.includes(index)}
-                                            onOpen={() =>
-                                                setPicks(
-                                                    picks.includes(index)
-                                                        ? picks.filter(
-                                                              (i) =>
-                                                                  i !== index,
-                                                          )
-                                                        : [...picks, index],
-                                                )
-                                            }
-                                        />
-                                        <p className="line-clamp-2 text-center text-xs leading-tight">
-                                            {cardLabel(id, size, custom)}
-                                        </p>
-                                    </li>
-                                ))}
+                                {deck.pending.map((id, index) => {
+                                    const picked = picks.includes(index);
+                                    return (
+                                        <li
+                                            key={index}
+                                            className="flex flex-col gap-1"
+                                        >
+                                            <CardPicture
+                                                card={info(id)}
+                                                custom={custom}
+                                                size={size}
+                                                selected={picked}
+                                                onOpen={() => setOpen(info(id))}
+                                            />
+                                            <p className="line-clamp-2 text-center text-xs leading-tight">
+                                                {cardLabel(id, size, custom)}
+                                            </p>
+                                            <Button
+                                                size="sm"
+                                                variant={
+                                                    picked
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                onClick={() =>
+                                                    setPicks(
+                                                        picked
+                                                            ? picks.filter(
+                                                                  (i) =>
+                                                                      i !==
+                                                                      index,
+                                                              )
+                                                            : [...picks, index],
+                                                    )
+                                                }
+                                            >
+                                                {picked ? "Keep ✓" : "Keep"}
+                                            </Button>
+                                        </li>
+                                    );
+                                })}
                             </ul>
                             <Button
                                 disabled={picks.length !== deck.pendingKeep}
@@ -535,9 +545,8 @@ export const CardsPanel = () => {
                                                 swap.picked.includes(index))
                                         }
                                         onSelect={
-                                            selecting
+                                            selectable
                                                 ? () => {
-                                                      if (!selectable) return;
                                                       setSwap({
                                                           ...swap,
                                                           picked: swap.picked.includes(
@@ -670,6 +679,7 @@ export const CardsPanel = () => {
                                         <CardPicture
                                             card={card}
                                             custom={custom}
+                                            size={size}
                                             onOpen={() => {
                                                 keepCard({
                                                     kind: card.kind,

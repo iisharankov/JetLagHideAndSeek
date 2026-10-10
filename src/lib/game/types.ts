@@ -91,6 +91,16 @@ export interface RoundClock {
 }
 export type ClockAction = "start" | "pause" | "resume" | "stop" | "reset";
 
+/**
+ * The hiding spot, shared between the hider's phones (two people hiding
+ * together) and never shown to the seekers: the station, and the pin where
+ * the hider really is.
+ */
+export interface HiderSpot {
+    station: StationPick | null;
+    pin: { latitude: number; longitude: number } | null;
+}
+
 /** The hider is moving to a new station (the Move card). */
 export interface MoveState {
     /** The station the hider left, as the card makes them tell the seekers. */
@@ -227,6 +237,8 @@ export interface GameState {
     deck: Deck | null;
     /** Set while the hider moves to a new station (the Move card). */
     move: MoveState | null;
+    /** The hider's phones only; null in the seekers' view. */
+    hider: HiderSpot | null;
     /** The questions archived by moves this round. */
     moves: MoveArchive[];
     hasHider: boolean;
@@ -276,6 +288,8 @@ export type GameOp =
     | { type: "setBonus"; minutes: number }
     | DeckOp
     | { type: "vetoQuestion"; key: number }
+    | { type: "setHiderStation"; station: StationPick | null }
+    | { type: "setHiderPin"; pin: { latitude: number; longitude: number } }
     | { type: "move"; station: StationPick | null }
     | { type: "resumeMove" }
     | { type: "newRound" };

@@ -307,6 +307,13 @@ export const sidebarTab = atom<"questions" | "stations" | "photos" | "curses">(
 
 /** The Menu drawer is open. */
 export const menuOpen = atom<boolean>(false);
+/** Seekers' drafts on the map: all of them, or only the active card's. */
+export const draftsOnMap = persistentAtom<"all" | "active">(
+    "draftsOnMap",
+    "all",
+);
+/** Buzz, beep and notify about the game's news. */
+export const alertsEnabled = persistentAtom<boolean>("alerts", true, json);
 /** Game setup (Menu → Game): this phone's settings, or a new shared game. */
 export const setupDialog = atom<"solo" | "start" | null>(null);
 /** Choosing the play area on the map, and which setup to come back to. */

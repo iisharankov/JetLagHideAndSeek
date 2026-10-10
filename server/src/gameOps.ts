@@ -80,6 +80,7 @@ export const newGameState = (
     deck: settings.deck === "virtual" ? newDeck(settings) : null,
     move: null,
     moves: [],
+    hider: { station: null, pin: null },
     hasHider: false,
     rounds: [],
 });
@@ -98,7 +99,11 @@ export const viewFor = (state: GameState, role: Role): GameState =>
                   ),
               ),
           }
-        : { ...state, deck: state.deck ? deckForSeekers(state.deck) : null };
+        : {
+              ...state,
+              deck: state.deck ? deckForSeekers(state.deck) : null,
+              hider: null,
+          };
 
 const withoutLocalFields = (question: SharedQuestion): SharedQuestion => {
     const data = { ...question.data };
@@ -239,6 +244,8 @@ const startMove = (
     });
     state.questions = {};
     state.move = { station, startedAt: now, by: actor.name };
+    // A new station is next; the pin stays where the hider is.
+    state.hider = { station: null, pin: state.hider?.pin ?? null };
     state.clock = applyClockAction(state.clock, "pause", now);
     if (state.deck) state.deck = discardHand(state.deck);
     state.powerups.push({
@@ -427,6 +434,31 @@ export const applyOp = (
             assertHider(actor, "move");
             startMove(state, actor, stationOf(op.station), now);
             break;
+        case "setHiderStation":
+            assertHider(actor, "pick the hiding station");
+            state.hider = {
+                station: stationOf(op.station),
+                pin: state.hider?.pin ?? null,
+            };
+            break;
+        case "setHiderPin": {
+            assertHider(actor, "move the hider pin");
+            const pin = op.pin as Partial<{
+                latitude: number;
+                longitude: number;
+            }>;
+            if (
+                !Number.isFinite(pin?.latitude) ||
+                !Number.isFinite(pin?.longitude)
+            ) {
+                throw new GameRuleError("That isn't a position.", 400);
+            }
+            state.hider = {
+                station: state.hider?.station ?? null,
+                pin: { latitude: pin.latitude!, longitude: pin.longitude! },
+            };
+            break;
+        }
         case "resumeMove":
             assertHider(actor, "continue after a move");
             if (!state.move) throw new GameRuleError("No move under way.", 409);
@@ -642,6 +674,7 @@ export const applyOp = (
                     : null;
             state.move = null;
             state.moves = [];
+            state.hider = { station: null, pin: null };
             state.hasHider = false;
             break;
         default:

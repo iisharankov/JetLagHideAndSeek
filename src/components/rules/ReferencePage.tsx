@@ -1,3 +1,4 @@
+import { CardFace } from "@/components/game/CardFace";
 import { CardText, RulesText } from "@/components/RulesText";
 import { withBase } from "@/lib/config";
 import {
@@ -6,7 +7,7 @@ import {
     type TypeInfo,
     TYPES,
 } from "@/lib/questionInfo";
-import { cardImage, CURSES, POWERUPS, TIME_BONUSES } from "@/lib/rules/cards";
+import { CURSES, POWERUPS, TIME_BONUSES } from "@/lib/rules/cards";
 import {
     categoryIntro,
     RULES_PAGES,
@@ -177,11 +178,15 @@ export const ReferencePage = () => {
                                     <summary className="cursor-pointer text-slate-300">
                                         Card
                                     </summary>
-                                    <img
-                                        src={withBase(cardImage(curse.image))}
-                                        alt={curse.name}
-                                        loading="lazy"
-                                        width={300}
+                                    <CardFace
+                                        card={{
+                                            id: curse.image,
+                                            kind: "curse",
+                                            name: curse.name,
+                                            image: curse.image,
+                                            effect: curse.effect,
+                                        }}
+                                        className="max-w-[300px]"
                                     />
                                 </details>
                             </div>

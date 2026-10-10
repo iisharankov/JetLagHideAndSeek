@@ -1,0 +1,161 @@
+// What changed between two states of a shared game, as things a player must
+// hear about: a toast, a buzz, a popup. Pure, so it's easy to test; the
+// phones decide how to show each kind (GamePopups.tsx).
+import type { Question } from "@/maps/schema";
+
+import { describeAnswer } from "./answers";
+import type { GameState, Role, SharedQuestion } from "./types";
+
+export interface GameEvent {
+    key: string;
+    kind:
+        | "question"
+        | "answer"
+        | "photoRequest"
+        | "photo"
+        | "endgame"
+        | "curse"
+        | "powerup"
+        | "move";
+    title: string;
+    body?: string;
+    /** The card's name, for curses and powerups. */
+    name?: string;
+}
+
+const LABELS: Record<string, string> = {
+    radius: "Radar",
+    thermometer: "Thermometer",
+    tentacles: "Tentacles",
+    matching: "Matching",
+    measuring: "Measuring",
+};
+
+const label = (question: SharedQuestion) => {
+    const data = question.data as { type?: string; locationType?: string };
+    const type = data.type ?? data.locationType;
+    const category = LABELS[question.id] ?? question.id;
+    return type
+        ? `${category} (${String(type).replace(/[-_]/g, " ")})`
+        : category;
+};
+
+const answerText = (question: SharedQuestion) => {
+    try {
+        return describeAnswer(question as unknown as Question);
+    } catch {
+        return "answered";
+    }
+};
+
+/** The news in `after` compared with `before`, for a player in this role. */
+export const gameEvents = (
+    before: GameState | null,
+    after: GameState,
+    role: Role,
+): GameEvent[] => {
+    // The first state of a game: nothing is news yet.
+    if (!before || before.id !== after.id) return [];
+    const events: GameEvent[] = [];
+
+    for (const [key, entry] of Object.entries(after.questions)) {
+        const previous = before.questions[key];
+        if (role === "hider") {
+            if (
+                entry.state === "asked" &&
+                previous?.state !== "asked" &&
+                previous?.state !== "answered" &&
+                previous?.state !== "vetoed"
+            ) {
+                events.push({
+                    key: `q${key}`,
+                    kind: "question",
+                    title: "New question",
+                    body: `${label(entry.question)}, from ${entry.updatedBy}`,
+                });
+            }
+        } else {
+            if (
+                entry.state === "answered" &&
+                previous &&
+                previous.state !== "answered"
+            ) {
+                events.push({
+                    key: `a${key}:${entry.updatedAt}`,
+                    kind: "answer",
+                    title: "Answered",
+                    body: `${label(entry.question)}: ${answerText(entry.question)}`,
+                });
+            }
+            if (entry.state === "vetoed" && previous?.state !== "vetoed") {
+                events.push({
+                    key: `v${key}`,
+                    kind: "answer",
+                    title: "Vetoed",
+                    body: `${label(entry.question)}: the hider gave no answer`,
+                });
+            }
+        }
+    }
+
+    if (role === "hider") {
+        for (const request of after.photoRequests) {
+            if (before.photoRequests.some((b) => b.id === request.id)) continue;
+            events.push({
+                key: `pr${request.id}`,
+                kind: "photoRequest",
+                title: "Photo question",
+                body: `${request.name}, from ${request.askedBy}`,
+            });
+        }
+        if (after.endgame && !before.endgame) {
+            events.push({
+                key: `e${after.endgame.startedAt}`,
+                kind: "endgame",
+                title: "End game",
+                body: `The seekers picked ${after.endgame.station.name}: answers now come from your pin`,
+            });
+        }
+        return events;
+    }
+
+    for (const photo of after.photos) {
+        if (before.photos.some((b) => b.id === photo.id)) continue;
+        const request = after.photoRequests.find(
+            (r) => r.id === photo.requestId,
+        );
+        events.push({
+            key: `ph${photo.id}`,
+            kind: "photo",
+            title: "Photo received",
+            body: request?.name,
+        });
+    }
+    for (const curse of after.curses) {
+        if (before.curses.some((b) => b.id === curse.id)) continue;
+        events.push({
+            key: `c${curse.id}`,
+            kind: "curse",
+            title: `The hider cast ${curse.name}`,
+            name: curse.name,
+        });
+    }
+    for (const powerup of after.powerups) {
+        if (before.powerups.some((b) => b.id === powerup.id)) continue;
+        const move = powerup.name === "Move";
+        events.push({
+            key: `p${powerup.id}`,
+            kind: move ? "move" : "powerup",
+            title: `${powerup.by || "The hider"} played ${powerup.name}`,
+            name: powerup.name,
+            body: move
+                ? `The hider is moving${
+                      after.move?.station
+                          ? ` and was at ${after.move.station.name}`
+                          : ""
+                  }. No questions until they continue; the questions so far are in Cards → History.`
+                : undefined,
+        });
+    }
+    return events;
+};

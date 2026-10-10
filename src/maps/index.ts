@@ -128,7 +128,8 @@ export type QuestionStatus =
               | "planning"
               | "waiting"
               | "before-endgame"
-              | "vetoed";
+              | "vetoed"
+              | "inactive-draft";
       }
     | { state: "not-applicable"; message: string }
     | { state: "error"; message: string };

@@ -373,6 +373,51 @@ describe("end game", () => {
     });
 });
 
+describe("the hiding spot", () => {
+    it("is shared between the hider's phones and hidden from the seekers", () => {
+        let state = fresh();
+        expect(() =>
+            apply(state, { type: "setHiderStation", station: null }),
+        ).toThrow(/Only the hider/);
+        state = apply(
+            state,
+            {
+                type: "setHiderStation",
+                station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
+            },
+            hider,
+        );
+        state = apply(
+            state,
+            {
+                type: "setHiderPin",
+                pin: { latitude: 47.351, longitude: 8.721 },
+            },
+            hider,
+        );
+        expect(state.hider).toEqual({
+            station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
+            pin: { latitude: 47.351, longitude: 8.721 },
+        });
+        expect(viewFor(state, "hider").hider?.station?.name).toBe("Uster");
+        expect(viewFor(state, "seeker").hider).toBeNull();
+        expect(() =>
+            apply(
+                state,
+                { type: "setHiderPin", pin: { latitude: "x" } },
+                hider,
+            ),
+        ).toThrow(/isn't a position/);
+
+        // A move means a new station; the pin stays. A new round clears both.
+        state = apply(state, { type: "move", station: null }, hider);
+        expect(state.hider?.station).toBeNull();
+        expect(state.hider?.pin?.latitude).toBe(47.351);
+        state = apply(state, { type: "newRound" });
+        expect(state.hider).toEqual({ station: null, pin: null });
+    });
+});
+
 describe("the hiding clock", () => {
     it("runs for everyone; the hider adds bonuses once it's stopped", () => {
         let state = apply(
@@ -524,11 +569,10 @@ describe("the virtual deck", () => {
             { type: "playCard", index: 0, discards: [2] },
             hider,
         );
-        expect(state.deck?.hand).toEqual(["curse_cairn"]);
-        expect(state.deck?.pending).toHaveLength(2);
-        expect(state.deck?.pendingKeep).toBe(2);
-        state = apply(state, { type: "keepCards", picks: [0, 1] }, hider);
+        // Two cards drawn and kept at once: nothing to choose.
         expect(state.deck?.hand).toHaveLength(3);
+        expect(state.deck?.hand[0]).toBe("curse_cairn");
+        expect(state.deck?.pending).toEqual([]);
     });
 
     it("Move puts the questions away, freezes the seekers, and resumes on request", () => {

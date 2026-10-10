@@ -106,7 +106,8 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     // A draft's guessed answer shades the map as speculation (amber). The
     // default 50 km radar covers this whole play area, so make it 5 km.
     await page.locator('input[type="number"]').first().fill("5");
-    const speculation = page.locator('path[stroke="#f59e0b"]');
+    // Drafts shade the map dashed, in the question's own colour.
+    const speculation = page.locator('path[stroke-dasharray="6 4"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
 
     // Ben opens the link and becomes the hider (Menu → Game → I'm the
@@ -139,6 +140,8 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     // map's centre, next to Ana's question) his phone suggests "Yes", and
     // nothing is sent until he picks an answer. He answers "No".
     await page.getByRole("button", { name: "Send to the hider" }).click();
+    // His phone says so (a toast; a buzz and a beep on a real phone).
+    await expect(ben.getByText(/New question: Radar/)).toBeVisible();
     // His sidebar is on the Hider tab; the Questions tab counts what waits.
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     const benState = ben.getByTestId("question-game-state");
@@ -392,8 +395,14 @@ test("with the virtual deck the game deals the hider's cards", async ({
     // Answering earned a draw, dealt at once: 2 cards, Ben keeps 1.
     await ben.getByRole("radio", { name: /Cards/ }).click();
     const pending = ben.getByTestId("pending-cards");
-    await expect(pending.getByRole("button", { name: /^Keep/ })).toBeDisabled();
-    await pending.getByRole("listitem").first().getByRole("button").click();
+    await expect(
+        pending.getByRole("button", { name: /^Keep \d+\/\d+/ }),
+    ).toBeDisabled();
+    await pending
+        .getByRole("listitem")
+        .first()
+        .getByRole("button", { name: "Keep", exact: true })
+        .click();
     await pending.getByRole("button", { name: "Keep 1/1" }).click();
     await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
     await expect(ben.getByTestId("clock-bonus")).toHaveCount(0);
