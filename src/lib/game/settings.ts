@@ -50,6 +50,7 @@ export const defaultGameSettings = (
     minLakeAreaKm2: 10,
     disabledQuestions: regionDisabledQuestions(region),
     seekersCanAnswer: false,
+    deck: "real",
 });
 
 /**
@@ -104,6 +105,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
                   .slice(0, 200)
             : defaults.disabledQuestions,
         seekersCanAnswer: input.seekersCanAnswer === true,
+        deck: input.deck === "virtual" ? "virtual" : "real",
     };
 };
 

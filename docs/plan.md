@@ -287,6 +287,30 @@ Your feedback from 2026-10-10, and what was done:
    it opens: Questions / Stations / Hider / Photos / Cards).
 5. Ideas for next time are Q34–Q39 in `docs/questions.md`.
 
+## Round 9: virtual deck, card pictures, clock placement ✅ (2026-10-10)
+
+1. **Sidebar:** "Add Question" sits at the top of the Questions tab; the
+   hiding clock at the bottom (every tab), centred, no "hiding" word. The
+   seekers' **Found!** button only shows once an end-game station is picked
+   (right or wrong), so the clock can't be stopped on a hunch.
+2. **Hider deck setting** (game setup → Game): *Real cards* (the hider records
+   what they keep, as before) or *Virtual* (`src/lib/game/deck.ts`): the
+   server shuffles the deck per round, each answered question (and photo)
+   owes the hider a draw — "Select new cards" shows the drawn cards, the
+   hider taps the ones to keep; a question asked again owes a second draw;
+   extra draws are possible but logged for the seekers. Played cards act for
+   everyone (curse cast, powerup played; Move discards the hand; Draw 1,
+   Expand 1 raises the limit and owes a draw). Seekers only see how many
+   cards the hider holds. Bonus minutes come from the hand automatically.
+   Deck counts: time bonuses and powerups from `cards.ts`; **curses 2 each
+   until the photo of the real counts arrives** (`count` per curse in
+   `src/lib/rules/cards.ts`).
+3. **Cards tab:** cards show as their pictures (tap for the big card and its
+   text), with Cast/Play and Discard underneath; the "Cast a curse" and
+   "Play a powerup" choosers are gone (play from the hand); cleared curses,
+   powerups played and deck events are one collapsible **History** at the
+   bottom; the draw buttons no longer overflow.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

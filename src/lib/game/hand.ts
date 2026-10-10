@@ -1,9 +1,10 @@
-// The hider's hand: the cards they kept from the hider deck, on the hider's
-// phone only (the seekers never see it). The deck itself is the real one;
-// the app just keeps track, and adds the time bonuses up at the end.
+// The hider's hand with the real deck of cards: what they kept, on the
+// hider's phone only (the seekers never see it). The deck itself is the
+// real one; the app just keeps track and adds the time bonuses up at the
+// end. (With the virtual deck the game holds the hand: lib/game/deck.ts.)
 import { persistentAtom } from "@/lib/persist";
-import { CURSES, POWERUPS, TIME_BONUSES } from "@/lib/rules/cards";
 
+import { CARDS, DRAWS as DECK_DRAWS } from "./deck";
 import type { GameSize } from "./types";
 
 export const SIZE_INDEX: Record<GameSize, number> = {
@@ -18,6 +19,8 @@ export interface HandCard {
     name: string;
     /** Time bonus: its minutes for this game's size. */
     minutes?: number;
+    /** The card's picture (lib/rules/cards.ts). */
+    image?: string;
 }
 
 const json = { encode: JSON.stringify, decode: JSON.parse };
@@ -26,38 +29,20 @@ export const hand = persistentAtom<HandCard[]>("hiderHand", [], json);
 /** The rulebook's 6, plus one per "Draw 1, Expand 1" played this round. */
 export const handLimit = persistentAtom<number>("hiderHandLimit", 6, json);
 
-/**
- * What the hider draws after answering a question, from the rulebook's
- * question pages ("draw 2 cards and keep 1", …), by question id.
- */
-export const DRAWS: Record<
-    string,
-    { draw: number; keep: number; label: string }
-> = {
-    radius: { draw: 2, keep: 1, label: "Radar" },
-    thermometer: { draw: 2, keep: 1, label: "Thermometer" },
-    tentacles: { draw: 4, keep: 2, label: "Tentacles" },
-    matching: { draw: 3, keep: 1, label: "Matching" },
-    measuring: { draw: 3, keep: 1, label: "Measuring" },
-    photo: { draw: 1, keep: 1, label: "Photo" },
-};
+/** What the hider draws after answering a question (see deck.ts). */
+export const DRAWS = DECK_DRAWS;
 
 export const cardLabel = (card: Omit<HandCard, "id">) =>
     card.kind === "time" ? `Time bonus ${card.minutes} min` : card.name;
 
 /** Every card the hider might keep, with time bonuses for this game size. */
-export const cardChoices = (size: GameSize): Omit<HandCard, "id">[] => [
-    ...TIME_BONUSES.map((bonus) => ({
-        kind: "time" as const,
-        name: "Time bonus",
-        minutes: bonus.minutes[SIZE_INDEX[size]],
-    })),
-    ...POWERUPS.map((powerup) => ({
-        kind: "powerup" as const,
-        name: powerup.name,
-    })),
-    ...CURSES.map((curse) => ({ kind: "curse" as const, name: curse.name })),
-];
+export const cardChoices = (size: GameSize): Omit<HandCard, "id">[] =>
+    CARDS.map((card) => ({
+        kind: card.kind,
+        name: card.name,
+        image: card.image,
+        ...(card.minutes ? { minutes: card.minutes[SIZE_INDEX[size]] } : {}),
+    }));
 
 export const keepCard = (card: Omit<HandCard, "id">) =>
     hand.set([...hand.get(), { id: crypto.randomUUID(), ...card }]);

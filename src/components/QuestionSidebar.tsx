@@ -150,7 +150,6 @@ export const QuestionSidebar = () => {
                     onValueChange={sidebarTab.set}
                 />
             </div>
-            {$game && <RoundClock />}
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
@@ -165,6 +164,25 @@ export const QuestionSidebar = () => {
                 </SidebarContent>
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
+                <SidebarMenu
+                    className="px-2 pt-2"
+                    data-tutorial-id="add-questions-buttons"
+                >
+                    {$game && $role === "hider" ? (
+                        <p className="px-2 py-1 text-xs text-slate-400">
+                            The seekers ask; you answer. Questions appear here
+                            once they send them.
+                        </p>
+                    ) : (
+                        <SidebarMenuItem>
+                            <AddQuestionDialog>
+                                <SidebarMenuButton disabled={$isLoading}>
+                                    Add Question
+                                </SidebarMenuButton>
+                            </AddQuestionDialog>
+                        </SidebarMenuItem>
+                    )}
+                </SidebarMenu>
                 <NotePinList />
                 {$questions.map((question) => {
                     switch (question.id) {
@@ -213,23 +231,12 @@ export const QuestionSidebar = () => {
                     }
                 })}
             </SidebarContent>
-            <SidebarGroup className={tab === "questions" ? "" : "hidden"}>
-                <SidebarGroupContent>
-                    <SidebarMenu data-tutorial-id="add-questions-buttons">
-                        {$game && $role === "hider" ? (
-                            <p className="px-2 py-1 text-xs text-slate-400">
-                                The seekers ask; you answer. Questions appear
-                                here once they send them.
-                            </p>
-                        ) : (
-                            <SidebarMenuItem>
-                                <AddQuestionDialog>
-                                    <SidebarMenuButton disabled={$isLoading}>
-                                        Add Question
-                                    </SidebarMenuButton>
-                                </AddQuestionDialog>
-                            </SidebarMenuItem>
-                        )}
+            <SidebarGroup>
+                {$game && <RoundClock />}
+                <SidebarGroupContent
+                    className={tab === "questions" ? "" : "hidden"}
+                >
+                    <SidebarMenu>
                         {$questions.length > 0 && !$game && (
                             <SidebarMenuItem>
                                 <AlertDialog>

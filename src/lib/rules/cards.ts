@@ -11,6 +11,8 @@ export interface Curse {
     image: string;
     /** For curses that last a set time: minutes for small/medium/large. */
     minutes?: [number, number, number];
+    /** Copies in the deck (2 until counted). */
+    count?: number;
 }
 
 export interface Powerup {

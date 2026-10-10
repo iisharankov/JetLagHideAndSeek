@@ -127,7 +127,9 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                                     const draw = DRAWS[question.id];
                                     if ($role === "hider" && draw) {
                                         toast.info(
-                                            `Draw ${draw.draw}, keep ${draw.keep}. Record what you kept in Cards.`,
+                                            $game.settings.deck === "virtual"
+                                                ? `Draw ${draw.draw}, keep ${draw.keep}: select your new cards in Cards.`
+                                                : `Draw ${draw.draw}, keep ${draw.keep}. Record what you kept in Cards.`,
                                             {
                                                 toastId: "draw",
                                                 autoClose: 8000,

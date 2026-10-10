@@ -191,33 +191,23 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
 
     // Curses: Ben casts one, Ana sees it and clears it.
     await ben.getByRole("radio", { name: /Cards/ }).click();
-    await ben.getByRole("button", { name: "Cast a curse" }).click();
-    await ben.getByRole("button", { name: "Curse of the Cairn" }).click();
-    await ben.getByRole("button", { name: /Cast it/ }).click();
+    // Ben (real deck) records the curse he drew, then casts it from his hand.
+    await ben.getByRole("button", { name: "Draw cards" }).click();
+    await ben.getByRole("button", { name: /^Radar/ }).click();
+    await ben
+        .locator("li", { hasText: "Curse of the Cairn" })
+        .getByRole("button")
+        .click();
+    await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
+    await ben
+        .getByTestId("hand-card")
+        .getByRole("button", { name: "Cast" })
+        .click();
     await page.getByRole("radio", { name: /Cards/ }).click();
     const curse = page.getByTestId("active-curse");
     await expect(curse).toContainText("Curse of the Cairn");
     await curse.getByRole("button", { name: "Cleared" }).click();
     await expect(ben.getByTestId("active-curse")).toHaveCount(0);
-
-    // The hiding clock: Ana starts it; Ben records a time bonus he drew
-    // (a small game: 2 min); Ana finds him; Ben sends his bonuses.
-    const anaClock = page.getByTestId("round-clock");
-    const benClock = ben.getByTestId("round-clock");
-    await anaClock.getByRole("button", { name: "Start" }).click();
-    await expect(benClock).toHaveAttribute("data-state", "running");
-    await ben.getByRole("button", { name: "Draw cards" }).click();
-    await ben.getByRole("button", { name: /^Radar/ }).click();
-    await ben.getByRole("button", { name: "Time bonus 2 min" }).click();
-    await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
-    await anaClock.getByRole("button", { name: "Found!" }).click();
-    await page.getByRole("button", { name: "Yes, found" }).click();
-    await expect(benClock).toContainText("Found after");
-    await ben
-        .getByRole("button", { name: /Send my bonuses \(2 min\)/ })
-        .click();
-    await expect(anaClock).toContainText("+ 2 min bonuses");
-
     // Opening the plain address later doesn't drop Ana back into the game;
     // the Game tab offers to rejoin.
     await page.goto("/");
@@ -331,10 +321,83 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
         "your station",
     );
 
+    // The hiding clock: Ben (real deck) records a time bonus he drew; Ana
+    // starts the clock and, being in the end game, can stop it; Ben sends
+    // his bonuses and Ana sees the total.
+    await ben.getByRole("radio", { name: /Cards/ }).click();
+    await ben.getByRole("button", { name: "Draw cards" }).click();
+    await ben.getByRole("button", { name: /^Radar/ }).click();
+    await ben
+        .locator("li", { hasText: "Time bonus 3 min" })
+        .getByRole("button")
+        .click();
+    await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
+    const anaClock = page.getByTestId("round-clock");
+    await anaClock.getByRole("button", { name: "Start" }).click();
+    await expect(ben.getByTestId("round-clock")).toHaveAttribute(
+        "data-state",
+        "running",
+    );
+    await anaClock.getByRole("button", { name: "Found!" }).click();
+    await page.getByRole("button", { name: "Yes, found" }).click();
+    await expect(ben.getByTestId("round-clock")).toContainText("Found after");
+    await ben.getByRole("button", { name: "Send my bonuses (3 min)" }).click();
+    await expect(anaClock).toContainText("+ 3 min bonuses");
+
     // Wrong station? Back to the whole map, for everyone.
     await page.getByRole("button", { name: "Wrong station? Undo" }).click();
     await expect(page.getByTestId("endgame")).toHaveCount(0);
     await expect(ben.getByTestId("hider-endgame")).toHaveCount(0);
+
+    await ben.context().close();
+});
+
+test("with the virtual deck the game deals the hider's cards", async ({
+    page,
+    browser,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await openMenu(page, "Game");
+    await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("radio", { name: "Virtual" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Start the game" }).click();
+    await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
+    const link = page.url();
+    await closeMenu(page);
+    await page.getByRole("button", { name: "Add Question" }).click();
+    await page.getByRole("button", { name: "Add Radius" }).click();
+    await page.getByRole("button", { name: "Send to the hider" }).click();
+
+    const ben = await newPhone(browser);
+    await preparePhone(ben, "Ben", link);
+    await openMenu(ben, "Game");
+    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    await ben.getByLabel("Hider password").fill("secret");
+    await ben.getByRole("button", { name: "Become the hider" }).click();
+    await expect(ben.getByTestId("hider-panel")).toBeVisible();
+    await ben.getByRole("radio", { name: /^Questions/ }).click();
+    await ben.getByRole("button", { name: "No", exact: true }).click();
+
+    // Answering earned a draw: the app shows 2 cards, Ben keeps 1.
+    await ben.getByRole("radio", { name: /Cards/ }).click();
+    await ben.getByTestId("select-new-cards").click();
+    const pending = ben.getByTestId("pending-cards");
+    await expect(pending.getByRole("button", { name: /^Keep/ })).toBeDisabled();
+    await pending.getByRole("listitem").first().getByRole("button").click();
+    await pending.getByRole("button", { name: "Keep 1/1" }).click();
+    await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
+    await expect(ben.getByTestId("select-new-cards")).toHaveCount(0);
+
+    // Ana only learns how many cards Ben holds.
+    await page.getByRole("radio", { name: /Cards/ }).click();
+    await expect(page.getByText(/The hider holds 1 card/)).toBeVisible();
+    await expect(page.getByTestId("hand")).toHaveCount(0);
 
     await ben.context().close();
 });

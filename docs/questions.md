@@ -34,9 +34,10 @@ phones), amber in the last minute? _Recommended: yes._
 **Answer:**
 
 **Q35.** Asking again. A question asked a second time costs double (the
-hider draws twice). Count how often each exact question type was asked this
-round and tell both sides ("asked before: draw twice")? _Recommended: yes,
-small._
+hider draws twice). With the virtual deck the server already owes a second
+draw when the same question (category and type, or radar radius) is answered
+again. Also tell the seekers before they ask ("asked before: costs double")?
+_Recommended: yes, small._
 
 **Answer:**
 
@@ -160,3 +161,7 @@ From your earlier answers (rounds 1–4), already built or planned:
   hand of cards on the hider's phone (Cards tab: draw per the rulebook's
   "draw N, keep M", play, discard, hand limit 6 + expansions), with the time
   bonuses sent to the seekers at the end of the round.
+- **Round 9:** real or virtual hider deck per game (virtual: the server
+  shuffles and deals, owes draws per answered question, logs extra draws for
+  the seekers, works the bonuses out itself); card pictures in the hand;
+  Found! only in the end game; the clock at the bottom of the sidebar.

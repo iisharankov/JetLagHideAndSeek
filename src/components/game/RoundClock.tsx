@@ -13,7 +13,9 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { endgame } from "@/lib/context";
 import { clockState, formatDuration, hidingTimeMs } from "@/lib/game/clock";
+import { handBonusMinutes } from "@/lib/game/deck";
 import { bonusMinutes, hand } from "@/lib/game/hand";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import type { ClockAction } from "@/lib/game/types";
@@ -38,6 +40,7 @@ export const RoundClock = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const $hand = useStore(hand);
+    const $endgame = useStore(endgame);
     const clock = $game?.clock ?? null;
     const state = clockState(clock);
     useTick(state === "running");
@@ -50,11 +53,14 @@ export const RoundClock = () => {
         bonus === undefined
             ? null
             : formatDuration(hidingTimeMs(clock) + bonus * 60_000);
-    const mine = bonusMinutes($hand);
+    // Virtual deck: the game knows the hand; real deck: this phone's record.
+    const mine = $game.deck
+        ? handBonusMinutes($game.deck.hand, $game.settings.size)
+        : bonusMinutes($hand);
 
     return (
         <div
-            className="mx-2 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-800/70 px-2 py-1 text-xs"
+            className="mx-2 my-1 flex flex-wrap items-center justify-center gap-2 rounded-md bg-slate-800/70 px-2 py-1 text-xs"
             data-testid="round-clock"
             data-state={state}
         >
@@ -76,7 +82,6 @@ export const RoundClock = () => {
             {state === "running" && (
                 <>
                     <span className="font-mono text-base">⏱ {elapsed}</span>
-                    <span className="text-slate-300">hiding</span>
                     {$role === "hider" ? (
                         <Button
                             size="sm"
@@ -87,33 +92,37 @@ export const RoundClock = () => {
                             Pause
                         </Button>
                     ) : (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm">Found!</Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Found the hider?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Stops the hiding clock at {elapsed} for
-                                        everyone. The hider then adds their time
-                                        bonuses.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Not yet
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() => act("stop")}
-                                    >
-                                        Yes, found
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        // Only once the seekers have picked the station (the
+                        // end game): no stopping the clock on a hunch.
+                        $endgame && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm">Found!</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Found the hider?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Stops the hiding clock at {elapsed}{" "}
+                                            for everyone. The hider then adds
+                                            their time bonuses.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Not yet
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => act("stop")}
+                                        >
+                                            Yes, found
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )
                     )}
                 </>
             )}

@@ -208,6 +208,22 @@ export const GameSetupDialog = ({
                                 coast, no 7-Eleven. Changing this resets the
                                 question list on the last screen.
                             </p>
+                            <Label>Hider deck</Label>
+                            <SegmentedControl<GameSettings["deck"]>
+                                label="Hider deck"
+                                options={[
+                                    { value: "real", label: "Real cards" },
+                                    { value: "virtual", label: "Virtual" },
+                                ]}
+                                value={draft.deck}
+                                onValueChange={(deck) => update({ deck })}
+                            />
+                            <p className="text-xs text-slate-400">
+                                Virtual: the app shuffles the deck and deals the
+                                hider&apos;s draws after each answer; nobody
+                                else sees the hand. Real cards: the hider
+                                records what they keep.
+                            </p>
                         </>
                     )}
 

@@ -111,6 +111,36 @@ export interface Endgame {
     before: number[];
 }
 
+/** What the hider draws after a question: "draw N, keep M". */
+export interface Draw {
+    draw: number;
+    keep: number;
+    label: string;
+}
+
+/**
+ * The hider deck in a "virtual deck" game (see lib/game/deck.ts). The
+ * seekers get a copy without the cards (deckForSeekers).
+ */
+export interface Deck {
+    /** Card ids (image names), top of the deck first. */
+    remaining: string[];
+    discard: string[];
+    hand: string[];
+    /** Cards drawn and shown to the hider, waiting for their pick. */
+    pending: string[];
+    pendingKeep: number;
+    /** Draws the hider is owed: one per answered question, more for repeats. */
+    owed: Draw[];
+    /** The rulebook's 6, plus one per "Draw 1, Expand 1" played. */
+    limit: number;
+    /** What everyone may know: extra draws and the like. */
+    log: { at: number; text: string }[];
+    /** Seekers' view: how many cards the hider holds, and the deck's size. */
+    handSize?: number;
+    deckSize?: number;
+}
+
 /** Decided before the game starts; fixed while it runs (see settings.ts). */
 export interface GameSettings {
     size: GameSize;
@@ -125,6 +155,8 @@ export interface GameSettings {
     disabledQuestions: string[];
     /** Off: only the hider can answer or change answered questions. */
     seekersCanAnswer: boolean;
+    /** The real deck of cards, or the app's (shuffled and drawn by the game). */
+    deck: "real" | "virtual";
 }
 
 /** One finished round, kept to look back at. */
@@ -136,6 +168,7 @@ export interface PastRound {
     powerups: PowerupEntry[];
     endgame?: Endgame | null;
     clock?: RoundClock | null;
+    deck?: Deck | null;
 }
 
 export interface GameState {
@@ -155,6 +188,8 @@ export interface GameState {
     powerups: PowerupEntry[];
     endgame: Endgame | null;
     clock: RoundClock | null;
+    /** Only in "virtual deck" games. */
+    deck: Deck | null;
     hasHider: boolean;
     rounds: PastRound[];
 }
@@ -200,4 +235,13 @@ export type GameOp =
     | { type: "endEndgame" }
     | { type: "clock"; action: ClockAction }
     | { type: "setBonus"; minutes: number }
+    | DeckOp
     | { type: "newRound" };
+
+/** The hider's moves with the virtual deck. */
+export type DeckOp =
+    | { type: "drawCards"; extra?: Draw }
+    | { type: "keepCards"; picks: number[] }
+    | { type: "playCard"; index: number }
+    | { type: "discardCard"; index: number }
+    | { type: "discardHand" };

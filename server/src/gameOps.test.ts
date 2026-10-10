@@ -409,6 +409,142 @@ describe("the hiding clock", () => {
     });
 });
 
+describe("the virtual deck", () => {
+    const virtual = () =>
+        newGameState(
+            "g2",
+            {
+                playArea: { kind: "place" },
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+
+    it("owes the hider draws for answered questions, more when asked again", () => {
+        let state = virtual();
+        expect(state.deck?.remaining.length).toBeGreaterThan(100);
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: false },
+                basedOn: 5000,
+            },
+            hider,
+            5000,
+        );
+        expect(state.deck?.owed).toEqual([
+            { draw: 2, keep: 1, label: "Radar" },
+        ]);
+        // Changing the answer doesn't earn another draw.
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: true },
+                basedOn: 6000,
+            },
+            hider,
+            6000,
+        );
+        expect(state.deck?.owed).toHaveLength(1);
+        // The same question (5 km radar) a second time: two draws.
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(2),
+            state: "asked",
+        });
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 2,
+                answer: { within: true },
+                basedOn: 7000,
+            },
+            hider,
+            7000,
+        );
+        expect(state.deck?.owed.map((d) => d.label)).toEqual([
+            "Radar",
+            "Radar",
+            "Radar (asked again)",
+        ]);
+    });
+
+    it("draws, keeps, plays and hides the hand from the seekers", () => {
+        let state = virtual();
+        expect(() => apply(state, { type: "drawCards" }, hider)).toThrow(
+            /Nothing to draw/,
+        );
+        state = apply(
+            state,
+            {
+                type: "drawCards",
+                extra: { draw: 3, keep: 1, label: "Matching" },
+            },
+            hider,
+        );
+        expect(state.deck?.pending).toHaveLength(3);
+        expect(state.deck?.log[0].text).toMatch(/Ben drew 3 extra cards/);
+        expect(() => apply(state, { type: "keepCards", picks: [0] })).toThrow(
+            /Only the hider/,
+        );
+        state = apply(state, { type: "keepCards", picks: [1] }, hider);
+        expect(state.deck?.hand).toHaveLength(1);
+        expect(state.deck?.pending).toEqual([]);
+
+        const seekersView = viewFor(state, "seeker");
+        expect(seekersView.deck?.hand).toEqual([]);
+        expect(seekersView.deck?.handSize).toBe(1);
+        expect(viewFor(state, "hider").deck?.hand).toHaveLength(1);
+
+        // Playing a curse from the hand casts it for everyone.
+        state.deck!.hand = ["curse_cairn", "time_bonus_5", "powerup_move"];
+        state = apply(state, { type: "playCard", index: 0 }, hider);
+        expect(state.curses[0].name).toBe("Curse of the Cairn");
+        expect(state.deck?.hand).toEqual(["time_bonus_5", "powerup_move"]);
+        expect(() =>
+            apply(state, { type: "playCard", index: 0 }, hider),
+        ).toThrow(/only discarded/);
+        // Move discards the whole hand.
+        state = apply(state, { type: "playCard", index: 1 }, hider);
+        expect(state.powerups[0].name).toBe("Move");
+        expect(state.deck?.hand).toEqual([]);
+    });
+
+    it("works the bonuses out from the hand, and reshuffles for a new round", () => {
+        let state = virtual();
+        state.deck!.hand = ["time_bonus_10", "time_bonus_5"];
+        state = apply(state, { type: "clock", action: "start" }, seeker, 1000);
+        state = apply(state, { type: "clock", action: "stop" }, seeker, 2000);
+        state = apply(state, { type: "setBonus", minutes: 99 }, hider);
+        expect(state.clock?.bonusMinutes).toBe(6 + 3);
+
+        state = apply(state, { type: "newRound" });
+        expect(state.deck?.hand).toEqual([]);
+        // A whole new shuffled deck.
+        expect(state.deck?.remaining.length).toBe(
+            virtual().deck!.remaining.length,
+        );
+        expect(state.rounds[0].deck?.hand).toEqual([
+            "time_bonus_10",
+            "time_bonus_5",
+        ]);
+    });
+});
+
 describe("new round", () => {
     it("keeps the finished round and starts empty, with no hider", () => {
         let state = apply(fresh(), {

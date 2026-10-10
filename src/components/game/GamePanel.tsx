@@ -74,6 +74,12 @@ const SettingsSummary = ({ settings }: { settings: GameSettings }) => (
                 questionKey("measuring", "lake"),
             ) && `; lakes from ${settings.minLakeAreaKm2} km²`}
         </dd>
+        <dt>Deck</dt>
+        <dd>
+            {settings.deck === "virtual"
+                ? "virtual (the app deals)"
+                : "real cards"}
+        </dd>
     </dl>
 );
 

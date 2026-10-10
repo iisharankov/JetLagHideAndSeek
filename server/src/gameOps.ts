@@ -3,6 +3,17 @@
 import { randomBytes } from "node:crypto";
 
 import { applyClockAction } from "@/lib/game/clock";
+import {
+    cardInfo,
+    deckForSeekers,
+    discardHand,
+    drawCards,
+    DRAWS,
+    handBonusMinutes,
+    keepCards,
+    newDeck,
+    removeFromHand,
+} from "@/lib/game/deck";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
@@ -15,6 +26,52 @@ import {
     type SharedQuestion,
     type StationPick,
 } from "@/lib/game/types";
+
+/**
+ * The same question asked again: the rulebook makes the seekers pay its cost
+ * again, so the hider draws again. A question is the same when its category
+ * and type (or, for radar, its radius) are.
+ */
+const questionIdentity = (question: SharedQuestion) => {
+    const data = question.data as Record<string, unknown>;
+    if (question.id === "radius") {
+        return `radius:${String(data.radius)}${String(data.unit ?? "")}`;
+    }
+    return `${question.id}:${String(data.type ?? data.locationType ?? "")}`;
+};
+
+/** With the virtual deck, an answered question earns the hider draws. */
+const oweDraws = (state: GameState, entry: QuestionEntry) => {
+    if (!state.deck) return;
+    const draw = DRAWS[entry.question.id];
+    if (!draw) return;
+    const identity = questionIdentity(entry.question);
+    const times = Object.values(state.questions).filter(
+        (other) =>
+            other.state === "answered" &&
+            questionIdentity(other.question) === identity,
+    ).length;
+    for (let i = 0; i < Math.max(1, times); i++) {
+        state.deck.owed.push({
+            ...draw,
+            label: i === 0 ? draw.label : `${draw.label} (asked again)`,
+        });
+    }
+};
+
+const ruleError = (error: unknown) =>
+    new GameRuleError(
+        error instanceof Error ? error.message : String(error),
+        409,
+    );
+
+/** The deck, in a game that has one. */
+const deckOf = (state: GameState) => {
+    if (!state.deck) {
+        throw new GameRuleError("This game uses the real deck of cards.", 409);
+    }
+    return state.deck;
+};
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
 const CLOCK_ACTIONS = new Set(["start", "pause", "resume", "stop", "reset"]);
@@ -59,11 +116,15 @@ export const newGameState = (
     powerups: [],
     endgame: null,
     clock: null,
+    deck: settings.deck === "virtual" ? newDeck() : null,
     hasHider: false,
     rounds: [],
 });
 
-/** What a player may see: the hider never sees the seekers' drafts. */
+/**
+ * What a player may see: the hider never sees the seekers' drafts, and the
+ * seekers never see the hider's cards.
+ */
 export const viewFor = (state: GameState, role: Role): GameState =>
     role === "hider"
         ? {
@@ -74,7 +135,7 @@ export const viewFor = (state: GameState, role: Role): GameState =>
                   ),
               ),
           }
-        : state;
+        : { ...state, deck: state.deck ? deckForSeekers(state.deck) : null };
 
 const withoutLocalFields = (question: SharedQuestion): SharedQuestion => {
     const data = { ...question.data };
@@ -180,10 +241,12 @@ export const applyOp = (
                     entry.question.data[field] = op.answer[field];
                 }
             }
+            const firstAnswer = entry.state !== "answered";
             entry.state = "answered";
             entry.answeredAt = now;
             entry.updatedBy = actor.name;
             entry.updatedAt = now;
+            if (firstAnswer) oweDraws(state, entry);
             break;
         }
         case "setPlayArea":
@@ -295,13 +358,120 @@ export const applyOp = (
                     409,
                 );
             }
-            const minutes = Number(op.minutes);
+            // With the virtual deck the game knows the hand.
+            const minutes = state.deck
+                ? handBonusMinutes(state.deck.hand, state.settings.size)
+                : Number(op.minutes);
             if (!Number.isFinite(minutes) || minutes < 0 || minutes > 600) {
                 throw new GameRuleError("Bonus minutes must be a number.", 400);
             }
             state.clock.bonusMinutes = Math.round(minutes);
             break;
         }
+        case "drawCards": {
+            assertHider(actor, "draw cards");
+            const deck = deckOf(state);
+            const draw = op.extra ?? deck.owed[0];
+            if (!draw) {
+                throw new GameRuleError(
+                    "Nothing to draw: answer a question first.",
+                    409,
+                );
+            }
+            if (
+                op.extra &&
+                !(
+                    Number.isInteger(draw.draw) &&
+                    Number.isInteger(draw.keep) &&
+                    draw.draw >= 1 &&
+                    draw.draw <= 6 &&
+                    draw.keep >= 1 &&
+                    draw.keep <= draw.draw
+                )
+            ) {
+                throw new GameRuleError("That isn't a draw.", 400);
+            }
+            try {
+                state.deck = drawCards(deck, draw);
+            } catch (error) {
+                throw ruleError(error);
+            }
+            if (op.extra) {
+                state.deck.log.push({
+                    at: now,
+                    text: `${actor.name} drew ${draw.draw} extra card${
+                        draw.draw === 1 ? "" : "s"
+                    }, keeping ${draw.keep} (${String(draw.label).slice(0, 40)}).`,
+                });
+            } else {
+                state.deck.owed.shift();
+            }
+            break;
+        }
+        case "keepCards": {
+            assertHider(actor, "keep cards");
+            try {
+                state.deck = keepCards(
+                    deckOf(state),
+                    Array.isArray(op.picks) ? op.picks.map(Number) : [],
+                );
+            } catch (error) {
+                throw ruleError(error);
+            }
+            break;
+        }
+        case "playCard": {
+            assertHider(actor, "play cards");
+            const deck = deckOf(state);
+            const id = deck.hand[op.index];
+            const card = id ? cardInfo(id) : undefined;
+            if (!card)
+                throw new GameRuleError("That card isn't in the hand.", 409);
+            if (card.kind === "time") {
+                throw new GameRuleError(
+                    "Time bonuses can't be played, only discarded.",
+                    409,
+                );
+            }
+            state.deck = removeFromHand(deck, op.index);
+            if (card.kind === "curse") {
+                state.curses.push({
+                    id: shortId(),
+                    name: card.name,
+                    castAt: now,
+                });
+            } else {
+                state.powerups.push({
+                    id: shortId(),
+                    name: card.name,
+                    playedAt: now,
+                    by: actor.name,
+                });
+                if (id === "powerup_draw_1_expand_1") {
+                    state.deck.limit += 1;
+                    state.deck.owed.push({
+                        draw: 1,
+                        keep: 1,
+                        label: "Draw 1, Expand 1",
+                    });
+                }
+                if (id === "powerup_move") state.deck = discardHand(state.deck);
+            }
+            break;
+        }
+        case "discardCard": {
+            assertHider(actor, "discard cards");
+            try {
+                state.deck = removeFromHand(deckOf(state), op.index);
+            } catch (error) {
+                throw ruleError(error);
+            }
+            break;
+        }
+        case "discardHand":
+            assertHider(actor, "discard the hand");
+            state.deck = discardHand(deckOf(state));
+            break;
         case "newRound":
             state.rounds.push({
                 endedAt: now,
@@ -311,6 +481,7 @@ export const applyOp = (
                 powerups: state.powerups,
                 endgame: state.endgame,
                 clock: state.clock,
+                deck: state.deck,
             });
             state.questions = {};
             state.photoRequests = [];
@@ -318,6 +489,7 @@ export const applyOp = (
             state.powerups = [];
             state.endgame = null;
             state.clock = null;
+            state.deck = state.settings.deck === "virtual" ? newDeck() : null;
             state.hasHider = false;
             break;
         default:

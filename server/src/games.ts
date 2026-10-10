@@ -127,6 +127,7 @@ export const createGameStore = (
         state.powerups ??= [];
         state.endgame ??= null;
         state.clock ??= null;
+        state.deck ??= null;
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
@@ -247,8 +248,13 @@ export const createGameStore = (
                 (r) => r.id === options.requestId,
             );
             if (request) {
+                const first = !request.photoId;
                 request.photoId = photoId;
                 request.answeredAt = now;
+                // With the virtual deck, an answered photo question earns a draw.
+                if (first && state.deck) {
+                    state.deck.owed.push({ draw: 1, keep: 1, label: "Photo" });
+                }
             }
             state.version += 1;
             state.updatedAt = now;
