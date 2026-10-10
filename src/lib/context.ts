@@ -1,4 +1,4 @@
-import { persistentAtom } from "@nanostores/persistent";
+import * as turf from "@turf/turf";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Map } from "leaflet";
 import { atom, computed, onSet } from "nanostores";
@@ -8,8 +8,9 @@ import {
     defaultGameSettings,
     normalizeGameSettings,
 } from "@/lib/game/settings";
-import type { GameSettings } from "@/lib/game/types";
+import type { Endgame, GameSettings, StationPick } from "@/lib/game/types";
 import { createBusyTracker } from "@/lib/jobs";
+import { persistentAtom } from "@/lib/persist";
 import { decodeStoredQuestions } from "@/lib/storage";
 import type {
     AdditionalMapGeoLocations,
@@ -203,19 +204,109 @@ export const gameSettings = persistentAtom<GameSettings>(
     },
 );
 
+const json = { encode: JSON.stringify, decode: JSON.parse };
+
 /**
- * The station this phone picked: the hider's own station (the red circle is
- * their boundary), or, for seekers, the station once they know it. Shared
- * among the seekers through the game; the hider's stays on their phone.
+ * The hider's own station, on the hider's phone only (never shared): the
+ * red circle around it is their hiding zone. Answers are worked out from it
+ * until the end game.
  */
-export const chosenStation = persistentAtom<string>("chosenStation", "");
+export const chosenStation = persistentAtom<StationPick | null>(
+    "hiderStation",
+    null,
+    json,
+);
+/** The hider is picking (or changing) their station on the map. */
+export const hiderChoosing = atom<boolean>(false);
+/** The hider also shows what the seekers see: every station still in play. */
+export const hiderShowAll = atom<boolean>(false);
+/** The hider's pin (their real spot) is drawn on their map. */
+export const showHiderPin = persistentAtom<boolean>("showHiderPin", true, json);
+/**
+ * The end game: the seekers picked the hider's station, so only its zone is
+ * left and the questions from before no longer apply. In a shared game the
+ * server's copy is mirrored here (session.ts); alone, this phone's own.
+ */
+export const endgame = persistentAtom<Endgame | null>("endgame", null, json);
+
 /** A station tapped on the map, for the Stations tab to point out. */
 export const highlightedStation = atom<string>("");
+
+/**
+ * Where the hider's answers are worked out from: their station until the
+ * end game (the seekers have found it), then the pin, where they really
+ * are. False when this phone isn't in hider mode.
+ */
+export const hiderAnswerPosition = ():
+    | false
+    | { latitude: number; longitude: number } => {
+    const pin = hiderMode.get();
+    if (pin === false) return false;
+    const station = chosenStation.get();
+    if (station && !endgame.get()) {
+        return { latitude: station.lat, longitude: station.lng };
+    }
+    return pin;
+};
+
+const hidingRadiusKm = () =>
+    turf.convertLength(
+        hidingRadius.get(),
+        hidingRadiusUnits.get(),
+        "kilometers",
+    );
+
+/**
+ * Moves the hider pin, keeping it inside the hider's zone (the pin is where
+ * the hider really is, and that must be within the zone). Says whether it
+ * had to be pulled back in.
+ */
+export const setHiderPin = (
+    latitude: number,
+    longitude: number,
+): "ok" | "clamped" => {
+    const station = chosenStation.get();
+    let result: "ok" | "clamped" = "ok";
+    if (station) {
+        const centre = turf.point([station.lng, station.lat]);
+        const pin = turf.point([longitude, latitude]);
+        const radiusKm = hidingRadiusKm();
+        if (turf.distance(centre, pin, { units: "kilometers" }) > radiusKm) {
+            const inside = turf.destination(
+                centre,
+                radiusKm * 0.98,
+                turf.bearing(centre, pin),
+                { units: "kilometers" },
+            );
+            [longitude, latitude] = turf.getCoord(inside);
+            result = "clamped";
+        }
+    }
+    hiderMode.set({ latitude, longitude });
+    return result;
+};
+
+/** The hider picks their station; the pin moves there unless it's already in the zone. */
+export const pickHiderStation = (station: StationPick) => {
+    chosenStation.set(station);
+    const pin = hiderMode.get();
+    const inZone =
+        pin !== false &&
+        turf.distance(
+            [station.lng, station.lat],
+            [pin.longitude, pin.latitude],
+            { units: "kilometers" },
+        ) <= hidingRadiusKm();
+    if (!inZone)
+        hiderMode.set({ latitude: station.lat, longitude: station.lng });
+};
 /** The sidebar's open tab (a tap on a zone switches to Stations). */
 export const sidebarTab = atom<"questions" | "stations" | "photos" | "curses">(
     "questions",
 );
 
+/** The Menu drawer is open. */
+export const menuOpen = atom<boolean>(false);
 /** Game setup (Menu → Game): this phone's settings, or a new shared game. */
 export const setupDialog = atom<"solo" | "start" | null>(null);
 /** Choosing the play area on the map, and which setup to come back to. */

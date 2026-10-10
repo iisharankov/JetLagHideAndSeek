@@ -124,6 +124,19 @@ describe("shared games", () => {
         expect((await app.request("/api/games/nope")).status).toBe(404);
     });
 
+    it("deletes a game on request", async () => {
+        const id = await newGame();
+        const gone = await app.request(`/api/games/${id}`, {
+            method: "DELETE",
+        });
+        expect(gone.status).toBe(200);
+        expect((await app.request(`/api/games/${id}`)).status).toBe(404);
+        expect(
+            (await app.request(`/api/games/${id}`, { method: "DELETE" }))
+                .status,
+        ).toBe(404);
+    });
+
     it("applies a change and returns the game as that player sees it", async () => {
         const id = await newGame();
         const response = await op(id, {

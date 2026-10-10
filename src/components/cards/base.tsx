@@ -133,6 +133,15 @@ export const QuestionCard = ({
                         />
                     )}
                     <QuestionGameBar questionKey={questionKey} />
+                    {status?.state === "skipped" &&
+                        status.reason === "before-endgame" && (
+                            <p
+                                role="status"
+                                className="mx-2 mb-1 rounded-md bg-slate-700/60 px-2 py-1 text-xs text-slate-200"
+                            >
+                                Asked before the end game: not applied any more.
+                            </p>
+                        )}
                     {(status?.state === "error" ||
                         status?.state === "not-applicable") && (
                         <p

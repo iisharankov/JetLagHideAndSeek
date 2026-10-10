@@ -319,6 +319,60 @@ describe("powerups", () => {
     });
 });
 
+describe("end game", () => {
+    it("keeps only the picked station's zone: earlier questions no longer count", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(2),
+            state: "asked",
+        });
+        expect(() =>
+            apply(state, { type: "startEndgame", station: { id: "x" } }),
+        ).toThrow(/Pick a station/);
+
+        state = apply(
+            state,
+            {
+                type: "startEndgame",
+                station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
+            },
+            seeker,
+            8000,
+        );
+        expect(state.endgame).toMatchObject({
+            station: { id: "node/5", name: "Uster" },
+            startedAt: 8000,
+            by: "Ana",
+        });
+        // The draft counts as "before" too: the server knows every question.
+        expect(state.endgame!.before.sort()).toEqual([1, 2]);
+
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(3),
+            state: "asked",
+        });
+        expect(state.endgame!.before).not.toContain(3);
+
+        state = apply(state, { type: "endEndgame" });
+        expect(state.endgame).toBeNull();
+    });
+
+    it("ends with the round", () => {
+        let state = apply(fresh(), {
+            type: "startEndgame",
+            station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
+        });
+        state = apply(state, { type: "newRound" });
+        expect(state.endgame).toBeNull();
+        expect(state.rounds[0].endgame?.station.id).toBe("node/5");
+    });
+});
+
 describe("new round", () => {
     it("keeps the finished round and starts empty, with no hider", () => {
         let state = apply(fresh(), {

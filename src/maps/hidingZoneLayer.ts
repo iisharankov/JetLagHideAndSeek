@@ -1,8 +1,12 @@
 // The hiding zones on the map: the stations the answers haven't ruled out,
-// each with a circle of the hiding radius around it, and the picked station
-// in red. A station is in or out by its own position (the hider may be
-// anywhere in its circle), so this is cheap. Runs on its own, whichever
-// panels are open; the Stations tab shows the list.
+// each with a circle of the hiding radius around it. A station is in or out
+// by its own position (the hider may be anywhere in its circle), so this is
+// cheap. Runs on its own, whichever panels are open.
+//
+// Seekers see the green zones (or just the stations) when they switch them
+// on, and the end-game station in red once they've picked it. The hider's
+// phone shows every station while the hider picks theirs, then only their
+// own zone in red (plus, if they like, what the seekers see).
 import * as turf from "@turf/turf";
 import type { Feature, FeatureCollection, Point } from "geojson";
 import * as L from "leaflet";
@@ -10,22 +14,30 @@ import type { ReadableAtom } from "nanostores";
 import { toast } from "react-toastify";
 
 import {
+    animateMapMovements,
     busy,
     chosenStation,
     disabledStations,
     displayHidingZones,
     displayHidingZonesOptions,
     displayHidingZonesStyle,
+    endgame,
+    hiderChoosing,
+    hiderMode,
+    hiderShowAll,
     hidingRadius,
     hidingRadiusUnits,
     highlightedStation,
     leafletMapContext,
+    pickHiderStation,
     planningModeEnabled,
     questionFinishedMapData,
     questions,
     sidebarTab,
     trainStations,
 } from "@/lib/context";
+import { activeGameId, gameRole, isHiderPhone } from "@/lib/game/session";
+import type { StationPick } from "@/lib/game/types";
 import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
 import {
@@ -38,6 +50,7 @@ import {
 import { errorMessage, NotApplicableError } from "@/maps/errors";
 import {
     arcDistance,
+    extractStationLabel,
     extractStationName,
     lngLatToText,
     safeUnion,
@@ -73,6 +86,59 @@ const PLACE_TYPES = [
 /** The station's map-data id ("node/123"). */
 export const stationId = (station: StationCircle): string =>
     station.properties.properties.id;
+
+/** A station as the game refers to it: id, name and position. */
+export const stationPick = (station: StationCircle): StationPick => {
+    const [lng, lat] = station.properties.geometry.coordinates;
+    return {
+        id: stationId(station),
+        name: (extractStationLabel(station.properties) as string) || "Station",
+        lat,
+        lng,
+    };
+};
+
+/** Shows a station's zone on the map. */
+export const goToStation = (station: StationCircle) => {
+    const map = leafletMapContext.get();
+    if (!map) return;
+    const [west, south, east, north] = turf.bbox(station);
+    const bounds: [[number, number], [number, number]] = [
+        [south, west],
+        [north, east],
+    ];
+    if (animateMapMovements.get()) map.flyToBounds(bounds);
+    else map.fitBounds(bounds);
+};
+
+/** The hider picks this station as theirs (the map stays where it is). */
+export const pickStation = (station: StationCircle) => {
+    pickHiderStation(stationPick(station));
+};
+
+/** Shows the zone around a picked station. */
+export const goToPick = (station: StationPick) => {
+    const map = leafletMapContext.get();
+    if (!map) return;
+    const [west, south, east, north] = turf.bbox(
+        turf.circle([station.lng, station.lat], radiusKm(), {
+            units: "kilometers",
+        }),
+    );
+    const bounds: [[number, number], [number, number]] = [
+        [south, west],
+        [north, east],
+    ];
+    if (animateMapMovements.get()) map.flyToBounds(bounds);
+    else map.fitBounds(bounds);
+};
+
+const radiusKm = () =>
+    turf.convertLength(
+        hidingRadius.get(),
+        hidingRadiusUnits.get(),
+        "kilometers",
+    );
 
 /** Narrows the hiding zones by one question, where that question applies. */
 const applyQuestionToHidingZones = async (
@@ -191,7 +257,7 @@ const applyQuestionToHidingZones = async (
 
 const computeHidingZones = async () => {
     const eliminated = questionFinishedMapData.get();
-    if (!displayHidingZones.get() || !eliminated) return;
+    if (!(displayHidingZones.get() || isHiderPhone()) || !eliminated) return;
 
     if (displayHidingZonesOptions.get().length === 0) {
         toast.error("Choose at least one kind of station for hiding zones.");
@@ -258,27 +324,25 @@ export const requestHidingZoneRefresh = () =>
     });
 
 const ZONE_STYLE = { color: "green", fillColor: "green", fillOpacity: 0.2 };
-const PICKED_STYLE = {
+/** The hider's own zone. */
+const MINE_STYLE = {
     color: "red",
     fillColor: "red",
     weight: 3,
     fillOpacity: 0.1,
+};
+/** The station the seekers picked: the end game. */
+const ENDGAME_STYLE = {
+    color: "#ef4444",
+    weight: 3,
+    dashArray: "8 6",
+    fill: false,
 };
 
 const STATION_ICON = L.divIcon({
     html: `<div class="text-black bg-opacity-0"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 448 512" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg"><path d="M96 0C43 0 0 43 0 96L0 352c0 48 35.2 87.7 81.1 94.9l-46 46C28.1 499.9 33.1 512 43 512l39.7 0c8.5 0 16.6-3.4 22.6-9.4L160 448l128 0 54.6 54.6c6 6 14.1 9.4 22.6 9.4l39.7 0c10 0 15-12.1 7.9-19.1l-46-46c46-7.1 81.1-46.9 81.1-94.9l0-256c0-53-43-96-96-96L96 0zM64 96c0-17.7 14.3-32 32-32l256 0c17.7 0 32 14.3 32 32l0 96c0 17.7-14.3 32-32 32L96 224c-17.7 0-32-14.3-32-32l0-96zM224 288a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path></svg></div>`,
     className: "",
 });
-
-const stationMarker = (point: Feature<Point>, latlng: L.LatLng) => {
-    const marker = L.marker(latlng, { icon: STATION_ICON });
-    marker.bindPopup(
-        `<b>${escapeHtml(extractStationName(point) || "No Name Found")} (${lngLatToText(
-            point.geometry.coordinates as [number, number],
-        )})</b>`,
-    );
-    return marker;
-};
 
 type ZoneLayer = L.Layer & { hidingZones?: boolean };
 
@@ -288,49 +352,93 @@ const removeZoneLayers = (map: L.Map) => {
     });
 };
 
-/** Draws the zones (or just the stations) and the picked station's zone. */
+const addZoneLayer = (map: L.Map, layer: L.Layer) => {
+    (layer as ZoneLayer).hidingZones = true;
+    layer.addTo(map);
+};
+
+const circleAround = (
+    station: { lat: number; lng: number },
+    style: L.PathOptions,
+) =>
+    L.geoJSON(
+        turf.circle([station.lng, station.lat], radiusKm(), {
+            steps: 64,
+            units: "kilometers",
+        }),
+        { style, interactive: false },
+    );
+
+/** Draws the zones and stations this phone should see (see the top). */
 const draw = () => {
     const map = leafletMapContext.get();
     if (!map) return;
-
     removeZoneLayers(map);
-    if (!displayHidingZones.get()) return;
 
-    const disabled = disabledStations.get();
-    const active = trainStations
-        .get()
-        .filter((station) => !disabled.includes(stationId(station)));
-    const features: Feature[] =
-        displayHidingZonesStyle.get() === "zones"
-            ? active
-            : active.map((station) => station.properties);
-    const layer: ZoneLayer = L.geoJSON(turf.featureCollection(features), {
-        style: ZONE_STYLE,
-        onEachFeature: (feature, featureLayer) => {
-            if (feature.geometry.type === "Point") return;
-            // A tap on a zone points the Stations tab at its station.
-            const id = feature.properties?.properties?.id;
-            if (!id) return;
-            featureLayer.on("click", () => {
+    const hider = isHiderPhone();
+    const mine = hider ? chosenStation.get() : null;
+    const choosing = hider && (hiderChoosing.get() || !mine);
+    const showStations = hider
+        ? choosing || hiderShowAll.get()
+        : displayHidingZones.get();
+
+    if (showStations) {
+        const disabled = disabledStations.get();
+        const stations = trainStations
+            .get()
+            .filter(
+                (station) =>
+                    !disabled.includes(stationId(station)) &&
+                    stationId(station) !== mine?.id,
+            );
+        const byId = new Map(stations.map((s) => [stationId(s), s]));
+        // The hider sees zones and station icons together.
+        const style = hider ? "both" : displayHidingZonesStyle.get();
+        const features: Feature[] = [
+            ...(style === "stations" ? [] : stations),
+            ...(style === "zones" ? [] : stations.map((s) => s.properties)),
+        ];
+        const onStation = (id: string) => {
+            const station = byId.get(id);
+            if (!station) return;
+            if (choosing) {
+                pickStation(station);
+            } else {
                 highlightedStation.set(id);
                 sidebarTab.set("stations");
-            });
-        },
-        pointToLayer: stationMarker,
-    });
-    layer.hidingZones = true;
-    layer.addTo(map);
-
-    const picked = active.find(
-        (station) => stationId(station) === chosenStation.get(),
-    );
-    if (picked) {
-        const zone: ZoneLayer = L.geoJSON(picked as Feature, {
-            style: PICKED_STYLE,
-            interactive: false,
+            }
+        };
+        const layer = L.geoJSON(turf.featureCollection(features), {
+            style: ZONE_STYLE,
+            onEachFeature: (feature, featureLayer) => {
+                if (feature.geometry.type === "Point") return;
+                const id = feature.properties?.properties?.id;
+                if (id) featureLayer.on("click", () => onStation(id));
+            },
+            pointToLayer: (point: Feature<Point>, latlng) => {
+                const marker = L.marker(latlng, { icon: STATION_ICON });
+                marker.bindPopup(
+                    `<b>${escapeHtml(
+                        extractStationName(point) || "No Name Found",
+                    )} (${lngLatToText(
+                        point.geometry.coordinates as [number, number],
+                    )})</b>`,
+                );
+                const id = (point.properties as { id?: string } | null)?.id;
+                if (id && choosing) {
+                    marker.on("click", () => onStation(id));
+                }
+                return marker;
+            },
         });
-        zone.hidingZones = true;
-        zone.addTo(map);
+        addZoneLayer(map, layer);
+    }
+
+    if (mine) addZoneLayer(map, circleAround(mine, MINE_STYLE));
+
+    const picked = endgame.get();
+    if (picked && picked.station.id !== mine?.id) {
+        addZoneLayer(map, circleAround(picked.station, ENDGAME_STYLE));
     }
 };
 
@@ -351,6 +459,8 @@ export const startHidingZoneLayer = () => {
             displayHidingZonesOptions,
             hidingRadius,
             hidingRadiusUnits,
+            hiderMode,
+            gameRole,
         ],
         () => void requestHidingZoneRefresh(),
     );
@@ -361,6 +471,14 @@ export const startHidingZoneLayer = () => {
             displayHidingZones,
             displayHidingZonesStyle,
             chosenStation,
+            hiderChoosing,
+            hiderShowAll,
+            hiderMode,
+            endgame,
+            hidingRadius,
+            hidingRadiusUnits,
+            gameRole,
+            activeGameId,
             leafletMapContext,
         ],
         draw,

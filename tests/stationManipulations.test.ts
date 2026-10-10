@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { StationPlace } from "@/maps/api";
 import {
+    applyStationKinds,
     dedupeStations,
     withoutUnreachable,
 } from "@/maps/geo-utils/stationManipulations";
@@ -14,6 +15,41 @@ const stop = (
     lat: number,
     tags: Record<string, string> = { railway: "station" },
 ) => turf.point([lng, lat], { id, name, ...tags }) as unknown as StationPlace;
+
+describe("applyStationKinds", () => {
+    const places = [
+        stop("node/1", "Zürich HB", 8.5403, 47.378),
+        stop("node/2", "Uetliberg", 8.49, 47.35, { railway: "halt" }),
+        stop("node/3", "Polybahn", 8.544, 47.376, {
+            railway: "station",
+            station: "funicular",
+        }),
+    ];
+
+    it("counts halts as train stations, and funiculars as trams", () => {
+        expect(
+            applyStationKinds(places, { trams: false, boats: false }).map(
+                (s) => s.properties.id,
+            ),
+        ).toEqual(["node/1", "node/2"]);
+        expect(
+            applyStationKinds(places, { trams: true, boats: false }).map(
+                (s) => s.properties.id,
+            ),
+        ).toEqual(["node/1", "node/2", "node/3"]);
+    });
+
+    it("lets a real station win over a funicular of the same name", () => {
+        const kept = dedupeStations([
+            stop("node/10", "Rigi", 8.48, 47.05, {
+                railway: "station",
+                station: "funicular",
+            }),
+            stop("node/11", "Rigi", 8.481, 47.051),
+        ]);
+        expect(kept.map((s) => s.properties.id)).toEqual(["node/11"]);
+    });
+});
 
 describe("withoutUnreachable", () => {
     it("drops the airport's airside Skymetro stop, keeps the real station", () => {

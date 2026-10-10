@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 
-import { hiderMode } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/context";
 import { safeUnion } from "@/maps/geo-utils";
 import { geoSpatialVoronoi } from "@/maps/geo-utils/voronoi";
 import type { ThermometerQuestion } from "@/maps/schema";
@@ -28,7 +28,7 @@ export const adjustPerThermometer = (
 };
 
 export const hiderifyThermometer = (question: ThermometerQuestion) => {
-    const $hiderMode = hiderMode.get();
+    const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
         return question;
     }

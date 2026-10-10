@@ -132,6 +132,14 @@ export const createApp = ({
         },
     );
 
+    // Anyone with the link may delete a game (the phones confirm first).
+    app.delete("/games/:id", (c) => {
+        if (!games.delete(c.req.param("id"))) {
+            throw new GameRuleError("This game doesn't exist.", 404);
+        }
+        return c.json({ ok: true });
+    });
+
     app.post("/games/:id/hider", async (c) => {
         const id = c.req.param("id");
         const body = await c.req.json().catch(() => ({}));
@@ -146,11 +154,13 @@ export const createApp = ({
         // nginx: don't buffer the stream.
         c.header("X-Accel-Buffering", "no");
         return streamSSE(c, async (stream) => {
-            const send = (state: GameState) =>
-                stream.writeSSE({
-                    event: "state",
-                    data: JSON.stringify(viewFor(state, role)),
-                });
+            const send = (state: GameState | null) =>
+                state
+                    ? stream.writeSSE({
+                          event: "state",
+                          data: JSON.stringify(viewFor(state, role)),
+                      })
+                    : stream.writeSSE({ event: "deleted", data: "" });
             const unsubscribe = games.subscribe(
                 id,
                 (state) => void send(state),

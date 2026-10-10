@@ -1,26 +1,34 @@
 import { useStore } from "@nanostores/react";
-import * as turf from "@turf/turf";
 import { useEffect, useState } from "react";
 
 import {
-    animateMapMovements,
-    chosenStation,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     disabledStations,
     displayHidingZones,
     displayHidingZonesStyle,
+    endgame,
     gameSettings,
     hidingRadius,
     hidingRadiusUnits,
     highlightedStation,
     isLoading,
-    leafletMapContext,
     trainStations,
 } from "@/lib/context";
-import { gameRole, gameState } from "@/lib/game/session";
+import { endEndgame, startEndgame } from "@/lib/game/endgame";
+import { gameState } from "@/lib/game/session";
 import { describeStations } from "@/lib/game/settings";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
-import { stationId } from "@/maps/hidingZoneLayer";
+import { goToStation, stationId, stationPick } from "@/maps/hidingZoneLayer";
 
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -29,31 +37,16 @@ import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 const label = (station: StationCircle) =>
     extractStationLabel(station.properties) as string;
 
-/** Shows a station's zone on the map. */
-const goTo = (station: StationCircle) => {
-    const map = leafletMapContext.get();
-    if (!map) return;
-    const [west, south, east, north] = turf.bbox(station);
-    const bounds: [[number, number], [number, number]] = [
-        [south, west],
-        [north, east],
-    ];
-    if (animateMapMovements.get()) map.flyToBounds(bounds);
-    else map.fitBounds(bounds);
-};
-
 const StationRow = ({
     station,
-    pickLabel,
-    picked,
     busy,
+    onPick,
     action,
     onAction,
 }: {
     station: StationCircle;
-    pickLabel: string;
-    picked: boolean;
     busy: boolean;
+    onPick?: () => void;
     action: string;
     onAction: () => void;
 }) => (
@@ -65,21 +58,20 @@ const StationRow = ({
             type="button"
             className="flex-1 truncate text-left"
             title="Show on the map"
-            onClick={() => goTo(station)}
+            onClick={() => goToStation(station)}
         >
             {label(station)}
         </button>
-        <button
-            type="button"
-            className="rounded-md bg-slate-600 px-1.5 py-0.5 text-xs disabled:opacity-50"
-            disabled={busy || picked}
-            onClick={() => {
-                chosenStation.set(stationId(station));
-                goTo(station);
-            }}
-        >
-            {picked ? "Picked" : pickLabel}
-        </button>
+        {onPick && (
+            <button
+                type="button"
+                className="rounded-md bg-slate-600 px-1.5 py-0.5 text-xs disabled:opacity-50"
+                disabled={busy}
+                onClick={onPick}
+            >
+                Found it
+            </button>
+        )}
         <button
             type="button"
             className="rounded-md bg-slate-700 px-1.5 py-0.5 text-xs disabled:opacity-50"
@@ -91,7 +83,10 @@ const StationRow = ({
     </li>
 );
 
-/** Sidebar → Stations: the hiding zones, and the stations still in play. */
+/**
+ * Sidebar → Stations (seekers): the hiding zones, the stations still in
+ * play, and the end game once the hider's station is found.
+ */
 export const StationsPanel = () => {
     const $displayHidingZones = useStore(displayHidingZones);
     const $style = useStore(displayHidingZonesStyle);
@@ -101,13 +96,13 @@ export const StationsPanel = () => {
     const $isLoading = useStore(isLoading);
     const stations = useStore(trainStations);
     const $disabledStations = useStore(disabledStations);
-    const $chosen = useStore(chosenStation);
     const $highlighted = useStore(highlightedStation);
-    const $role = useStore(gameRole);
+    const $endgame = useStore(endgame);
     const $game = useStore(gameState);
     const [search, setSearch] = useState("");
     const [showLeft, setShowLeft] = useState(true);
     const [showRemoved, setShowRemoved] = useState(false);
+    const [picking, setPicking] = useState<StationCircle | null>(null);
 
     // A zone tapped on the map: show its row and flash it for a moment.
     useEffect(() => {
@@ -131,8 +126,6 @@ export const StationsPanel = () => {
         };
     }, [$highlighted]);
 
-    const mine = $role === "hider";
-    const pickLabel = mine ? "Mine" : "Pick";
     const matches = (station: StationCircle) =>
         search.trim() === "" ||
         label(station).toLowerCase().includes(search.trim().toLowerCase());
@@ -142,10 +135,31 @@ export const StationsPanel = () => {
     const removed = stations.filter((station) =>
         $disabledStations.includes(stationId(station)),
     );
-    const picked = stations.find((station) => stationId(station) === $chosen);
 
     return (
         <div className="flex flex-col gap-2 p-2 text-sm">
+            {$endgame && (
+                <section
+                    className="flex flex-col gap-1 rounded-md border border-red-500/60 bg-red-950/30 p-2"
+                    data-testid="endgame"
+                >
+                    <p>
+                        <strong>End game</strong> at{" "}
+                        <strong>{$endgame.station.name}</strong>
+                        {$endgame.by && ` (picked by ${$endgame.by})`}: only its
+                        zone is left on the map. Questions asked before
+                        don&apos;t count any more; new ones do.
+                    </p>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="self-start"
+                        onClick={endEndgame}
+                    >
+                        Wrong station? Undo
+                    </Button>
+                </section>
+            )}
             <ToggleCard
                 title="Show hiding zones"
                 description="A green circle around every station the answers haven't ruled out. A station is in or out by its own position; the hider may be anywhere in its circle."
@@ -173,50 +187,11 @@ export const StationsPanel = () => {
                         around {describeStations($gameSettings.stationKinds)}.
                         Change: Menu → Game.
                     </p>
-                    {$chosen ? (
-                        <section
-                            className="flex flex-col gap-1 rounded-md border border-red-500/60 p-2"
-                            data-testid="chosen-station"
-                        >
-                            {picked ? (
-                                <p>
-                                    {mine
-                                        ? "Your station: "
-                                        : "The hider's station: "}
-                                    <strong>{label(picked)}</strong>
-                                    {mine
-                                        ? ". The red circle is where you may be."
-                                        : " (the red circle)."}
-                                    {!mine &&
-                                        $game &&
-                                        " All the seekers see this."}
-                                </p>
-                            ) : (
-                                <p className="text-amber-400">
-                                    {mine
-                                        ? "Your station"
-                                        : "The picked station"}{" "}
-                                    isn&apos;t in play any more: an answer rules
-                                    it out, or it isn&apos;t one of the stations
-                                    in the game. Check the answers.
-                                </p>
-                            )}
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="self-start"
-                                onClick={() => chosenStation.set("")}
-                            >
-                                Clear
-                            </Button>
-                        </section>
-                    ) : (
+                    {!$endgame && (
                         <p className="text-xs text-slate-400">
-                            {mine
-                                ? "Pick your station below: its circle is drawn in red, the boundary you stay in. It stays on your phone."
-                                : `Once you know the hider's station, pick it below: its whole zone is drawn in red${
-                                      $game ? " for all the seekers" : ""
-                                  }.`}
+                            Found the hider&apos;s station? &quot;Found it&quot;
+                            starts the end game: only that zone stays on the map
+                            {$game ? ", for everyone" : ""}.
                         </p>
                     )}
                     <section>
@@ -252,11 +227,12 @@ export const StationsPanel = () => {
                                         <StationRow
                                             key={stationId(station)}
                                             station={station}
-                                            pickLabel={pickLabel}
-                                            picked={
-                                                stationId(station) === $chosen
-                                            }
                                             busy={$isLoading}
+                                            onPick={
+                                                $endgame
+                                                    ? undefined
+                                                    : () => setPicking(station)
+                                            }
                                             action="Remove"
                                             onAction={() =>
                                                 disabledStations.set([
@@ -296,11 +272,6 @@ export const StationsPanel = () => {
                                             <StationRow
                                                 key={stationId(station)}
                                                 station={station}
-                                                pickLabel={pickLabel}
-                                                picked={
-                                                    stationId(station) ===
-                                                    $chosen
-                                                }
                                                 busy={$isLoading}
                                                 action="Restore"
                                                 onAction={() =>
@@ -331,6 +302,36 @@ export const StationsPanel = () => {
                     )}
                 </>
             )}
+            <AlertDialog
+                open={picking !== null}
+                onOpenChange={(open) => !open && setPicking(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Start the end game at{" "}
+                            {picking ? label(picking) : ""}?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Only its hiding zone stays on the map
+                            {$game ? ", for everyone" : ""}. The questions asked
+                            so far no longer apply (they stay in the list); new
+                            ones narrow the zone down. You can undo this.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (picking) startEndgame(stationPick(picking));
+                                setPicking(null);
+                            }}
+                        >
+                            Start the end game
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

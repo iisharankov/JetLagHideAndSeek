@@ -1,14 +1,13 @@
 // This phone's connection to a shared game: joins by link, keeps the
 // questions, play area and hiding zone settings in step with everyone else,
 // and sends this phone's changes. The rules are on the server (gameOps.ts).
-import { persistentAtom } from "@nanostores/persistent";
 import { atom } from "nanostores";
 import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
-    chosenStation,
     disabledStations,
+    endgame,
     gameSettings,
     hiderMode,
     leafletMapContext,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
+import { persistentAtom } from "@/lib/persist";
 import {
     applyPlayArea,
     applyZoneSettings,
@@ -25,11 +25,13 @@ import {
     currentZoneSettings,
     parsePlayArea,
     parseZoneSettings,
+    playAreaName,
 } from "@/lib/sharedGame";
 import { errorMessage } from "@/maps/errors";
 
 import {
     createGame,
+    deleteGameRequest,
     eventsUrl,
     fetchGame,
     postHiderPassword,
@@ -52,9 +54,31 @@ const hiderTokens = persistentAtom<Record<string, string>>(
     {},
     { encode: JSON.stringify, decode: JSON.parse },
 );
+// Read once per tab (an unused store re-reads storage on every get): another
+// tab of the same browser becoming the hider must not make this one the
+// hider too.
+hiderTokens.listen(() => {});
 
 export const gameState = atom<GameState | null>(null);
 export const gameRole = atom<Role>("seeker");
+
+/** A shared game this phone has been in, for the list in Menu → Game. */
+export interface KnownGame {
+    id: string;
+    area: string;
+    joinedAt: number;
+    lastSeen: number;
+}
+export const knownGames = persistentAtom<Record<string, KnownGame>>(
+    "knownGames",
+    {},
+    { encode: JSON.stringify, decode: JSON.parse },
+);
+
+/** This phone is the hider's: hider mode, and the hider's role in a game. */
+export const isHiderPhone = () =>
+    hiderMode.get() !== false &&
+    (gameState.get() === null || gameRole.get() === "hider");
 export const gameConnection = atom<"off" | "connecting" | "live" | "retrying">(
     "off",
 );
@@ -67,7 +91,7 @@ export const suggestedAnswers = atom<
     >
 >({});
 
-const me = () => playerName.get().trim() || "Someone";
+const me = () => (playerName.get() ?? "").trim() || "Someone";
 const token = () => hiderTokens.get()[activeGameId.get()];
 
 /**
@@ -85,14 +109,32 @@ const ensureHiderMode = () => {
     });
 };
 
-/** The seekers' pick of the hider's station, as the server last had it. */
-let seekersStation = "";
+/** Keeps the game in the phone's list (Menu → Game). */
+const remember = (state: GameState) => {
+    const known = knownGames.get()[state.id];
+    const now = Date.now();
+    if (known && now - known.lastSeen < 60_000) return;
+    let area = known?.area ?? "";
+    try {
+        area = playAreaName(parsePlayArea(state.playArea));
+    } catch {
+        // An odd play area: keep what we had.
+    }
+    knownGames.set({
+        ...knownGames.get(),
+        [state.id]: {
+            id: state.id,
+            area,
+            joinedAt: known?.joinedAt ?? now,
+            lastSeen: now,
+        },
+    });
+};
 
-/** This phone's zone settings for the server: the hider's own station stays on their phone. */
-const zoneToSend = () => {
-    const zone = currentZoneSettings();
-    if (gameRole.get() === "hider") zone.chosenStation = seekersStation;
-    return zone;
+const forget = (id: string) => {
+    const { [id]: removed, ...rest } = knownGames.get();
+    void removed;
+    knownGames.set(rest);
 };
 
 // What this phone last had in common with the server.
@@ -175,15 +217,18 @@ const receive = (received: GameState, force = false) => {
         const zone = JSON.stringify(state.zone);
         if (state.zone && zone !== syncedZone) {
             syncedZone = zone;
-            const parsed = parseZoneSettings(state.zone);
-            seekersStation = parsed.chosenStation ?? "";
-            if (gameRole.get() === "hider") delete parsed.chosenStation;
-            if (zone !== JSON.stringify(zoneToSend())) {
-                applyZoneSettings(parsed);
+            if (zone !== JSON.stringify(currentZoneSettings())) {
+                applyZoneSettings(parseZoneSettings(state.zone));
             }
+        }
+        // The end game is the game's: the seekers' pick reaches everyone.
+        const remoteEndgame = state.endgame ?? null;
+        if (JSON.stringify(remoteEndgame) !== JSON.stringify(endgame.get())) {
+            endgame.set(remoteEndgame);
         }
         // The game's settings are the server's.
         applyGameSettings(state.settings);
+        remember(state);
     } catch (error) {
         toast.error(`Couldn't apply the shared game: ${errorMessage(error)}`, {
             toastId: "game-apply-error",
@@ -262,7 +307,7 @@ const syncPlayArea = () => {
 };
 
 const syncZone = () => {
-    const zone = zoneToSend();
+    const zone = currentZoneSettings();
     const json = JSON.stringify(zone);
     if (json === syncedZone) return;
     syncedZone = json;
@@ -284,10 +329,6 @@ const listenForLocalChanges = () => {
         store.listen(() => inGame() && syncPlayArea());
     }
     disabledStations.listen(() => inGame() && syncZone());
-    // The hider's own station stays on their phone.
-    chosenStation.listen(
-        () => inGame() && gameRole.get() !== "hider" && syncZone(),
-    );
 };
 
 const disconnect = () => {
@@ -316,12 +357,19 @@ const connect = async () => {
         return;
     }
 
+    // The hider's phone is in hider mode; a seeker's isn't.
     if (gameRole.get() === "hider") ensureHiderMode();
+    else if (hiderMode.get() !== false) hiderMode.set(false);
     const events = new EventSource(eventsUrl(id, token()));
     source = events;
     events.addEventListener("state", (event) => {
         gameConnection.set("live");
         receive(JSON.parse((event as MessageEvent).data));
+    });
+    events.addEventListener("deleted", () => {
+        toast.info("This game was deleted.");
+        forget(id);
+        leaveGame();
     });
     events.onerror = () => {
         gameConnection.set("retrying");
@@ -383,7 +431,7 @@ export const leaveGame = () => {
 export const startGame = async () => {
     const { state } = await createGame({
         playArea: currentPlayArea(),
-        zone: { ...currentZoneSettings(), chosenStation: "" },
+        zone: currentZoneSettings(),
         settings: gameSettings.get(),
         questions: questions.get().map(toShared),
         by: me(),
@@ -400,8 +448,6 @@ export const claimHider = async (password: string) => {
     const { token: hiderToken } = await postHiderPassword(id, password);
     hiderTokens.set({ ...hiderTokens.get(), [id]: hiderToken });
     await connect();
-    // The seekers' pick isn't this phone's own station.
-    chosenStation.set("");
 };
 
 /** Stops being the hider on this phone (the role stays protected). */
@@ -410,8 +456,19 @@ export const forgetHider = () => {
     void removed;
     hiderTokens.set(rest);
     hiderMode.set(false);
-    chosenStation.set(seekersStation);
     void connect();
+};
+
+/** Deletes a game on the server, for everyone; this phone forgets it. */
+export const deleteGame = async (id: string) => {
+    try {
+        await deleteGameRequest(id);
+    } catch (error) {
+        if ((error as { status?: number }).status !== 404) throw error;
+    }
+    forget(id);
+    if (activeGameId.get() === id) leaveGame();
+    if (currentGameId.get() === id) currentGameId.set("");
 };
 
 export const uploadPhoto = async (

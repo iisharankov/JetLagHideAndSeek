@@ -25,35 +25,27 @@ describe("game settings", () => {
             "measuring:coastline",
             "measuring:seven11",
         ]);
-        expect(swiss.stationKinds).toEqual({
-            halts: true,
-            trams: false,
-            boats: false,
-        });
+        expect(swiss.stationKinds).toEqual({ trams: false, boats: false });
         expect(
             defaultGameSettings("large", "standard").disabledQuestions,
         ).toEqual([...ALWAYS_OFF, "measuring:lake"]);
     });
 
     it("turns station kinds into hiding-zone filters and back", () => {
-        const filters = stationFilters({
-            halts: true,
-            trams: true,
-            boats: false,
-        });
+        // Halts are train stations too: always in.
+        const filters = stationFilters({ trams: true, boats: false });
         expect(filters).toEqual([
             "[railway=station]",
             "[railway=halt]",
             "[railway=tram_stop]",
         ]);
         expect(stationKindsFromFilters(filters)).toEqual({
-            halts: true,
             trams: true,
             boats: false,
         });
-        expect(
-            describeStations({ halts: true, trams: false, boats: true }),
-        ).toBe("trains, halts, boats");
+        expect(describeStations({ trams: false, boats: true })).toBe(
+            "trains, boats",
+        );
     });
 
     it("repairs settings from an old game or a bad request", () => {
@@ -72,11 +64,7 @@ describe("game settings", () => {
         expect(fixed.size).toBe("medium");
         expect(fixed.region).toBe("switzerland");
         expect(fixed.hidingRadiusKm).toBe(0.5);
-        expect(fixed.stationKinds).toEqual({
-            halts: true,
-            trams: false,
-            boats: false,
-        });
+        expect(fixed.stationKinds).toEqual({ trams: false, boats: false });
         expect(fixed.minLakeAreaKm2).toBe(10);
         expect(fixed.disabledQuestions).toEqual(["measuring:lake"]);
         expect(fixed.seekersCanAnswer).toBe(false);
@@ -86,7 +74,7 @@ describe("game settings", () => {
         const settings = {
             ...defaultGameSettings("large", "standard"),
             hidingRadiusKm: 1.5,
-            stationKinds: { halts: false, trams: true, boats: true },
+            stationKinds: { trams: true, boats: true },
             minLakeAreaKm2: 25,
             seekersCanAnswer: true,
         };

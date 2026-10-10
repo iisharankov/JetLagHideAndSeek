@@ -223,6 +223,50 @@ Your feedback from 2026-10-09 (late), and what was done:
 10. Dock E (airside at the airport) is left out through an editable list,
     `src/maps/datasets/stations.ts`.
 
+## Round 7: hider flow, end game, housekeeping ✅ (2026-10-10)
+
+Your feedback from 2026-10-10, and what was done:
+
+1. **"can't access property trim, …get() is undefined"** on a seeker's screen
+   when the hider set the password: two tabs/windows of the same browser.
+   `@nanostores/persistent` syncs atoms between tabs through storage events
+   and resets every value a tab never saved to `undefined`, and it handed
+   the hider token to the other tab (that's also why the seeker's radius
+   question showed up on the hider's phone as "asked": the seeker's tab had
+   become the hider's). Fixed: saved settings no longer listen to other tabs
+   (`src/lib/persist.ts`), and the hider token is read once per tab. A
+   regression test opens two tabs in one browser (`e2e/twoTabs.spec.ts`).
+2. **Hider flow.** No bottom "Hider mode" button, no Hider tab in the menu:
+   Menu → Game has one switch, "I'm the hider" (hider password in a popup;
+   alone it's plain hider mode). On, the sidebar's Stations tab becomes the
+   **Hider** tab: pick your station (all stations on the map, zones and
+   icons, tap one or use "Mine"), Done; then only your zone (red) is drawn,
+   with "Show all stations left" (what the seekers see) and "Show my pin".
+   Change station any time (Move).
+3. **The hider pin** is where the hider really is: it stays inside the
+   hider's zone (pulled back in if dragged out). Answers come from the
+   station until the end game, then from the pin.
+4. **End game.** In the seekers' Stations tab, "Found it" on a station (with
+   a confirmation) starts the end game for everyone: only that zone stays on
+   the map, questions asked before are kept but no longer applied (their
+   cards say so), new ones narrow the zone. "Wrong station" undoes it. The
+   hider's phone says the seekers are in (and whether they picked the right
+   station). Solo play has the same, on the phone only.
+5. **Station kinds:** halts are train stations (no switch any more);
+   funiculars count as trams (Dock E too, besides being airside).
+6. **Menu:** "Share a copy" is one button that opens a dialog.
+7. **GPS:** the error now says what to do (blocked for the site, no fix,
+   timeout) and a precise fix that times out falls back to a rough one.
+   Location needs https and the site allowed in the browser's site settings.
+8. **Your games** (Menu → Game): every shared game this phone was in, with
+   Rejoin and Delete (for everyone, photos included; phones still in it are
+   dropped out). The server keeps a game until deleted or a year unchanged;
+   it doesn't know who still has it open.
+9. **Mobile page zoom:** the viewport no longer scales and the page refuses
+   pinch-zoom; only the map zooms.
+10. The hider doesn't ask: no "Add Question" (or map menu items) on the
+    hider's phone in a shared game; the Questions tab counts what waits.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

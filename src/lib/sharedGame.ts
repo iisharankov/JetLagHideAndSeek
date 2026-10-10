@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import {
     additionalMapGeoLocations,
-    chosenStation,
     type CustomPreset,
     customPresets,
     disabledStations,
@@ -26,7 +25,6 @@ import { type Questions, questionsSchema } from "@/maps/schema";
 
 const settingsSchema = z.object({
     disabledStations: z.array(z.string()).nullish(),
-    chosenStation: z.string().nullish(),
     hidingRadius: z.number().positive().nullish(),
     hidingRadiusUnits: z.enum(["miles", "kilometers", "meters"]).nullish(),
     zoneOptions: z.array(z.string()).nullish(),
@@ -157,6 +155,17 @@ export const parseSharedGame = (text: string): SharedGame => {
     };
 };
 
+/** "Zürich, Switzerland", or "a drawn play area". */
+export const playAreaName = (playArea: SharedGame["playArea"]) =>
+    playArea.kind === "place"
+        ? [
+              playArea.location.properties.name,
+              playArea.location.properties.country,
+          ]
+              .filter(Boolean)
+              .join(", ")
+        : "a drawn play area";
+
 /** A short description for the "load this game?" prompt. */
 export const summarizeSharedGame = (game: SharedGame) => {
     const count = game.questions.length;
@@ -164,16 +173,7 @@ export const summarizeSharedGame = (game: SharedGame) => {
         count === 0
             ? "no questions"
             : `${count} question${count === 1 ? "" : "s"}`;
-    const place =
-        game.playArea.kind === "place"
-            ? [
-                  game.playArea.location.properties.name,
-                  game.playArea.location.properties.country,
-              ]
-                  .filter(Boolean)
-                  .join(", ")
-            : "a drawn play area";
-    return `${questionsText} in ${place}`;
+    return `${questionsText} in ${playAreaName(game.playArea)}`;
 };
 
 /** The play area as shared: a place (with added areas) or a drawn polygon. */
@@ -229,7 +229,6 @@ export const applyPlayArea = (playArea: SharedGame["playArea"]) => {
 /** What a shared game syncs about hiding zones (the rest is in its settings). */
 export const currentZoneSettings = (): Settings => ({
     disabledStations: disabledStations.get(),
-    chosenStation: chosenStation.get(),
 });
 
 /** Checks shared hiding zone settings (throws if they're invalid). */
@@ -239,8 +238,6 @@ export const parseZoneSettings = (raw: unknown): Settings =>
 export const applyZoneSettings = (settings: Settings) => {
     if (settings.disabledStations)
         disabledStations.set(settings.disabledStations);
-    if (settings.chosenStation !== undefined)
-        chosenStation.set(settings.chosenStation ?? "");
     // Older saved games carry the radius and station kinds here; they're
     // game settings now.
     const changes: Partial<GameSettings> = {};

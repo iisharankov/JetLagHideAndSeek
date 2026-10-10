@@ -54,6 +54,7 @@ const game = (entries: QuestionEntry[]): GameState => ({
     photos: [],
     curses: [],
     powerups: [],
+    endgame: null,
     hasHider: false,
     rounds: [],
 });

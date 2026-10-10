@@ -7,6 +7,9 @@ body {
     margin: 0;
     width: 100%;
     height: 100%;
+    /* Pinching zooms the map, never the page (the map handles its own
+       touches). */
+    touch-action: pan-x pan-y;
 }
 
 .leaflet-container {

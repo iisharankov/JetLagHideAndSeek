@@ -121,7 +121,10 @@ export async function adjustMapGeoDataForQuestion(
 /** What happened to a question during the last map refresh. */
 export type QuestionStatus =
     | { state: "ok" }
-    | { state: "skipped"; reason: "hidden" | "planning" | "waiting" }
+    | {
+          state: "skipped";
+          reason: "hidden" | "planning" | "waiting" | "before-endgame";
+      }
     | { state: "not-applicable"; message: string }
     | { state: "error"; message: string };
 

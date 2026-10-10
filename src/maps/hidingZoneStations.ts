@@ -3,11 +3,13 @@ import osmtogeojson from "osmtogeojson";
 import {
     displayHidingZones,
     displayHidingZonesOptions,
+    gameSettings,
     hidingRadius,
     hidingRadiusUnits,
 } from "@/lib/context";
 import { findPlacesInZone, type StationPlace } from "@/maps/api";
 import {
+    applyStationKinds,
     dedupeStations,
     withoutUnreachable,
 } from "@/maps/geo-utils/stationManipulations";
@@ -29,7 +31,12 @@ export const loadStationPlaces = async (): Promise<StationPlace[]> => {
             options.slice(1),
         ),
     ).features;
-    return dedupeStations(withoutUnreachable(places));
+    return dedupeStations(
+        applyStationKinds(
+            withoutUnreachable(places),
+            gameSettings.get().stationKinds,
+        ),
+    );
 };
 
 /** Changes whenever the hiding zone settings change (for caches). */

@@ -60,6 +60,11 @@ export const postOp = (id: string, op: GameOp, by: string, token?: string) =>
         token,
     );
 
+export const deleteGameRequest = (id: string) =>
+    call<{ ok: true }>(`/games/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+    });
+
 export const postHiderPassword = (id: string, password: string) =>
     post<{ token: string }>(`/games/${encodeURIComponent(id)}/hider`, {
         password,

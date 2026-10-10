@@ -239,26 +239,14 @@ export const GameSetupDialog = ({
                             <Label>Which stops count as stations</Label>
                             <ToggleCard
                                 title="Train stations"
-                                description="Always."
+                                description="Always, small halts included."
                                 checked
                                 disabled
                                 onCheckedChange={() => undefined}
                             />
                             <ToggleCard
-                                title="Halts"
-                                description="Small request stops on railway lines."
-                                checked={draft.stationKinds.halts}
-                                onCheckedChange={(halts) =>
-                                    update({
-                                        stationKinds: {
-                                            ...draft.stationKinds,
-                                            halts,
-                                        },
-                                    })
-                                }
-                            />
-                            <ToggleCard
                                 title="Tram stops"
+                                description="Funiculars count as trams."
                                 checked={draft.stationKinds.trams}
                                 onCheckedChange={(trams) =>
                                     update({

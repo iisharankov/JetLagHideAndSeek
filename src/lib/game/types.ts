@@ -67,11 +67,33 @@ export interface PowerupEntry {
     by: string;
 }
 
-/** Which stops count as hiding-zone stations; trains always do. */
+/**
+ * Which stops count as hiding-zone stations. Train stations always do (the
+ * small halts too); funiculars count as trams.
+ */
 export interface StationKinds {
-    halts: boolean;
     trams: boolean;
     boats: boolean;
+}
+
+/** A station as picked: its map-data id ("node/123") and position. */
+export interface StationPick {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+}
+
+/**
+ * The end game: the seekers have picked the hider's station. Only its zone
+ * is left on the map, and the questions asked before no longer apply.
+ */
+export interface Endgame {
+    station: StationPick;
+    startedAt: number;
+    by?: string;
+    /** Keys of the questions from before: they no longer apply. */
+    before: number[];
 }
 
 /** Decided before the game starts; fixed while it runs (see settings.ts). */
@@ -97,6 +119,7 @@ export interface PastRound {
     photoRequests: PhotoRequest[];
     curses: CurseEntry[];
     powerups: PowerupEntry[];
+    endgame?: Endgame | null;
 }
 
 export interface GameState {
@@ -114,6 +137,7 @@ export interface GameState {
     photos: PhotoInfo[];
     curses: CurseEntry[];
     powerups: PowerupEntry[];
+    endgame: Endgame | null;
     hasHider: boolean;
     rounds: PastRound[];
 }
@@ -155,4 +179,6 @@ export type GameOp =
     | { type: "castCurse"; name: string }
     | { type: "clearCurse"; id: string }
     | { type: "playPowerup"; name: string }
+    | { type: "startEndgame"; station: StationPick }
+    | { type: "endEndgame" }
     | { type: "newRound" };

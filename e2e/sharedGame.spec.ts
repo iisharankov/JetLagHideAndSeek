@@ -54,9 +54,19 @@ const preparePhone = async (page: Page, name: string, url = "/") => {
     await page.goto(url);
 };
 
-const openMenu = async (page: Page, section: "Game" | "Hider" | "Settings") => {
+const openMenu = async (page: Page, section: "Game" | "Settings") => {
     await page.getByRole("button", { name: "Menu", exact: true }).click();
     await page.getByRole("radio", { name: section }).click();
+};
+
+/** Closes the menu; a dialog that is still closing may swallow an Escape. */
+const closeMenu = async (page: Page) => {
+    const menu = page.getByRole("dialog", { name: "Menu" });
+    for (let tries = 0; tries < 10 && (await menu.isVisible()); tries++) {
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(300);
+    }
+    await expect(menu).toBeHidden();
 };
 
 const newPhone = async (browser: Browser) =>
@@ -86,12 +96,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(page).toHaveURL(/[?&]game=[A-Za-z0-9]{8}/);
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
-    // The setup dialog takes a moment to close; Escape must reach the menu,
-    // not the closing dialog.
-    await expect(
-        page.locator('[role="dialog"]', { hasText: "New shared game" }),
-    ).toHaveCount(0);
-    await page.keyboard.press("Escape");
+    await closeMenu(page);
 
     // Ana adds a radius question: a draft only seekers see.
     await page.getByRole("button", { name: "Add Question" }).click();
@@ -104,42 +109,38 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     const speculation = page.locator('path[stroke="#f59e0b"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
 
-    // Ben opens the link and becomes the hider (Menu → Hider); until then the
-    // hider controls are faded. He doesn't see the draft.
+    // Ben opens the link and becomes the hider (Menu → Game → I'm the
+    // hider, with a password). The menu closes and the sidebar shows his
+    // Hider tab. He doesn't see the draft.
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
-    await openMenu(ben, "Hider");
-    await expect(ben.getByTestId("hider-controls")).toHaveAttribute(
-        "aria-disabled",
-        "true",
-    );
-    await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel(/hider password/i).fill("secret");
+    await openMenu(ben, "Game");
+    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
-    await expect(ben.getByTestId("hider-status")).toContainText(
-        "the hider in this game",
+    await expect(ben.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(ben.getByTestId("hider-panel")).toContainText(
+        "Pick your station",
     );
-    await expect(ben.getByTestId("hider-controls")).not.toHaveAttribute(
-        "aria-disabled",
-        "true",
-    );
-    // The hider's phone is simply in hider mode: no switch to flip.
-    await expect(ben.getByRole("switch", { name: /^Hider mode/ })).toHaveCount(
+    await expect(ben.getByTestId("question-game-state")).toHaveCount(0);
+    // The hider doesn't ask questions.
+    await expect(ben.getByRole("button", { name: "Add Question" })).toHaveCount(
         0,
     );
-    await ben.keyboard.press("Escape");
-    await expect(ben.getByTestId("question-game-state")).toHaveCount(0);
-    // The settings came with the game: a small game.
+    // The settings came with the game: a small game, and he's the hider.
     await openMenu(ben, "Game");
     await expect(ben.getByTestId("game-settings-summary")).toContainText(
         "Small",
     );
-    await ben.keyboard.press("Escape");
+    await expect(ben.getByTestId("game-role")).toContainText("the hider");
+    await closeMenu(ben);
 
     // Ana sends it; Ben sees it. With hider mode on (his pin starts at the
     // map's centre, next to Ana's question) his phone suggests "Yes", and
     // nothing is sent until he picks an answer. He answers "No".
     await page.getByRole("button", { name: "Send to the hider" }).click();
+    // His sidebar is on the Hider tab; the Questions tab counts what waits.
+    await ben.getByRole("radio", { name: /^Questions/ }).click();
     const benState = ben.getByTestId("question-game-state");
     await expect(benState).toHaveAttribute("data-state", "asked");
     // Before answering, Ben's map shows the question's pin and its outline.
@@ -207,6 +208,115 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await page.getByRole("button", { name: "Rejoin it" }).click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     await expect(page).toHaveURL(/[?&]game=/);
+
+    await ben.context().close();
+});
+
+const STATION_QUERY = {
+    elements: [
+        {
+            type: "node",
+            id: 1,
+            lat: 47.3779,
+            lon: 8.5403,
+            tags: { name: "Zürich HB", railway: "station" },
+        },
+        {
+            type: "node",
+            id: 2,
+            lat: 47.3914,
+            lon: 8.5118,
+            tags: { name: "Zürich Altstetten", railway: "station" },
+        },
+    ],
+};
+
+/** The app's own Overpass answers with two stations, and nothing else. */
+const mockStations = (page: Page) =>
+    page.route("**/overpass/api/interpreter", (route) =>
+        route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(
+                (route.request().postData() ?? "").includes("railway")
+                    ? STATION_QUERY
+                    : { elements: [] },
+            ),
+        }),
+    );
+
+test("the hider picks a station; the seekers' pick starts the end game", async ({
+    page,
+    browser,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await mockStations(page);
+    await openMenu(page, "Game");
+    await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Start the game" }).click();
+    await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
+    const link = page.url();
+    await closeMenu(page);
+
+    // Ben, the hider, picks Altstetten in his Hider tab and is done.
+    const ben = await newPhone(browser);
+    await preparePhone(ben, "Ben", link);
+    await mockStations(ben);
+    await openMenu(ben, "Game");
+    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    await ben.getByLabel("Hider password").fill("secret");
+    await ben.getByRole("button", { name: "Become the hider" }).click();
+    const benPanel = ben.getByTestId("hider-panel");
+    await expect(benPanel).toContainText("Pick your station");
+    await benPanel
+        .locator("li", { hasText: "Zürich Altstetten" })
+        .getByRole("button", { name: "Mine" })
+        .click({ timeout: 30_000 });
+    await expect(ben.getByTestId("hider-station")).toContainText(
+        "Zürich Altstetten",
+    );
+    await ben.getByTestId("hider-done").click();
+    await expect(ben.getByTestId("hider-station")).toContainText(
+        "Your station: Zürich Altstetten",
+    );
+    await expect(
+        benPanel.getByRole("switch", { name: /Show my pin/ }),
+    ).toBeVisible();
+
+    // Ana turns the zones on, finds the station and starts the end game.
+    await page.getByRole("radio", { name: "Stations" }).click();
+    await page.getByRole("switch", { name: /Show hiding zones/ }).click();
+    await expect(page.getByTestId("remaining-stations-count")).toContainText(
+        "2 stations left",
+        { timeout: 30_000 },
+    );
+    await page
+        .locator("li", { hasText: "Zürich Altstetten" })
+        .getByRole("button", { name: "Found it" })
+        .click();
+    await page.getByRole("button", { name: "Start the end game" }).click();
+    await expect(page.getByTestId("endgame")).toContainText(
+        "End game at Zürich Altstetten",
+    );
+    // Only that zone is left: the other station is out.
+    await expect(page.getByTestId("remaining-stations-count")).toContainText(
+        "1 station left",
+        { timeout: 30_000 },
+    );
+    // The hider's phone knows: answers come from the pin now.
+    await expect(ben.getByTestId("hider-endgame")).toContainText(
+        "your station",
+    );
+
+    // Wrong station? Back to the whole map, for everyone.
+    await page.getByRole("button", { name: "Wrong station? Undo" }).click();
+    await expect(page.getByTestId("endgame")).toHaveCount(0);
+    await expect(ben.getByTestId("hider-endgame")).toHaveCount(0);
 
     await ben.context().close();
 });

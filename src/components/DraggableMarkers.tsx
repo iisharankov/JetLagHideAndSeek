@@ -3,6 +3,7 @@ import type { DragEndEvent } from "leaflet";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { Marker } from "react-leaflet";
+import { toast } from "react-toastify";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -13,6 +14,8 @@ import {
     questionModified,
     questions,
     save,
+    setHiderPin,
+    showHiderPin,
     triggerLocalRefresh,
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
@@ -54,6 +57,7 @@ const ColoredMarker = ({
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
     const $autoSave = useStore(autoSave);
+    const $game = useStore(gameState);
     const [open, setOpen] = useState(false);
 
     return (
@@ -107,12 +111,10 @@ const ColoredMarker = ({
                                 longitude={$hiderMode.longitude}
                                 inlineEdit
                                 onChange={(latitude, longitude) => {
-                                    hiderMode.set({
-                                        latitude:
-                                            latitude ?? $hiderMode.latitude,
-                                        longitude:
-                                            longitude ?? $hiderMode.longitude,
-                                    });
+                                    movePin(
+                                        latitude ?? $hiderMode.latitude,
+                                        longitude ?? $hiderMode.longitude,
+                                    );
                                 }}
                                 label="Hider Location"
                             />
@@ -172,7 +174,7 @@ const ColoredMarker = ({
                                 return null;
                         }
                     })}
-                {questionKey === -1 && (
+                {questionKey === -1 && !$game && (
                     <Button // If it's the hider mode marker
                         onClick={() => {
                             hiderMode.set(false);
@@ -196,10 +198,20 @@ const ColoredMarker = ({
     );
 };
 
+/** Moves the hider pin; it is kept inside the hider's zone. */
+const movePin = (latitude: number, longitude: number) => {
+    if (setHiderPin(latitude, longitude) === "clamped") {
+        toast.info("The pin stays inside your hiding zone.", {
+            toastId: "pin-clamped",
+        });
+    }
+};
+
 export const DraggableMarkers = () => {
     useStore(triggerLocalRefresh);
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
+    const $showHiderPin = useStore(showHiderPin);
 
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
@@ -210,30 +222,22 @@ export const DraggableMarkers = () => {
             {$notes.map((note) => (
                 <NotePinMarker key={note.id} note={note} />
             ))}
-            {$hiderMode !== false && !($game && $role !== "hider") && (
-                <ColoredMarker
-                    color="green"
-                    key="hider"
-                    sub="Hider Location"
-                    questionKey={-1}
-                    latitude={$hiderMode.latitude}
-                    longitude={$hiderMode.longitude}
-                    onChange={(e) => {
-                        $hiderMode.latitude =
-                            e.target.getLatLng().lat ?? $hiderMode.latitude;
-                        $hiderMode.longitude =
-                            e.target.getLatLng().lng ?? $hiderMode.longitude;
-
-                        if (autoSave.get()) {
-                            hiderMode.set({
-                                ...$hiderMode,
-                            });
-                        } else {
-                            triggerLocalRefresh.set(Math.random());
-                        }
-                    }}
-                />
-            )}
+            {$hiderMode !== false &&
+                $showHiderPin &&
+                !($game && $role !== "hider") && (
+                    <ColoredMarker
+                        color="green"
+                        key="hider"
+                        sub="Hider Location"
+                        questionKey={-1}
+                        latitude={$hiderMode.latitude}
+                        longitude={$hiderMode.longitude}
+                        onChange={(e) => {
+                            const { lat, lng } = e.target.getLatLng();
+                            movePin(lat, lng);
+                        }}
+                    />
+                )}
             {$questions.map((question) => {
                 if (!question.data) return null;
                 if (question.data.hidden) return null;

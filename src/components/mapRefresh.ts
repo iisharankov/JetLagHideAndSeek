@@ -6,7 +6,10 @@ import {
     animateMapMovements,
     autoZoom,
     busy,
+    endgame,
     hiderMode,
+    hidingRadius,
+    hidingRadiusUnits,
     leafletMapContext,
     mapGeoJSON,
     planningModeEnabled,
@@ -131,20 +134,41 @@ const refresh = async () => {
         return;
     }
 
+    // The end game: the seekers picked the hider's station, so only its
+    // zone is left, and the questions from before no longer apply.
+    const $endgame = endgame.get();
+    const before = new Set($endgame?.before ?? []);
+    const inPlay = $endgame
+        ? $questions.filter((q) => !before.has(q.key))
+        : $questions;
+    if ($endgame) {
+        const circle = turf.circle(
+            [$endgame.station.lng, $endgame.station.lat],
+            turf.convertLength(
+                hidingRadius.get(),
+                hidingRadiusUnits.get(),
+                "kilometers",
+            ),
+            { steps: 64, units: "kilometers" },
+        );
+        const inside = turf.intersect(
+            turf.featureCollection([safeUnion(playArea), circle]),
+        );
+        playArea = turf.featureCollection([inside ?? circle]);
+    }
+
     const game = gameState.get();
-    const confirmed = $questions.filter(
-        (q) => roleOnMap(q, game) === "confirmed",
-    );
-    const speculative = $questions.filter(
+    const confirmed = inPlay.filter((q) => roleOnMap(q, game) === "confirmed");
+    const speculative = inPlay.filter(
         (q) => roleOnMap(q, game) === "speculative",
     );
-    const waiting = $questions.filter((q) => roleOnMap(q, game) === "waiting");
+    const waiting = inPlay.filter((q) => roleOnMap(q, game) === "waiting");
 
     const hiderModeErrors: Record<number, QuestionStatus> = {};
     if (hiderMode.get() !== false && game && gameRole.get() === "hider") {
         await suggestAnswers(waiting, hiderModeErrors);
     } else if (hiderMode.get() !== false && !game) {
-        for (const question of $questions) {
+        for (const question of inPlay) {
             try {
                 await hiderifyQuestion(question);
             } catch (error) {
@@ -206,6 +230,17 @@ const refresh = async () => {
                 q.key,
                 { state: "skipped", reason: "waiting" } as QuestionStatus,
             ]),
+        ),
+        ...Object.fromEntries(
+            $questions
+                .filter((q) => before.has(q.key))
+                .map((q) => [
+                    q.key,
+                    {
+                        state: "skipped",
+                        reason: "before-endgame",
+                    } as QuestionStatus,
+                ]),
         ),
         ...hiderModeErrors,
     });

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDebounce } from "@/hooks/useDebounce";
 import { busy, isLoading } from "@/lib/context";
+import { describeGeoError, locate } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 import { determineName, geocode, ICON_COLORS } from "@/maps/api";
 
@@ -350,24 +351,10 @@ export const LatitudeLongitude = ({
                         <Button
                             variant="outline"
                             onClick={() => {
-                                if (!navigator || !navigator.geolocation)
-                                    return alert("Geolocation not supported");
-
                                 const done = busy.begin();
 
                                 toast.promise(
-                                    new Promise<GeolocationPosition>(
-                                        (resolve, reject) => {
-                                            navigator.geolocation.getCurrentPosition(
-                                                resolve,
-                                                reject,
-                                                {
-                                                    maximumAge: 0,
-                                                    enableHighAccuracy: true,
-                                                },
-                                            );
-                                        },
-                                    )
+                                    locate()
                                         .then((position) => {
                                             onChange(
                                                 position.coords.latitude,
@@ -376,11 +363,17 @@ export const LatitudeLongitude = ({
                                         })
                                         .finally(done),
                                     {
-                                        pending: "Fetching location",
-                                        success: "Location fetched",
-                                        error: "Could not fetch location",
+                                        pending: "Getting your location…",
+                                        success: {
+                                            render: "Location set",
+                                            autoClose: 500,
+                                        },
+                                        error: {
+                                            render: ({ data }) =>
+                                                describeGeoError(data),
+                                            autoClose: 12000,
+                                        },
                                     },
-                                    { autoClose: 500 },
                                 );
                             }}
                             disabled={disabled}

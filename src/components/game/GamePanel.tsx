@@ -1,4 +1,5 @@
 import { useStore } from "@nanostores/react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 
 import {
@@ -20,12 +21,14 @@ import { gameSettings, setupDialog } from "@/lib/context";
 import {
     activeGameId,
     currentGameId,
+    deleteGame,
     forgetLastGame,
     gameConnection,
     gameLink,
     gameRole,
     gameState,
     joinGame,
+    knownGames,
     leaveGame,
     playerName,
     sendOp,
@@ -33,6 +36,9 @@ import {
 import { describeStations, questionKey } from "@/lib/game/settings";
 import type { GameSettings } from "@/lib/game/types";
 import { shareOrFallback } from "@/lib/utils";
+import { errorMessage } from "@/maps/errors";
+
+import { HiderToggle } from "./HiderToggle";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -84,6 +90,126 @@ const NameInput = () => {
                 onChange={(e) => playerName.set(e.target.value)}
             />
         </>
+    );
+};
+
+const when = (time: number) =>
+    new Date(time).toLocaleString([], {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+/** Menu → Game → Your games: every shared game this phone has been in. */
+const GamesList = () => {
+    const $known = useStore(knownGames);
+    const $gameId = useStore(activeGameId);
+    const [open, setOpen] = useState(false);
+    const games = Object.values($known).sort((a, b) => b.lastSeen - a.lastSeen);
+    if (games.length === 0) return null;
+
+    const remove = async (id: string) => {
+        try {
+            await deleteGame(id);
+            toast.success("Game deleted.", { autoClose: 2000 });
+        } catch (error) {
+            toast.error(errorMessage(error));
+        }
+    };
+
+    return (
+        <section
+            className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3"
+            data-testid="games-list"
+        >
+            <button
+                type="button"
+                className="flex w-full items-center justify-between text-left text-sm font-semibold font-poppins"
+                onClick={() => setOpen(!open)}
+                aria-expanded={open}
+            >
+                <span>Your games ({games.length})</span>
+                <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+            </button>
+            {open && (
+                <>
+                    <ul className="flex flex-col gap-2">
+                        {games.map((game) => (
+                            <li
+                                key={game.id}
+                                className="flex flex-col gap-1 rounded-md bg-slate-800/60 p-2 text-xs"
+                            >
+                                <p>
+                                    <strong>
+                                        {game.area || "Unknown area"}
+                                    </strong>
+                                    {game.id === $gameId && " · you're in it"}
+                                </p>
+                                <p className="text-slate-400">
+                                    Joined {when(game.joinedAt)} · last seen{" "}
+                                    {when(game.lastSeen)} ·{" "}
+                                    <span className="font-mono">{game.id}</span>
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={game.id === $gameId}
+                                        onClick={() => joinGame(game.id)}
+                                    >
+                                        Rejoin
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                            >
+                                                Delete
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>
+                                                    Delete this game for
+                                                    everyone?
+                                                </AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Its questions, photos and
+                                                    curses are removed from the
+                                                    server; phones still in it
+                                                    are dropped out. This
+                                                    can&apos;t be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>
+                                                    Keep it
+                                                </AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={() =>
+                                                        void remove(game.id)
+                                                    }
+                                                >
+                                                    Delete
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="text-xs text-slate-400">
+                        The server keeps a game until someone deletes it or a
+                        year passes without changes; it doesn&apos;t know who
+                        still has it open. Leaving only forgets it on this
+                        phone.
+                    </p>
+                </>
+            )}
+        </section>
     );
 };
 
@@ -152,6 +278,13 @@ export const GamePanel = () => {
                         Start a shared game
                     </Button>
                 </section>
+                <GamesList />
+                <section className="flex flex-col gap-2 rounded-lg border border-yellow-500/50 p-3">
+                    <h3 className="text-sm font-semibold font-poppins">
+                        Playing alone
+                    </h3>
+                    <HiderToggle />
+                </section>
             </>
         );
     }
@@ -191,11 +324,11 @@ export const GamePanel = () => {
                 ) : (
                     <>
                         You&apos;re <strong>a seeker</strong>
-                        {$game?.hasHider && " (a hider has joined)"}. To be the
-                        hider: Menu → Hider.
+                        {$game?.hasHider && " (a hider has joined)"}.
                     </>
                 )}
             </p>
+            <HiderToggle />
 
             <h4 className="text-xs font-semibold font-poppins text-slate-300">
                 Settings (fixed for this game)
@@ -279,6 +412,7 @@ export const GamePanel = () => {
                 Leaving keeps your copy of the questions; the game goes on for
                 the others.
             </p>
+            <GamesList />
             {$name === "" && (
                 <p className="text-xs text-amber-400">
                     Add your name so the others see who changed what.

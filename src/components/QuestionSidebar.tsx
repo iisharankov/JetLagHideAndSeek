@@ -29,18 +29,20 @@ import { withBase } from "@/lib/config";
 import {
     autoSave,
     clearQuestions,
+    hiderMode,
     isLoading,
     questions,
     save,
     sidebarTab,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { gameState } from "@/lib/game/session";
+import { gameRole, gameState } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CursesPanel } from "./game/CursesPanel";
 import { NotePinList } from "./game/NotePins";
 import { PhotosPanel } from "./game/PhotosPanel";
+import { HiderPanel as HiderPanelPlain } from "./HiderPanel";
 import {
     MatchingQuestionComponent,
     MeasuringQuestionComponent,
@@ -56,7 +58,12 @@ const StationsPanel = withErrorBoundary(Panel, "stations panel", [
     "displayHidingZonesStyle",
     "displayHidingZonesOptions",
     "disabledStations",
-    "chosenStation",
+    "endgame",
+]);
+const HiderPanel = withErrorBoundary(HiderPanelPlain, "hider panel", [
+    "hiderStation",
+    "isHiderMode",
+    "showHiderPin",
 ]);
 
 export const QuestionSidebar = () => {
@@ -65,9 +72,20 @@ export const QuestionSidebar = () => {
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
     const $game = useStore(gameState);
+    const $role = useStore(gameRole);
+    const $hiderMode = useStore(hiderMode);
     const tab = useStore(sidebarTab);
+    // The hider's phone: the Stations tab is the Hider tab.
+    const hider = $hiderMode !== false && (!$game || $role === "hider");
     const activeCurses =
         $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
+    // The hider: questions waiting for an answer.
+    const waitingQuestions =
+        $game && $role === "hider"
+            ? Object.values($game.questions).filter(
+                  (entry) => entry.state === "asked",
+              ).length
+            : 0;
     const waitingPhotos =
         $game?.photoRequests.filter((request) => !request.photoId).length ?? 0;
 
@@ -78,7 +96,9 @@ export const QuestionSidebar = () => {
                     {tab === "questions"
                         ? "Questions"
                         : tab === "stations"
-                          ? "Stations"
+                          ? hider
+                              ? "Hider"
+                              : "Stations"
                           : tab === "photos"
                             ? "Photos"
                             : "Curses"}
@@ -102,8 +122,16 @@ export const QuestionSidebar = () => {
                 <SegmentedControl
                     label="Sidebar section"
                     options={[
-                        { value: "questions", label: "Questions" },
-                        { value: "stations", label: "Stations" },
+                        {
+                            value: "questions",
+                            label: waitingQuestions
+                                ? `Questions (${waitingQuestions})`
+                                : "Questions",
+                        },
+                        {
+                            value: "stations",
+                            label: hider ? "Hider" : "Stations",
+                        },
                         {
                             value: "photos",
                             label: waitingPhotos
@@ -122,7 +150,7 @@ export const QuestionSidebar = () => {
                 />
             </div>
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
-                <StationsPanel />
+                {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
             {tab === "photos" && (
                 <SidebarContent>
@@ -186,13 +214,20 @@ export const QuestionSidebar = () => {
             <SidebarGroup className={tab === "questions" ? "" : "hidden"}>
                 <SidebarGroupContent>
                     <SidebarMenu data-tutorial-id="add-questions-buttons">
-                        <SidebarMenuItem>
-                            <AddQuestionDialog>
-                                <SidebarMenuButton disabled={$isLoading}>
-                                    Add Question
-                                </SidebarMenuButton>
-                            </AddQuestionDialog>
-                        </SidebarMenuItem>
+                        {$game && $role === "hider" ? (
+                            <p className="px-2 py-1 text-xs text-slate-400">
+                                The seekers ask; you answer. Questions appear
+                                here once they send them.
+                            </p>
+                        ) : (
+                            <SidebarMenuItem>
+                                <AddQuestionDialog>
+                                    <SidebarMenuButton disabled={$isLoading}>
+                                        Add Question
+                                    </SidebarMenuButton>
+                                </AddQuestionDialog>
+                            </SidebarMenuItem>
+                        )}
                         {$questions.length > 0 && !$game && (
                             <SidebarMenuItem>
                                 <AlertDialog>

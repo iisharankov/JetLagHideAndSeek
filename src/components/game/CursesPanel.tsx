@@ -269,8 +269,8 @@ export const CursesPanel = () => {
                                             <p className="text-xs text-slate-300">
                                                 Tell the seekers which station
                                                 you were at, then pick your new
-                                                one in Stations
-                                                (&quot;Mine&quot;).
+                                                one in the Hider tab (Change
+                                                station).
                                             </p>
                                         )}
                                         <Button

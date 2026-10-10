@@ -1,8 +1,15 @@
 import { useStore } from "@nanostores/react";
-import { EyeOffIcon, MenuIcon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Drawer,
     DrawerContent,
@@ -21,21 +28,20 @@ import {
     defaultCustomQuestions,
     defaultUnit,
     followMe,
-    hiderMode,
     hidingZone,
     leafletMapContext,
+    menuOpen,
     overpassCustomHost,
     planningModeEnabled,
     playAreaEditing,
     questions,
     referencePlacesMode,
     regionChoice,
-    save,
     setupDialog,
     showTutorial,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { gameRole, gameState, resumeGame } from "@/lib/game/session";
+import { resumeGame } from "@/lib/game/session";
 import { downloadSharedGame, uploadSharedGame } from "@/lib/shareApi";
 import {
     applySharedGame,
@@ -48,18 +54,11 @@ import type { RegionChoice } from "@/maps/regionRules";
 
 import { GamePanel } from "./game/GamePanel";
 import { GameSetupDialog } from "./game/GameSetupDialog";
-import { HiderClaim } from "./game/HiderClaim";
-import { LatitudeLongitude } from "./LatLngPicker";
 import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
-import {
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-} from "./ui/sidebar-l";
 import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 import { UnitSelect } from "./UnitSelect";
 
@@ -101,19 +100,18 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const $regionChoice = useStore(regionChoice);
     const $animateMapMovements = useStore(animateMapMovements);
     const $autoZoom = useStore(autoZoom);
-    const $hiderMode = useStore(hiderMode);
-    const $autoSave = useStore(autoSave);
     const $planningMode = useStore(planningModeEnabled);
     const $baseTileLayer = useStore(baseTileLayer);
     const $followMe = useStore(followMe);
     const $referencePlaces = useStore(referencePlacesMode);
     const $customInitPref = useStore(customInitPreference);
     const $allowPublicOverpass = useStore(allowPublicOverpass);
+    const $autoSave = useStore(autoSave);
     const $overpassCustomHost = useStore(overpassCustomHost);
-    const [isOptionsOpen, setOptionsOpen] = useState(false);
+    const isOptionsOpen = useStore(menuOpen);
+    const setOptionsOpen = menuOpen.set;
+    const [copyOpen, setCopyOpen] = useState(false);
     const [menuTab, setMenuTab] = useState<MenuTab>("game");
-    const $game = useStore(gameState);
-    const $role = useStore(gameRole);
     const $setup = useStore(setupDialog);
     const $playAreaEditing = useStore(playAreaEditing);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -223,18 +221,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         reader.readAsText(file);
     };
 
-    const setHiderMode = (on: boolean) => {
-        if (!on) {
-            hiderMode.set(false);
-            return;
-        }
-        const center = leafletMapContext.get()?.getCenter();
-        hiderMode.set({
-            latitude: center?.lat ?? 0,
-            longitude: center?.lng ?? 0,
-        });
-    };
-
     const setPlanningMode = (on: boolean) => {
         if (!on) {
             leafletMapContext.get()?.eachLayer((layer: any) => {
@@ -261,19 +247,48 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         navigator.clipboard.readText().then(loadHidingZone);
     };
 
-    const openMenu = (tab: MenuTab) => {
-        setMenuTab(tab);
-        setOptionsOpen(true);
-    };
-
     return (
         <div className={cn("flex justify-end gap-2", className)}>
             <SharedGameDialog />
-            <GameSetupDialog
-                open={$setup !== null}
-                onOpenChange={(open) => !open && setupDialog.set(null)}
-                mode={$setup ?? "solo"}
-            />
+            <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
+                <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
+                    <DialogHeader>
+                        <DialogTitle>Share a copy</DialogTitle>
+                        <DialogDescription>
+                            A snapshot (not live) of the play area, questions
+                            and hiding zone settings. Anyone opening it is asked
+                            before their own game is replaced.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button className="col-span-2" onClick={shareGame}>
+                            Share a copy as a link
+                        </Button>
+                        <Button variant="outline" onClick={saveToFile}>
+                            Save to file
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            Load from file
+                        </Button>
+                        <Button variant="outline" onClick={copyGame}>
+                            Copy game
+                        </Button>
+                        <Button variant="outline" onClick={pasteGame}>
+                            Paste game
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            {$setup !== null && (
+                <GameSetupDialog
+                    open
+                    onOpenChange={(open) => !open && setupDialog.set(null)}
+                    mode={$setup}
+                />
+            )}
             <input
                 ref={fileInputRef}
                 type="file"
@@ -285,16 +300,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     e.target.value = "";
                 }}
             />
-            {$hiderMode !== false && (
-                <Button
-                    className="shadow-md bg-yellow-400 text-black hover:bg-yellow-300"
-                    onClick={() => openMenu("hider")}
-                    title="You're the hider: answers come from the hider pin"
-                >
-                    <EyeOffIcon className="mr-1 h-4 w-4" />
-                    Hider mode
-                </Button>
-            )}
             <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
                 <DrawerTrigger asChild>
                     <Button
@@ -317,7 +322,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             label="Menu section"
                             options={[
                                 { value: "game", label: "Game" },
-                                { value: "hider", label: "Hider" },
                                 { value: "settings", label: "Settings" },
                             ]}
                             value={menuTab}
@@ -327,49 +331,14 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             {menuTab === "game" && (
                                 <>
                                     <GamePanel />
-                                    <MenuGroup title="Share a copy">
+                                    <MenuGroup title="Help">
                                         <Button
-                                            onClick={shareGame}
+                                            variant="outline"
+                                            onClick={() => setCopyOpen(true)}
                                             data-tutorial-id="share-questions-button"
                                         >
-                                            Share a copy as a link
+                                            Share a copy, save or load a file…
                                         </Button>
-                                        <p className="text-xs text-slate-400">
-                                            A snapshot (not live) of the play
-                                            area, questions and hiding zone
-                                            settings. Anyone opening it is asked
-                                            before their own game is replaced.
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={saveToFile}
-                                            >
-                                                Save to file
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() =>
-                                                    fileInputRef.current?.click()
-                                                }
-                                            >
-                                                Load from file
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={copyGame}
-                                            >
-                                                Copy game
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={pasteGame}
-                                            >
-                                                Paste game
-                                            </Button>
-                                        </div>
-                                    </MenuGroup>
-                                    <MenuGroup title="Help">
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button variant="outline" asChild>
                                                 <a
@@ -403,96 +372,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                             </Button>
                                         </div>
                                     </MenuGroup>
-                                </>
-                            )}
-                            {menuTab === "hider" && (
-                                <>
-                                    {$game && <HiderClaim />}
-                                    <div
-                                        className={cn(
-                                            "flex flex-col gap-3",
-                                            $game &&
-                                                $role !== "hider" &&
-                                                "pointer-events-none opacity-40",
-                                        )}
-                                        aria-disabled={
-                                            $game && $role !== "hider"
-                                                ? true
-                                                : undefined
-                                        }
-                                        data-testid="hider-controls"
-                                    >
-                                        {$game && $role === "hider" ? (
-                                            <p className="rounded-md bg-yellow-500/15 p-2 text-sm">
-                                                Hider mode is on: each question
-                                                gets a suggested answer, worked
-                                                out from the hider pin. Nothing
-                                                is sent until you tap an answer.
-                                                Your position stays on this
-                                                phone.
-                                            </p>
-                                        ) : (
-                                            <ToggleCard
-                                                title="Hider mode"
-                                                description="Every question is answered automatically from the hider pin. Your position stays on this phone; only answers are shared."
-                                                checked={$hiderMode !== false}
-                                                onCheckedChange={setHiderMode}
-                                            />
-                                        )}
-                                        {$hiderMode !== false && (
-                                            <MenuGroup title="Hider location">
-                                                <p className="text-xs text-slate-400">
-                                                    Drag the black hider pin on
-                                                    the map, use your GPS
-                                                    (target button), or type
-                                                    coordinates.
-                                                </p>
-                                                <SidebarMenu>
-                                                    <LatitudeLongitude
-                                                        latitude={
-                                                            $hiderMode.latitude
-                                                        }
-                                                        longitude={
-                                                            $hiderMode.longitude
-                                                        }
-                                                        inlineEdit
-                                                        onChange={(
-                                                            latitude,
-                                                            longitude,
-                                                        ) => {
-                                                            $hiderMode.latitude =
-                                                                latitude ??
-                                                                $hiderMode.latitude;
-                                                            $hiderMode.longitude =
-                                                                longitude ??
-                                                                $hiderMode.longitude;
-
-                                                            if ($autoSave) {
-                                                                hiderMode.set({
-                                                                    ...$hiderMode,
-                                                                });
-                                                            } else {
-                                                                triggerLocalRefresh.set(
-                                                                    Math.random(),
-                                                                );
-                                                            }
-                                                        }}
-                                                        label="Hider location"
-                                                    />
-                                                    {!$autoSave && (
-                                                        <SidebarMenuItem>
-                                                            <SidebarMenuButton
-                                                                className="bg-blue-600 p-2 rounded-md font-semibold font-poppins mt-2"
-                                                                onClick={save}
-                                                            >
-                                                                Save
-                                                            </SidebarMenuButton>
-                                                        </SidebarMenuItem>
-                                                    )}
-                                                </SidebarMenu>
-                                            </MenuGroup>
-                                        )}
-                                    </div>
                                 </>
                             )}
                             {menuTab === "settings" && (
@@ -660,7 +539,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     );
 };
 
-type MenuTab = "game" | "hider" | "settings";
+type MenuTab = "game" | "settings";
 
 const MenuGroup = ({
     title,

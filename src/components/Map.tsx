@@ -18,6 +18,7 @@ import {
     baseTileLayer,
     displayHidingZones,
     displayHidingZonesOptions,
+    endgame,
     followMe,
     hiderMode,
     hidingRadius,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
 import { newRadiusQuestion } from "@/lib/gameSettings";
+import { describeGeoError, watchPosition } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 
@@ -38,6 +40,17 @@ import { requestMapRefresh } from "./mapRefresh";
 import { PMTilesLayer } from "./PMTilesLayer";
 import { PolygonDraw } from "./PolygonDraw";
 import { ReferenceMarkers } from "./ReferenceMarkers";
+
+/** In a shared game the hider answers; the seekers ask. */
+const hiderAsking = () => {
+    if (gameState.get() && gameRole.get() === "hider") {
+        toast.info("The seekers ask the questions; you answer them.", {
+            toastId: "hider-asking",
+        });
+        return true;
+    }
+    return false;
+};
 
 const OSM_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -80,8 +93,8 @@ export const Map = ({ className }: { className?: string }) => {
         () => ({ current: null as L.Marker | null }),
         [],
     );
-    const geoWatchIdRef = useMemo(
-        () => ({ current: null as number | null }),
+    const stopWatchRef = useMemo(
+        () => ({ current: null as (() => void) | null }),
         [],
     );
 
@@ -99,6 +112,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Radius",
                         callback: (e: any) =>
+                            !hiderAsking() &&
                             addQuestion(
                                 newRadiusQuestion(e.latlng.lat, e.latlng.lng),
                             ),
@@ -111,6 +125,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Thermometer",
                         callback: (e: any) => {
+                            if (hiderAsking()) return;
                             const destination = turf.destination(
                                 [e.latlng.lng, e.latlng.lat],
                                 5,
@@ -134,6 +149,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Tentacles",
                         callback: (e: any) => {
+                            if (hiderAsking()) return;
                             addQuestion({
                                 id: "tentacles",
                                 data: {
@@ -146,6 +162,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Matching",
                         callback: (e: any) => {
+                            if (hiderAsking()) return;
                             addQuestion({
                                 id: "matching",
                                 data: {
@@ -158,6 +175,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Add Measuring",
                         callback: (e: any) => {
+                            if (hiderAsking()) return;
                             addQuestion({
                                 id: "measuring",
                                 data: {
@@ -170,6 +188,7 @@ export const Map = ({ className }: { className?: string }) => {
                     {
                         text: "Exclude Country",
                         callback: (e: any) => {
+                            if (hiderAsking()) return;
                             addQuestion({
                                 id: "matching",
                                 data: {
@@ -253,6 +272,8 @@ export const Map = ({ className }: { className?: string }) => {
         : "";
 
     const $polyGeoJSON = useStore(polyGeoJSON);
+    // The end game clips the map to one station's zone.
+    const $endgame = useStore(endgame);
     useEffect(() => {
         if (!map) return;
 
@@ -266,6 +287,7 @@ export const Map = ({ className }: { className?: string }) => {
         $role,
         $mapGeoLocation,
         $polyGeoJSON,
+        $endgame,
     ]);
 
     // The hiding zones follow the answers whichever panels are open.
@@ -302,14 +324,12 @@ export const Map = ({ className }: { className?: string }) => {
                 map.removeLayer(followMeMarkerRef.current);
                 followMeMarkerRef.current = null;
             }
-            if (geoWatchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(geoWatchIdRef.current);
-                geoWatchIdRef.current = null;
-            }
+            stopWatchRef.current?.();
+            stopWatchRef.current = null;
             return;
         }
 
-        geoWatchIdRef.current = navigator.geolocation.watchPosition(
+        stopWatchRef.current = watchPosition(
             (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
@@ -327,21 +347,18 @@ export const Map = ({ className }: { className?: string }) => {
                     followMeMarkerRef.current = marker;
                 }
             },
-            () => {
-                toast.error("Unable to access your location.");
+            (error) => {
+                toast.error(describeGeoError(error), { autoClose: 12000 });
                 followMe.set(false);
             },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
         );
         return () => {
             if (followMeMarkerRef.current) {
                 map.removeLayer(followMeMarkerRef.current);
                 followMeMarkerRef.current = null;
             }
-            if (geoWatchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(geoWatchIdRef.current);
-                geoWatchIdRef.current = null;
-            }
+            stopWatchRef.current?.();
+            stopWatchRef.current = null;
         };
     }, [$followMe, map]);
 

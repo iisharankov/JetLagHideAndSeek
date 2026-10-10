@@ -46,23 +46,26 @@ export const defaultGameSettings = (
     size,
     region,
     hidingRadiusKm: hidingRadiusDefaultKm(size),
-    stationKinds: { halts: true, trams: false, boats: false },
+    stationKinds: { trams: false, boats: false },
     minLakeAreaKm2: 10,
     disabledQuestions: regionDisabledQuestions(region),
     seekersCanAnswer: false,
 });
 
-/** The hiding-zone station filters (Overpass style) for the station kinds. */
+/**
+ * The hiding-zone station filters (Overpass style) for the station kinds.
+ * A train station is a train station whether every train stops there or
+ * not, so the halts are always in.
+ */
 export const stationFilters = (kinds: StationKinds) => [
     "[railway=station]",
-    ...(kinds.halts ? ["[railway=halt]"] : []),
+    "[railway=halt]",
     ...(kinds.trams ? ["[railway=tram_stop]"] : []),
     ...(kinds.boats ? ["[amenity=ferry_terminal]"] : []),
 ];
 
 /** The station kinds behind a list of filters (e.g. from an old saved game). */
 export const stationKindsFromFilters = (filters: string[]): StationKinds => ({
-    halts: filters.includes("[railway=halt]"),
     trams: filters.includes("[railway=tram_stop]"),
     boats: filters.includes("[amenity=ferry_terminal]"),
 });
@@ -90,7 +93,6 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
                 ? radius
                 : defaults.hidingRadiusKm,
         stationKinds: {
-            halts: kinds.halts ?? defaults.stationKinds.halts,
             trams: kinds.trams === true,
             boats: kinds.boats === true,
         },
@@ -107,11 +109,6 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
 
 /** One line describing the settings, e.g. for the sidebar. */
 export const describeStations = (kinds: StationKinds) =>
-    [
-        "trains",
-        kinds.halts && "halts",
-        kinds.trams && "trams",
-        kinds.boats && "boats",
-    ]
+    ["trains", kinds.trams && "trams", kinds.boats && "boats"]
         .filter(Boolean)
         .join(", ");

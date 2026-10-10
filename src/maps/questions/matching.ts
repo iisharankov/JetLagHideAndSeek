@@ -9,7 +9,7 @@ import type {
 import osmtogeojson from "osmtogeojson";
 
 import {
-    hiderMode,
+    hiderAnswerPosition,
     mapGeoJSON,
     mapGeoLocation,
     playAreaKey,
@@ -266,7 +266,7 @@ export const adjustPerMatching = async (
 };
 
 export const hiderifyMatching = async (question: MatchingQuestion) => {
-    const $hiderMode = hiderMode.get();
+    const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
         return question;
     }

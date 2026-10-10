@@ -1,7 +1,24 @@
 import * as turf from "@turf/turf";
 
+import type { StationKinds } from "@/lib/game/types";
 import type { StationPlace } from "@/maps/api/types";
 import { UNREACHABLE_STATIONS } from "@/maps/datasets/stations";
+
+/** A funicular (or its stop) is mapped as a station, but counts as a tram. */
+export const isFunicular = (place: StationPlace) =>
+    place.properties.station === "funicular" ||
+    place.properties.railway === "funicular";
+
+/**
+ * The stations the game counts: trains (halts included) always, trams and
+ * boats as chosen. Funiculars come with the train stations in the map data
+ * and are in or out with the trams.
+ */
+export const applyStationKinds = (
+    places: StationPlace[],
+    kinds: StationKinds,
+): StationPlace[] =>
+    places.filter((place) => kinds.trams || !isFunicular(place));
 
 /** Leaves out the stations players can't get to (datasets/stations.ts). */
 export const withoutUnreachable = (places: StationPlace[]): StationPlace[] =>
@@ -10,6 +27,7 @@ export const withoutUnreachable = (places: StationPlace[]): StationPlace[] =>
 /** How a stop ranks when several share a name: the railway station wins. */
 const rank = (place: StationPlace) => {
     const tags = place.properties;
+    if (isFunicular(place)) return 2;
     if (tags.railway === "station") return 0;
     if (tags.railway === "halt") return 1;
     if (tags.railway === "tram_stop") return 2;

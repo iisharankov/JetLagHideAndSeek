@@ -7,7 +7,7 @@ import {
     displayHidingZones,
     displayHidingZonesOptions,
     gameSettings,
-    hiderMode,
+    hiderAnswerPosition,
     hidingRadius,
     hidingRadiusUnits,
     mapGeoJSON,
@@ -503,7 +503,7 @@ export const adjustPerMeasuring = async (
 };
 
 export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
-    const $hiderMode = hiderMode.get();
+    const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
         return question;
     }

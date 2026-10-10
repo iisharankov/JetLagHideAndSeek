@@ -51,7 +51,7 @@ describe("game store", () => {
         const game = start();
         const seen: number[] = [];
         const unsubscribe = games.subscribe(game.id, (state) =>
-            seen.push(state.version),
+            seen.push(state!.version),
         );
         games.apply(
             game.id,
@@ -142,6 +142,26 @@ describe("game store", () => {
     });
 });
 
+describe("deleting a game", () => {
+    it("removes it with its photos and tells the phones in it", () => {
+        const game = start();
+        games.addPhoto(game.id, new Uint8Array([1, 2, 3]), "image/png", {
+            name: "Ben",
+            role: "hider",
+        });
+        const seen: (number | null)[] = [];
+        games.subscribe(game.id, (state) =>
+            seen.push(state ? state.version : null),
+        );
+
+        expect(games.delete(game.id)).toBe(true);
+        expect(games.get(game.id)).toBeUndefined();
+        expect(games.readPhoto(game.id, "anything.png")).toBeUndefined();
+        expect(seen).toEqual([null]);
+        expect(games.delete(game.id)).toBe(false);
+    });
+});
+
 describe("games from before the settings update", () => {
     it("get the defaults for settings they don't have", () => {
         const db = new DatabaseSync(":memory:");
@@ -159,7 +179,6 @@ describe("games from before the settings update", () => {
         expect(loaded.settings.size).toBe("large");
         expect(loaded.settings.seekersCanAnswer).toBe(true);
         expect(loaded.settings.stationKinds).toEqual({
-            halts: true,
             trams: false,
             boats: false,
         });

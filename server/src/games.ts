@@ -43,7 +43,13 @@ export interface GameStore {
     ): GameState;
     get(id: string): GameState | undefined;
     apply(id: string, op: GameOp, actor: Actor): GameState;
-    subscribe(id: string, listener: (state: GameState) => void): () => void;
+    /** `null` tells a subscriber the game was deleted. */
+    subscribe(
+        id: string,
+        listener: (state: GameState | null) => void,
+    ): () => void;
+    /** Removes a game for everyone, photos included. False if unknown. */
+    delete(id: string): boolean;
     claimHider(id: string, password: string): string;
     isHider(id: string, token: string | undefined | null): boolean;
     addPhoto(
@@ -103,7 +109,7 @@ export const createGameStore = (
     const stale = db.prepare("SELECT id FROM games WHERE updated_at < ?");
     const remove = db.prepare("DELETE FROM games WHERE id = ?");
 
-    const listeners = new Map<string, Set<(state: GameState) => void>>();
+    const listeners = new Map<string, Set<(state: GameState | null) => void>>();
 
     type Row = {
         state: string;
@@ -119,6 +125,7 @@ export const createGameStore = (
         // Games from before a settings change get the defaults for what's new.
         state.settings = normalizeGameSettings(state.settings);
         state.powerups ??= [];
+        state.endgame ??= null;
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
@@ -171,6 +178,15 @@ export const createGameStore = (
                 listeners.get(id)?.delete(listener);
                 if (listeners.get(id)?.size === 0) listeners.delete(id);
             };
+        },
+
+        delete(id) {
+            if (!row(id)) return false;
+            remove.run(id);
+            rmSync(photoFolder(id), { recursive: true, force: true });
+            for (const listener of listeners.get(id) ?? []) listener(null);
+            listeners.delete(id);
+            return true;
         },
 
         claimHider(id, password) {

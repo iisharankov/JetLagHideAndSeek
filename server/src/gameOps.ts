@@ -12,6 +12,7 @@ import {
     type QuestionEntry,
     type Role,
     type SharedQuestion,
+    type StationPick,
 } from "@/lib/game/types";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
@@ -54,6 +55,7 @@ export const newGameState = (
     photos: [],
     curses: [],
     powerups: [],
+    endgame: null,
     hasHider: false,
     rounds: [],
 });
@@ -248,6 +250,33 @@ export const applyOp = (
                 by: actor.name,
             });
             break;
+        case "startEndgame": {
+            // The seekers have found the station: only its zone is left,
+            // and everything asked so far (drafts included) no longer counts.
+            const station = (op.station ?? {}) as Partial<StationPick>;
+            if (
+                typeof station.id !== "string" ||
+                !Number.isFinite(station.lat) ||
+                !Number.isFinite(station.lng)
+            ) {
+                throw new GameRuleError("Pick a station on the map.", 400);
+            }
+            state.endgame = {
+                station: {
+                    id: station.id,
+                    name: String(station.name ?? "").slice(0, 200),
+                    lat: station.lat!,
+                    lng: station.lng!,
+                },
+                startedAt: now,
+                by: actor.name,
+                before: Object.keys(state.questions).map(Number),
+            };
+            break;
+        }
+        case "endEndgame":
+            state.endgame = null;
+            break;
         case "newRound":
             state.rounds.push({
                 endedAt: now,
@@ -255,11 +284,13 @@ export const applyOp = (
                 photoRequests: state.photoRequests,
                 curses: state.curses,
                 powerups: state.powerups,
+                endgame: state.endgame,
             });
             state.questions = {};
             state.photoRequests = [];
             state.curses = [];
             state.powerups = [];
+            state.endgame = null;
             state.hasHider = false;
             break;
         default:

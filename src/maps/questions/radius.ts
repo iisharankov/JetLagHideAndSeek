@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 
-import { hiderMode } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/context";
 import { arcBuffer, arcDistance, modifyMapData } from "@/maps/geo-utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
@@ -21,7 +21,7 @@ export const adjustPerRadius = async (
 };
 
 export const hiderifyRadius = async (question: RadiusQuestion) => {
-    const $hiderMode = hiderMode.get();
+    const $hiderMode = hiderAnswerPosition();
     if ($hiderMode === false) {
         return question;
     }

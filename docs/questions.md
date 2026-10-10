@@ -118,3 +118,11 @@ From your earlier answers (rounds 1–4), already built or planned:
   tools live in game setup; powerups the hider plays are shown to everyone;
   leaving a game keeps the questions on the phone; stations behind airport
   security (Dock E) are left out through an editable list.
+- **Round 7:** one "I'm the hider" switch (password popup); the Stations tab
+  is the Hider tab on the hider's phone (pick the station, then only its
+  zone); the hider pin is the real spot, kept inside the zone, and is the
+  source of truth only in the end game (the station until then); the seekers'
+  pick starts the end game (only that zone left, earlier questions not
+  applied, undoable); halts are trains, funiculars are trams; "Share a copy"
+  is one button; a games list with delete; no page zoom on phones; saved
+  settings don't sync between tabs.
