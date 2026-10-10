@@ -55,7 +55,6 @@ export const createApp = ({
 
     app.get("/health", (c) => c.json({ ok: true }));
 
-
     // Shared games ------------------------------------------------------
 
     /**

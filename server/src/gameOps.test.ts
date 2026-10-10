@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CARDS } from "@/lib/game/deck";
 import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
+import { photoNamesFor } from "@/lib/rules/photoQuestions";
 
 import {
     type Actor,
@@ -648,7 +649,8 @@ describe("the virtual deck", () => {
 
         const seekersView = viewFor(state, "seeker");
         expect(seekersView.deck?.hand).toEqual([]);
-        expect(seekersView.deck?.handSize).toBe(1);
+        // Not even how many cards the hider holds.
+        expect(JSON.stringify(seekersView.deck)).not.toMatch(/Size/);
         expect(viewFor(state, "hider").deck?.hand).toHaveLength(1);
 
         // Playing a curse from the hand casts it for everyone.
@@ -958,6 +960,138 @@ describe("Randomize Question", () => {
         };
         state = apply(state, { type: "randomizeQuestion", key: 1 }, hider);
         expect(state.deck!.hand).toEqual(["time_5"]);
+    });
+});
+
+describe("the hider's station", () => {
+    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+
+    it("tells the seekers when the hider is in place, not where", () => {
+        let state = fresh();
+        expect(state.hiderReadyAt).toBeNull();
+        expect(() =>
+            apply(state, { type: "hiderReady", station }, seeker),
+        ).toThrow(/Only the hider/);
+        state = apply(state, { type: "hiderReady", station }, hider, 5000);
+        expect(state.hiderReadyAt).toBe(5000);
+        expect(state.hider?.station).toEqual(station);
+        const seen = viewFor(state, "seeker");
+        expect(seen.hiderReadyAt).toBe(5000);
+        expect(seen.hider).toBeNull();
+        // A new round starts over.
+        expect(
+            apply(state, { type: "newRound" }, hider).hiderReadyAt,
+        ).toBeNull();
+    });
+
+    it("needs a station", () => {
+        expect(() =>
+            apply(fresh(), { type: "hiderReady", station: null }, hider),
+        ).toThrow(/Pick a station first/);
+    });
+});
+
+describe("the hiding clock", () => {
+    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+
+    it("starts by itself when the seekers pick the station, if nobody did", () => {
+        const state = apply(
+            fresh(),
+            { type: "startEndgame", station },
+            seeker,
+            4000,
+        );
+        expect(state.clock?.startedAt).toBe(4000);
+        expect(state.clock?.pausedAt).toBeNull();
+    });
+
+    it("keeps a clock started sooner", () => {
+        let state = apply(
+            fresh(),
+            { type: "clock", action: "start" },
+            seeker,
+            1000,
+        );
+        state = apply(state, { type: "startEndgame", station }, seeker, 4000);
+        expect(state.clock?.startedAt).toBe(1000);
+    });
+});
+
+describe("Randomize Question on photo questions", () => {
+    const askPhoto = (state: GameState, name: string) =>
+        apply(state, { type: "askPhoto", name }, seeker);
+
+    it("turns an asked photo question into another of this game's size", () => {
+        let state = askPhoto(fresh(), "Tree");
+        const id = state.photoRequests[0].id;
+        state = apply(state, { type: "randomizePhoto", id }, hider, 3000);
+        const request = state.photoRequests[0];
+        expect(request.name).not.toBe("Tree");
+        expect(photoNamesFor("medium")).toContain(request.name);
+        expect(request.randomizedFrom).toBe("Tree");
+        expect(request.askedAs).toEqual(["Tree"]);
+        expect(request.randomizedAt).toBe(3000);
+        expect(request.photoId).toBeUndefined();
+        expect(state.powerups.at(-1)?.name).toBe("Randomize Question");
+    });
+
+    it("only picks photo questions not asked this round", () => {
+        const names = photoNamesFor("medium");
+        let state = fresh();
+        for (const name of names.slice(0, -1)) state = askPhoto(state, name);
+        const id = state.photoRequests[0].id;
+        state = apply(state, { type: "randomizePhoto", id }, hider);
+        expect(state.photoRequests[0].name).toBe(names.at(-1));
+        // Nothing is left now (the first one's old name counts as asked).
+        expect(() =>
+            apply(
+                state,
+                { type: "randomizePhoto", id: state.photoRequests[1].id },
+                hider,
+            ),
+        ).toThrow(/nothing to randomize to/);
+    });
+
+    it("is the hider's, for photos not sent yet, and costs the card", () => {
+        let state = askPhoto(fresh(), "Tree");
+        const id = state.photoRequests[0].id;
+        expect(() =>
+            apply(state, { type: "randomizePhoto", id }, seeker),
+        ).toThrow(GameRuleError);
+        const sent = structuredClone(state);
+        sent.photoRequests[0].photoId = "x.jpg";
+        expect(() =>
+            apply(sent, { type: "randomizePhoto", id }, hider),
+        ).toThrow(/waiting for an answer/);
+        expect(() =>
+            apply(state, { type: "randomizePhoto", id: "nope" }, hider),
+        ).toThrow(/No such photo/);
+
+        state = askPhoto(
+            newGameState(
+                "g7",
+                {
+                    playArea: {},
+                    zone: {},
+                    settings: {
+                        ...defaultGameSettings("medium", "switzerland"),
+                        deck: "virtual",
+                    },
+                },
+                1000,
+            ),
+            "Tree",
+        );
+        const digital = state.photoRequests[0].id;
+        expect(() =>
+            apply(state, { type: "randomizePhoto", id: digital }, hider),
+        ).toThrow(/No Randomize Question card/);
+        state = {
+            ...state,
+            deck: { ...state.deck!, hand: ["powerup_randomize_question"] },
+        };
+        state = apply(state, { type: "randomizePhoto", id: digital }, hider);
+        expect(state.deck!.hand).toEqual([]);
     });
 });
 

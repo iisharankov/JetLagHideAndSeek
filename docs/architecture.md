@@ -97,12 +97,13 @@ src/
                             MenuGroup
     game/                   GameSetupDialog (+ setup/DeckEditor, setup/QuestionsStep), GamePanel
                             (incl. scoreboard), JoinDialog (name and role
-                            first), HiderToggle, QuestionGameBar (send / answer / veto /
+                            first, also after starting a game), QuestionGameBar (send / answer / veto /
                             randomize, the answer timer), PhotosPanel, CardsPanel (the hand) with
                             CardTiles, ActiveCurses, CardHistory, CardFace; RoundClock, GamePopups
                             (alerts), PushCard, NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
     TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
+    CoachMark.tsx           a one-off pointer in the tutorial's style (lib/coachMark.ts), e.g. "pick your hiding spot"
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
                             gameOps.ts (the rules: applyOp, viewFor), push.ts (push
                             notifications, VAPID keys)

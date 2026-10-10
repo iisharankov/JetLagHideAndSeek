@@ -10,7 +10,6 @@ export const mapToObj = <T, K extends string, V>(
     fn: (item: T) => [K, V],
 ) => Object.fromEntries(arr.map(fn));
 
-
 /**
  * Open native share sheet or fallback to sending to clipboard
  * @param url URL to share

@@ -34,7 +34,6 @@ beforeEach(() => {
     app = createApp({ games, push });
 });
 
-
 describe("health", () => {
     it("reports ok", async () => {
         const response = await app.request("/api/health");

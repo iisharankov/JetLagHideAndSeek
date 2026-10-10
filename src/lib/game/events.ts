@@ -18,7 +18,8 @@ export interface GameEvent {
         | "curse"
         | "powerup"
         | "move"
-        | "award";
+        | "award"
+        | "hider";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
@@ -130,6 +131,15 @@ export const gameEvents = (
         return events;
     }
 
+    // The hider has their station: the seekers hear that, not where.
+    if (after.hiderReadyAt && after.hiderReadyAt !== before.hiderReadyAt) {
+        events.push({
+            key: `hr${after.hiderReadyAt}`,
+            kind: "hider",
+            title: "The hider is in place",
+            body: "They've picked their station (not shown to you). Start the clock when you set off.",
+        });
+    }
     for (const photo of after.photos) {
         if (before.photos.some((b) => b.id === photo.id)) continue;
         const request = after.photoRequests.find(
@@ -184,6 +194,14 @@ export const gameEvents = (
                           entry.updatedAt === powerup.playedAt,
                   )
                 : undefined;
+        const randomizedPhoto =
+            powerup.name === "Randomize Question"
+                ? after.photoRequests.find(
+                      (request) =>
+                          request.randomizedFrom &&
+                          request.randomizedAt === powerup.playedAt,
+                  )
+                : undefined;
         events.push({
             key: `p${powerup.id}`,
             kind: move ? "move" : "powerup",
@@ -197,7 +215,9 @@ export const gameEvents = (
                   }. No questions until they continue; the questions so far are in Cards → History.`
                 : randomized
                   ? `${randomized.randomizedFrom} became ${label(randomized.question)}; the hider answers that instead.`
-                  : undefined,
+                  : randomizedPhoto
+                    ? `Photo: ${randomizedPhoto.randomizedFrom} became Photo: ${randomizedPhoto.name}; the hider sends that instead.`
+                    : undefined,
         });
     }
     return events;

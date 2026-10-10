@@ -9,7 +9,7 @@
         "dev": "node scripts/copy-arcgis-assets.mjs && astro dev",
         "build": "node scripts/copy-arcgis-assets.mjs && astro build",
         "preview": "astro preview",
-        "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --outfile=server/dist/index.mjs",
+        "build:server": "node server/build.mjs",
         "start:server": "node server/dist/index.mjs",
         "build:datasets": "esbuild server/datasets/build.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/build-datasets.mjs",
         "data:dev": "bash scripts/build-dev-data.sh",

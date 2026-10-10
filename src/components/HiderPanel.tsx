@@ -65,7 +65,10 @@ export const HiderPanel = () => {
                 className="flex flex-col gap-2 p-2 text-sm"
                 data-testid="hider-panel"
             >
-                <p className="rounded-md bg-yellow-500/15 p-2">
+                <p
+                    className="rounded-md bg-yellow-500/15 p-2"
+                    data-tutorial-id="hider-pick"
+                >
                     <strong>Pick your station.</strong> Every station is on the
                     map with its hiding zone ({radius} around it). Tap yours on
                     the map or in the list; it turns red.
@@ -80,6 +83,13 @@ export const HiderPanel = () => {
                     onClick={() => {
                         hiderChoosing.set(false);
                         if ($chosen) goToPick($chosen);
+                        // The seekers hear that the hider is in place.
+                        if ($game && $chosen) {
+                            void sendOp({
+                                type: "hiderReady",
+                                station: $chosen,
+                            });
+                        }
                         toast.success(
                             `Your station is ${$chosen?.name}. The red circle is your hiding zone.`,
                         );
@@ -159,14 +169,23 @@ export const HiderPanel = () => {
                     Your station: <strong>{$chosen.name}</strong>. The red
                     circle ({radius}) is your hiding zone.
                 </p>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1"
-                    onClick={() => hiderChoosing.set(true)}
-                >
-                    Change station
-                </Button>
+                {!$game || $game.move ? (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-1"
+                        onClick={() => hiderChoosing.set(true)}
+                    >
+                        Change station
+                    </Button>
+                ) : (
+                    <p
+                        className="mt-1 text-xs text-slate-400"
+                        data-testid="station-locked"
+                    >
+                        Set for this round: only playing Move changes it.
+                    </p>
+                )}
             </section>
             {$endgame ? (
                 <section

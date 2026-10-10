@@ -24,6 +24,7 @@ const base = (): GameState => ({
     moves: [],
     hider: null,
     hasHider: true,
+    hiderReadyAt: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -73,6 +74,45 @@ describe("game events", () => {
         expect(gameEvents(before, after, "seeker")).toEqual([]);
         // The first state of a game is never news.
         expect(gameEvents(null, after, "hider")).toEqual([]);
+    });
+
+    it("tells the seekers the hider is in place, and what a photo question became", () => {
+        const before = base();
+        const after: GameState = {
+            ...base(),
+            hiderReadyAt: 9,
+            powerups: [
+                {
+                    id: "p2",
+                    name: "Randomize Question",
+                    playedAt: 7,
+                    by: "Ben",
+                },
+            ],
+            photoRequests: [
+                {
+                    id: "r1",
+                    name: "Bench",
+                    askedBy: "Ana",
+                    askedAt: 3,
+                    randomizedFrom: "Tree",
+                    randomizedAt: 7,
+                    askedAs: ["Tree"],
+                },
+            ],
+        };
+        const events = gameEvents(before, after, "seeker");
+        expect(events.map((e) => e.kind)).toEqual(["hider", "powerup"]);
+        expect(events[0].title).toBe("The hider is in place");
+        expect(events[1].body).toBe(
+            "Photo: Tree became Photo: Bench; the hider sends that instead.",
+        );
+        // Nothing new the second time round.
+        expect(gameEvents(after, after, "seeker")).toEqual([]);
+        // The hider hears about the new photo question, not about themselves.
+        expect(gameEvents(before, after, "hider").map((e) => e.kind)).toEqual([
+            "photoRequest",
+        ]);
     });
 
     it("tells the seekers about answers, vetoes, cards and moves", () => {

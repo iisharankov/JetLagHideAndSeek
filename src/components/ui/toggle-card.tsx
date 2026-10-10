@@ -66,7 +66,7 @@ export const SegmentedControl = <T extends string>({
     disabled,
 }: {
     label: string;
-    options: { value: T; label: string }[];
+    options: { value: T; label: string; disabled?: boolean }[];
     value: T;
     onValueChange: (value: T) => void;
     disabled?: boolean;
@@ -88,7 +88,7 @@ export const SegmentedControl = <T extends string>({
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    disabled={disabled}
+                    disabled={disabled || option.disabled}
                     onClick={() => onValueChange(option.value)}
                     className={cn(
                         "flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50",

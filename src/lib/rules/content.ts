@@ -3,14 +3,15 @@
 import curses from "@/content/rules/hiding/the-hider-deck/curses.md?raw";
 import matching from "@/content/rules/seeking/matching-questions.md?raw";
 import measuring from "@/content/rules/seeking/measuring-questions.md?raw";
-import photo from "@/content/rules/seeking/photo-questions.md?raw";
 import radar from "@/content/rules/seeking/radar-questions.md?raw";
 import tentacle from "@/content/rules/seeking/tentacle-questions.md?raw";
 import thermometer from "@/content/rules/seeking/thermometer-questions.md?raw";
 import { withBase } from "@/lib/config";
-import type { GameSize } from "@/lib/game/types";
 
+import { PHOTO_PAGE } from "./photoQuestions";
 import { headingSlug, parseRulesPage } from "./sections";
+
+export { photoQuestions } from "./photoQuestions";
 
 /** Rulebook pages by their path under /rules/. */
 export const RULES_PAGES = {
@@ -19,7 +20,7 @@ export const RULES_PAGES = {
     "seeking/radar-questions": parseRulesPage(radar),
     "seeking/thermometer-questions": parseRulesPage(thermometer),
     "seeking/tentacle-questions": parseRulesPage(tentacle),
-    "seeking/photo-questions": parseRulesPage(photo),
+    "seeking/photo-questions": PHOTO_PAGE,
     "hiding/the-hider-deck/curses": parseRulesPage(curses),
 };
 
@@ -54,29 +55,3 @@ export const categoryIntro = (page: RulesPageId) =>
                 !/^Here('s| are) (a|two) little diagram/.test(block),
         )
         .join("\n\n");
-
-/**
- * The photo questions, with the game sizes each is for: the rulebook lists
- * the small-game ones first, then adds more for medium and large games.
- */
-export const photoQuestions = () => {
-    const groups: GameSize[][] = [
-        ["small", "medium", "large"],
-        ["medium", "large"],
-        ["large"],
-    ];
-    let group = 0;
-    const questions: { name: string; rules: string; sizes: GameSize[] }[] = [];
-    for (const section of RULES_PAGES["seeking/photo-questions"].sections) {
-        if (section.level <= 3) {
-            group = Math.min(group + 1, groups.length - 1);
-        } else {
-            questions.push({
-                name: section.title,
-                rules: section.body,
-                sizes: groups[group],
-            });
-        }
-    }
-    return questions;
-};

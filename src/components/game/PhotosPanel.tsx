@@ -99,6 +99,12 @@ export const PhotosPanel = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const size = $game?.settings.size ?? "medium";
+    // Randomize Question works on photo questions too; with the digital
+    // deck only with the card in hand.
+    const hand = $game?.deck?.hand;
+    const canRandomize =
+        $role === "hider" &&
+        (hand ? hand.includes("powerup_randomize_question") : true);
     const available = photoQuestions().filter((q) => q.sizes.includes(size));
     // The curses on the seekers may stop a photo question.
     const askRefusal = (name: string) => {
@@ -139,13 +145,44 @@ export const PhotosPanel = () => {
                                     {ago(request.askedAt)}
                                 </span>
                             </p>
+                            {request.randomizedFrom && (
+                                <p
+                                    className="text-xs opacity-80"
+                                    data-testid="photo-randomized"
+                                >
+                                    Randomized: it was {request.randomizedFrom}.
+                                </p>
+                            )}
                             {request.photoId ? (
                                 <Photo photoId={request.photoId} />
                             ) : $role === "hider" ? (
-                                <PhotoButton
-                                    label="Send the photo"
-                                    requestId={request.id}
-                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <PhotoButton
+                                        label="Send the photo"
+                                        requestId={request.id}
+                                    />
+                                    {canRandomize && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            title="Play Randomize Question: another photo question, chosen at random, which you send instead"
+                                            onClick={() => {
+                                                if (
+                                                    window.confirm(
+                                                        "Randomize this photo question? It becomes another photo question, chosen at random, which you send instead.",
+                                                    )
+                                                ) {
+                                                    void sendOp({
+                                                        type: "randomizePhoto",
+                                                        id: request.id,
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            Randomize
+                                        </Button>
+                                    )}
+                                </div>
                             ) : (
                                 <div className="flex items-center justify-between text-xs text-slate-400">
                                     Waiting for the photo

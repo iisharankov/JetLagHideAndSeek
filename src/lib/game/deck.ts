@@ -322,7 +322,11 @@ export const handBonusMinutes = (
     return times.reduce((sum, minutes) => sum + minutes, 0) + duplicates * best;
 };
 
-/** What the seekers may see of the deck: nothing in it, only its size. */
+/**
+ * What the seekers may see of the deck: nothing in it, not even how many
+ * cards the hider holds or how many are left; only the hand limit and the
+ * log of what everyone witnessed.
+ */
 export const deckForSeekers = (deck: Deck): Deck => ({
     remaining: [],
     discard: [],
@@ -332,6 +336,4 @@ export const deckForSeekers = (deck: Deck): Deck => ({
     owed: [],
     limit: deck.limit,
     log: deck.log,
-    handSize: deck.hand.length,
-    deckSize: deck.remaining.length,
 });

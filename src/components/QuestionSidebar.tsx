@@ -45,6 +45,7 @@ import {
     hiderPhone,
     sendOp,
 } from "@/lib/game/session";
+import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
@@ -97,6 +98,14 @@ export const QuestionSidebar = () => {
         if (overLimit && tab !== "curses") sidebarTab.set("curses");
     }, [overLimit, tab]);
     const move = $game?.move ?? null;
+    // The hider's first job in a game is their station: the other tabs
+    // wait until it's picked and confirmed.
+    const $chosen = useStore(chosenStation);
+    const $choosing = useStore(hiderChoosing);
+    const noStationYet = hider && !!$game && ($choosing || !$chosen);
+    useEffect(() => {
+        if (noStationYet && tab !== "stations") sidebarTab.set("stations");
+    }, [noStationYet, tab]);
     // The Move card's period: counted down; when it's over the game goes on
     // by itself (whichever phone notices first).
     useTick(!!move);
@@ -171,6 +180,7 @@ export const QuestionSidebar = () => {
                             label: waitingQuestions
                                 ? `Questions (${waitingQuestions})`
                                 : "Questions",
+                            disabled: noStationYet,
                         },
                         {
                             value: "stations",
@@ -181,18 +191,25 @@ export const QuestionSidebar = () => {
                             label: waitingPhotos
                                 ? `Photos (${waitingPhotos})`
                                 : "Photos",
+                            disabled: noStationYet,
                         },
                         {
                             value: "curses",
                             label: activeCurses
                                 ? `Cards (${activeCurses})`
                                 : "Cards",
+                            disabled: noStationYet,
                         },
                     ]}
                     value={tab}
                     onValueChange={sidebarTab.set}
                     disabled={overLimit}
                 />
+                {noStationYet && (
+                    <p className="mt-1 text-xs text-amber-400">
+                        Pick your station first.
+                    </p>
+                )}
                 {overLimit && (
                     <p className="mt-1 text-xs text-amber-400">
                         Too many cards in your hand: play or discard down to the

@@ -356,7 +356,6 @@ export const deleteCustomPreset = (id: string) => {
     customPresets.set(customPresets.get().filter((p) => p.id !== id));
 };
 
-
 export const drawingQuestionKey = atom<number>(-1);
 export const planningModeEnabled = persistentAtom<boolean>(
     "planningModeEnabled",

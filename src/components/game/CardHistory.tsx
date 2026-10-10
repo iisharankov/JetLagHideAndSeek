@@ -18,14 +18,22 @@ export const CardHistory = ({
     cleared,
     log,
     size,
+    hiderReadyAt,
 }: {
     moves: MoveArchive[];
     played: PowerupEntry[];
     cleared: CurseEntry[];
     log: { at: number; text: string }[];
     size: GameSize;
+    /** When the hider confirmed their station this round. */
+    hiderReadyAt: number | null;
 }) => {
-    const history = cleared.length + played.length + log.length + moves.length;
+    const history =
+        cleared.length +
+        played.length +
+        log.length +
+        moves.length +
+        (hiderReadyAt ? 1 : 0);
     return (
         <details className="rounded-md border border-slate-700 p-2">
             <summary className="cursor-pointer font-semibold font-poppins">
@@ -34,6 +42,11 @@ export const CardHistory = ({
             <div className="mt-2 flex flex-col gap-2 text-xs">
                 {history === 0 && (
                     <p className="text-slate-400">Nothing yet.</p>
+                )}
+                {hiderReadyAt && (
+                    <p className="text-slate-300" data-testid="hider-ready">
+                        {time(hiderReadyAt)} The hider picked their station.
+                    </p>
                 )}
                 {moves.map((entry, index) => (
                     <p key={`m${index}`} className="text-slate-300">

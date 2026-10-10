@@ -13,7 +13,7 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
-import { gameState, hiderPhone } from "@/lib/game/session";
+import { hiderPhone } from "@/lib/game/session";
 import { setHiderPin, showHiderPin } from "@/lib/hiderSpot";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
@@ -27,7 +27,6 @@ import {
     TentacleQuestionComponent,
     ThermometerQuestionComponent,
 } from "./QuestionCards";
-import { Button } from "./ui/button";
 import { SidebarMenu } from "./ui/sidebar-l";
 
 let isDragging = false;
@@ -52,7 +51,6 @@ const ColoredMarker = ({
 }) => {
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
-    const $game = useStore(gameState);
     const [open, setOpen] = useState(false);
 
     return (
@@ -169,17 +167,6 @@ const ColoredMarker = ({
                                 return null;
                         }
                     })}
-                {questionKey === -1 && !$game && (
-                    <Button // If it's the hider mode marker
-                        onClick={() => {
-                            hiderMode.set(false);
-                        }}
-                        variant="destructive"
-                        className="font-semibold font-poppins"
-                    >
-                        Disable
-                    </Button>
-                )}
             </DialogContent>
         </Dialog>
     );

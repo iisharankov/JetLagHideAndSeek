@@ -144,6 +144,7 @@ export const createGameStore = (
         state.hider ??= { station: null, pin: null };
         state.hiderName ??= null;
         state.awards ??= [];
+        state.hiderReadyAt ??= null;
         if (state.move && !state.move.endsAt) {
             state.move.endsAt =
                 state.move.startedAt +

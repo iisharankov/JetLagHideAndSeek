@@ -67,6 +67,10 @@ test("a second tab becoming the hider leaves the first tab a seeker", async ({
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
+    // Starting asks who you are, like opening the link does.
+    const join = page.getByTestId("join-dialog");
+    await join.getByLabel("Your name").fill("Ana");
+    await join.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
     await closeMenu(page);

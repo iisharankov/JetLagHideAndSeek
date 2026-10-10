@@ -39,12 +39,7 @@ import {
     postOp,
     postPhoto,
 } from "./api";
-import {
-    forgetGame,
-    markJoined,
-    rememberGame,
-    unmarkJoined,
-} from "./knownGames";
+import { forgetGame, rememberGame, unmarkJoined } from "./knownGames";
 import { noteServerTime } from "./serverTime";
 import { diffLocal, mergeRemoteQuestions, syncedJson, toShared } from "./sync";
 import type { GameOp, GameState, Role } from "./types";
@@ -451,9 +446,8 @@ export const joinGame = (id: string) => {
 };
 
 /**
- * Back to playing alone. The game's questions were the game's: they go
- * (the questions from before the game can be restored from Menu → Game),
- * and joining again asks who you are.
+ * Back to no game. The game's questions were the game's: they go, and
+ * joining again asks who you are.
  */
 export const leaveGame = () => {
     const id = activeGameId.get();
@@ -484,8 +478,8 @@ export const startGame = async () => {
     });
     syncedPlayArea = JSON.stringify(state.playArea);
     syncedZone = JSON.stringify(state.zone);
-    // Whoever starts the game has given their name and is a seeker.
-    markJoined(state.id);
+    // Not marked as joined: whoever starts the game says who they are
+    // next, like everyone opening the link.
     joinGame(state.id);
     return state.id;
 };

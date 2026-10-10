@@ -578,6 +578,37 @@ stay in `rules/cards.ts`.
    share store. Playing together is the shared game only. (Pasting a
    single question is still there.)
 
+10. **No hider switch.** Menu → Game has no "I'm the hider" or "Hider
+    mode" box any more, with or without a game ("Playing alone" is gone).
+11. **Starting a game asks who you are,** name and role, the same prompt
+    as opening a link. The starter can be the hider.
+12. **Choosing hider with no hiding spot** opens the Hider tab (the sheet
+    on a phone) and points at its instructions in the tutorial's style
+    (`CoachMark.tsx`): a ring and "Pick your hiding spot", gone once a
+    station is picked or on "Got it". The map stays usable underneath.
+
+13. **The seekers learn nothing of the hider's hand,** not even how many
+    cards they hold or how many are left in the deck (the server's view for
+    seekers no longer carries it).
+
+14. **Randomize Question works on photo questions too:** the hider's
+    Randomize button on a photo request (or the card's chooser) turns it
+    into another photo question of the game's size, not asked this round.
+    The rulebook's photo list is shared with the server
+    (`src/lib/rules/photoQuestions.ts`; `server/build.mjs` bundles the
+    rulebook page as text).
+15. **The hider's station comes first:** in a game the Questions, Photos
+    and Cards tabs wait until the station is picked and confirmed, and it
+    is then set for the round: only playing Move allows a change.
+16. **The seekers hear when the hider is in place** (a toast, a push, and
+    "The hider picked their station" in Cards → History), never where.
+17. **The hiding clock starts by itself** when the seekers start the end
+    game, if nobody started it sooner.
+18. **Awarded minutes are asked for at the end:** the "Awarded minutes"
+    section and the per-curse award buttons are gone. When the hider is
+    found, their phone asks for any minutes awarded during the round
+    before sending the time bonuses.
+
 Not built, by your choice: dice (you roll real ones) and a hangman board.
 
 ## What's left ⏭️

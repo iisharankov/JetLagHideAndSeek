@@ -8,7 +8,6 @@ import { useTick } from "@/hooks/useTick";
 import { formatDuration } from "@/lib/game/clock";
 import {
     CATEGORY_LABELS,
-    curseAward,
     curseEndsAt,
     curseRule,
     kindLabel,
@@ -18,7 +17,7 @@ import {
 } from "@/lib/game/curseRules";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, sendOp } from "@/lib/game/session";
-import type { CurseEntry, CustomCard, Deck, GameSize } from "@/lib/game/types";
+import type { CurseEntry, CustomCard, GameSize } from "@/lib/game/types";
 import { CURSES } from "@/lib/rules/cards";
 
 const time = (at: number) =>
@@ -88,15 +87,10 @@ export const ActiveCurses = ({
     active,
     custom,
     size,
-    deck,
-    deckSizes,
 }: {
     active: CurseEntry[];
     custom: CustomCard[];
     size: GameSize;
-    deck: Deck | null;
-    /** Seekers with the digital deck: how many cards the hider holds. */
-    deckSizes: boolean;
 }) => {
     const $role = useStore(gameRole);
     const hider = $role === "hider";
@@ -122,7 +116,6 @@ export const ActiveCurses = ({
                 const own = custom.find((c) => c.name === entry.name);
                 const rule = curseRule(entry.name);
                 const endsAt = curseEndsAt(entry, size);
-                const award = curseAward(entry.name, size);
                 const stopwatch = rule.stopwatch?.[SIZE_INDEX[size]];
                 return (
                     <div
@@ -216,33 +209,10 @@ export const ActiveCurses = ({
                                     Cleared
                                 </Button>
                             )}
-                            {hider && award !== undefined && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    title={rule.awardReason}
-                                    onClick={() =>
-                                        void sendOp({
-                                            type: "awardMinutes",
-                                            minutes: award,
-                                            reason: `${entry.name}: ${rule.awardReason ?? ""}`.trim(),
-                                        })
-                                    }
-                                >
-                                    Award +{award} min
-                                </Button>
-                            )}
                         </div>
                     </div>
                 );
             })}
-            {deckSizes && deck && (
-                <p className="text-xs text-slate-400">
-                    The hider holds {deck.handSize ?? 0} card
-                    {deck.handSize === 1 ? "" : "s"}; {deck.deckSize ?? 0} left
-                    in the deck.
-                </p>
-            )}
         </section>
     );
 };

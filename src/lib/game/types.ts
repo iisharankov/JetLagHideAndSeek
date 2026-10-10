@@ -53,6 +53,11 @@ export interface PhotoRequest {
     askedAt: number;
     photoId?: string;
     answeredAt?: number;
+    /** Randomize Question: what it was before the hider played the card. */
+    randomizedFrom?: string;
+    randomizedAt?: number;
+    /** The names it was asked as before randomizing (not asked again this round). */
+    askedAs?: string[];
 }
 
 export interface CurseEntry {
@@ -188,9 +193,6 @@ export interface Deck {
     chaliceLeft?: number;
     /** Curse of the Impressionable Consumer: answers that earn no draw. */
     freeQuestions?: number;
-    /** Seekers' view: how many cards the hider holds, and the deck's size. */
-    handSize?: number;
-    deckSize?: number;
 }
 
 /** A card the players added to the deck (a blank card, written on). */
@@ -279,6 +281,8 @@ export interface GameState {
     /** The questions archived by moves this round. */
     moves: MoveArchive[];
     hasHider: boolean;
+    /** When the hider confirmed their station this round (the seekers know that, not where). */
+    hiderReadyAt: number | null;
     /** The hider's name this round, once known (for the scoreboard). */
     hiderName: string | null;
     /** Minutes awarded to the hider this round, on top of the hand's bonuses. */
@@ -339,7 +343,9 @@ export type GameOp =
     | { type: "vetoQuestion"; key: number }
     /** Randomize Question: the asked question becomes another of its category. */
     | { type: "randomizeQuestion"; key: number }
+    | { type: "randomizePhoto"; id: string }
     | { type: "setHiderStation"; station: StationPick | null }
+    | { type: "hiderReady"; station: StationPick }
     | { type: "setHiderPin"; pin: { latitude: number; longitude: number } }
     | { type: "move"; station: StationPick | null }
     | { type: "resumeMove" }

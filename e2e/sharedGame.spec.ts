@@ -74,6 +74,51 @@ const newPhone = async (browser: Browser) =>
         await browser.newContext({ viewport: { width: 1366, height: 900 } })
     ).newPage();
 
+const STATION_QUERY = {
+    elements: [
+        {
+            type: "node",
+            id: 1,
+            lat: 47.3779,
+            lon: 8.5403,
+            tags: { name: "Zürich HB", railway: "station" },
+        },
+        {
+            type: "node",
+            id: 2,
+            lat: 47.3914,
+            lon: 8.5118,
+            tags: { name: "Zürich Altstetten", railway: "station" },
+        },
+    ],
+};
+
+/** The app's own Overpass answers with two stations, and nothing else. */
+const mockStations = (page: Page) =>
+    page.route("**/overpass/api/interpreter", (route) =>
+        route.fulfill({
+            contentType: "application/json",
+            body: JSON.stringify(
+                (route.request().postData() ?? "").includes("railway")
+                    ? STATION_QUERY
+                    : { elements: [] },
+            ),
+        }),
+    );
+
+/**
+ * The hider's first job: their station (the other tabs wait for it). Zürich
+ * HB, near the middle of the play area.
+ */
+const pickHiderStation = async (ben: Page) => {
+    await ben
+        .getByTestId("hider-panel")
+        .locator("li", { hasText: "Zürich HB" })
+        .getByRole("button", { name: "Mine" })
+        .click({ timeout: 30_000 });
+    await ben.getByTestId("hider-done").click();
+};
+
 test("a seeker asks, the hider answers, and both phones stay in step", async ({
     page,
     browser,
@@ -93,6 +138,8 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await page.getByRole("button", { name: "Next" }).click();
     await expect(page.getByText("3 of 3: Questions")).toBeVisible();
     await page.getByRole("button", { name: "Start the game" }).click();
+    // Starting asks who you are, like opening the link does.
+    await page.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(page).toHaveURL(/[?&]game=[A-Za-z0-9]{8}/);
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
@@ -115,6 +162,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     // his Hider tab. He doesn't see the draft.
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
+    await mockStations(ben);
     // Opening the link asks who he is: the hider, with a password.
     await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
@@ -123,6 +171,19 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(ben.getByTestId("hider-panel")).toContainText(
         "Pick your station",
     );
+    // Until his station is picked, the other tabs wait.
+    await expect(ben.getByRole("radio", { name: /^Questions/ })).toBeDisabled();
+    await pickHiderStation(ben);
+    await expect(ben.getByRole("radio", { name: /^Questions/ })).toBeEnabled();
+    // Set for the round: only a Move changes it.
+    await expect(ben.getByTestId("station-locked")).toBeVisible();
+    // Ana hears that the hider is in place (in Cards → History too).
+    await page.getByRole("radio", { name: /Cards/ }).click();
+    await page.getByText(/^History/).click();
+    await expect(page.getByTestId("hider-ready")).toContainText(
+        "The hider picked their station",
+    );
+    await page.getByRole("radio", { name: /^Questions/ }).click();
     await expect(ben.getByTestId("question-game-state")).toHaveCount(0);
     // The hider doesn't ask questions.
     await expect(ben.getByRole("button", { name: "Add Question" })).toHaveCount(
@@ -228,38 +289,6 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await ben.context().close();
 });
 
-const STATION_QUERY = {
-    elements: [
-        {
-            type: "node",
-            id: 1,
-            lat: 47.3779,
-            lon: 8.5403,
-            tags: { name: "Zürich HB", railway: "station" },
-        },
-        {
-            type: "node",
-            id: 2,
-            lat: 47.3914,
-            lon: 8.5118,
-            tags: { name: "Zürich Altstetten", railway: "station" },
-        },
-    ],
-};
-
-/** The app's own Overpass answers with two stations, and nothing else. */
-const mockStations = (page: Page) =>
-    page.route("**/overpass/api/interpreter", (route) =>
-        route.fulfill({
-            contentType: "application/json",
-            body: JSON.stringify(
-                (route.request().postData() ?? "").includes("railway")
-                    ? STATION_QUERY
-                    : { elements: [] },
-            ),
-        }),
-    );
-
 test("the hider picks a station; the seekers' pick starts the end game", async ({
     page,
     browser,
@@ -275,6 +304,8 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
+    // Starting asks who you are, like opening the link does.
+    await page.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
     await closeMenu(page);
@@ -289,6 +320,10 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await ben.getByRole("button", { name: "Become the hider" }).click();
     const benPanel = ben.getByTestId("hider-panel");
     await expect(benPanel).toContainText("Pick your station");
+    // No hiding spot yet: a pointer at the instructions, gone once he's done.
+    await expect(ben.getByTestId("coach-mark")).toContainText(
+        "Pick your hiding spot",
+    );
     await benPanel
         .locator("li", { hasText: "Zürich Altstetten" })
         .getByRole("button", { name: "Mine" })
@@ -297,6 +332,7 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
         "Zürich Altstetten",
     );
     await ben.getByTestId("hider-done").click();
+    await expect(ben.getByTestId("coach-mark")).toHaveCount(0);
     await expect(ben.getByTestId("hider-station")).toContainText(
         "Your station: Zürich Altstetten",
     );
@@ -340,8 +376,8 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
         .getByRole("button")
         .click();
     await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
+    // The clock started by itself when the end game began (nobody had).
     const anaClock = page.getByTestId("round-clock");
-    await anaClock.getByRole("button", { name: "Start" }).click();
     await expect(ben.getByTestId("round-clock")).toHaveAttribute(
         "data-state",
         "running",
@@ -349,8 +385,14 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await anaClock.getByRole("button", { name: "Found!" }).click();
     await page.getByRole("button", { name: "Yes, found" }).click();
     await expect(ben.getByTestId("round-clock")).toContainText("Found after");
-    await ben.getByRole("button", { name: "Send my bonuses (3 min)" }).click();
-    await expect(anaClock).toContainText("+ 3 min bonuses");
+    // Ben's phone asks for minutes awarded during the round, then sends.
+    const found = ben.getByTestId("found-dialog");
+    await expect(found).toContainText("Found after");
+    await found.getByLabel("Awarded minutes").fill("10");
+    await found
+        .getByRole("button", { name: "Send my bonuses (13 min)" })
+        .click();
+    await expect(anaClock).toContainText("+ 13 min bonuses");
 
     // Wrong station? Back to the whole map, for everyone.
     await page.getByRole("button", { name: "Wrong station? Undo" }).click();
@@ -375,6 +417,8 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
+    // Starting asks who you are, like opening the link does.
+    await page.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
     await closeMenu(page);
@@ -384,11 +428,13 @@ test("with the virtual deck the game deals the hider's cards", async ({
 
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
+    await mockStations(ben);
     // Opening the link asks who he is: the hider, with a password.
     await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("hider-panel")).toBeVisible();
+    await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     await ben.getByRole("button", { name: "No", exact: true }).click();
 
@@ -407,9 +453,10 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
     await expect(ben.getByTestId("clock-bonus")).toHaveCount(0);
 
-    // Ana only learns how many cards Ben holds.
+    // Ana sees nothing of Ben's hand, not even how many cards he holds.
     await page.getByRole("radio", { name: /Cards/ }).click();
-    await expect(page.getByText(/The hider holds 1 card/)).toBeVisible();
+    await expect(page.getByText(/On the seekers/)).toBeVisible();
+    await expect(page.getByText(/The hider holds/)).toHaveCount(0);
     await expect(page.getByTestId("hand")).toHaveCount(0);
 
     await ben.context().close();
@@ -427,7 +474,7 @@ const castFromRealDeck = async (ben: Page, name: string) => {
         .click();
 };
 
-test("curses on the seekers: no asking until cleared, questions taken away, the memory's die, awards", async ({
+test("curses on the seekers: no asking until cleared, questions taken away, the memory's die", async ({
     page,
     browser,
     externalHosts,
@@ -442,6 +489,8 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
+    // Starting asks who you are, like opening the link does.
+    await page.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
     await closeMenu(page);
@@ -455,10 +504,12 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
 
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
+    await mockStations(ben);
     await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("hider-panel")).toBeVisible();
+    await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /Cards/ }).click();
 
     // A curse that stops the asking: Ana can't send until it's cleared.
@@ -555,21 +606,43 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     );
     await expect(banner).toContainText("roll a die");
 
-    // Awards: minutes the hider gets on top of the hand's time bonuses.
-    await ben.getByLabel("Minutes to award").fill("10");
-    await ben.getByLabel("Reason").fill("the egg cracked");
-    await ben.getByRole("button", { name: "Award", exact: true }).click();
-    await expect(ben.getByTestId("awards")).toContainText(
-        "+10 min: the egg cracked",
-    );
-    await page.getByRole("radio", { name: /Cards/ }).click();
-    await expect(page.getByTestId("awards")).toContainText("+10 min");
-    await ben.getByRole("radio", { name: /^Questions/ }).click();
-    await ben
-        .getByTestId("round-clock")
-        .getByRole("button", { name: "Start" })
-        .click();
-    await expect(ben.getByTestId("clock-bonus")).toHaveText("+10:00");
+    // No awards section: awarded minutes are asked for once the hider is found.
+    await expect(ben.getByTestId("awards")).toHaveCount(0);
 
     await ben.context().close();
+});
+
+test("whoever starts a game says who they are, and may be the hider", async ({
+    page,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await openMenu(page, "Game");
+    // No hider switch anywhere in the Menu.
+    await expect(page.getByRole("switch", { name: /Hider mode/ })).toHaveCount(
+        0,
+    );
+    await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Start the game" }).click();
+    const join = page.getByTestId("join-dialog");
+    await expect(join).toContainText("Who are you");
+    await expect(join.getByLabel("Your name")).toHaveValue("Ana");
+    await join.getByRole("button", { name: "I'm the hider" }).click();
+    await join.getByLabel("Hider password").fill("secret");
+    await join.getByRole("button", { name: "Become the hider" }).click();
+    await expect(join).toBeHidden();
+    // The Menu closes and the Hider tab opens, with the pointer.
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(page.getByTestId("hider-panel")).toContainText(
+        "Pick your station",
+    );
+    const mark = page.getByTestId("coach-mark");
+    await expect(mark).toContainText("Pick your hiding spot");
+    await mark.getByRole("button", { name: "Got it" }).click();
+    await expect(mark).toHaveCount(0);
 });

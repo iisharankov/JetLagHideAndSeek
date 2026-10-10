@@ -23,7 +23,6 @@ import {
     gameSettings,
     mapGeoLocation,
     polyGeoJSON,
-    questions,
     setupDialog,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
@@ -52,8 +51,6 @@ import type { GameSettings, GameState } from "@/lib/game/types";
 import { currentPlayArea, parsePlayArea, playAreaName } from "@/lib/sharedGame";
 import { shareOrFallback } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
-
-import { HiderToggle } from "./HiderToggle";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -250,7 +247,6 @@ const Scoreboard = ({ game }: { game: GameState }) => {
         </section>
     );
 };
-
 
 const NameInput = () => {
     const $name = useStore(playerName);
@@ -454,12 +450,6 @@ export const GamePanel = () => {
                     </Button>
                 </section>
                 <GamesList />
-                <section className="flex flex-col gap-2 rounded-lg border border-yellow-500/50 p-3">
-                    <h3 className="text-sm font-semibold font-poppins">
-                        Playing alone
-                    </h3>
-                    <HiderToggle />
-                </section>
             </>
         );
     }

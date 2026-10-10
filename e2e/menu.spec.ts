@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 
-test("one Menu holds game and settings; hider mode is a switch in Game", async ({
+test("one Menu holds game and settings, and no hider switch", async ({
     page,
     externalHosts,
 }, testInfo) => {
@@ -26,30 +26,14 @@ test("one Menu holds game and settings; hider mode is a switch in Game", async (
         page.getByRole("button", { name: /Share a copy/ }),
     ).toHaveCount(0);
 
-    const hiderMode = page.getByRole("switch", { name: /^Hider mode/ });
-    await expect(hiderMode).toHaveAttribute("aria-checked", "false");
-    await hiderMode.click();
-    // Switching it on closes the menu and shows the Hider tab.
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
-    await expect(page.locator('img[title="Hider location"]')).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Hider mode" })).toHaveCount(
+    // No hider switch: the role is chosen when starting or joining a game.
+    await expect(page.getByRole("switch", { name: /Hider mode/ })).toHaveCount(
         0,
     );
-    // The Hider tab shows (on a phone, in the sheet that slid up).
-    await expect(page.getByRole("radio", { name: "Hider" })).toHaveAttribute(
-        "aria-checked",
-        "true",
-    );
-    await expect(page.getByTestId("hider-panel")).toContainText(
-        "Pick your station",
-    );
-
-    // On a phone the sheet covers half the screen: close it first.
-    if (testInfo.project.name !== "desktop") {
-        await page.getByRole("button", { name: "Close sidebar" }).click();
-    }
-    await page.getByRole("button", { name: "Menu" }).click();
-    await expect(hiderMode).toHaveAttribute("aria-checked", "true");
+    await expect(
+        page.getByRole("button", { name: "I'm the hider" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("Playing alone")).toHaveCount(0);
     await page.getByRole("radio", { name: "Settings" }).click();
     const autoZoom = page.getByRole("switch", { name: /Auto zoom/ });
     const before = await autoZoom.getAttribute("aria-checked");

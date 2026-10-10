@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { sidebarTab } from "@/lib/context";
+import { SidebarContext } from "@/components/ui/sidebar-l";
+import { coachMark } from "@/lib/coachMark";
+import { menuOpen, sidebarTab } from "@/lib/context";
 import { enablePush, pushSupported } from "@/lib/game/alerts";
 import { joinedGames, knownGames, markJoined } from "@/lib/game/knownGames";
 import {
@@ -23,12 +25,22 @@ import {
     hiderToken,
     playerName,
 } from "@/lib/game/session";
-import { hiderChoosing } from "@/lib/hiderSpot";
+import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 import { errorMessage } from "@/maps/errors";
 
+/** Opens the sidebar (the sheet, on a phone) on the Hider tab. */
+const showHiderTab = () => {
+    menuOpen.set(false);
+    sidebarTab.set("stations");
+    const sidebar = SidebarContext.get();
+    if (sidebar.isMobile) sidebar.setOpenMobile(true);
+    else sidebar.setOpen(true);
+};
+
 /**
- * Opening a game's link: before anything else, say who you are and whether
- * you're hiding or seeking. Nothing behind it can be touched until then.
+ * Opening a game's link, or having just started a game: before anything
+ * else, say who you are and whether you're hiding or seeking. Nothing
+ * behind it can be touched until then.
  */
 export const JoinDialog = () => {
     const $gameId = useStore(activeGameId);
@@ -105,11 +117,21 @@ export const JoinDialog = () => {
                             markJoined($gameId);
                             void notifications();
                             hiderChoosing.set(true);
-                            sidebarTab.set("stations");
-                            toast.success(
-                                "You're the hider. Pick your station in the Hider tab.",
-                                { autoClose: 6000 },
-                            );
+                            showHiderTab();
+                            if (chosenStation.get()) {
+                                toast.success(
+                                    "You're the hider. The Hider tab is yours.",
+                                    { autoClose: 6000 },
+                                );
+                            } else {
+                                // No hiding spot yet: point at the Hider tab's
+                                // instructions until a station is picked.
+                                coachMark.set({
+                                    target: '[data-tutorial-id="hider-pick"]',
+                                    title: "Pick your hiding spot",
+                                    text: "Tap your station on the map or in this list; the red circle around it is your hiding zone. Then tap Done.",
+                                });
+                            }
                         } catch (error) {
                             toast.error(errorMessage(error));
                         } finally {

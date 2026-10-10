@@ -176,4 +176,3 @@ export const applyZoneSettings = (settings: Settings) => {
     }
     if (Object.keys(changes).length > 0) updateGameSettings(changes);
 };
-

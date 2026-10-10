@@ -2,7 +2,7 @@
 // are easy to test; games.ts stores the results and tells every phone.
 import { randomBytes, randomInt } from "node:crypto";
 
-import { applyClockAction } from "@/lib/game/clock";
+import { applyClockAction, clockState } from "@/lib/game/clock";
 import {
     blockingCurses,
     curseEndsAt,
@@ -49,6 +49,7 @@ import {
     type StationPick,
 } from "@/lib/game/types";
 import { TYPES } from "@/lib/questionInfo";
+import { photoNamesFor } from "@/lib/rules/photoQuestions";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
 const CLOCK_ACTIONS = new Set(["start", "pause", "resume", "stop", "reset"]);
@@ -111,6 +112,7 @@ export const newGameState = (
     moves: [],
     hider: { station: null, pin: null },
     hasHider: false,
+    hiderReadyAt: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -391,6 +393,43 @@ const randomVariant = (state: GameState, question: SharedQuestion) => {
     return candidates[randomInt(candidates.length)];
 };
 
+const photoKey = (name: string) => name.trim().toLowerCase();
+
+/**
+ * Randomize Question on a photo question: another photo question of this
+ * game's size, not asked this round (under any name it had).
+ */
+const randomPhotoName = (state: GameState) => {
+    const asked = new Set(
+        state.photoRequests
+            .flatMap((request) => [request.name, ...(request.askedAs ?? [])])
+            .map(photoKey),
+    );
+    const candidates = photoNamesFor(state.settings.size).filter(
+        (name) => !asked.has(photoKey(name)),
+    );
+    if (candidates.length === 0) {
+        throw new GameRuleError(
+            "Every photo question has been asked already: nothing to randomize to.",
+            409,
+        );
+    }
+    return candidates[randomInt(candidates.length)];
+};
+
+/** Randomize Question costs the card, with the digital deck. */
+const payRandomize = (state: GameState) => {
+    if (!state.deck) return;
+    const index = cardOrCopy(state.deck.hand, RANDOMIZE);
+    if (index === -1) {
+        throw new GameRuleError(
+            "No Randomize Question card in your hand.",
+            409,
+        );
+    }
+    state.deck = removeFromHand(state.deck, index);
+};
+
 const ruleError = (error: unknown) =>
     new GameRuleError(
         error instanceof Error ? error.message : String(error),
@@ -603,16 +642,7 @@ export const applyOp = (
                 );
             }
             const variant = randomVariant(state, entry.question);
-            if (state.deck) {
-                const index = cardOrCopy(state.deck.hand, RANDOMIZE);
-                if (index === -1) {
-                    throw new GameRuleError(
-                        "No Randomize Question card in your hand.",
-                        409,
-                    );
-                }
-                state.deck = removeFromHand(state.deck, index);
-            }
+            payRandomize(state);
             entry.randomizedFrom = variantLabel(state.settings, entry.question);
             entry.askedAs = [
                 ...(entry.askedAs ?? []),
@@ -624,6 +654,33 @@ export const applyOp = (
             };
             entry.updatedBy = actor.name;
             entry.updatedAt = now;
+            state.powerups.push({
+                id: shortId(),
+                name: "Randomize Question",
+                playedAt: now,
+                by: actor.name,
+            });
+            break;
+        }
+        case "randomizePhoto": {
+            // Photo questions are questions too: the same card turns one
+            // into another photo question of this game's size.
+            assertHider(actor, "randomize questions");
+            const request = state.photoRequests.find((r) => r.id === op.id);
+            if (!request)
+                throw new GameRuleError("No such photo question.", 404);
+            if (request.photoId) {
+                throw new GameRuleError(
+                    "Only a question waiting for an answer can be randomized.",
+                    409,
+                );
+            }
+            const name = randomPhotoName(state);
+            payRandomize(state);
+            request.randomizedFrom = request.name;
+            request.askedAs = [...(request.askedAs ?? []), request.name];
+            request.name = name;
+            request.randomizedAt = now;
             state.powerups.push({
                 id: shortId(),
                 name: "Randomize Question",
@@ -813,6 +870,17 @@ export const applyOp = (
                 pin: state.hider?.pin ?? null,
             };
             break;
+        case "hiderReady": {
+            // The hider has their station for the round: the seekers hear
+            // that (not where). The station comes along, in case its own
+            // change is still on its way.
+            assertHider(actor, "pick the hiding station");
+            const station = stationOf(op.station);
+            if (!station) throw new GameRuleError("Pick a station first.", 400);
+            state.hider = { station, pin: state.hider?.pin ?? null };
+            state.hiderReadyAt = now;
+            break;
+        }
         case "setHiderPin": {
             assertHider(actor, "move the hider pin");
             const pin = op.pin as Partial<{
@@ -856,6 +924,11 @@ export const applyOp = (
                 by: actor.name,
                 before: Object.keys(state.questions).map(Number),
             };
+            // The hiding clock runs by now at the latest; anyone may have
+            // started it sooner.
+            if (clockState(state.clock) === "idle") {
+                state.clock = applyClockAction(state.clock, "start", now);
+            }
             break;
         }
         case "endEndgame":
@@ -1105,6 +1178,7 @@ export const applyOp = (
             state.moves = [];
             state.hider = { station: null, pin: null };
             state.hasHider = false;
+            state.hiderReadyAt = null;
             break;
         default:
             throw new GameRuleError("Unknown change.", 400);

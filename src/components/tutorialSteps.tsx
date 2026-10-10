@@ -48,7 +48,7 @@ export const tutorialSteps: TutorialStep[] = [
                 The usual flow: <strong>choose the play area</strong>,{" "}
                 <strong>add questions</strong> as they&apos;re asked,{" "}
                 <strong>share</strong> the game with your team, and let the
-                hider use <strong>hider mode</strong> to answer automatically.
+                hider&apos;s phone answer automatically.
                 <br />
                 <br />
                 This takes about two minutes. You can skip it and reopen it any
@@ -301,9 +301,6 @@ export const tutorialSteps: TutorialStep[] = [
                 until sent), the rules, the question &amp; card reference and
                 this tutorial.
                 <br />
-                <strong>I&apos;m the hider</strong> (in Game) turns your phone
-                into the hider&apos;s.
-                <br />
                 <strong>Settings:</strong> local rules (Swiss adaptations switch
                 on automatically for Swiss play areas), planning mode, map
                 options.
@@ -314,17 +311,16 @@ export const tutorialSteps: TutorialStep[] = [
     },
     {
         id: "hider-mode",
-        title: "Hider mode",
+        title: "The hider",
         content: (
             <>
-                The hider opens the game link and, in{" "}
-                <strong>Menu → Game</strong>, switches on{" "}
-                <strong>I&apos;m the hider</strong> (with a password the seekers
-                don&apos;t know). The sidebar&apos;s Stations tab becomes the
-                Hider tab: pick your station there; the red circle is your
-                hiding zone. The app then suggests each answer from that station
-                (from your pin, once the seekers find the station); nothing is
-                sent until the hider taps it.
+                Starting a game or opening its link asks who you are: a seeker,
+                or <strong>the hider</strong> (with a password the seekers
+                don&apos;t know). On the hider&apos;s phone the sidebar&apos;s
+                Stations tab becomes the Hider tab: pick your station there; the
+                red circle is your hiding zone. The app then suggests each
+                answer from that station (from your pin, once the seekers find
+                the station); nothing is sent until the hider taps it.
                 <br />
                 <br />
                 The hider&apos;s position never leaves their phone: only the

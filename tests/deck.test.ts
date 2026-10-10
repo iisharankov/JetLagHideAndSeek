@@ -163,13 +163,13 @@ describe("the digital hider deck", () => {
         expect(cardInfo("curse_cairn").name).toBe("Curse of the Cairn");
     });
 
-    it("shows the seekers only how big the hand is", () => {
+    it("shows the seekers nothing of the hand, not even its size", () => {
         const deck = { ...newDeck(), hand: ["curse_cairn"], limit: 7 };
         const seen = deckForSeekers(deck);
         expect(seen.hand).toEqual([]);
         expect(seen.remaining).toEqual([]);
-        expect(seen.handSize).toBe(1);
         expect(seen.limit).toBe(7);
+        expect(JSON.stringify(seen)).not.toMatch(/Size/);
     });
 });
 

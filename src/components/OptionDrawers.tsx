@@ -19,6 +19,7 @@ import {
 import { resumeGame } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
+import { CoachMark } from "./CoachMark";
 import { GamePanel } from "./game/GamePanel";
 import { GamePopups } from "./game/GamePopups";
 import { GameSetupDialog } from "./game/GameSetupDialog";
@@ -48,6 +49,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         <div className={cn("flex justify-end gap-2", className)}>
             <GamePopups />
             <JoinDialog />
+            <CoachMark />
             {$setup !== null && (
                 <GameSetupDialog
                     open

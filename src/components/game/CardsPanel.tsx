@@ -55,7 +55,6 @@ import type {
 import { chosenStation } from "@/lib/hiderSpot";
 
 import { ActiveCurses } from "./ActiveCurses";
-import { Awards } from "./Awards";
 import { CardHistory } from "./CardHistory";
 import { CardDialog, CardPicture, DrawButtons, HandTile } from "./CardTiles";
 import { DrainedBrainChooser } from "./DrainedBrainChooser";
@@ -148,13 +147,17 @@ export const CardsPanel = () => {
     const askedQuestions = Object.values($game?.questions ?? {}).filter(
         (entry) => entry.state === "asked",
     );
+    // Photo questions waiting for their photo count too.
+    const pendingPhotos = ($game?.photoRequests ?? []).filter(
+        (request) => !request.photoId,
+    );
     /** Randomize Question is played on a question, from the question's card. */
     const randomize = () => {
         if (!$game) {
             toast.info("Randomize Question needs a shared game.");
             return;
         }
-        if (askedQuestions.length === 0) {
+        if (askedQuestions.length === 0 && pendingPhotos.length === 0) {
             toast.info("No question is waiting for an answer.");
             return;
         }
@@ -727,15 +730,8 @@ export const CardsPanel = () => {
                 </section>
             )}
 
-            {$game && <Awards awards={$game.awards ?? []} hider={hider} />}
             {$game && (
-                <ActiveCurses
-                    active={active}
-                    custom={custom}
-                    size={size}
-                    deck={deck}
-                    deckSizes={!hider && digital}
-                />
+                <ActiveCurses active={active} custom={custom} size={size} />
             )}
             {$game && (
                 <CardHistory
@@ -744,6 +740,7 @@ export const CardsPanel = () => {
                     cleared={cleared}
                     log={log}
                     size={size}
+                    hiderReadyAt={$game.hiderReadyAt ?? null}
                 />
             )}
             <CardDialog
@@ -825,6 +822,23 @@ export const CardsPanel = () => {
                                     {questionLabel(entry.question)}
                                     {entry.question.id === "thermometer" &&
                                         " (no variants)"}
+                                </Button>
+                            </li>
+                        ))}
+                        {pendingPhotos.map((request) => (
+                            <li key={request.id}>
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setRandomizing(false);
+                                        void sendOp({
+                                            type: "randomizePhoto",
+                                            id: request.id,
+                                        });
+                                    }}
+                                >
+                                    Photo: {request.name}
                                 </Button>
                             </li>
                         ))}

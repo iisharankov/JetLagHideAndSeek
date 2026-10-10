@@ -165,4 +165,11 @@ From your earlier answers (rounds 1–4), already built or planned:
   Partner and Lemon Phylactery not in the end game; Duplicate Another Card
   copies a card. No dice on the site, no hangman board. Questions belong
   to their game (no "kept from before the game" box); no snapshot sharing
-  (links, files, copy and paste of whole games).
+  (links, files, copy and paste of whole games). No hider switch in the
+  Menu: starting a game asks who you are like joining does, and a hider
+  without a station gets a pointer at the Hider tab. Seekers don't see how
+  many cards the hider holds. Randomize Question works on photo questions.
+  The hider's station is picked first (other tabs wait) and set for the
+  round unless Move is played; the seekers hear that it's picked, not
+  where; the hiding clock starts by itself at the end game at the latest;
+  awarded minutes are asked for when the hider is found.
