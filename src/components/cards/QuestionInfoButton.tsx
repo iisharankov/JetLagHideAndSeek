@@ -23,7 +23,7 @@ export const QuestionInfoButton = ({
     return (
         <Popover>
             <PopoverTrigger
-                className="absolute top-2 right-2 text-white opacity-80 hover:opacity-100"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white opacity-80 hover:opacity-100"
                 aria-label="About this question"
             >
                 <InfoIcon className="h-4 w-4" />

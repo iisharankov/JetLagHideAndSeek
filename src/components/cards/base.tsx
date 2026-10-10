@@ -14,7 +14,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
     SidebarGroup,
@@ -40,10 +39,20 @@ import { cn } from "@/lib/utils";
 
 import { QuestionInfoButton } from "./QuestionInfoButton";
 
+const ICON_BUTTON =
+    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/10 disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4";
+
+/** In a shared game: what the question's state is there, else null. */
+export const useGameQuestionState = (questionKey: number) => {
+    const $game = useStore(gameState);
+    return $game?.questions[String(questionKey)]?.state ?? null;
+};
+
 /**
- * The frame of a question card: the title, folding, the lock and hide
- * buttons, sharing and deleting. Folded, locked and hidden are the
- * question's own fields, so every card follows the saved question.
+ * The frame of a question card: the title row with hide, delete and ⓘ,
+ * folding, and (playing alone) the lock. Folded, locked and hidden are the
+ * question's own fields, so every card follows the saved question. In a
+ * shared game an answered question is locked for everyone.
  */
 export const QuestionCard = ({
     children,
@@ -117,44 +126,109 @@ export const QuestionCard = ({
                 data-active={isActive || undefined}
             >
                 <div className="relative">
-                    <button
-                        onClick={toggleCollapse}
-                        className={cn(
-                            "absolute top-2 left-2 text-white border rounded-md transition-transform duration-200",
-                            isCollapsed && "-rotate-90",
-                        )}
-                    >
-                        <VscChevronDown />
-                    </button>
-                    <SidebarGroupLabel
-                        className="ml-8 mr-8 cursor-pointer"
-                        onClick={toggleCollapse}
-                    >
-                        {label} {sub && `(${sub})`}
-                        {draw && (
-                            <span
-                                className="ml-2 text-[10px] font-normal text-slate-400"
-                                title="What the hider draws from the deck for answering"
-                            >
-                                hider draws {draw.draw}, keeps {draw.keep}
-                            </span>
-                        )}
-                    </SidebarGroupLabel>
-                    {question && (
-                        <QuestionInfoButton
-                            category={question.id}
-                            type={
-                                (
-                                    question.data as {
-                                        type?: string;
-                                        locationType?: string;
-                                    }
-                                ).type ??
-                                (question.data as { locationType?: string })
-                                    .locationType
+                    <div className="flex items-center gap-1 pl-2 pr-1 pt-1">
+                        <button
+                            type="button"
+                            onClick={toggleCollapse}
+                            className={cn(
+                                "shrink-0 rounded-md border text-white transition-transform duration-200",
+                                isCollapsed && "-rotate-90",
+                            )}
+                            aria-label={isCollapsed ? "Open" : "Fold"}
+                        >
+                            <VscChevronDown />
+                        </button>
+                        <SidebarGroupLabel
+                            className="min-w-0 flex-1 cursor-pointer truncate"
+                            onClick={toggleCollapse}
+                        >
+                            {label} {sub && `(${sub})`}
+                            {draw && (
+                                <span
+                                    className="ml-2 text-[10px] font-normal text-slate-400"
+                                    title="What the hider draws from the deck for answering"
+                                >
+                                    hider draws {draw.draw}, keeps {draw.keep}
+                                </span>
+                            )}
+                        </SidebarGroupLabel>
+                        <button
+                            type="button"
+                            className={ICON_BUTTON}
+                            onClick={() =>
+                                updateQuestion(questionKey, { hidden: !hidden })
                             }
-                        />
-                    )}
+                            disabled={$isLoading}
+                            aria-label={
+                                hidden ? "Show question" : "Hide question"
+                            }
+                            aria-pressed={hidden}
+                            title={
+                                hidden ? "Show on the map" : "Hide from the map"
+                            }
+                        >
+                            {hidden ? <EyeOffIcon /> : <EyeIcon />}
+                        </button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={ICON_BUTTON}
+                                    disabled={$isLoading || lockedByGame}
+                                    title={
+                                        lockedByGame
+                                            ? "Answered: only the hider can delete it"
+                                            : "Delete question"
+                                    }
+                                    aria-label="Delete question"
+                                >
+                                    <VscTrash />
+                                </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        Delete this question?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        You can undo this for a few seconds
+                                        afterwards.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            showUndoToast(
+                                                "Question deleted.",
+                                                deleteQuestion(questionKey),
+                                            )
+                                        }
+                                        className="mb-2 sm:mb-0"
+                                    >
+                                        Delete Question
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        {question && (
+                            <QuestionInfoButton
+                                category={question.id}
+                                type={
+                                    (
+                                        question.data as {
+                                            type?: string;
+                                            locationType?: string;
+                                        }
+                                    ).type ??
+                                    (question.data as { locationType?: string })
+                                        .locationType
+                                }
+                            />
+                        )}
+                    </div>
                     <QuestionGameBar questionKey={questionKey} />
                     {status?.state === "skipped" &&
                         status.reason === "inactive-draft" && (
@@ -209,83 +283,33 @@ export const QuestionCard = ({
                         )}
                     >
                         <SidebarMenu>{children}</SidebarMenu>
-                        <div className="flex gap-1 pt-1 px-2 justify-end">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        disabled={$isLoading || lockedByGame}
-                                        title={
-                                            lockedByGame
-                                                ? "Answered: only the hider can delete it"
-                                                : "Delete question"
-                                        }
-                                        variant="outline"
-                                        size="sm"
-                                    >
-                                        <VscTrash />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete this question?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            You can undo this for a few seconds
-                                            afterwards.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                showUndoToast(
-                                                    "Question deleted.",
-                                                    deleteQuestion(questionKey),
-                                                )
-                                            }
-                                            className="mb-2 sm:mb-0"
-                                        >
-                                            Delete Question
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                    updateQuestion(questionKey, {
-                                        drag: locked,
-                                    })
-                                }
-                                disabled={$isLoading}
-                                aria-label={
-                                    locked ? "Unlock question" : "Lock question"
-                                }
-                                aria-pressed={locked}
-                            >
-                                {locked ? <LockIcon /> : <UnlockIcon />}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                    updateQuestion(questionKey, {
-                                        hidden: !hidden,
-                                    })
-                                }
-                                disabled={$isLoading}
-                                aria-label={
-                                    hidden ? "Show question" : "Hide question"
-                                }
-                                aria-pressed={hidden}
-                            >
-                                {hidden ? <EyeOffIcon /> : <EyeIcon />}
-                            </Button>
-                        </div>
+                        {!$game && (
+                            <div className="flex justify-end px-2 pb-1">
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        ICON_BUTTON,
+                                        "gap-1 px-2 text-xs",
+                                    )}
+                                    onClick={() =>
+                                        updateQuestion(questionKey, {
+                                            drag: locked,
+                                        })
+                                    }
+                                    disabled={$isLoading}
+                                    aria-label={
+                                        locked
+                                            ? "Unlock question"
+                                            : "Lock question"
+                                    }
+                                    aria-pressed={locked}
+                                    title="Locked questions keep their place and answer"
+                                >
+                                    {locked ? <LockIcon /> : <UnlockIcon />}
+                                    {locked ? "Locked" : "Unlocked"}
+                                </button>
+                            </div>
+                        )}
                     </SidebarGroupContent>
                 </div>
             </SidebarGroup>

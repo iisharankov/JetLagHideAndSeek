@@ -513,6 +513,25 @@ Not in this round: the geometry worker; Authelia.
     a second, and "By … · x min ago" sits on the state's line.
 11. Not done: nothing from this list.
 
+## Round 16: casting costs, tidier question cards ✅ (2026-10-10)
+
+1. **Casting costs with the digital deck.** A curse whose cost discards
+   cards takes them when it's cast: "Discard a card" or "two cards" asks
+   which (like the discard-and-draw powerups), "a time bonus" and "a
+   powerup" only accept that kind, "your hand" takes everything. The server
+   refuses a cast without the cost. The other costs are things to do, which
+   the players check themselves.
+2. **The location is one row:** the pin's colour, the coordinates, and
+   three small buttons (edit, my location, copy); pasting lives in the
+   editor. Thermometers show two such rows (Start, End).
+3. **Once the game has the answer**, the result toggle disappears from the
+   card (the game bar shows the answer and offers "Change the answer"); a
+   vetoed question hides it too. Tentacles hide the place list the same way.
+4. **The card frame:** hide and delete sit in the title row next to ⓘ, the
+   lock only exists when playing alone (in a game an answered question is
+   locked for everyone), and the result row is smaller. Every question type
+   got the same treatment.
+
 ## What's left ⏭️
 
 From [the audit](audit-2026-10.md), roughly in order of value:

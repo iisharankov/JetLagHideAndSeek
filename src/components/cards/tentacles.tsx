@@ -35,7 +35,7 @@ import {
     type TraditionalTentacleQuestion,
 } from "@/maps/schema";
 
-import { QuestionCard } from "./base";
+import { QuestionCard, useGameQuestionState } from "./base";
 
 export const TentacleQuestionComponent = ({
     data,
@@ -53,6 +53,9 @@ export const TentacleQuestionComponent = ({
     const $isLoading = useStore(isLoading);
     const $gameSettings = useStore(gameSettings);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    const gameQuestionState = useGameQuestionState(questionKey);
+    const answered =
+        gameQuestionState === "answered" || gameQuestionState === "vetoed";
     // Types left out of this game are hidden (the current one stays).
     const hidden = hiddenTypesFor("tentacles", $gameSettings);
     const inGame = (type: string) =>
@@ -187,13 +190,15 @@ export const TentacleQuestionComponent = ({
                 }
                 disabled={!data.drag || $isLoading}
             />
-            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <TentacleLocationSelector
-                    data={data}
-                    questionKey={questionKey}
-                    disabled={!data.drag || $isLoading}
-                />
-            </SidebarMenuItem>
+            {!answered && (
+                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                    <TentacleLocationSelector
+                        data={data}
+                        questionKey={questionKey}
+                        disabled={!data.drag || $isLoading}
+                    />
+                </SidebarMenuItem>
+            )}
         </QuestionCard>
     );
 };

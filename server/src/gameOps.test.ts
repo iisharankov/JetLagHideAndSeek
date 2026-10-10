@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CARDS } from "@/lib/game/deck";
 import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
 
@@ -957,5 +958,67 @@ describe("Randomize Question", () => {
         };
         state = apply(state, { type: "randomizeQuestion", key: 1 }, hider);
         expect(state.deck!.hand).toEqual(["time_5"]);
+    });
+});
+
+describe("casting costs with the digital deck", () => {
+    const timeId = CARDS.find((card) => card.kind === "time")!.id;
+    const powerupId = CARDS.find((card) => card.kind === "powerup")!.id;
+    const withHand = (hand: string[]) => {
+        const state = newGameState(
+            "g4",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        return { ...state, deck: { ...state.deck!, hand } };
+    };
+
+    it("'Discard a card' needs one other card, which goes too", () => {
+        const state = withHand(["curse_right_turn", timeId, powerupId]);
+        expect(() =>
+            apply(state, { type: "playCard", index: 0 }, hider),
+        ).toThrow(/costs 1 other card/);
+        const cast = apply(
+            state,
+            { type: "playCard", index: 0, discards: [2] },
+            hider,
+        );
+        expect(cast.deck!.hand).toEqual([timeId]);
+        expect(cast.curses.at(-1)?.name).toBe("Curse of the Right Turn");
+    });
+
+    it("'Discard a time bonus' takes only a time bonus", () => {
+        const state = withHand(["curse_spotty_memory", powerupId, timeId]);
+        expect(() =>
+            apply(state, { type: "playCard", index: 0, discards: [1] }, hider),
+        ).toThrow(/time bonus/);
+        const cast = apply(
+            state,
+            { type: "playCard", index: 0, discards: [2] },
+            hider,
+        );
+        expect(cast.deck!.hand).toEqual([powerupId]);
+    });
+
+    it("'Discard your hand' empties it", () => {
+        const state = withHand([timeId, "curse_drained_brain", powerupId]);
+        const cast = apply(state, { type: "playCard", index: 1 }, hider);
+        expect(cast.deck!.hand).toEqual([]);
+        expect(cast.deck!.discard).toEqual(
+            expect.arrayContaining([timeId, powerupId]),
+        );
+    });
+
+    it("curses without a card cost are cast as before", () => {
+        const state = withHand(["curse_cairn", timeId]);
+        const cast = apply(state, { type: "playCard", index: 0 }, hider);
+        expect(cast.deck!.hand).toEqual([timeId]);
     });
 });

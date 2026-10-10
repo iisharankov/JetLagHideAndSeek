@@ -28,6 +28,8 @@ import {
     cardInfo,
     cardLabel,
     CARDS,
+    castingCostText,
+    CURSE_COSTS,
     CUSTOM_PREFIX,
     handBonusMinutes,
 } from "@/lib/game/deck";
@@ -109,6 +111,10 @@ export const CardsPanel = () => {
         index: number;
         need: number;
         picked: number[];
+        /** A casting cost that takes only this kind of card. */
+        kind?: "time" | "powerup";
+        /** "Cast" a curse, "Play" a powerup. */
+        verb: "Play" | "Cast";
     } | null>(null);
     const [moving, setMoving] = useState<
         | { digital: true; index: number }
@@ -166,7 +172,41 @@ export const CardsPanel = () => {
                 );
                 return;
             }
-            setSwap({ index, need, picked: [] });
+            setSwap({ index, need, picked: [], verb: "Play" });
+            return;
+        }
+        // A curse's casting cost in cards.
+        const cost = CURSE_COSTS[id];
+        if (cost?.discard === "hand") {
+            const others = deck.hand.length - 1;
+            if (
+                window.confirm(
+                    `${info(id).name}: casting it discards your whole hand (${others} other card${others === 1 ? "" : "s"}). Cast it?`,
+                )
+            ) {
+                deckAct({ type: "playCard", index });
+            }
+            return;
+        }
+        if (cost) {
+            const fitting = deck.hand.filter(
+                (other, i) =>
+                    i !== index &&
+                    (!cost.kind || info(other).kind === cost.kind),
+            ).length;
+            if (fitting < cost.discard) {
+                toast.error(
+                    `${info(id).name} costs ${castingCostText(cost)}, which you don't have.`,
+                );
+                return;
+            }
+            setSwap({
+                index,
+                need: cost.discard,
+                picked: [],
+                kind: cost.kind,
+                verb: "Cast",
+            });
             return;
         }
         deckAct({ type: "playCard", index });
@@ -363,9 +403,14 @@ export const CardsPanel = () => {
                                 <strong>
                                     {info(deck.hand[swap.index]).name}:
                                 </strong>{" "}
-                                tap {swap.need} other card
-                                {swap.need === 1 ? "" : "s"} to discard, then
-                                play it.
+                                tap {swap.need}{" "}
+                                {swap.kind === "time"
+                                    ? "time bonus"
+                                    : swap.kind === "powerup"
+                                      ? "powerup"
+                                      : "other card"}
+                                {swap.need === 1 ? "" : "s"} to discard, then{" "}
+                                {swap.verb.toLowerCase()} it.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                                 <Button
@@ -380,7 +425,8 @@ export const CardsPanel = () => {
                                         setSwap(null);
                                     }}
                                 >
-                                    Play ({swap.picked.length}/{swap.need})
+                                    {swap.verb} ({swap.picked.length}/
+                                    {swap.need})
                                 </Button>
                                 <Button
                                     size="sm"
@@ -398,7 +444,9 @@ export const CardsPanel = () => {
                                 const card = info(id);
                                 const selecting = swap !== null;
                                 const selectable =
-                                    selecting && index !== swap.index;
+                                    selecting &&
+                                    index !== swap.index &&
+                                    (!swap.kind || card.kind === swap.kind);
                                 return (
                                     <HandTile
                                         key={`${id}-${index}`}

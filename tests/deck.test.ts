@@ -4,6 +4,8 @@ import {
     advanceDeck,
     cardInfo,
     cardLabel,
+    castingCostText,
+    CURSE_COSTS,
     deckComposition,
     deckForSeekers,
     discardHand,
@@ -168,5 +170,26 @@ describe("the digital hider deck", () => {
         expect(seen.remaining).toEqual([]);
         expect(seen.handSize).toBe(1);
         expect(seen.limit).toBe(7);
+    });
+});
+
+describe("casting costs", () => {
+    it("exist for exactly the curses whose cost discards cards", () => {
+        for (const curse of CURSES) {
+            const discards = /discard/i.test(curse.castingCost);
+            expect([curse.name, curse.image in CURSE_COSTS]).toEqual([
+                curse.name,
+                discards,
+            ]);
+        }
+    });
+
+    it("say what they take", () => {
+        expect(castingCostText({ discard: 1 })).toBe("1 other card");
+        expect(castingCostText({ discard: 2 })).toBe("2 other cards");
+        expect(castingCostText({ discard: 1, kind: "time" })).toBe(
+            "1 time bonus",
+        );
+        expect(castingCostText({ discard: "hand" })).toBe("your whole hand");
     });
 });

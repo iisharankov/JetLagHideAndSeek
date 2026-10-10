@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { arcDistance } from "@/maps/geo-utils";
 import type { ThermometerQuestion } from "@/maps/schema";
 
-import { QuestionCard } from "./base";
+import { QuestionCard, useGameQuestionState } from "./base";
 
 export const ThermometerQuestionComponent = ({
     data,
@@ -34,6 +34,9 @@ export const ThermometerQuestionComponent = ({
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    const gameQuestionState = useGameQuestionState(questionKey);
+    const answered =
+        gameQuestionState === "answered" || gameQuestionState === "vetoed";
 
     const $defaultUnit = useStore(defaultUnit);
     const DISTANCE_UNIT = $defaultUnit ?? "miles";
@@ -118,30 +121,32 @@ export const ThermometerQuestionComponent = ({
                 </div>
             )}
 
-            <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
-                <ToggleGroup
-                    className="grow"
-                    type="single"
-                    value={data.warmer ? "warmer" : "colder"}
-                    onValueChange={(value: "warmer" | "colder") =>
-                        set({ warmer: value === "warmer" })
-                    }
-                    disabled={!!$hiderMode || !data.drag || $isLoading}
-                >
-                    <ToggleGroupItem color="red" value="colder">
-                        Colder
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="warmer">Warmer</ToggleGroupItem>
-                </ToggleGroup>
-            </div>
+            {!answered && (
+                <div className="flex items-center gap-2 px-2 py-1">
+                    <Label
+                        className={cn(
+                            "text-sm font-semibold",
+                            $isLoading && "text-muted-foreground",
+                        )}
+                    >
+                        Result
+                    </Label>
+                    <ToggleGroup
+                        className="grow"
+                        type="single"
+                        value={data.warmer ? "warmer" : "colder"}
+                        onValueChange={(value: "warmer" | "colder") =>
+                            set({ warmer: value === "warmer" })
+                        }
+                        disabled={!!$hiderMode || !data.drag || $isLoading}
+                    >
+                        <ToggleGroupItem color="red" value="colder">
+                            Colder
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="warmer">Warmer</ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
+            )}
         </QuestionCard>
     );
 };

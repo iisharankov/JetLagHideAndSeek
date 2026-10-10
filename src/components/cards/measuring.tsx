@@ -38,7 +38,7 @@ import {
     NO_GROUP,
 } from "@/maps/schema";
 
-import { QuestionCard } from "./base";
+import { QuestionCard, useGameQuestionState } from "./base";
 
 export const MeasuringQuestionComponent = ({
     data,
@@ -66,6 +66,9 @@ export const MeasuringQuestionComponent = ({
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    const gameQuestionState = useGameQuestionState(questionKey);
+    const answered =
+        gameQuestionState === "answered" || gameQuestionState === "vetoed";
     /** The drawn shapes of a custom question (none to start with). */
     const customGeo = (features: unknown = []) =>
         ({ type: "FeatureCollection", features }) as const;
@@ -304,36 +307,38 @@ export const MeasuringQuestionComponent = ({
                 }
                 disabled={!data.drag || $isLoading}
             />
-            <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
-                <ToggleGroup
-                    className="grow"
-                    type="single"
-                    value={data.hiderCloser ? "closer" : "further"}
-                    onValueChange={(value: "closer" | "further") =>
-                        set({ hiderCloser: value === "closer" })
-                    }
-                    disabled={!!$hiderMode || !data.drag || $isLoading}
-                >
-                    <ToggleGroupItem value="further">
-                        {data.type === "sea-level"
-                            ? "Hider Higher"
-                            : "Hider Further"}
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="closer">
-                        {data.type === "sea-level"
-                            ? "Hider Lower"
-                            : "Hider Closer"}
-                    </ToggleGroupItem>
-                </ToggleGroup>
-            </div>
+            {!answered && (
+                <div className="flex items-center gap-2 px-2 py-1">
+                    <Label
+                        className={cn(
+                            "text-sm font-semibold",
+                            $isLoading && "text-muted-foreground",
+                        )}
+                    >
+                        Result
+                    </Label>
+                    <ToggleGroup
+                        className="grow"
+                        type="single"
+                        value={data.hiderCloser ? "closer" : "further"}
+                        onValueChange={(value: "closer" | "further") =>
+                            set({ hiderCloser: value === "closer" })
+                        }
+                        disabled={!!$hiderMode || !data.drag || $isLoading}
+                    >
+                        <ToggleGroupItem value="further">
+                            {data.type === "sea-level"
+                                ? "Hider Higher"
+                                : "Hider Further"}
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="closer">
+                            {data.type === "sea-level"
+                                ? "Hider Lower"
+                                : "Hider Closer"}
+                        </ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
+            )}
         </QuestionCard>
     );
 };

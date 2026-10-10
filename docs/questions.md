@@ -153,3 +153,7 @@ From your earlier answers (rounds 1–4), already built or planned:
   asked once per tab when joining and nowhere else; leaving a game (or
   opening the plain address after one) clears its questions; photo
   questions asked again cost double; no share button on the cards.
+- **Round 16:** with the digital deck a curse's card cost is enforced
+  (which cards, or the hand); question cards are compact: the place as one
+  row, hide and delete in the title row, no lock in a game, no result
+  toggle once the game has the answer.

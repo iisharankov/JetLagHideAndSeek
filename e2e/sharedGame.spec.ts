@@ -165,12 +165,12 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(anaState).toHaveAttribute("data-state", "answered");
     await expect(anaState).toContainText("Answered: No");
     await expect(speculation).toHaveCount(0, { timeout: 20_000 });
-    // Seekers can't delete an answered question (so no "deleted" banner).
+    // Seekers can't delete an answered question (so no "deleted" banner),
+    // and the answer isn't theirs to toggle any more: the card shows none.
     await expect(
-        page.getByRole("button", {
-            name: "Answered: only the hider can delete it",
-        }),
+        page.getByRole("button", { name: "Delete question" }),
     ).toBeDisabled();
+    await expect(page.getByRole("radio", { name: "Inside" })).toHaveCount(0);
 
     // Photos: Ana asks for a tree, Ben sends one, Ana sees it.
     await page.getByRole("radio", { name: /Photos/ }).click();

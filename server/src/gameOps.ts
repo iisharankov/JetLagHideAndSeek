@@ -6,6 +6,8 @@ import { applyClockAction } from "@/lib/game/clock";
 import {
     advanceDeck,
     cardInfo,
+    castingCostText,
+    CURSE_COSTS,
     deckForSeekers,
     discardHand,
     drawCards,
@@ -746,8 +748,15 @@ export const applyOp = (
                 break;
             }
             const swap = DISCARD_DRAW[id];
+            const cost = CURSE_COSTS[id];
             let discards: number[] = [];
-            if (swap) {
+            if (cost?.discard === "hand") {
+                // "Discard your hand": everything else goes with it.
+                discards = deck.hand
+                    .map((_, index) => index)
+                    .filter((index) => index !== op.index);
+            } else if (swap || cost) {
+                const need = swap ? swap.discard : (cost!.discard as number);
                 discards = [...new Set((op.discards ?? []).map(Number))].filter(
                     (index) =>
                         Number.isInteger(index) &&
@@ -755,13 +764,32 @@ export const applyOp = (
                         index < deck.hand.length &&
                         index !== op.index,
                 );
-                if (discards.length !== swap.discard) {
+                if (discards.length !== need) {
                     throw new GameRuleError(
-                        `Choose ${swap.discard} other card${
-                            swap.discard === 1 ? "" : "s"
-                        } to discard.`,
+                        cost
+                            ? `${card.name} costs ${castingCostText(cost)}: choose ${
+                                  need === 1 ? "it" : "them"
+                              } to discard.`
+                            : `Choose ${need} other card${
+                                  need === 1 ? "" : "s"
+                              } to discard.`,
                         400,
                     );
+                }
+                if (cost?.kind) {
+                    const wrong = discards.some(
+                        (index) =>
+                            cardInfo(
+                                deck.hand[index],
+                                state.settings.customCards,
+                            ).kind !== cost.kind,
+                    );
+                    if (wrong) {
+                        throw new GameRuleError(
+                            `${card.name} costs ${castingCostText(cost)}: choose one to discard.`,
+                            400,
+                        );
+                    }
                 }
             }
             // Highest index first, so the others still point at their cards.

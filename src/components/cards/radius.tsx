@@ -22,7 +22,7 @@ import { gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
-import { QuestionCard } from "./base";
+import { QuestionCard, useGameQuestionState } from "./base";
 
 const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
 
@@ -47,6 +47,9 @@ export const RadiusQuestionComponent = ({
     const $game = useStore(gameState);
     const $settings = useStore(gameSettings);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    const gameQuestionState = useGameQuestionState(questionKey);
+    const answered =
+        gameQuestionState === "answered" || gameQuestionState === "vetoed";
     // The game's radar distances, as cards; anything else is "custom".
     const radii = ($game?.settings ?? $settings).radarKm;
     const listed = data.unit === "kilometers" && radii.includes(data.radius);
@@ -139,28 +142,32 @@ export const RadiusQuestionComponent = ({
                 }
                 disabled={locked}
             />
-            <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
-                <ToggleGroup
-                    className="grow"
-                    type="single"
-                    value={data.within ? "inside" : "outside"}
-                    onValueChange={(value: "inside" | "outside") =>
-                        set({ within: value === "inside" })
-                    }
-                    disabled={!!$hiderMode || locked}
-                >
-                    <ToggleGroupItem value="outside">Outside</ToggleGroupItem>
-                    <ToggleGroupItem value="inside">Inside</ToggleGroupItem>
-                </ToggleGroup>
-            </div>
+            {!answered && (
+                <div className="flex items-center gap-2 px-2 py-1">
+                    <Label
+                        className={cn(
+                            "text-sm font-semibold",
+                            $isLoading && "text-muted-foreground",
+                        )}
+                    >
+                        Result
+                    </Label>
+                    <ToggleGroup
+                        className="grow"
+                        type="single"
+                        value={data.within ? "inside" : "outside"}
+                        onValueChange={(value: "inside" | "outside") =>
+                            set({ within: value === "inside" })
+                        }
+                        disabled={!!$hiderMode || locked}
+                    >
+                        <ToggleGroupItem value="outside">
+                            Outside
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="inside">Inside</ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
+            )}
         </QuestionCard>
     );
 };

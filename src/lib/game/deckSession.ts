@@ -8,6 +8,7 @@ import { errorMessage } from "@/maps/errors";
 import {
     advanceDeck,
     cardInfo,
+    CURSE_COSTS,
     discardHand,
     drawCards,
     keepCards,
@@ -46,7 +47,10 @@ export const deckAct = (op: DeckOp) => {
                 break;
             case "playCard": {
                 const id = deck.hand[op.index];
-                if (id === "powerup_move") {
+                if (
+                    id === "powerup_move" ||
+                    CURSE_COSTS[id]?.discard === "hand"
+                ) {
                     localDeck.set(discardHand(deck));
                     break;
                 }

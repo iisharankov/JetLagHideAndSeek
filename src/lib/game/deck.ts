@@ -91,6 +91,40 @@ export const cardLabel = (
         : info.name;
 };
 
+/**
+ * What casting a curse costs in cards, with the digital deck ("Discard a
+ * card", "Discard a time bonus", "Discard your hand"). The other costs are
+ * things to do, which the players check themselves.
+ */
+export interface CastingCost {
+    discard: number | "hand";
+    /** Only cards of this kind count. */
+    kind?: "time" | "powerup";
+}
+export const CURSE_COSTS: Record<string, CastingCost> = {
+    curse_drained_brain: { discard: "hand" },
+    curse_egg_partner: { discard: 2 },
+    curse_jammed_door: { discard: 2 },
+    curse_spotty_memory: { discard: 1, kind: "time" },
+    curse_lemon_phylactery: { discard: 1, kind: "powerup" },
+    curse_hidden_hangman: { discard: 2 },
+    curse_right_turn: { discard: 1 },
+    curse_urban_explorer: { discard: 2 },
+    curse_overflowing_chalice: { discard: 1 },
+};
+
+/** "a time bonus", "2 other cards", "your whole hand". */
+export const castingCostText = (cost: CastingCost) => {
+    if (cost.discard === "hand") return "your whole hand";
+    const what =
+        cost.kind === "time"
+            ? "time bonus"
+            : cost.kind === "powerup"
+              ? "powerup"
+              : "other card";
+    return `${cost.discard} ${what}${cost.discard === 1 ? "" : "s"}`;
+};
+
 /** The printed deck's copies of a card. */
 export const defaultCount = (id: string) =>
     TIME_BONUSES.find((bonus) => bonus.image === id)?.count ??

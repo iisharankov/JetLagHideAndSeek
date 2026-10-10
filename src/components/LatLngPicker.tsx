@@ -4,6 +4,7 @@ import {
     ClipboardPasteIcon,
     EditIcon,
     LocateIcon,
+    MapPinIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
@@ -232,13 +233,27 @@ const LatLngEditForm = ({
     );
 };
 
+/** "47.35650° N, 8.54359° E". */
+const coordinatesText = (latitude: number, longitude: number) =>
+    `${Math.abs(latitude).toFixed(5)}° ${latitude > 0 ? "N" : "S"}, ${Math.abs(
+        longitude,
+    ).toFixed(5)}° ${longitude > 0 ? "E" : "W"}`;
+
+const ICON_BUTTON =
+    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/30 bg-black/20 hover:bg-black/35 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4";
+
+/**
+ * A question's place: one row in the pin's colour with the coordinates and
+ * three small buttons (edit, my location, copy); the editor also pastes.
+ * With `inlineEdit` (the hider pin's popup, drawn points) the editor is
+ * shown straight away.
+ */
 export const LatitudeLongitude = ({
     latitude,
     longitude,
     onChange,
     label = "Location",
     colorName,
-    children,
     disabled,
     inlineEdit = false,
 }: {
@@ -253,213 +268,196 @@ export const LatitudeLongitude = ({
     inlineEdit?: boolean;
 }) => {
     const $isLoading = useStore(isLoading);
-
     const color = colorName ? ICON_COLORS[colorName] : "transparent";
 
-    return (
-        <>
+    const locateMe = () => {
+        const done = busy.begin();
+        toast.promise(
+            locate()
+                .then((position) => {
+                    onChange(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                    );
+                })
+                .finally(done),
+            {
+                pending: "Getting your location…",
+                success: { render: "Location set", autoClose: 500 },
+                error: {
+                    render: ({ data }) => describeGeoError(data),
+                    autoClose: 12000,
+                },
+            },
+        );
+    };
+
+    const paste = () => {
+        if (!navigator?.clipboard) {
+            toast.error("Clipboard API not supported in your browser");
+            return;
+        }
+        const done = busy.begin();
+        toast.promise(
+            navigator.clipboard
+                .readText()
+                .then((text) => {
+                    const coords = parseCoordinatesFromText(text);
+                    if (coords.lat !== null && coords.lng !== null) {
+                        onChange(coords.lat, coords.lng);
+                        return;
+                    }
+                    throw new Error(
+                        "Could not find coordinates in clipboard content",
+                    );
+                })
+                .finally(done),
+            {
+                pending: "Reading from clipboard",
+                success: "Coordinates set from clipboard",
+                error: "No valid coordinates found in clipboard",
+            },
+            { autoClose: 1000 },
+        );
+    };
+
+    const copy = () => {
+        if (!navigator?.clipboard) {
+            toast.error("Clipboard API not supported in your browser");
+            return;
+        }
+        toast.promise(
+            navigator.clipboard.writeText(coordinatesText(latitude, longitude)),
+            {
+                pending: "Copying…",
+                success: "Coordinates copied",
+                error: "Couldn't copy the coordinates",
+            },
+            { autoClose: 1000 },
+        );
+    };
+
+    if (inlineEdit) {
+        return (
             <SidebarMenuItem
-                style={{
-                    backgroundColor: color,
-                }}
                 className={cn(
-                    "p-2 rounded-md space-y-1 mt-2",
+                    "mt-2 space-y-2 rounded-md p-2",
                     $isLoading && "brightness-50",
                 )}
+                style={{ backgroundColor: color }}
             >
-                {!inlineEdit && (
-                    <div
-                        className={cn(
-                            "flex justify-between items-center",
-                            $isLoading && "opacity-50",
-                        )}
-                        style={{
-                            color: colorName === "gold" ? "black" : undefined,
-                        }}
+                <LatLngEditForm
+                    latitude={latitude}
+                    longitude={longitude}
+                    onChange={onChange}
+                    disabled={disabled}
+                />
+                <div className="flex justify-center gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={locateMe}
+                        disabled={disabled}
+                        title="Set to current location"
                     >
-                        <div className="text-2xl font-semibold font-poppins">
-                            {label}
-                        </div>
-                        <div className="tabular-nums text-right text-sm font-oxygen">
-                            <div>
-                                {Math.abs(latitude).toFixed(5)}
-                                {"° "}
-                                {latitude > 0 ? "N" : "S"}
-                            </div>
-                            <div>
-                                {Math.abs(longitude).toFixed(5)}
-                                {"° "}
-                                {longitude > 0 ? "E" : "W"}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div
-                    className={cn(
-                        !inlineEdit &&
-                            "flex justify-center gap-2 *:max-w-12 *:w-[20%]",
-                    )}
-                >
-                    {inlineEdit ? (
-                        <div className="flex flex-col gap-2 w-full mb-2">
-                            <LatLngEditForm
-                                latitude={latitude}
-                                longitude={longitude}
-                                onChange={onChange}
-                                disabled={disabled}
-                            />
-                        </div>
-                    ) : (
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button
-                                    disabled={disabled}
-                                    variant="outline"
-                                    title="Edit coordinates"
-                                >
-                                    <EditIcon />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle className="text-2xl">
-                                        Update {label}
-                                    </DialogTitle>
-                                </DialogHeader>
-                                <LatLngEditForm
-                                    latitude={latitude}
-                                    longitude={longitude}
-                                    onChange={onChange}
-                                    disabled={disabled}
-                                />
-                                <DialogFooter>
-                                    <DialogClose asChild>
-                                        <Button>Done</Button>
-                                    </DialogClose>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                    <div
-                        className={
-                            inlineEdit
-                                ? "flex justify-center gap-2"
-                                : "contents"
-                        }
+                        <LocateIcon />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={paste}
+                        disabled={disabled}
+                        title="Paste coordinates from clipboard"
                     >
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                const done = busy.begin();
-
-                                toast.promise(
-                                    locate()
-                                        .then((position) => {
-                                            onChange(
-                                                position.coords.latitude,
-                                                position.coords.longitude,
-                                            );
-                                        })
-                                        .finally(done),
-                                    {
-                                        pending: "Getting your location…",
-                                        success: {
-                                            render: "Location set",
-                                            autoClose: 500,
-                                        },
-                                        error: {
-                                            render: ({ data }) =>
-                                                describeGeoError(data),
-                                            autoClose: 12000,
-                                        },
-                                    },
-                                );
-                            }}
-                            disabled={disabled}
-                            title="Set to current location"
-                        >
-                            <LocateIcon />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.clipboard) {
-                                    toast.error(
-                                        "Clipboard API not supported in your browser",
-                                    );
-                                    return;
-                                }
-
-                                const done = busy.begin();
-
-                                toast.promise(
-                                    navigator.clipboard
-                                        .readText()
-                                        .then((text) => {
-                                            const coords =
-                                                parseCoordinatesFromText(text);
-                                            if (
-                                                coords.lat !== null &&
-                                                coords.lng !== null
-                                            ) {
-                                                onChange(
-                                                    coords.lat,
-                                                    coords.lng,
-                                                );
-                                                return;
-                                            }
-                                            throw new Error(
-                                                "Could not find coordinates in clipboard content",
-                                            );
-                                        })
-                                        .finally(done),
-                                    {
-                                        pending: "Reading from clipboard",
-                                        success:
-                                            "Coordinates set from clipboard",
-                                        error: "No valid coordinates found in clipboard",
-                                    },
-                                    { autoClose: 1000 },
-                                );
-                            }}
-                            disabled={disabled}
-                            title="Paste coordinates from clipboard"
-                        >
-                            <ClipboardPasteIcon />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.clipboard) {
-                                    toast.error(
-                                        "Clipboard API not supported in your browser",
-                                    );
-                                    return;
-                                }
-
-                                toast.promise(
-                                    navigator.clipboard.writeText(
-                                        `${Math.abs(latitude)}°${latitude > 0 ? "N" : "S"}, ${Math.abs(
-                                            longitude,
-                                        )}°${longitude > 0 ? "E" : "W"}`,
-                                    ),
-                                    {
-                                        pending: "Writing to clipboard...",
-                                        success: "Coordinates copied!",
-                                        error: "An error occurred while copying",
-                                    },
-                                    { autoClose: 1000 },
-                                );
-                            }}
-                            title="Copy coordinates to clipboard"
-                        >
-                            <ClipboardCopyIcon />
-                        </Button>
-                    </div>
+                        <ClipboardPasteIcon />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={copy}
+                        title="Copy coordinates"
+                    >
+                        <ClipboardCopyIcon />
+                    </Button>
                 </div>
             </SidebarMenuItem>
-            {children}
-        </>
+        );
+    }
+
+    return (
+        <SidebarMenuItem
+            className={cn(
+                "mt-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs",
+                $isLoading && "brightness-50",
+            )}
+            style={{
+                backgroundColor: color,
+                color: colorName === "gold" ? "black" : undefined,
+            }}
+            data-testid="question-location"
+        >
+            {label === "Location" ? (
+                <MapPinIcon
+                    className="h-4 w-4 shrink-0"
+                    aria-label="Location"
+                />
+            ) : (
+                <span className="shrink-0 font-semibold">{label}</span>
+            )}
+            <span className="min-w-0 flex-1 truncate tabular-nums font-oxygen">
+                {coordinatesText(latitude, longitude)}
+            </span>
+            <Dialog>
+                <DialogTrigger asChild>
+                    <button
+                        type="button"
+                        className={ICON_BUTTON}
+                        disabled={disabled}
+                        title="Edit coordinates"
+                    >
+                        <EditIcon />
+                    </button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl">
+                            Update {label}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <LatLngEditForm
+                        latitude={latitude}
+                        longitude={longitude}
+                        onChange={onChange}
+                        disabled={disabled}
+                    />
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={paste}
+                            disabled={disabled}
+                        >
+                            <ClipboardPasteIcon /> Paste from clipboard
+                        </Button>
+                        <DialogClose asChild>
+                            <Button>Done</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <button
+                type="button"
+                className={ICON_BUTTON}
+                onClick={locateMe}
+                disabled={disabled}
+                title="Set to current location"
+            >
+                <LocateIcon />
+            </button>
+            <button
+                type="button"
+                className={ICON_BUTTON}
+                onClick={copy}
+                title="Copy coordinates"
+            >
+                <ClipboardCopyIcon />
+            </button>
+        </SidebarMenuItem>
     );
 };
