@@ -123,7 +123,12 @@ export type QuestionStatus =
     | { state: "ok" }
     | {
           state: "skipped";
-          reason: "hidden" | "planning" | "waiting" | "before-endgame";
+          reason:
+              | "hidden"
+              | "planning"
+              | "waiting"
+              | "before-endgame"
+              | "vetoed";
       }
     | { state: "not-applicable"; message: string }
     | { state: "error"; message: string };

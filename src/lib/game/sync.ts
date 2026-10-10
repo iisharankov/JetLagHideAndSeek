@@ -67,7 +67,12 @@ export const mergeRemoteQuestions = (
                       hidden: false,
                       drag: entry.state === "draft" && entry.createdBy === me,
                   };
-            if (lockAnswered && entry.state === "answered") view.drag = false;
+            if (
+                (lockAnswered && entry.state === "answered") ||
+                entry.state === "vetoed"
+            ) {
+                view.drag = false;
+            }
             const parsed = questionSchema.safeParse({
                 ...entry.question,
                 data: { ...entry.question.data, ...view },
@@ -116,15 +121,16 @@ export const canChangeQuestion = (
 
 /**
  * How a question shapes the map: confirmed answers shade it; seekers'
- * drafts shade it as speculation; questions waiting for the hider don't.
- * Without a shared game every question counts.
+ * drafts shade it as speculation; questions waiting for the hider don't;
+ * vetoed ones never will. Without a shared game every question counts.
  */
 export const roleOnMap = (
     question: Question,
     state: GameState | null,
-): "confirmed" | "speculative" | "waiting" => {
+): "confirmed" | "speculative" | "waiting" | "vetoed" => {
     if (!state) return "confirmed";
     const entry = state.questions[String(question.key)];
     if (!entry || entry.state === "draft") return "speculative";
+    if (entry.state === "vetoed") return "vetoed";
     return entry.state === "answered" ? "confirmed" : "waiting";
 };

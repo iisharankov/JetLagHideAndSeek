@@ -70,6 +70,37 @@ describe("game settings", () => {
         expect(fixed.seekersCanAnswer).toBe(false);
     });
 
+    it("keeps the deck's composition within reason", () => {
+        const fixed = normalizeGameSettings({
+            deckCounts: { curse_cairn: 3, powerup_move: -1, time_bonus_5: "x" },
+            customCards: [
+                {
+                    id: "c1",
+                    kind: "time",
+                    name: "  Bonus of doom  ",
+                    text: "Ten minutes, why not.",
+                    count: 2,
+                    minutes: [5, 10, 15],
+                    photo: "not a data url",
+                },
+                { kind: "curse" },
+            ],
+            cardPopups: "all",
+        });
+        expect(fixed.deckCounts).toEqual({ curse_cairn: 3 });
+        expect(fixed.customCards).toEqual([
+            {
+                id: "c1",
+                kind: "time",
+                name: "Bonus of doom",
+                text: "Ten minutes, why not.",
+                count: 2,
+                minutes: [5, 10, 15],
+            },
+        ]);
+        expect(fixed.cardPopups).toBe("all");
+    });
+
     it("keeps valid settings as they are", () => {
         const settings = {
             ...defaultGameSettings("large", "standard"),

@@ -29,6 +29,7 @@ const STATE_TEXT = {
     draft: "Draft: only seekers see this",
     asked: "Asked: waiting for the hider",
     answered: "Answered",
+    vetoed: "Vetoed by the hider: no answer, not applied",
 };
 
 /**
@@ -59,6 +60,11 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const showChoices =
         mayAnswer &&
         (entry.state === "asked" || (entry.state === "answered" && changing));
+    // Veto: instead of answering. With the digital deck only with the card.
+    const canVeto =
+        $role === "hider" &&
+        entry.state === "asked" &&
+        ($game.deck ? $game.deck.hand.includes("powerup_veto_question") : true);
 
     return (
         <div
@@ -67,6 +73,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                 entry.state === "draft" && "bg-amber-900/40 text-amber-100",
                 entry.state === "asked" && "bg-blue-900/50 text-blue-100",
                 entry.state === "answered" && "bg-green-900/40 text-green-100",
+                entry.state === "vetoed" && "bg-slate-700/60 text-slate-200",
             )}
             data-testid="question-game-state"
             data-state={entry.state}
@@ -143,6 +150,28 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                         ))}
                     </div>
                 </div>
+            )}
+            {canVeto && (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-1"
+                    title="Play Veto Question: no answer, no cards for you"
+                    onClick={() => {
+                        if (
+                            window.confirm(
+                                "Veto this question? No answer is given and you draw no cards.",
+                            )
+                        ) {
+                            void sendOp({
+                                type: "vetoQuestion",
+                                key: questionKey,
+                            });
+                        }
+                    }}
+                >
+                    Veto
+                </Button>
             )}
             {entry.state === "answered" && mayAnswer && !changing && (
                 <Button

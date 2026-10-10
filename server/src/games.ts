@@ -11,6 +11,7 @@ import {
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { advanceDeck } from "@/lib/game/deck";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import type {
     GameOp,
@@ -128,6 +129,8 @@ export const createGameStore = (
         state.endgame ??= null;
         state.clock ??= null;
         state.deck ??= null;
+        state.move ??= null;
+        state.moves ??= [];
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
@@ -251,9 +254,10 @@ export const createGameStore = (
                 const first = !request.photoId;
                 request.photoId = photoId;
                 request.answeredAt = now;
-                // With the virtual deck, an answered photo question earns a draw.
+                // With the digital deck, an answered photo question earns a draw.
                 if (first && state.deck) {
                     state.deck.owed.push({ draw: 1, keep: 1, label: "Photo" });
+                    state.deck = advanceDeck(state.deck, now);
                 }
             }
             state.version += 1;

@@ -9,24 +9,6 @@ Decisions are listed at the end.
 
 ## Open questions
 
-**Q32.** Metric cards. The card texts in the app are from the imperial
-edition, and I couldn't find the metric edition's texts anywhere online, so I
-haven't changed them (no guessing). Only these cards mention distances; could
-you send photos of your metric versions (or just the numbers)?
-- Curse of the Bridge Troll ("at least 1 / 5 / 30 miles")
-- Curse of the Mediocre Travel Agent ("0.25 / 0.25 / 0.5 miles")
-- Curse of the Unguided Tourist ("500 feet")
-- Curse of the Impressionable Consumer ("100 feet")
-- Curse of the Endless Tumble ("100 feet")
-- Curse of the Right Turn ("1,000 feet")
-- Curse of the Water Weight ("1,000 feet (300 meters)": maybe unchanged)
-
-If your metric rulebook has different distances for radar, thermometer,
-tentacles or the hiding zone radius, a photo of those pages would let me
-switch the rules pages too.
-
-**Answer:**
-
 **Q34.** Answer timer. The rulebook gives the hider five minutes to answer
 a question. Show a countdown on every question waiting for an answer (both
 phones), amber in the last minute? _Recommended: yes._
@@ -34,7 +16,7 @@ phones), amber in the last minute? _Recommended: yes._
 **Answer:**
 
 **Q35.** Asking again. A question asked a second time costs double (the
-hider draws twice). With the virtual deck the server already owes a second
+hider draws twice). With the digital deck the game already deals a second
 draw when the same question (category and type, or radar radius) is answered
 again. Also tell the seekers before they ask ("asked before: costs double")?
 _Recommended: yes, small._
@@ -165,3 +147,9 @@ From your earlier answers (rounds 1–4), already built or planned:
   shuffles and deals, owes draws per answered question, logs extra draws for
   the seekers, works the bonuses out itself); card pictures in the hand;
   Found! only in the end game; the clock at the bottom of the sidebar.
+- **Round 10 (Q32):** the cards are the metric edition's (from your photos);
+  the deck is 100 cards as counted; physical or digital deck chosen first in
+  setup, deck and question lists behind "Customise", custom cards with text
+  or a photo; the digital deck deals draws by itself (no drawing by hand);
+  Move puts the questions away and freezes the seekers until the hider
+  continues; played cards pop up for the seekers.

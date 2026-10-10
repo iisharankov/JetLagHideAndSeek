@@ -1,5 +1,8 @@
-// The hider deck, transcribed from the cards (images in public/rules/cards/).
-// "{1/5/30}" is a value that depends on the game size: small/medium/large.
+// The hider deck, transcribed from the metric edition's cards (images in
+// public/rules/cards/; the pictures are the imperial print, the texts are
+// metric). "{2/10/50}" is a value that depends on the game size:
+// small/medium/large. Copies in the deck: 100 cards in all (25 + 15 + 10 +
+// 3 + 2 time bonuses, 21 powerups, one of each of the 24 curses).
 // The rules notes for each curse are in
 // src/content/rules/hiding/the-hider-deck/curses.md.
 
@@ -11,7 +14,7 @@ export interface Curse {
     image: string;
     /** For curses that last a set time: minutes for small/medium/large. */
     minutes?: [number, number, number];
-    /** Copies in the deck (2 until counted). */
+    /** Copies in the deck (one, unless set). */
     count?: number;
 }
 
@@ -40,7 +43,7 @@ export const CURSES: Curse[] = [
     {
         name: "Curse of the Bridge Troll",
         effect: "The seekers must ask their next question from under a bridge.",
-        castingCost: "Seekers must be at least {1/5/30} miles from you.",
+        castingCost: "Seekers must be at least {2/10/50} km from you.",
         image: "curse_bridge_troll",
     },
     {
@@ -52,8 +55,7 @@ export const CURSES: Curse[] = [
     {
         name: "Curse of the Water Weight",
         effect: "The seekers must acquire and carry at least 2 liters of liquid per seeker for the rest of your run. They cannot ask another question until they have acquired the liquid. The water may be distributed between seekers as they see fit. If the liquid is lost or abandoned at any point after acquisition, the hider is awarded a {30/30/60} minute bonus.",
-        castingCost:
-            "Seekers must be within 1,000 feet (300 meters) of a body of water.",
+        castingCost: "Seekers must be within 300 meters of a body of water.",
         image: "curse_water_weight",
     },
     {
@@ -89,27 +91,27 @@ export const CURSES: Curse[] = [
     },
     {
         name: "Curse of the Unguided Tourist",
-        effect: "Send the seekers an unzoomed Google Street View image from a street within 500 feet of where they are now. The shot has to be parallel to the horizon and include at least one human-built structure other than a road. Without using the internet for research, they must find what you sent them in real life before they can use transportation or ask another question. They must send a picture to the hider for verification.",
+        effect: "Send the seekers an unzoomed Google Street View image from a street within 150 meters of where they are now. The shot has to be parallel to the horizon and include at least one human-built structure other than a road. Without using the internet for research, they must find what you sent them in real life before they can use transportation or ask another question. They must send a picture to the hider for verification.",
         castingCost: "Seekers must be outside.",
         image: "curse_the_unguided_tourist",
     },
     {
         name: "Curse of the Ransom Note",
-        effect: "The next question that the seekers ask must be composed of words and letters cut out of any printed material. The question must be coherent, and include at least 5 words.",
+        effect: "The next question that the seekers ask must be composed of words and letters cut out of any printed material. The question must be coherent and include at least 5 words.",
         castingCost:
             'Spell out "ransom note" as a ransom note (without using this card).',
         image: "curse_ransom_note",
     },
     {
         name: "Curse of the Mediocre Travel Agent",
-        effect: "Choose any publicly-accessible place within {0.25/0.25/0.5} miles of the seekers' current location. They cannot currently be on transit. They must go there, and spend at least {5/5/10} minutes there, before asking another question. They must send you at least three photos of them enjoying their vacation, and procure an object to bring you as a souvenir. If this souvenir is lost before they can give it to you, you are awarded an extra {30/45/60} minutes.",
+        effect: "Choose any publicly-accessible place within {0.5/0.5/1} km of the seekers' current location. They cannot currently be on transit. They must go there, and spend at least {5/5/10} minutes there, before asking another question. They must send you at least three photos of them enjoying their vacation, and procure an object to bring you as a souvenir. If this souvenir is lost before they can give it to you, you are awarded an extra {30/45/60} minutes.",
         castingCost:
             "Their vacation destination must be further from you than their current location.",
         image: "curse_mediocre_travel_agent",
     },
     {
         name: "Curse of the Impressionable Consumer",
-        effect: "Seekers must enter and gain admission (if applicable) to a location or buy a product that they saw an advertisement for before asking another question. This advertisement must be found out in the world, not on a seeker's device, and must be at least 100 feet from the product or location itself.",
+        effect: "Seekers must enter and gain admission (if applicable) to a location or buy a product that they saw an advertisement for before asking another question. This advertisement must be found out in the world, not on a seeker's device, and must be at least 30 meters from the product or location itself.",
         castingCost: "The seekers' next question is free.",
         image: "curse_impressionable_consumer",
     },
@@ -154,13 +156,13 @@ export const CURSES: Curse[] = [
     },
     {
         name: "Curse of the Endless Tumble",
-        effect: "Seekers must roll a die at least 100 feet and have it land on a 5 or a 6 before they can ask another question. The die must roll the full distance, unaided, using only the momentum from the initial throw and gravity to travel the 100 feet. If the seekers accidentally hit someone with a die, you are awarded a {10/20/30} minute bonus.",
+        effect: "Seekers must roll a die at least 30 meters and have it land on a 5 or a 6 before they can ask another question. The die must roll the full distance, unaided, using only the momentum from the initial throw and gravity to travel the 30 meters. If the seekers accidentally hit someone with a die, you are awarded a {10/20/30} minute bonus.",
         castingCost: "Roll a die. If it's a 5 or a 6, this card has no effect.",
         image: "curse_endless_tumble",
     },
     {
         name: "Curse of the Right Turn",
-        effect: "For the next {20/40/60} minutes, the seekers can only turn right at any street intersection. If, at any point, they find themselves in a dead end where they cannot continue forward or turn right for another 1,000 feet, they may do a full 180. A right turn is defined as a road at any angle that veers to the right of the seekers.",
+        effect: "For the next {20/40/60} minutes, the seekers can only turn right at any street intersection. If, at any point, they find themselves in a dead end where they cannot continue forward or turn right for another 300 meters, they may do a full 180. A right turn is defined as a road at any angle that veers to the right of the seekers.",
         castingCost: "Discard a card.",
         image: "curse_right_turn",
         minutes: [20, 40, 60],

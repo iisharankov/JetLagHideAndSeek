@@ -60,7 +60,7 @@ No zoom. Must take the picture through the window from outside the restaurant.
 
 #### Park
 
-No zoom, phone perpendicular to the ground. Must stand 5 feet from any obstruction.
+No zoom, phone perpendicular to the ground. Must stand 2 m from any obstruction.
 
 #### Grocery Store Aisle
 
@@ -76,7 +76,7 @@ Must include a 5' × 5' section with three distinct elements. The litmus test fo
 
 ### For <span class="game-size game-size-large">LARGE</span> Sized Games, Add the Following:
 
-#### ½ Mile of Streets Traced
+#### 1 km of Streets Traced
 
 Must be continuous, include 5 turns, with no doubling back. Send north-south oriented. Streets must appear on mapping app.
 

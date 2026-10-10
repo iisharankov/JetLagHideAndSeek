@@ -14,7 +14,7 @@ import {
     showHiderPin,
     trainStations,
 } from "@/lib/context";
-import { gameState } from "@/lib/game/session";
+import { gameState, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
@@ -125,6 +125,23 @@ export const HiderPanel = () => {
             className="flex flex-col gap-2 p-2 text-sm"
             data-testid="hider-panel"
         >
+            {$game?.move && (
+                <section className="rounded-md border border-orange-500/60 bg-orange-950/40 p-2">
+                    <p>
+                        <strong>Move.</strong> The seekers are frozen and know
+                        you were at{" "}
+                        {$game.move.station?.name ?? "your old station"}. Is
+                        this your new station? Then continue.
+                    </p>
+                    <Button
+                        size="sm"
+                        className="mt-1"
+                        onClick={() => void sendOp({ type: "resumeMove" })}
+                    >
+                        Continue: the game goes on
+                    </Button>
+                </section>
+            )}
             <section className="rounded-md border border-red-500/60 p-2">
                 <p data-testid="hider-station">
                     Your station: <strong>{$chosen.name}</strong>. The red

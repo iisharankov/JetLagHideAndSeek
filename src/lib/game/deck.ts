@@ -1,16 +1,18 @@
-// The hider deck as the app plays it ("virtual deck" games): shuffled per
-// round, the hider draws and keeps cards through it, the seekers never see
-// the hand. A card is its image name (lib/rules/cards.ts), which is unique.
-// Pure functions, shared by the server and the phones; the server owns the
-// deck in a shared game, the phone when playing alone.
+// The hider deck as the app plays it ("digital deck" games): shuffled per
+// round, the hider's draws are dealt by the game, the seekers never see the
+// hand. A card is its image name (lib/rules/cards.ts), which is unique;
+// the players' own cards are "custom:<id>". Pure functions, shared by the
+// server and the phones; the server owns the deck in a shared game, the
+// phone when playing alone.
 import { CURSES, POWERUPS, TIME_BONUSES } from "@/lib/rules/cards";
 
-import type { Deck, Draw, GameSize } from "./types";
+import type { CustomCard, Deck, Draw, GameSettings, GameSize } from "./types";
 
 export interface CardInfo {
     id: string;
     kind: "time" | "powerup" | "curse";
     name: string;
+    /** The picture's name (lib/rules/cards.ts); "" for a custom card. */
     image: string;
     /** Time bonus: minutes for small, medium and large games. */
     minutes?: [number, number, number];
@@ -19,8 +21,11 @@ export interface CardInfo {
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
 
-/** Copies of a curse in the deck, until the real count is in cards.ts. */
-const DEFAULT_CURSE_COUNT = 2;
+/** Copies of a curse in the printed deck: one of each. */
+const DEFAULT_CURSE_COUNT = 1;
+
+/** Custom cards' ids start with this; the rest is the card's own id. */
+export const CUSTOM_PREFIX = "custom:";
 
 export const CARDS: CardInfo[] = [
     ...TIME_BONUSES.map((bonus) => ({
@@ -47,19 +52,53 @@ export const CARDS: CardInfo[] = [
 ];
 const BY_ID = new Map(CARDS.map((card) => [card.id, card]));
 
-export const cardInfo = (id: string): CardInfo =>
-    BY_ID.get(id) ?? { id, kind: "curse", name: id, image: id };
+/** A custom card as the deck sees it. */
+export const customCardInfo = (card: CustomCard): CardInfo => ({
+    id: CUSTOM_PREFIX + card.id,
+    kind: card.kind,
+    name: card.name,
+    image: "",
+    effect: card.text,
+    ...(card.minutes ? { minutes: card.minutes } : {}),
+});
+
+export const cardInfo = (id: string, custom: CustomCard[] = []): CardInfo => {
+    const known = BY_ID.get(id);
+    if (known) return known;
+    const own = id.startsWith(CUSTOM_PREFIX)
+        ? custom.find((card) => CUSTOM_PREFIX + card.id === id)
+        : undefined;
+    return own
+        ? customCardInfo(own)
+        : { id, kind: "curse", name: "Unknown card", image: "" };
+};
 
 /** Time bonus minutes of a card in this game size (0 for other cards). */
-export const cardMinutes = (id: string, size: GameSize) =>
-    cardInfo(id).minutes?.[SIZE_INDEX[size]] ?? 0;
+export const cardMinutes = (
+    id: string,
+    size: GameSize,
+    custom: CustomCard[] = [],
+) => cardInfo(id, custom).minutes?.[SIZE_INDEX[size]] ?? 0;
 
-export const cardLabel = (id: string, size: GameSize) => {
-    const info = cardInfo(id);
+export const cardLabel = (
+    id: string,
+    size: GameSize,
+    custom: CustomCard[] = [],
+) => {
+    const info = cardInfo(id, custom);
     return info.kind === "time"
-        ? `Time bonus ${cardMinutes(id, size)} min`
+        ? `${info.name} ${cardMinutes(id, size, custom)} min`
         : info.name;
 };
+
+/** The printed deck's copies of a card. */
+export const defaultCount = (id: string) =>
+    TIME_BONUSES.find((bonus) => bonus.image === id)?.count ??
+    POWERUPS.find((powerup) => powerup.image === id)?.count ??
+    (CURSES.some((curse) => curse.image === id)
+        ? (CURSES.find((curse) => curse.image === id)?.count ??
+          DEFAULT_CURSE_COUNT)
+        : 0);
 
 /**
  * What the hider draws after answering a question, from the rulebook's
@@ -74,12 +113,22 @@ export const DRAWS: Record<string, Draw> = {
     photo: { draw: 1, keep: 1, label: "Photo" },
 };
 
-/** The whole deck, one entry per copy. */
-export const deckComposition = (): string[] => [
-    ...TIME_BONUSES.flatMap((bonus) => Array(bonus.count).fill(bonus.image)),
-    ...POWERUPS.flatMap((powerup) => Array(powerup.count).fill(powerup.image)),
-    ...CURSES.flatMap((curse) =>
-        Array(curse.count ?? DEFAULT_CURSE_COUNT).fill(curse.image),
+type Composition = Pick<GameSettings, "deckCounts" | "customCards">;
+
+/**
+ * The whole deck, one entry per copy: the printed cards (with the game's
+ * own counts where set) and the players' custom cards.
+ */
+export const deckComposition = (
+    settings: Composition = { deckCounts: {}, customCards: [] },
+): string[] => [
+    ...CARDS.flatMap((card) =>
+        Array<string>(
+            settings.deckCounts[card.id] ?? defaultCount(card.id),
+        ).fill(card.id),
+    ),
+    ...settings.customCards.flatMap((card) =>
+        Array<string>(card.count).fill(CUSTOM_PREFIX + card.id),
     ),
 ];
 
@@ -92,8 +141,11 @@ export const shuffled = <T>(items: T[], random = Math.random): T[] => {
     return result;
 };
 
-export const newDeck = (random = Math.random): Deck => ({
-    remaining: shuffled(deckComposition(), random),
+export const newDeck = (
+    settings?: Composition,
+    random = Math.random,
+): Deck => ({
+    remaining: shuffled(deckComposition(settings), random),
     discard: [],
     hand: [],
     pending: [],
@@ -129,6 +181,38 @@ export const drawCards = (
         pending,
         pendingKeep: Math.min(keep, pending.length),
     };
+};
+
+/**
+ * Deals the next draw the hider is owed, as soon as nothing is pending: the
+ * cards just come. An empty deck (discard pile included) drops the draw with
+ * a note.
+ */
+export const advanceDeck = (
+    deck: Deck,
+    now: number,
+    random = Math.random,
+): Deck => {
+    let next = deck;
+    while (next.pending.length === 0 && next.owed.length > 0) {
+        const [draw, ...owed] = next.owed;
+        if (next.remaining.length + next.discard.length === 0) {
+            next = {
+                ...next,
+                owed,
+                log: [
+                    ...next.log,
+                    {
+                        at: now,
+                        text: `The deck is empty: no cards for ${draw.label}.`,
+                    },
+                ],
+            };
+            continue;
+        }
+        next = drawCards({ ...next, owed }, draw, random);
+    }
+    return next;
 };
 
 /** Keeps the picked cards of the draw (by index); the rest are discarded. */
@@ -179,9 +263,13 @@ export const discardHand = (deck: Deck): Deck => ({
  * bonus still in the hand, and each "Duplicate Another Card" as a copy of
  * the biggest one (the rulebook lets it double a time bonus).
  */
-export const handBonusMinutes = (hand: string[], size: GameSize) => {
+export const handBonusMinutes = (
+    hand: string[],
+    size: GameSize,
+    custom: CustomCard[] = [],
+) => {
     const times = hand
-        .map((id) => cardMinutes(id, size))
+        .map((id) => cardMinutes(id, size, custom))
         .filter((minutes) => minutes > 0);
     const best = Math.max(0, ...times);
     const duplicates = hand.filter(

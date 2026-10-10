@@ -21,6 +21,7 @@ import {
     questions,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { tentacleRadiusKm } from "@/lib/game/settings";
 import { hiddenTypesFor } from "@/lib/gameSettings";
 import { cn, mapToObj } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
@@ -150,6 +151,9 @@ export const TentacleQuestionComponent = ({
                         } else {
                             data.location = false;
                             data.locationType = value;
+                            // The book's distance for this kind of place.
+                            data.radius = tentacleRadiusKm(value);
+                            data.unit = "kilometers";
                         }
                         questionModified();
                     }}

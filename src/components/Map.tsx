@@ -29,6 +29,7 @@ import {
     questions,
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
+import { tentacleRadiusKm } from "@/lib/game/settings";
 import { newRadiusQuestion } from "@/lib/gameSettings";
 import { describeGeoError, watchPosition } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
@@ -155,6 +156,8 @@ export const Map = ({ className }: { className?: string }) => {
                                 data: {
                                     lat: e.latlng.lat,
                                     lng: e.latlng.lng,
+                                    radius: tentacleRadiusKm("theme_park"),
+                                    unit: "kilometers",
                                 },
                             });
                         },

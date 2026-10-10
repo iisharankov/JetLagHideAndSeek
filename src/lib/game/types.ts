@@ -10,7 +10,7 @@ export type Role = "seeker" | "hider";
  * asked: sent to the hider, waiting for the answer;
  * answered: the hider confirmed the answer.
  */
-export type QuestionState = "draft" | "asked" | "answered";
+export type QuestionState = "draft" | "asked" | "answered" | "vetoed";
 
 /** A question as the app stores it: { id, key, data }. */
 export interface SharedQuestion {
@@ -91,6 +91,21 @@ export interface RoundClock {
 }
 export type ClockAction = "start" | "pause" | "resume" | "stop" | "reset";
 
+/** The hider is moving to a new station (the Move card). */
+export interface MoveState {
+    /** The station the hider left, as the card makes them tell the seekers. */
+    station: StationPick | null;
+    startedAt: number;
+    by: string;
+}
+
+/** A move's archive: the questions of the hiding spot the hider left. */
+export interface MoveArchive {
+    at: number;
+    station: StationPick | null;
+    questions: QuestionEntry[];
+}
+
 /** A station as picked: its map-data id ("node/123") and position. */
 export interface StationPick {
     id: string;
@@ -141,6 +156,20 @@ export interface Deck {
     deckSize?: number;
 }
 
+/** A card the players added to the deck (a blank card, written on). */
+export interface CustomCard {
+    id: string;
+    kind: "time" | "powerup" | "curse";
+    name: string;
+    text: string;
+    /** Copies in the deck. */
+    count: number;
+    /** Time bonus: minutes for small, medium and large games. */
+    minutes?: [number, number, number];
+    /** A photo of the card, as a small data: URL. */
+    photo?: string;
+}
+
 /** Decided before the game starts; fixed while it runs (see settings.ts). */
 export interface GameSettings {
     size: GameSize;
@@ -157,6 +186,11 @@ export interface GameSettings {
     seekersCanAnswer: boolean;
     /** The real deck of cards, or the app's (shuffled and drawn by the game). */
     deck: "real" | "virtual";
+    /** Copies of each card in the deck, where it differs from the printed deck. */
+    deckCounts: Record<string, number>;
+    customCards: CustomCard[];
+    /** Which cards the hider plays pop up on the seekers' phones. */
+    cardPopups: "important" | "all";
 }
 
 /** One finished round, kept to look back at. */
@@ -169,6 +203,7 @@ export interface PastRound {
     endgame?: Endgame | null;
     clock?: RoundClock | null;
     deck?: Deck | null;
+    moves?: MoveArchive[];
 }
 
 export interface GameState {
@@ -190,6 +225,10 @@ export interface GameState {
     clock: RoundClock | null;
     /** Only in "virtual deck" games. */
     deck: Deck | null;
+    /** Set while the hider moves to a new station (the Move card). */
+    move: MoveState | null;
+    /** The questions archived by moves this round. */
+    moves: MoveArchive[];
     hasHider: boolean;
     rounds: PastRound[];
 }
@@ -236,12 +275,22 @@ export type GameOp =
     | { type: "clock"; action: ClockAction }
     | { type: "setBonus"; minutes: number }
     | DeckOp
+    | { type: "vetoQuestion"; key: number }
+    | { type: "move"; station: StationPick | null }
+    | { type: "resumeMove" }
     | { type: "newRound" };
 
 /** The hider's moves with the virtual deck. */
 export type DeckOp =
     | { type: "drawCards"; extra?: Draw }
     | { type: "keepCards"; picks: number[] }
-    | { type: "playCard"; index: number }
+    | {
+          type: "playCard";
+          index: number;
+          /** "Discard N, draw M": the cards discarded (indexes in the hand). */
+          discards?: number[];
+          /** Move: the station the hider leaves. */
+          station?: StationPick | null;
+      }
     | { type: "discardCard"; index: number }
     | { type: "discardHand" };

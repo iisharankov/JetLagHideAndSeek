@@ -53,6 +53,7 @@ import { errorMessage } from "@/maps/errors";
 import type { RegionChoice } from "@/maps/regionRules";
 
 import { GamePanel } from "./game/GamePanel";
+import { GamePopups } from "./game/GamePopups";
 import { GameSetupDialog } from "./game/GameSetupDialog";
 import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
@@ -250,6 +251,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     return (
         <div className={cn("flex justify-end gap-2", className)}>
             <SharedGameDialog />
+            <GamePopups />
             <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
                 <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
                     <DialogHeader>

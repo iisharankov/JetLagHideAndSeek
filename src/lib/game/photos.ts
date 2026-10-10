@@ -36,3 +36,26 @@ export const shrinkPhoto = async (file: Blob): Promise<Blob> => {
     bitmap.close();
     throw new Error("Couldn't make the photo small enough to send.");
 };
+
+/**
+ * A small picture (a custom card's photo) as a data: URL, to live inside
+ * the game's settings: at most `maxSide` pixels on the long side.
+ */
+export const shrinkImageDataUrl = async (
+    file: Blob,
+    maxSide = 480,
+    quality = 0.7,
+): Promise<string> => {
+    const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+    });
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas
+        .getContext("2d")!
+        .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", quality);
+};

@@ -53,10 +53,25 @@ export const RoundClock = () => {
         bonus === undefined
             ? null
             : formatDuration(hidingTimeMs(clock) + bonus * 60_000);
-    // Virtual deck: the game knows the hand; real deck: this phone's record.
+    // Digital deck: the game knows the hand; real deck: this phone's record.
     const mine = $game.deck
-        ? handBonusMinutes($game.deck.hand, $game.settings.size)
+        ? handBonusMinutes(
+              $game.deck.hand,
+              $game.settings.size,
+              $game.settings.customCards,
+          )
         : bonusMinutes($hand);
+    /** "+21:00": the bonuses in the hider's hand, if caught right now. */
+    const bonusTag =
+        $role === "hider" ? (
+            <span
+                className="font-mono text-sm text-green-300"
+                title="Time bonuses in your hand, added if you're caught now"
+                data-testid="clock-bonus"
+            >
+                +{formatDuration(mine * 60_000)}
+            </span>
+        ) : null;
 
     return (
         <div
@@ -82,6 +97,7 @@ export const RoundClock = () => {
             {state === "running" && (
                 <>
                     <span className="font-mono text-base">⏱ {elapsed}</span>
+                    {bonusTag}
                     {$role === "hider" ? (
                         <Button
                             size="sm"
@@ -129,7 +145,8 @@ export const RoundClock = () => {
             {state === "paused" && (
                 <>
                     <span className="font-mono text-base">⏸ {elapsed}</span>
-                    <span className="text-slate-300">paused (Move)</span>
+                    {bonusTag}
+                    <span className="text-slate-300">paused</span>
                     <Button
                         size="sm"
                         variant="outline"

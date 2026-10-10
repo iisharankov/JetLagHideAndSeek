@@ -36,7 +36,12 @@ import {
     sidebarTab,
     trainStations,
 } from "@/lib/context";
-import { activeGameId, gameRole, isHiderPhone } from "@/lib/game/session";
+import {
+    activeGameId,
+    gameRole,
+    gameState,
+    isHiderPhone,
+} from "@/lib/game/session";
 import type { StationPick } from "@/lib/game/types";
 import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
@@ -331,6 +336,13 @@ const MINE_STYLE = {
     weight: 3,
     fillOpacity: 0.1,
 };
+/** The station the hider left with a Move: everyone sees it. */
+const MOVE_STYLE = {
+    color: "#f97316",
+    fillColor: "#f97316",
+    weight: 3,
+    fillOpacity: 0.15,
+};
 /** The station the seekers picked: the end game. */
 const ENDGAME_STYLE = {
     color: "#ef4444",
@@ -440,7 +452,31 @@ const draw = () => {
     if (picked && picked.station.id !== mine?.id) {
         addZoneLayer(map, circleAround(picked.station, ENDGAME_STYLE));
     }
+
+    const move = gameState.get()?.move;
+    if (move?.station) {
+        addZoneLayer(map, circleAround(move.station, MOVE_STYLE));
+        const marker = L.marker([move.station.lat, move.station.lng], {
+            icon: STATION_ICON,
+            interactive: false,
+        }).bindTooltip(`Hider was here: ${move.station.name}`, {
+            permanent: true,
+            direction: "top",
+        });
+        addZoneLayer(map, marker);
+    }
 };
+
+/** Redraws when a move starts or ends (not on every game change). */
+let lastMove = "";
+const watchMoves = () =>
+    gameState.listen((state) => {
+        const move = JSON.stringify(state?.move ?? null);
+        if (move !== lastMove) {
+            lastMove = move;
+            draw();
+        }
+    });
 
 const watch = (stores: ReadableAtom<unknown>[], run: () => void) => {
     for (const store of stores) store.listen(run);
@@ -483,6 +519,7 @@ export const startHidingZoneLayer = () => {
         ],
         draw,
     );
+    watchMoves();
     draw();
     void requestHidingZoneRefresh();
 };

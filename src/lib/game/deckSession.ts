@@ -6,6 +6,8 @@ import { persistentAtom } from "@/lib/persist";
 import { errorMessage } from "@/maps/errors";
 
 import {
+    advanceDeck,
+    cardInfo,
     discardHand,
     drawCards,
     keepCards,
@@ -38,9 +40,52 @@ export const deckAct = (op: DeckOp) => {
                 localDeck.set(drawCards(deck, op.extra));
                 break;
             case "keepCards":
-                localDeck.set(keepCards(deck, op.picks));
+                localDeck.set(
+                    advanceDeck(keepCards(deck, op.picks), Date.now()),
+                );
                 break;
-            case "playCard":
+            case "playCard": {
+                const id = deck.hand[op.index];
+                if (id === "powerup_move") {
+                    localDeck.set(discardHand(deck));
+                    break;
+                }
+                let next = deck;
+                for (const index of [op.index, ...(op.discards ?? [])].sort(
+                    (a, b) => b - a,
+                )) {
+                    next = removeFromHand(next, index);
+                }
+                const swap = {
+                    powerup_discard_1_draw_2: 2,
+                    powerup_discard_2_draw_3: 3,
+                }[id];
+                if (swap) {
+                    next = {
+                        ...next,
+                        owed: [
+                            ...next.owed,
+                            {
+                                draw: swap,
+                                keep: swap,
+                                label: cardInfo(id).name,
+                            },
+                        ],
+                    };
+                }
+                if (id === "powerup_draw_1_expand_1") {
+                    next = {
+                        ...next,
+                        limit: next.limit + 1,
+                        owed: [
+                            ...next.owed,
+                            { draw: 1, keep: 1, label: cardInfo(id).name },
+                        ],
+                    };
+                }
+                localDeck.set(advanceDeck(next, Date.now()));
+                break;
+            }
             case "discardCard":
                 localDeck.set(removeFromHand(deck, op.index));
                 break;

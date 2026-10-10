@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
 import { gameSettings, setupDialog } from "@/lib/context";
+import { deckComposition } from "@/lib/game/deck";
 import {
     activeGameId,
     currentGameId,
@@ -77,8 +78,9 @@ const SettingsSummary = ({ settings }: { settings: GameSettings }) => (
         <dt>Deck</dt>
         <dd>
             {settings.deck === "virtual"
-                ? "virtual (the app deals)"
-                : "real cards"}
+                ? "digital (the app deals)"
+                : "physical cards"}
+            , {deckComposition(settings).length} cards
         </dd>
     </dl>
 );

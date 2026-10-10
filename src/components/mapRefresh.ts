@@ -163,6 +163,7 @@ const refresh = async () => {
         (q) => roleOnMap(q, game) === "speculative",
     );
     const waiting = inPlay.filter((q) => roleOnMap(q, game) === "waiting");
+    const vetoed = inPlay.filter((q) => roleOnMap(q, game) === "vetoed");
 
     const hiderModeErrors: Record<number, QuestionStatus> = {};
     if (hiderMode.get() !== false && game && gameRole.get() === "hider") {
@@ -229,6 +230,12 @@ const refresh = async () => {
             waiting.map((q) => [
                 q.key,
                 { state: "skipped", reason: "waiting" } as QuestionStatus,
+            ]),
+        ),
+        ...Object.fromEntries(
+            vetoed.map((q) => [
+                q.key,
+                { state: "skipped", reason: "vetoed" } as QuestionStatus,
             ]),
         ),
         ...Object.fromEntries(

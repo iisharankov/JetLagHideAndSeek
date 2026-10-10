@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { SidebarCloseIcon } from "lucide-react";
+import { useEffect } from "react";
 
 import { withErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -13,6 +14,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
     Sidebar,
     SidebarContent,
@@ -36,7 +38,8 @@ import {
     sidebarTab,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { gameRole, gameState } from "@/lib/game/session";
+import { hand, handLimit } from "@/lib/game/hand";
+import { gameRole, gameState, sendOp } from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
@@ -78,6 +81,18 @@ export const QuestionSidebar = () => {
     const tab = useStore(sidebarTab);
     // The hider's phone: the Stations tab is the Hider tab.
     const hider = $hiderMode !== false && (!$game || $role === "hider");
+    // Too many cards in the hand: the hider stays in Cards until it's fixed.
+    const $hand = useStore(hand);
+    const $limit = useStore(handLimit);
+    const overLimit =
+        hider &&
+        ($game?.deck
+            ? $game.deck.hand.length > $game.deck.limit
+            : $hand.length > $limit);
+    useEffect(() => {
+        if (overLimit && tab !== "curses") sidebarTab.set("curses");
+    }, [overLimit, tab]);
+    const move = $game?.move ?? null;
     const activeCurses =
         $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
     // The hider: questions waiting for an answer.
@@ -148,7 +163,40 @@ export const QuestionSidebar = () => {
                     ]}
                     value={tab}
                     onValueChange={sidebarTab.set}
+                    disabled={overLimit}
                 />
+                {overLimit && (
+                    <p className="mt-1 text-xs text-amber-400">
+                        Too many cards in your hand: play or discard down to the
+                        limit first.
+                    </p>
+                )}
+                {move && (
+                    <div
+                        className="mt-2 rounded-md border border-orange-500/60 bg-orange-950/40 p-2 text-xs"
+                        data-testid="move-banner"
+                    >
+                        <p>
+                            <strong>Move.</strong>{" "}
+                            {$role === "hider"
+                                ? "The seekers are frozen and know your old station. Pick your new station in the Hider tab, get there, then continue."
+                                : `${move.by} left ${
+                                      move.station?.name ?? "their station"
+                                  } (shown on the map) and is moving. No questions until they continue; the questions so far are in Cards → History.`}
+                        </p>
+                        {$role === "hider" && (
+                            <Button
+                                size="sm"
+                                className="mt-1"
+                                onClick={() =>
+                                    void sendOp({ type: "resumeMove" })
+                                }
+                            >
+                                Continue: the game goes on
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}

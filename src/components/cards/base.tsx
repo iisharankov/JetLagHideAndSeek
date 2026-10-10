@@ -134,6 +134,16 @@ export const QuestionCard = ({
                     )}
                     <QuestionGameBar questionKey={questionKey} />
                     {status?.state === "skipped" &&
+                        status.reason === "vetoed" && (
+                            <p
+                                role="status"
+                                className="mx-2 mb-1 rounded-md bg-slate-700/60 px-2 py-1 text-xs text-slate-200"
+                            >
+                                Vetoed: the hider gave no answer, so nothing is
+                                applied. Ask it again (it costs double).
+                            </p>
+                        )}
+                    {status?.state === "skipped" &&
                         status.reason === "before-endgame" && (
                             <p
                                 role="status"

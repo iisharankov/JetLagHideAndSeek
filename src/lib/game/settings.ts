@@ -1,6 +1,6 @@
 // The settings of a game, decided before it starts (Menu → Game) and fixed
 // while it runs. Shared with the server, which enforces the lock.
-import type { GameSettings, GameSize, StationKinds } from "./types";
+import type { CustomCard, GameSettings, GameSize, StationKinds } from "./types";
 
 export const GAME_SIZES: GameSize[] = ["small", "medium", "large"];
 
@@ -51,7 +51,52 @@ export const defaultGameSettings = (
     disabledQuestions: regionDisabledQuestions(region),
     seekersCanAnswer: false,
     deck: "real",
+    deckCounts: {},
+    customCards: [],
+    cardPopups: "important",
 });
+
+const MAX_COPIES = 40;
+const MAX_PHOTO_CHARS = 200_000;
+
+/** A sensible count of copies, or undefined. */
+const copies = (value: unknown) => {
+    const count = Number(value);
+    return Number.isInteger(count) && count >= 0 && count <= MAX_COPIES
+        ? count
+        : undefined;
+};
+
+const normalizeCustomCard = (raw: unknown): CustomCard | undefined => {
+    const card = (raw ?? {}) as Partial<Record<keyof CustomCard, unknown>>;
+    if (typeof card.id !== "string" || typeof card.name !== "string") {
+        return undefined;
+    }
+    const kind =
+        card.kind === "time" || card.kind === "powerup" ? card.kind : "curse";
+    const minutes = Array.isArray(card.minutes)
+        ? (card.minutes.slice(0, 3).map(Number) as number[])
+        : [];
+    const photo =
+        typeof card.photo === "string" &&
+        card.photo.startsWith("data:image/") &&
+        card.photo.length <= MAX_PHOTO_CHARS
+            ? card.photo
+            : undefined;
+    return {
+        id: card.id.slice(0, 40),
+        kind,
+        name: card.name.trim().slice(0, 60) || "Custom card",
+        text: typeof card.text === "string" ? card.text.slice(0, 600) : "",
+        count: copies(card.count) ?? 1,
+        ...(kind === "time" &&
+        minutes.length === 3 &&
+        minutes.every((m) => Number.isFinite(m) && m >= 0 && m <= 600)
+            ? { minutes: minutes as [number, number, number] }
+            : {}),
+        ...(photo ? { photo } : {}),
+    };
+};
 
 /**
  * The hiding-zone station filters (Overpass style) for the station kinds.
@@ -106,6 +151,20 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
             : defaults.disabledQuestions,
         seekersCanAnswer: input.seekersCanAnswer === true,
         deck: input.deck === "virtual" ? "virtual" : "real",
+        deckCounts: Object.fromEntries(
+            Object.entries((input.deckCounts ?? {}) as Record<string, unknown>)
+                .map(([id, value]) => [id.slice(0, 60), copies(value)] as const)
+                .filter(
+                    (entry): entry is [string, number] =>
+                        entry[1] !== undefined,
+                )
+                .slice(0, 200),
+        ),
+        customCards: (Array.isArray(input.customCards) ? input.customCards : [])
+            .map(normalizeCustomCard)
+            .filter((card): card is CustomCard => card !== undefined)
+            .slice(0, 50),
+        cardPopups: input.cardPopups === "all" ? "all" : "important",
     };
 };
 
@@ -114,3 +173,13 @@ export const describeStations = (kinds: StationKinds) =>
     ["trains", kinds.trams && "trams", kinds.boats && "boats"]
         .filter(Boolean)
         .join(", ");
+
+/** The metric investigation book's radar distances, in km. */
+export const RADAR_KM = [0.5, 1, 2, 5, 10, 15, 40, 80, 160];
+
+/**
+ * The metric book's tentacle distance for a kind of place: 25 km for the
+ * large-game places (amusement parks, zoos, aquariums), 2 km otherwise.
+ */
+export const tentacleRadiusKm = (locationType: string) =>
+    ["theme_park", "zoo", "aquarium"].includes(locationType) ? 25 : 2;

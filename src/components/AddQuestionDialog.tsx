@@ -17,6 +17,7 @@ import {
     isLoading,
     leafletMapContext,
 } from "@/lib/context";
+import { tentacleRadiusKm } from "@/lib/game/settings";
 import { newRadiusQuestion } from "@/lib/gameSettings";
 
 export const AddQuestionDialog = ({
@@ -68,8 +69,15 @@ export const AddQuestionDialog = ({
                       lng: center.lng,
                       locationType: "custom",
                       places: [],
+                      radius: tentacleRadiusKm("theme_park"),
+                      unit: "kilometers",
                   }
-                : { lat: center.lat, lng: center.lng },
+                : {
+                      lat: center.lat,
+                      lng: center.lng,
+                      radius: tentacleRadiusKm("theme_park"),
+                      unit: "kilometers",
+                  },
         });
         return true;
     };

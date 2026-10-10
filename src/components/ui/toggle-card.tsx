@@ -103,3 +103,50 @@ export const SegmentedControl = <T extends string>({
         })}
     </div>
 );
+
+/** A few choices as cards side by side, one of them chosen. */
+export const ChoiceCards = <T extends string>({
+    label,
+    options,
+    value,
+    onValueChange,
+}: {
+    label: string;
+    options: { value: T; title: string; description?: ReactNode }[];
+    value: T;
+    onValueChange: (value: T) => void;
+}) => (
+    <div
+        role="radiogroup"
+        aria-label={label}
+        className="grid grid-cols-2 gap-2"
+    >
+        {options.map((option) => {
+            const active = option.value === value;
+            return (
+                <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onValueChange(option.value)}
+                    className={cn(
+                        "flex flex-col gap-1 rounded-lg border px-3 py-2 text-left transition-colors",
+                        active
+                            ? "border-blue-500 bg-blue-500/15"
+                            : "border-slate-600 bg-slate-800/40 hover:bg-slate-800",
+                    )}
+                >
+                    <span className="text-sm font-semibold">
+                        {option.title}
+                    </span>
+                    {option.description && (
+                        <span className="text-xs text-slate-400">
+                            {option.description}
+                        </span>
+                    )}
+                </button>
+            );
+        })}
+    </div>
+);

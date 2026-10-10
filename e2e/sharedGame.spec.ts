@@ -203,6 +203,11 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
         .getByTestId("hand-card")
         .getByRole("button", { name: "Cast" })
         .click();
+    // The curse pops up on Ana's phone; she reads it and closes it.
+    await expect(
+        page.getByRole("dialog", { name: /cast Curse of the Cairn/ }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /^OK/ }).click();
     await page.getByRole("radio", { name: /Cards/ }).click();
     const curse = page.getByTestId("active-curse");
     await expect(curse).toContainText("Curse of the Cairn");
@@ -363,7 +368,7 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await preparePhone(page, "Ana");
     await openMenu(page, "Game");
     await page.getByRole("button", { name: "Start a shared game" }).click();
-    await page.getByRole("radio", { name: "Virtual" }).click();
+    await page.getByRole("radio", { name: /Digital deck/ }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
@@ -384,15 +389,14 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     await ben.getByRole("button", { name: "No", exact: true }).click();
 
-    // Answering earned a draw: the app shows 2 cards, Ben keeps 1.
+    // Answering earned a draw, dealt at once: 2 cards, Ben keeps 1.
     await ben.getByRole("radio", { name: /Cards/ }).click();
-    await ben.getByTestId("select-new-cards").click();
     const pending = ben.getByTestId("pending-cards");
     await expect(pending.getByRole("button", { name: /^Keep/ })).toBeDisabled();
     await pending.getByRole("listitem").first().getByRole("button").click();
     await pending.getByRole("button", { name: "Keep 1/1" }).click();
     await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
-    await expect(ben.getByTestId("select-new-cards")).toHaveCount(0);
+    await expect(ben.getByTestId("clock-bonus")).toHaveCount(0);
 
     // Ana only learns how many cards Ben holds.
     await page.getByRole("radio", { name: /Cards/ }).click();

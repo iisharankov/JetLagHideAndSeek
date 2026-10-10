@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    advanceDeck,
     cardInfo,
     cardLabel,
     deckComposition,
@@ -16,21 +17,48 @@ import { CURSES, POWERUPS, TIME_BONUSES } from "@/lib/rules/cards";
 
 const sum = (numbers: number[]) => numbers.reduce((a, b) => a + b, 0);
 
-describe("the virtual hider deck", () => {
-    it("holds every copy of every card, shuffled", () => {
+const doom = {
+    id: "x",
+    kind: "time" as const,
+    name: "Bonus of doom",
+    text: "",
+    count: 2,
+    minutes: [5, 10, 15] as [number, number, number],
+};
+
+describe("the digital hider deck", () => {
+    it("holds every copy of every card: 100 in all, shuffled", () => {
         const all = deckComposition();
         expect(all).toHaveLength(
             sum(TIME_BONUSES.map((b) => b.count)) +
                 sum(POWERUPS.map((p) => p.count)) +
-                sum(CURSES.map((c) => c.count ?? 2)),
+                sum(CURSES.map((c) => c.count ?? 1)),
         );
+        expect(all).toHaveLength(100);
         expect(all.filter((id) => id === "powerup_move")).toHaveLength(1);
         expect(all.filter((id) => id === "time_bonus_5")).toHaveLength(25);
+        expect(all.filter((id) => id === "curse_cairn")).toHaveLength(1);
 
-        const deck = newDeck(() => 0.5);
+        const deck = newDeck(undefined, () => 0.5);
         expect([...deck.remaining].sort()).toEqual([...all].sort());
         expect(deck.hand).toEqual([]);
         expect(deck.limit).toBe(6);
+    });
+
+    it("takes the game's own counts and custom cards", () => {
+        const own = deckComposition({
+            deckCounts: { curse_cairn: 3, powerup_move: 0 },
+            customCards: [doom],
+        });
+        expect(own).toHaveLength(100 + 2 - 1 + 2);
+        expect(own.filter((id) => id === "custom:x")).toHaveLength(2);
+        expect(cardLabel("custom:x", "large", [doom])).toBe(
+            "Bonus of doom 15 min",
+        );
+        expect(
+            handBonusMinutes(["custom:x", "time_bonus_5"], "small", [doom]),
+        ).toBe(5 + 2);
+        expect(cardInfo("custom:gone").name).toBe("Unknown card");
     });
 
     it("draws, keeps the picks, discards the rest", () => {
@@ -47,6 +75,39 @@ describe("the virtual hider deck", () => {
         expect(deck.hand).toEqual(["b"]);
         expect(deck.discard).toEqual(["a", "c"]);
         expect(deck.pending).toEqual([]);
+    });
+
+    it("deals owed draws by itself, and notes when the deck is empty", () => {
+        let deck = {
+            ...newDeck(),
+            remaining: ["a", "b", "c"],
+            owed: [
+                { draw: 2, keep: 1, label: "Radar" },
+                { draw: 2, keep: 1, label: "Radar" },
+            ],
+        };
+        deck = advanceDeck(deck, 1000);
+        expect(deck.pending).toEqual(["a", "b"]);
+        expect(deck.owed).toHaveLength(1);
+
+        deck = advanceDeck(keepCards(deck, [0]), 2000);
+        expect(deck.hand).toEqual(["a"]);
+        // One card left for a draw of two: the discard pile comes back in.
+        expect(deck.pending[0]).toBe("c");
+        expect(deck.pending).toHaveLength(2);
+        expect(deck.discard).toEqual([]);
+
+        deck = advanceDeck(
+            {
+                ...keepCards(deck, [0]),
+                remaining: [],
+                discard: [],
+                owed: [{ draw: 1, keep: 1, label: "Photo" }],
+            },
+            3000,
+        );
+        expect(deck.pending).toEqual([]);
+        expect(deck.log.at(-1)?.text).toMatch(/deck is empty/);
     });
 
     it("shuffles the discard pile back in when the deck runs short", () => {

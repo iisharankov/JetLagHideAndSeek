@@ -426,7 +426,7 @@ describe("the virtual deck", () => {
 
     it("owes the hider draws for answered questions, more when asked again", () => {
         let state = virtual();
-        expect(state.deck?.remaining.length).toBeGreaterThan(100);
+        expect(state.deck?.remaining.length).toBe(100);
         state = apply(state, {
             type: "putQuestion",
             question: radius(1),
@@ -443,9 +443,10 @@ describe("the virtual deck", () => {
             hider,
             5000,
         );
-        expect(state.deck?.owed).toEqual([
-            { draw: 2, keep: 1, label: "Radar" },
-        ]);
+        // The draw is dealt at once: 2 cards to pick 1 from.
+        expect(state.deck?.owed).toEqual([]);
+        expect(state.deck?.pending).toHaveLength(2);
+        expect(state.deck?.pendingKeep).toBe(1);
         // Changing the answer doesn't earn another draw.
         state = apply(
             state,
@@ -458,8 +459,11 @@ describe("the virtual deck", () => {
             hider,
             6000,
         );
-        expect(state.deck?.owed).toHaveLength(1);
-        // The same question (5 km radar) a second time: two draws.
+        expect(state.deck?.owed).toHaveLength(0);
+        state = apply(state, { type: "keepCards", picks: [0] }, hider);
+        expect(state.deck?.hand).toHaveLength(1);
+        // The same question (5 km radar) a second time: two draws, one
+        // dealt now, the other queued.
         state = apply(state, {
             type: "putQuestion",
             question: radius(2),
@@ -476,11 +480,103 @@ describe("the virtual deck", () => {
             hider,
             7000,
         );
+        expect(state.deck?.pending).toHaveLength(2);
         expect(state.deck?.owed.map((d) => d.label)).toEqual([
-            "Radar",
-            "Radar",
             "Radar (asked again)",
         ]);
+        state = apply(state, { type: "keepCards", picks: [1] }, hider);
+        expect(state.deck?.pending).toHaveLength(2);
+        expect(state.deck?.owed).toEqual([]);
+    });
+
+    it("vetoes a question with the card, and swaps cards with the powerups", () => {
+        let state = virtual();
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        expect(() =>
+            apply(state, { type: "vetoQuestion", key: 1 }, hider),
+        ).toThrow(/No Veto card/);
+        state.deck!.hand = [
+            "powerup_veto_question",
+            "powerup_discard_1_draw_2",
+            "curse_cairn",
+            "time_bonus_5",
+        ];
+        state = apply(state, { type: "vetoQuestion", key: 1 }, hider);
+        expect(state.questions["1"].state).toBe("vetoed");
+        expect(state.powerups.at(-1)?.name).toBe("Veto Question");
+        expect(state.deck?.hand).toEqual([
+            "powerup_discard_1_draw_2",
+            "curse_cairn",
+            "time_bonus_5",
+        ]);
+        expect(state.deck?.pending).toEqual([]);
+
+        // Discard 1, draw 2: one other card goes, two come (and are kept).
+        expect(() =>
+            apply(state, { type: "playCard", index: 0 }, hider),
+        ).toThrow(/Choose 1 other card/);
+        state = apply(
+            state,
+            { type: "playCard", index: 0, discards: [2] },
+            hider,
+        );
+        expect(state.deck?.hand).toEqual(["curse_cairn"]);
+        expect(state.deck?.pending).toHaveLength(2);
+        expect(state.deck?.pendingKeep).toBe(2);
+        state = apply(state, { type: "keepCards", picks: [0, 1] }, hider);
+        expect(state.deck?.hand).toHaveLength(3);
+    });
+
+    it("Move puts the questions away, freezes the seekers, and resumes on request", () => {
+        let state = virtual();
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state = apply(state, { type: "clock", action: "start" }, seeker, 1000);
+        state.deck!.hand = ["powerup_move", "time_bonus_5"];
+        state = apply(
+            state,
+            {
+                type: "playCard",
+                index: 0,
+                station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
+            },
+            hider,
+            5000,
+        );
+        expect(state.move).toMatchObject({
+            station: { name: "Uster" },
+            startedAt: 5000,
+            by: "Ben",
+        });
+        expect(state.questions).toEqual({});
+        expect(state.moves[0].questions).toHaveLength(1);
+        expect(state.deck?.hand).toEqual([]);
+        expect(state.clock?.pausedAt).toBe(5000);
+        expect(state.powerups.at(-1)?.name).toBe("Move");
+        expect(() =>
+            apply(state, { type: "putQuestion", question: radius(2) }),
+        ).toThrow(/on the move/);
+
+        state = apply(state, { type: "resumeMove" }, hider, 9000);
+        expect(state.move).toBeNull();
+        expect(state.clock?.pausedAt).toBeNull();
+        expect(state.clock?.pausedMs).toBe(4000);
+        state = apply(state, { type: "putQuestion", question: radius(2) });
+        expect(state.questions["2"].state).toBe("draft");
+
+        // With the real deck, Move is an op of its own.
+        let real = apply(fresh(), { type: "move", station: null }, hider);
+        expect(real.move?.station).toBeNull();
+        real = apply(real, { type: "newRound" });
+        expect(real.move).toBeNull();
+        expect(real.rounds[0].moves).toHaveLength(1);
     });
 
     it("draws, keeps, plays and hides the hand from the seekers", () => {

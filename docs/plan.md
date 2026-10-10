@@ -311,6 +311,40 @@ Your feedback from 2026-10-10, and what was done:
    powerups played and deck events are one collapsible **History** at the
    bottom; the draw buttons no longer overflow.
 
+## Round 10: metric cards, digital deck for real, Move ✅ (2026-10-10)
+
+From the photos of the metric edition and the counted deck:
+
+1. **Cards in metric** (`src/lib/rules/cards.ts`): Bridge Troll (2/10/50 km),
+   Water Weight (300 m), Unguided Tourist (150 m), Mediocre Travel Agent
+   (0.5/0.5/1 km), Impressionable Consumer (30 m), Endless Tumble (30 m),
+   Right Turn (300 m); Ransom Note's comma. Every other card already matched.
+   Deck counts as counted: 25/15/10/3/2 time bonuses, 2/4/4/1/4/4/2 powerups,
+   one of each curse — 100 cards. Investigation book: draws confirmed (2→1,
+   2→1, 4→2, 3→1, 3→1, photo 1); radar quick picks 500 m … 160 km on the
+   radar card; tentacles default to 2 km (25 km for amusement parks, zoos,
+   aquariums); photo page in metric (2 m, 1 km of streets).
+2. **Game setup:** the deck choice is the first thing — *Physical deck* /
+   *Digital deck* as cards. The deck's 100 cards sit behind *Customise*
+   (counts per card with − / +, back to the printed deck, and *Add a card of
+   your own*: kind, name, text, copies, optional photo). The question list is
+   behind *Customise* too, with a one-line summary. A setting says which
+   played cards pop up for the seekers (curses, veto, move — or every card).
+3. **Digital deck:** no drawing by hand in a game. An answered question (or
+   photo) deals the draw at once: the Cards tab shows "Draw cards: keep N of
+   these", the hider taps the ones to keep; a question asked again is dealt
+   twice. Discard 1/2, draw 2/3 ask which cards to discard, then deal. Veto
+   is a button on the asked question (with the card in hand). With more
+   cards than the limit the hider can't leave the Cards tab.
+4. **Move:** the hider's hand is discarded, the clock pauses, the questions
+   so far are put away (Cards → History) and the map starts over, the
+   seekers see the old station on the map and can't ask until the hider
+   taps *Continue* (Hider tab or the sidebar banner).
+5. **Popups:** what the hider plays pops up on the seekers' phones with the
+   card's picture (and a buzz), per the setting above.
+6. The hider's clock shows **+mm:ss** — the bonuses in hand if caught now.
+7. Vetoed questions stay in the list, marked, and aren't applied.
+
 ## Phase 4: game-day UX ⏭️
 
 - Phone-first layout: question list as the main view, bigger buttons, a

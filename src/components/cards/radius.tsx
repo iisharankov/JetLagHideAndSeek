@@ -16,6 +16,7 @@ import {
     questions,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { RADAR_KM } from "@/lib/game/settings";
 import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
@@ -79,6 +80,33 @@ export const RadiusQuestionComponent = ({
                             questionModified((data.unit = unit))
                         }
                     />
+                </div>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <div
+                    className={cn(MENU_ITEM_CLASSNAME, "flex flex-wrap gap-1")}
+                >
+                    {RADAR_KM.map((km) => (
+                        <button
+                            key={km}
+                            type="button"
+                            disabled={!data.drag || $isLoading}
+                            className={cn(
+                                "rounded-md px-2 py-0.5 text-xs disabled:opacity-50",
+                                data.unit === "kilometers" && data.radius === km
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-slate-700",
+                            )}
+                            onClick={() =>
+                                questionModified(
+                                    (data.radius = km),
+                                    (data.unit = "kilometers"),
+                                )
+                            }
+                        >
+                            {km < 1 ? `${km * 1000} m` : `${km} km`}
+                        </button>
+                    ))}
                 </div>
             </SidebarMenuItem>
             <LatitudeLongitude
