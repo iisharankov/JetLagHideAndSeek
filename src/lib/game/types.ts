@@ -26,7 +26,13 @@ export interface QuestionEntry {
     createdAt: number;
     updatedBy: string;
     updatedAt: number;
+    /** When it was sent to the hider: the five minutes to answer run from here. */
+    askedAt?: number;
     answeredAt?: number;
+    /** Randomize Question: what it was before the hider played the card. */
+    randomizedFrom?: string;
+    /** The kinds it has been asked as (questionIdentity), before randomizing. */
+    askedAs?: string[];
 }
 
 export interface PhotoInfo {
@@ -161,6 +167,8 @@ export interface Deck {
     limit: number;
     /** What everyone may know: extra draws and the like. */
     log: { at: number; text: string }[];
+    /** Curse of the Overflowing Chalice: questions left with an extra draw. */
+    chaliceLeft?: number;
     /** Seekers' view: how many cards the hider holds, and the deck's size. */
     handSize?: number;
     deckSize?: number;
@@ -201,6 +209,11 @@ export interface GameSettings {
     customCards: CustomCard[];
     /** Which cards the hider plays pop up on the seekers' phones. */
     cardPopups: "important" | "all";
+    /**
+     * Seekers may show the hiding zones (the stations still in play). Off,
+     * only the hider's phone shows them; the seekers keep the shaded map.
+     */
+    seekersSeeStations: boolean;
 }
 
 /** One finished round, kept to look back at. */
@@ -214,6 +227,8 @@ export interface PastRound {
     clock?: RoundClock | null;
     deck?: Deck | null;
     moves?: MoveArchive[];
+    /** Who hid that round (for the scoreboard). */
+    hiderName?: string;
 }
 
 export interface GameState {
@@ -242,6 +257,8 @@ export interface GameState {
     /** The questions archived by moves this round. */
     moves: MoveArchive[];
     hasHider: boolean;
+    /** The hider's name this round, once known (for the scoreboard). */
+    hiderName: string | null;
     rounds: PastRound[];
 }
 
@@ -288,6 +305,8 @@ export type GameOp =
     | { type: "setBonus"; minutes: number }
     | DeckOp
     | { type: "vetoQuestion"; key: number }
+    /** Randomize Question: the asked question becomes another of its category. */
+    | { type: "randomizeQuestion"; key: number }
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "setHiderPin"; pin: { latitude: number; longitude: number } }
     | { type: "move"; station: StationPick | null }

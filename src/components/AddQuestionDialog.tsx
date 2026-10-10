@@ -14,11 +14,26 @@ import { SidebarMenuButton } from "@/components/ui/sidebar-l";
 import {
     addQuestion,
     defaultCustomQuestions,
+    followMe,
     isLoading,
     leafletMapContext,
 } from "@/lib/context";
 import { tentacleRadiusKm } from "@/lib/game/settings";
 import { newRadiusQuestion } from "@/lib/gameSettings";
+import { currentPosition, recentPosition } from "@/lib/geolocation";
+
+/**
+ * Where a new question starts: where the phone is, when "Follow me" is on
+ * and the position is fresh; otherwise the middle of the map.
+ */
+const startPoint = () => {
+    const map = leafletMapContext.get();
+    if (!map) return null;
+    const here = recentPosition();
+    if (here) return { lat: here.latitude, lng: here.longitude };
+    const center = map.getCenter();
+    return { lat: center.lat, lng: center.lng };
+};
 
 export const AddQuestionDialog = ({
     children,
@@ -26,20 +41,21 @@ export const AddQuestionDialog = ({
     children: React.ReactNode;
 }) => {
     const $isLoading = useStore(isLoading);
+    const $followMe = useStore(followMe);
+    const $here = useStore(currentPosition);
     const [open, setOpen] = React.useState(false);
+    const fromGps = !!$here && !!recentPosition();
 
     const runAddRadius = () => {
-        const map = leafletMapContext.get();
-        if (!map) return false;
-        const center = map.getCenter();
+        const center = startPoint();
+        if (!center) return false;
         addQuestion(newRadiusQuestion(center.lat, center.lng));
         return true;
     };
 
     const runAddThermometer = () => {
-        const map = leafletMapContext.get();
-        if (!map) return false;
-        const center = map.getCenter();
+        const center = startPoint();
+        if (!center) return false;
         const destination = turf.destination([center.lng, center.lat], 5, 90, {
             units: "miles",
         });
@@ -58,9 +74,8 @@ export const AddQuestionDialog = ({
     };
 
     const runAddTentacles = () => {
-        const map = leafletMapContext.get();
-        if (!map) return false;
-        const center = map.getCenter();
+        const center = startPoint();
+        if (!center) return false;
         addQuestion({
             id: "tentacles",
             data: defaultCustomQuestions.get()
@@ -83,9 +98,8 @@ export const AddQuestionDialog = ({
     };
 
     const runAddMatching = () => {
-        const map = leafletMapContext.get();
-        if (!map) return false;
-        const center = map.getCenter();
+        const center = startPoint();
+        if (!center) return false;
         addQuestion({
             id: "matching",
             data: defaultCustomQuestions.get()
@@ -96,9 +110,8 @@ export const AddQuestionDialog = ({
     };
 
     const runAddMeasuring = () => {
-        const map = leafletMapContext.get();
-        if (!map) return false;
-        const center = map.getCenter();
+        const center = startPoint();
+        if (!center) return false;
         addQuestion({
             id: "measuring",
             data: defaultCustomQuestions.get()
@@ -149,6 +162,13 @@ export const AddQuestionDialog = ({
                 <DialogDescription>
                     Select which question type you would like to add.
                 </DialogDescription>
+                <p className="text-xs text-slate-400" data-testid="start-point">
+                    {fromGps
+                        ? "It starts where you are (Follow me is on)."
+                        : $followMe
+                          ? "It starts at the middle of the map (no position fix yet)."
+                          : "It starts at the middle of the map. Turn on Follow me (Menu → Settings → Map) to start it where you are."}
+                </p>
 
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <SidebarMenuButton

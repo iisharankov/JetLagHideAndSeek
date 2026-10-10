@@ -110,16 +110,16 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     const speculation = page.locator('path[stroke-dasharray="6 4"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
 
-    // Ben opens the link and becomes the hider (Menu → Game → I'm the
-    // hider, with a password). The menu closes and the sidebar shows his
-    // Hider tab. He doesn't see the draft.
+    // Ben opens the link and becomes the hider (the join dialog asks for
+    // his name and role; the hider gives a password). The sidebar shows
+    // his Hider tab. He doesn't see the draft.
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
-    await openMenu(ben, "Game");
-    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    // Opening the link asks who he is: the hider, with a password.
+    await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
-    await expect(ben.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(ben.getByTestId("join-dialog")).toBeHidden();
     await expect(ben.getByTestId("hider-panel")).toContainText(
         "Pick your station",
     );
@@ -283,8 +283,8 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
     await mockStations(ben);
-    await openMenu(ben, "Game");
-    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    // Opening the link asks who he is: the hider, with a password.
+    await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
     const benPanel = ben.getByTestId("hider-panel");
@@ -384,8 +384,8 @@ test("with the virtual deck the game deals the hider's cards", async ({
 
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
-    await openMenu(ben, "Game");
-    await ben.getByRole("switch", { name: "I'm the hider" }).click();
+    // Opening the link asks who he is: the hider, with a password.
+    await ben.getByRole("button", { name: "I'm the hider" }).click();
     await ben.getByLabel("Hider password").fill("secret");
     await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("hider-panel")).toBeVisible();

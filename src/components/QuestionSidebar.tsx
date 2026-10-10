@@ -29,15 +29,19 @@ import { SegmentedControl } from "@/components/ui/toggle-card";
 import { showUndoToast } from "@/components/undoToast";
 import { withBase } from "@/lib/config";
 import {
-    autoSave,
     clearQuestions,
     isLoading,
     questions,
-    save,
     sidebarTab,
 } from "@/lib/context";
 import { hand, handLimit } from "@/lib/game/hand";
-import { gameRole, gameState, hiderPhone, sendOp } from "@/lib/game/session";
+import {
+    gameConnection,
+    gameRole,
+    gameState,
+    hiderPhone,
+    sendOp,
+} from "@/lib/game/session";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
@@ -70,10 +74,10 @@ const HiderPanel = withErrorBoundary(HiderPanelPlain, "hider panel", [
 
 export const QuestionSidebar = () => {
     const $questions = useStore(questions);
-    const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
+    const $connection = useStore(gameConnection);
     const tab = useStore(sidebarTab);
     // The hider's phone: the Stations tab is the Hider tab.
     const hider = useStore(hiderPhone);
@@ -123,13 +127,26 @@ export const QuestionSidebar = () => {
                 >
                     Reference
                 </a>
-                <SidebarCloseIcon
-                    className="mr-2 visible md:hidden"
+                <button
+                    type="button"
+                    className="mr-2 md:hidden"
+                    aria-label="Close sidebar"
                     onClick={() => {
                         SidebarContext.get().setOpenMobile(false);
                     }}
-                />
+                >
+                    <SidebarCloseIcon />
+                </button>
             </div>
+            {$game && $connection === "retrying" && (
+                <p
+                    className="mx-2 mt-2 rounded-md border border-amber-500/60 bg-amber-950/40 px-2 py-1 text-xs text-amber-200"
+                    data-testid="connection-banner"
+                >
+                    No connection to the game: reconnecting. Questions and
+                    answers wait until it&apos;s back.
+                </p>
+            )}
             <div className="px-2 pt-2">
                 <SegmentedControl
                     label="Sidebar section"
@@ -320,17 +337,6 @@ export const QuestionSidebar = () => {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-                            </SidebarMenuItem>
-                        )}
-                        {!$autoSave && (
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500"
-                                    onClick={save}
-                                    disabled={$isLoading}
-                                >
-                                    Save
-                                </SidebarMenuButton>
                             </SidebarMenuItem>
                         )}
                     </SidebarMenu>

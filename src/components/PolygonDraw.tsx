@@ -14,13 +14,11 @@ import { FeatureGroup, Marker, Polygon, Polyline } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 
 import {
-    autoSave,
     drawingQuestionKey,
     mapGeoJSON,
     playAreaDrawing,
     polyGeoJSON,
     questions,
-    save,
     updateQuestion,
 } from "@/lib/context";
 import { CacheType, clearCache } from "@/maps/api";
@@ -35,11 +33,7 @@ import type {
 import { LatitudeLongitude } from "./LatLngPicker";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { Input } from "./ui/input";
-import {
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-} from "./ui/sidebar-l";
+import { SidebarMenu } from "./ui/sidebar-l";
 
 /** A shape drawn on the map, as kept in a custom question. */
 type DrawnFeature = {
@@ -70,7 +64,6 @@ const TentacleMarker = ({
     /** The point as edited: a new object, the question is never changed in place. */
     onChange: (point: CustomTentacleQuestion["places"][number]) => void;
 }) => {
-    const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
     const moveTo = (lat: number | null, lng: number | null) =>
         onChange({
@@ -121,16 +114,6 @@ const TentacleMarker = ({
                             inlineEdit
                             onChange={moveTo}
                         />
-                        {!$autoSave && (
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500 mt-2"
-                                    onClick={save}
-                                >
-                                    Save
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        )}
                     </SidebarMenu>
                 </div>
             </DialogContent>
@@ -146,7 +129,6 @@ const MatchingPointMarker = ({
     /** The point as edited: a new object, the question is never changed in place. */
     onChange: (point: CustomMatchingQuestion["geo"][number]) => void;
 }) => {
-    const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
     const moveTo = (lat: number | null, lng: number | null) =>
         onChange({
@@ -184,16 +166,6 @@ const MatchingPointMarker = ({
                             inlineEdit
                             onChange={moveTo}
                         />
-                        {!$autoSave && (
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500 mt-2"
-                                    onClick={save}
-                                >
-                                    Save
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        )}
                     </SidebarMenu>
                 </div>
             </DialogContent>
@@ -211,7 +183,6 @@ const MeasuringPointMarker = ({
         point: CustomMeasuringQuestion["geo"]["features"][number],
     ) => void;
 }) => {
-    const $autoSave = useStore(autoSave);
     const [open, setOpen] = useState(false);
     const moveTo = (lat: number | null, lng: number | null) =>
         onChange({
@@ -249,16 +220,6 @@ const MeasuringPointMarker = ({
                             inlineEdit
                             onChange={moveTo}
                         />
-                        {!$autoSave && (
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500 mt-2"
-                                    onClick={save}
-                                >
-                                    Save
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        )}
                     </SidebarMenu>
                 </div>
             </DialogContent>

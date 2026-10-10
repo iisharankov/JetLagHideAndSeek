@@ -43,23 +43,29 @@ src/
     config.ts               where the self-hosted services live (PUBLIC_* overrides)
     context.ts              the stores (questions, play area, hider pin, zone settings, UI state)
                             and the question helpers: addQuestion, updateQuestion, deleteQuestion
+    hiderSpot.ts            the hider's station and pin: picking, clamping, where answers come from
+    shareLinks.ts           share-a-copy links and reading one from the address
     persist.ts              persistentAtom without cross-tab listening
     questionKey.ts          a question's identity for the map (its shared fields, cached per object)
     gameSettings.ts         applying a game's settings to the stores; newRadiusQuestion
     questionInfo.ts         each question type: rulebook section + how the app answers it
     rules/                  rulebook sections and the transcribed cards (cards.ts)
-    game/                   shared games: types.ts (shared with the server), api.ts, session.ts
-                            (connection, sync, hiderPhone), sync.ts, answers.ts, settings.ts,
+    game/                   shared games: types.ts (shared with the server), api.ts (calls, the
+                            live stream over fetch), session.ts (connection, sync, hiderPhone),
+                            knownGames.ts (the games list, joined games), serverTime.ts (the
+                            server's clock), sync.ts, answers.ts, settings.ts,
                             deck.ts (the digital deck, pure), deckSession.ts, hand.ts (physical
                             deck), clock.ts, endgame.ts, events.ts + alerts.ts (what to tell
-                            whom), drafts.ts, photos.ts
+                            whom; push opt-in), drafts.ts, photos.ts, answerTimer.ts,
+                            questionIdentity.ts (asked again, randomize), scoreboard.ts,
+                            backup.ts (questions from before a game)
     activeQuestion.ts       which question draws its reference places
     jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
     sharedGame.ts           parse / summarize / apply shared games (links, files)
     shareApi.ts             client for /api/share
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
-    geolocation.ts          GPS with readable errors
+    geolocation.ts          GPS with readable errors; the phone's position while Follow me is on
   maps/
     schema.ts               zod schemas for the 5 question types
     index.ts                question engine: applies questions, remembers each step, reports status
@@ -89,15 +95,20 @@ src/
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
     PlayAreaBar.tsx         choosing the play area (search, draw) during setup
-    OptionDrawers.tsx       the Menu: Game (GamePanel) and Settings tabs, share a copy
-    game/                   GameSetupDialog (deck, cards, questions, play area), GamePanel,
-                            HiderToggle, QuestionGameBar (send / answer / veto), PhotosPanel,
-                            CardsPanel + CardFace (the hand), RoundClock, GamePopups (alerts), NotePins
+    OptionDrawers.tsx       the Menu panel: Game (GamePanel) and Settings (SettingsPanel) tabs,
+                            ShareCopyDialog, MenuGroup
+    game/                   GameSetupDialog (+ setup/DeckEditor, setup/QuestionsStep), GamePanel
+                            (incl. scoreboard, earlier questions), JoinDialog (name and role
+                            first), HiderToggle, QuestionGameBar (send / answer / veto /
+                            randomize, the answer timer), PhotosPanel, CardsPanel (the hand) with
+                            CardTiles, ActiveCurses, CardHistory, CardFace; RoundClock, GamePopups
+                            (alerts), PushCard, NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
     SharedGameDialog.tsx    "load this shared game?" prompt
     TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
-                            gameOps.ts (the rules: applyOp, viewFor), shareStore.ts
+                            gameOps.ts (the rules: applyOp, viewFor), push.ts (push
+                            notifications, VAPID keys), shareStore.ts
 server/datasets/            builds the reference data (build.ts; nearest.ts, routes.ts, elevation.ts)
 deploy/                     Docker Compose stack, nginx configs, data scripts, guide
 tests/, e2e/                unit and browser tests
@@ -195,10 +206,13 @@ progress, the hider's spot, and earlier rounds.
   to answer. Last change wins. `viewFor` strips what a role may not see
   (drafts from the hider, the hider's spot and the deck's order from the
   seekers).
-- **Live updates:** each phone keeps a server-sent-events stream
-  (`/api/games/<id>/events`) and gets the whole game, as its role may see
-  it, after every change. `events.ts` diffs the old and new game into what
-  to tell this phone (toast, buzz, beep, background notification).
+- **Live updates:** each phone reads a server-sent-events stream
+  (`/api/games/<id>/events`, over fetch so the hider's token can go in the
+  header) and gets the whole game, as its role may see it, after every
+  change, with the server's clock. `events.ts` diffs the old and new game
+  into what to tell this phone (toast, buzz, beep, background
+  notification); the server runs the same diff for push notifications.
+  Lost connections are retried with a growing wait (5 s to a minute).
 - **On the phone**, `session.ts` mirrors the game into the usual stores
   (questions, play area, zone settings, end game, the hider's spot). Local
   edits are compared with what the server last sent and the differences go
@@ -206,11 +220,19 @@ progress, the hider's spot, and earlier rounds.
   settings (folded, hidden, locked) stay per phone.
 - **The map** applies answered questions as usual, then the seekers' drafts
   on top in their colours; questions waiting for the hider are outlined.
-- **The hider** proves the role with a token (from the password) on every
-  request. The hider's station and pin live in the game so two hider phones
-  share one spot, and are never sent to seekers; answers are worked out from
-  the station until the end game, then from the pin. Photos are re-encoded
-  before upload, which drops their location data.
+- **The hider** proves the role with a token (from the password) in a
+  header on every request: never in the URL (servers log it) and never a
+  cookie (tabs share it, which would make a seeker's tab the hider). The
+  hider's station and pin live in the game so two hider phones share one
+  spot, and are never sent to seekers; answers are worked out from the
+  station until the end game, then from the pin. Photos are re-encoded
+  before upload, which drops their location data; a game holds 100 at most.
+- **Joining:** a game's link opens a dialog for the name and the role
+  before anything else; the choice is remembered per browser.
+- **Push notifications** (`server/src/push.ts`): phones that opted in get
+  what their role must hear about through the browser's push service, as
+  encrypted messages signed with the server's own keys; the service worker
+  (`public/push-sw.js`) shows them when the app isn't in front.
 - **The digital deck** (`deck.ts`, pure, shared with the server): the server
   shuffles and deals what an answered question earns, the hider keeps or
   plays cards, and the time bonuses are worked out from the hand.
@@ -221,7 +243,11 @@ progress, the hider's spot, and earlier rounds.
 - Game state lives in localStorage, read once per tab (another tab's writes
   are not picked up, on purpose). Saved questions that this version can't
   read are backed up (`questions-unreadable-backup`) instead of stopping the
-  app.
+  app; the questions from before a shared game are kept
+  (`questions-before-game`) and can be restored from Menu → Game.
+- On phones the questions are a bottom sheet (half the screen at most, the
+  map stays usable; `ui/sidebar-l.tsx`), on desktop the left sidebar; the
+  Menu is a panel from the right behind the gear (`OptionDrawers.tsx`).
 - A shared game (link, file or pasted JSON) is validated as a whole before
   anything changes. Opening a link asks first if you already have questions.
   Presets are merged, never removed.
@@ -234,5 +260,5 @@ progress, the hider's spot, and earlier rounds.
   so it can't run in a Web Worker yet; the per-question cache covers the
   common edits.
 - Every change sends the whole game to every phone, earlier rounds included.
-- Big files: CardsPanel, GameSetupDialog, OptionDrawers, context.ts,
-  session.ts.
+- The remaining big files: CardsPanel (the hand's flows), GameSetupDialog
+  (the Game step), context.ts (the stores); the rest came apart in round 14.

@@ -420,39 +420,92 @@ constants nothing called. The docs were brought up to date: a new docs
 index, `architecture.md` rewritten for round 12, the round-2 audit marked as
 superseded, the plan's self-hosting phase marked done.
 
+## Round 14: your answers, hardening, the two rules, push, the phone layout ✅ (2026-10-10)
+
+1. **Play area with added places.** The places added to (or cut out of) the
+   play area are listed as chips in game setup instead of one cut-off line,
+   and Menu → Game, the games list and the "load this game?" prompt name
+   them ("Zürich, Switzerland + Kilchberg − Zürichsee"). A browser test adds
+   two places through a mocked place search.
+2. **Q34, answer timer:** every question waiting for the hider counts down
+   the rulebook's five minutes on both phones (amber in the last minute, red
+   when over), on the server's time.
+3. **Q35:** a draft that was already answered this round says "Asked before
+   this round: it costs double".
+4. **Q37, scoreboard** in Menu → Game: each round's hiding time plus bonuses
+   per hider (the hider's name is recorded when they join or first act), the
+   best round of each hider ranked.
+5. **Q39:** "Your N questions from before the game are kept" with Restore
+   (undoable) and Forget, in Menu → Game when not in a game.
+6. **Joining a game** opens a dialog first: your name, then "I'm a seeker" or
+   "I'm the hider" (password), and "notify me on this phone". A second tab
+   of the same browser is the same person and skips it. Auto-zoom is off by
+   default (the map still zooms to a new play area). A new game setting,
+   "Seekers can show the hiding zones" (on by default), keeps the stations
+   to the hider's phone when off.
+7. The **auto-save setting is gone**, with its Save buttons.
+8. **Hardening** (audit item 3): the hider token travels only in a header,
+   the live stream included (read over fetch; a cookie would have made a
+   seeker's tab the hider again); 100 photos per game; a game with a hider
+   is the hider's to delete until a day has passed without changes; the
+   clocks and timers run on the server's time (its clock comes with every
+   answer); reconnects back off from 5 s to a minute, with "last update …,
+   next try in …" in Menu → Game and a banner in the sidebar.
+9. **The two rules** (audit item 9): Curse of the Overflowing Chalice adds a
+   card to each of the next three draws with the digital deck and clears
+   itself (the physical deck gets a reminder). Randomize Question turns an
+   asked question into another kind of its category, chosen at random among
+   the kinds the game allows and hasn't had this round (a question keeps
+   counting under its old kind too); the hider plays it from the question's
+   card or from the hand; thermometers have no variants. The seekers see
+   what it became.
+10. **Push notifications** (audit item 10): the server signs them with its
+    own keys (`vapid.json` in the data folder, made on first start) and
+    sends what `gameEvents` says each role must hear, per game; the
+    browser's push service only sees encrypted messages. Opt in when
+    joining or in Settings → Alerts; the service worker shows them when the
+    app isn't in front, a tap opens the game. Not Authelia.
+11. **The phone layout** (audit item 8): the questions are a sheet that
+    slides up from the bottom button (tap or swipe up), half the screen at
+    most, the map neither dimmed nor blocked; the map zooms to what's left
+    above the sheet. The Menu is behind a gear at the top right and opens
+    as a panel from the right, on phones and desktop alike. Three more
+    browser tests run on the phone project.
+12. **New questions start where the phone is** while Follow me is on (a fix
+    from the last two minutes), else at the map's centre; the Add Question
+    dialog says which.
+
+13. **Split by feature** (audit item 5): the hider's spot out of
+    `context.ts` (`hiderSpot.ts`); the games list and the server's clock out
+    of `session.ts` (`knownGames.ts`, `serverTime.ts`); the Menu's Settings
+    tab, the share-a-copy dialog and the share links out of `OptionDrawers`;
+    the deck editor and the questions step out of `GameSetupDialog`; the
+    card tiles, the active curses and the history out of `CardsPanel`.
+
+Not in this round: the geometry worker; Authelia.
+
 ## What's left ⏭️
 
 From [the audit](audit-2026-10.md), roughly in order of value:
 
 1. **A shakedown game** and the fixes it brings.
-2. **Open questions** Q34 (answer countdown), Q35 ("asked before" hint), Q37
-   (scoreboard), Q38 (rest periods), Q39 (restore the pre-game backup); the
-   auto-save setting is to be removed (round 12 decision).
-3. **Hardening:** the hider token out of the SSE URL (header or cookie); a
-   per-game photo cap and a delete that asks for the hider's password or
-   the game's age; clock times corrected by the server's offset; reconnects
-   with backoff and a "stale since" hint.
-4. **Live view without the archive** (`rounds`, the deck log), later deltas
+2. **Open question** Q38 (rest periods), parked until you play longer games.
+3. **Live view without the archive** (`rounds`, the deck log), later deltas
    keyed by version.
-5. **Split the big files** by feature: CardsPanel, GameSetupDialog,
-   OptionDrawers, context.ts (stores vs. hider-pin rules), session.ts
-   (connection vs. known games vs. hider sync).
-6. **Geometry worker**, only if a real game still stutters after round 12's
+4. **Keep splitting** what is still big: CardsPanel's hand flows,
+   GameSetupDialog's Game step, context.ts's stores.
+5. **Geometry worker**, only if a real game still stutters after round 12's
    cache (the question modules would need their own copies of the stores
    and caches).
-7. **Bundle:** try Turf's planar buffers instead of ArcGIS (1.2 MB + wasm;
+6. **Bundle:** try Turf's planar buffers instead of ArcGIS (1.2 MB + wasm;
    metres of error at this scale), lazy-load the references/voronoi code
    (the 472 kB `thermometer` chunk), keep the first load's `context` chunk
    (496 kB) smaller.
-8. **Phone-first layout:** question list as the main view, bigger buttons,
-   a "remaining area" figure (km² and % left); more of the e2e suite run on
-   the phone project (several tests skip the closed sidebar sheet).
-9. **Rules not automated:** Randomize Question and Overflowing Chalice are
-   recorded, not enforced.
-10. **Push notifications** for a locked phone (VAPID keys on the server,
-    the service worker shows them); **Authelia** in front of the site.
-11. **No offline map:** a dead spot means a grey map; caching the play
-    area's tiles would be a feature of its own.
+7. **Phone polish:** bigger buttons, a "remaining area" figure (km² and %
+   left); the shared-game browser tests still run with desktop viewports.
+8. **Authelia** in front of the site.
+9. **No offline map:** a dead spot means a grey map; caching the play
+   area's tiles would be a feature of its own.
 
 ## Later / dropped 💤
 

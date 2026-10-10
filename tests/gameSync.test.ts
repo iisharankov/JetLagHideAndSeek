@@ -61,6 +61,7 @@ const game = (entries: QuestionEntry[]): GameState => ({
     moves: [],
     hider: null,
     hasHider: false,
+    hiderName: null,
     rounds: [],
 });
 

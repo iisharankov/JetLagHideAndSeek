@@ -54,6 +54,7 @@ export const defaultGameSettings = (
     deckCounts: {},
     customCards: [],
     cardPopups: "important",
+    seekersSeeStations: true,
 });
 
 const MAX_COPIES = 40;
@@ -165,6 +166,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
             .filter((card): card is CustomCard => card !== undefined)
             .slice(0, 50),
         cardPopups: input.cardPopups === "all" ? "all" : "important",
+        seekersSeeStations: input.seekersSeeStations !== false,
     };
 };
 

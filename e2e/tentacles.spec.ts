@@ -10,10 +10,6 @@ test("a saved tentacles answer survives reloading the page", async ({
     page,
     externalHosts,
 }, testInfo) => {
-    test.skip(
-        testInfo.project.name !== "desktop",
-        "sidebar is open on desktop",
-    );
     void externalHosts;
 
     // Our own Overpass endpoint answers with the zoo.
@@ -81,6 +77,9 @@ test("a saved tentacles answer survives reloading the page", async ({
     }, zoo);
 
     await page.reload();
+    if (testInfo.project.name !== "desktop") {
+        await page.getByTestId("sidebar-trigger").click();
+    }
     await expect(page.getByText("Zoo Zürich").first()).toBeVisible({
         timeout: 20_000,
     });

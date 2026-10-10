@@ -14,7 +14,6 @@ import { TILES_URL } from "@/lib/config";
 import {
     additionalMapGeoLocations,
     addQuestion,
-    autoSave,
     type BaseTileLayer,
     baseTileLayer,
     displayHidingZones,
@@ -28,12 +27,15 @@ import {
     mapGeoLocation,
     polyGeoJSON,
     questions,
-    saveTick,
 } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
 import { tentacleRadiusKm } from "@/lib/game/settings";
 import { newRadiusQuestion } from "@/lib/gameSettings";
-import { describeGeoError, watchPosition } from "@/lib/geolocation";
+import {
+    currentPosition,
+    describeGeoError,
+    watchPosition,
+} from "@/lib/geolocation";
 import { questionsMapKey } from "@/lib/questionKey";
 import { cn } from "@/lib/utils";
 import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
@@ -281,17 +283,14 @@ export const Map = ({ className }: { className?: string }) => {
     // The end game clips the map to one station's zone.
     const $endgame = useStore(endgame);
     // What the map follows: each question's data, hidden or locked (a folded
-    // card isn't its business). With auto-save off, edits wait for Save.
-    const $autoSave = useStore(autoSave);
-    const $saveTick = useStore(saveTick);
-    const questionsKey = $autoSave ? questionsMapKey($questions) : "";
+    // card isn't its business).
+    const questionsKey = questionsMapKey($questions);
     useEffect(() => {
         if (!map) return;
 
         requestMapRefresh(true);
     }, [
         questionsKey,
-        $saveTick,
         map,
         $hiderMode,
         zoneSettings,
@@ -338,6 +337,7 @@ export const Map = ({ className }: { className?: string }) => {
             }
             stopWatchRef.current?.();
             stopWatchRef.current = null;
+            currentPosition.set(null);
             return;
         }
 
@@ -345,6 +345,11 @@ export const Map = ({ className }: { className?: string }) => {
             (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
+                currentPosition.set({
+                    latitude: lat,
+                    longitude: lng,
+                    at: Date.now(),
+                });
                 if (followMeMarkerRef.current) {
                     followMeMarkerRef.current.setLatLng([lat, lng]);
                 } else {

@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 
-import { hiderAnswerPosition } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { safeUnion } from "@/maps/geo-utils";
 import { geoSpatialVoronoi } from "@/maps/geo-utils/voronoi";
 import type { ThermometerQuestion } from "@/maps/schema";

@@ -9,12 +9,12 @@ import type {
 import osmtogeojson from "osmtogeojson";
 
 import {
-    hiderAnswerPosition,
     mapGeoJSON,
     mapGeoLocation,
     playAreaKey,
     regionRules,
 } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import { adminLevelLabel } from "@/maps/adminBorders";
 import {

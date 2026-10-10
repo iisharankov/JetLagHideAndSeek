@@ -24,7 +24,7 @@ import {
     trainStations,
 } from "@/lib/context";
 import { endEndgame, startEndgame } from "@/lib/game/endgame";
-import { gameState } from "@/lib/game/session";
+import { gameState, zonesAllowed } from "@/lib/game/session";
 import { describeStations } from "@/lib/game/settings";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
@@ -99,6 +99,7 @@ export const StationsPanel = () => {
     const $highlighted = useStore(highlightedStation);
     const $endgame = useStore(endgame);
     const $game = useStore(gameState);
+    const $allowed = useStore(zonesAllowed);
     const [search, setSearch] = useState("");
     const [showLeft, setShowLeft] = useState(true);
     const [showRemoved, setShowRemoved] = useState(false);
@@ -160,14 +161,25 @@ export const StationsPanel = () => {
                     </Button>
                 </section>
             )}
-            <ToggleCard
-                title="Show hiding zones"
-                description="A green circle around every station the answers haven't ruled out. A station is in or out by its own position; the hider may be anywhere in its circle."
-                checked={$displayHidingZones}
-                onCheckedChange={displayHidingZones.set}
-                disabled={$isLoading}
-            />
-            {$displayHidingZones && (
+            {$allowed ? (
+                <ToggleCard
+                    title="Show hiding zones"
+                    description="A green circle around every station the answers haven't ruled out. A station is in or out by its own position; the hider may be anywhere in its circle."
+                    checked={$displayHidingZones}
+                    onCheckedChange={displayHidingZones.set}
+                    disabled={$isLoading}
+                />
+            ) : (
+                <p
+                    className="rounded-md bg-slate-800 p-2 text-xs text-slate-300"
+                    data-testid="zones-off"
+                >
+                    This game keeps the hiding zones to the hider&apos;s phone
+                    (a setting chosen when it started). The map still shows
+                    where the hider can&apos;t be.
+                </p>
+            )}
+            {$displayHidingZones && $allowed && (
                 <>
                     <SegmentedControl
                         label="Show on the map"

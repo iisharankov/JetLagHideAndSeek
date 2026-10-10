@@ -7,12 +7,25 @@ import type { GameOp, GameState, SharedQuestion } from "@/lib/game/types";
 
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
 import type { GameStore } from "./games";
+import { parseSubscription, type PushService } from "./push";
 import type { ShareStore } from "./shareStore";
 
 const MAX_GAME_BYTES = 2 * 1024 * 1024;
 /** Phones shrink photos to at most 5 MB before uploading. */
 const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 const KEEPALIVE_MS = 25_000;
+/** A game with a hider is theirs to delete, until it has been quiet this long. */
+export const DELETE_AFTER_MS = 24 * 3600 * 1000;
+
+/** Anyone may delete a game without a hider, or one nobody has touched for a day. */
+export const mayDelete = (
+    state: Pick<GameState, "hasHider" | "updatedAt">,
+    role: "hider" | "seeker",
+    now: number,
+) =>
+    role === "hider" ||
+    !state.hasHider ||
+    now - state.updatedAt > DELETE_AFTER_MS;
 
 const tooLarge = (what: string) => (c: Context) =>
     c.json({ error: `The ${what} is too large.` }, 413);
@@ -26,9 +39,12 @@ const playerName = (value: unknown) => {
 export const createApp = ({
     shares,
     games,
+    push,
 }: {
     shares: ShareStore;
     games: GameStore;
+    /** Push notifications; without it the phones get none. */
+    push?: PushService;
 }) => {
     const app = new Hono().basePath("/api");
 
@@ -75,12 +91,13 @@ export const createApp = ({
 
     // Shared games ------------------------------------------------------
 
-    /** Hider if the request carries this game's hider token. */
+    /**
+     * Hider if the request carries this game's hider token in its header
+     * (the live stream too: the phones read it over fetch). Never in the
+     * URL, which servers log, and never a cookie, which tabs share.
+     */
     const roleOf = (c: Context, id: string) =>
-        games.isHider(
-            id,
-            c.req.header("X-Hider-Token") ?? c.req.query("hider") ?? null,
-        )
+        games.isHider(id, c.req.header("X-Hider-Token") ?? null)
             ? ("hider" as const)
             : ("seeker" as const);
 
@@ -114,7 +131,11 @@ export const createApp = ({
     app.get("/games/:id", (c) => {
         const id = c.req.param("id");
         const role = roleOf(c, id);
-        return c.json({ role, state: viewFor(found(id), role) });
+        return c.json({
+            role,
+            state: viewFor(found(id), role),
+            now: Date.now(),
+        });
     });
 
     app.post(
@@ -128,22 +149,34 @@ export const createApp = ({
                 role: roleOf(c, id),
             };
             const state = games.apply(id, body?.op as GameOp, actor);
-            return c.json({ state: viewFor(state, actor.role) });
+            return c.json({
+                state: viewFor(state, actor.role),
+                now: Date.now(),
+            });
         },
     );
 
-    // Anyone with the link may delete a game (the phones confirm first).
+    // The phones confirm first; a game being played is the hider's to delete.
     app.delete("/games/:id", (c) => {
-        if (!games.delete(c.req.param("id"))) {
-            throw new GameRuleError("This game doesn't exist.", 404);
+        const id = c.req.param("id");
+        const state = found(id);
+        if (!mayDelete(state, roleOf(c, id), Date.now())) {
+            throw new GameRuleError(
+                "Only the hider can delete a game that's being played. After a day without changes anyone can.",
+            );
         }
+        games.delete(id);
         return c.json({ ok: true });
     });
 
     app.post("/games/:id/hider", async (c) => {
         const id = c.req.param("id");
         const body = await c.req.json().catch(() => ({}));
-        const token = games.claimHider(id, String(body?.password ?? ""));
+        const token = games.claimHider(
+            id,
+            String(body?.password ?? ""),
+            playerName(body?.by),
+        );
         return c.json({ token });
     });
 
@@ -158,7 +191,10 @@ export const createApp = ({
                 state
                     ? stream.writeSSE({
                           event: "state",
-                          data: JSON.stringify(viewFor(state, role)),
+                          data: JSON.stringify({
+                              state: viewFor(state, role),
+                              now: Date.now(),
+                          }),
                       })
                     : stream.writeSSE({ event: "deleted", data: "" });
             const unsubscribe = games.subscribe(
@@ -199,9 +235,42 @@ export const createApp = ({
                     caption: c.req.query("caption")?.slice(0, 200) || undefined,
                 },
             );
-            return c.json({ photoId, state: viewFor(state, actor.role) }, 201);
+            return c.json(
+                { photoId, state: viewFor(state, actor.role), now: Date.now() },
+                201,
+            );
         },
     );
+
+    // Push notifications -----------------------------------------------
+
+    /** The server's public key, for the browser's subscription. */
+    app.get("/push/key", (c) =>
+        push ? c.json({ key: push.publicKey }) : c.json({ key: null }),
+    );
+
+    app.post("/games/:id/push", async (c) => {
+        if (!push) throw new GameRuleError("No push notifications here.", 404);
+        const id = c.req.param("id");
+        found(id);
+        const body = await c.req.json().catch(() => ({}));
+        const subscription = parseSubscription(body?.subscription);
+        if (!subscription) {
+            throw new GameRuleError("That isn't a push subscription.", 400);
+        }
+        push.subscribe(id, roleOf(c, id), subscription);
+        return c.json({ ok: true });
+    });
+
+    app.delete("/games/:id/push", async (c) => {
+        if (!push) throw new GameRuleError("No push notifications here.", 404);
+        const id = c.req.param("id");
+        const body = await c.req.json().catch(() => ({}));
+        if (typeof body?.endpoint === "string") {
+            push.unsubscribe(id, body.endpoint);
+        }
+        return c.json({ ok: true });
+    });
 
     app.get("/games/:id/photos/:photoId", (c) => {
         const photo = games.readPhoto(

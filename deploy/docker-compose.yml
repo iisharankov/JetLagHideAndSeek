@@ -33,6 +33,11 @@ services:
             dockerfile: deploy/Dockerfile
             target: api
         restart: unless-stopped
+        environment:
+            # Where a tap on a push notification opens the app.
+            SITE_URL: "${SITE_URL:-https://jetlag.sharankov.com}"
+            # A contact for the browsers' push services (a mailto: you read).
+            PUSH_CONTACT: "${PUSH_CONTACT:-mailto:hello@example.org}"
         ports:
             - "127.0.0.1:${API_PORT:-18787}:8787"
         volumes:

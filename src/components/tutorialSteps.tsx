@@ -73,15 +73,17 @@ export const tutorialSteps: TutorialStep[] = [
             </>
         ),
         targetSelector: '[data-tutorial-id="menu-button"]',
-        position: "top",
+        position: "bottom",
     },
     {
         id: "open-sidebar",
         title: "Adding questions",
         content: (
             <>
-                Questions live in the sidebar this button opens. Its Stations
-                tab shows the hiding zones and the stations still in play.
+                Questions live in the panel this button opens (on a phone it
+                slides up from the bottom and leaves the map in view). Its
+                Stations tab shows the hiding zones and the stations still in
+                play.
                 <br />
                 <br />
                 Shortcut: right-click the map (long-press on a phone) to add a

@@ -17,8 +17,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
-import { gameSettings, setupDialog } from "@/lib/context";
+import { showUndoToast } from "@/components/undoToast";
+import { useTick } from "@/hooks/useTick";
+import {
+    additionalMapGeoLocations,
+    gameSettings,
+    mapGeoLocation,
+    polyGeoJSON,
+    questions,
+    setupDialog,
+} from "@/lib/context";
+import { clearBackup, readBackup, writeBackup } from "@/lib/game/backup";
+import { formatDuration } from "@/lib/game/clock";
 import { deckComposition } from "@/lib/game/deck";
+import { knownGames } from "@/lib/game/knownGames";
+import { ranking, scoreRows } from "@/lib/game/scoreboard";
+import { serverNow } from "@/lib/game/serverTime";
 import {
     activeGameId,
     currentGameId,
@@ -29,13 +43,15 @@ import {
     gameRole,
     gameState,
     joinGame,
-    knownGames,
+    lastUpdateAt,
     leaveGame,
     playerName,
+    reconnectAt,
     sendOp,
 } from "@/lib/game/session";
 import { describeStations, questionKey } from "@/lib/game/settings";
-import type { GameSettings } from "@/lib/game/types";
+import type { GameSettings, GameState } from "@/lib/game/types";
+import { currentPlayArea, parsePlayArea, playAreaName } from "@/lib/sharedGame";
 import { shareOrFallback } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 
@@ -51,11 +67,19 @@ const CONNECTION_TEXT = {
 const SIZE_NAMES = { small: "Small", medium: "Medium", large: "Large" };
 
 /** The settings in a few lines. */
-const SettingsSummary = ({ settings }: { settings: GameSettings }) => (
+const SettingsSummary = ({
+    settings,
+    playArea,
+}: {
+    settings: GameSettings;
+    playArea: string;
+}) => (
     <dl
         className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-slate-300"
         data-testid="game-settings-summary"
     >
+        <dt>Play area</dt>
+        <dd data-testid="play-area-name">{playArea}</dd>
         <dt>Size</dt>
         <dd>
             {SIZE_NAMES[settings.size]},{" "}
@@ -82,8 +106,194 @@ const SettingsSummary = ({ settings }: { settings: GameSettings }) => (
                 : "physical cards"}
             , {deckComposition(settings).length} cards
         </dd>
+        <dt>Seekers</dt>
+        <dd>
+            {settings.seekersSeeStations
+                ? "may show the hiding zones"
+                : "don't get the hiding zones"}
+        </dd>
     </dl>
 );
+
+/** The play area in words, from the game or from this phone. */
+const usePlayAreaName = (game: GameState | null) => {
+    // Subscribed, so the name follows the picker.
+    useStore(polyGeoJSON);
+    useStore(mapGeoLocation);
+    useStore(additionalMapGeoLocations);
+    if (game) {
+        try {
+            return playAreaName(parsePlayArea(game.playArea));
+        } catch {
+            return "unknown";
+        }
+    }
+    return playAreaName(currentPlayArea());
+};
+
+const ago = (time: number) => {
+    const seconds = Math.round((Date.now() - time) / 1000);
+    if (seconds < 60) return `${seconds} s ago`;
+    const minutes = Math.round(seconds / 60);
+    return minutes < 60
+        ? `${minutes} min ago`
+        : `${Math.round(minutes / 60)} h ago`;
+};
+
+/** Live, or reconnecting: since when, and when the next try is. */
+const ConnectionStatus = () => {
+    const $connection = useStore(gameConnection);
+    const $last = useStore(lastUpdateAt);
+    const $next = useStore(reconnectAt);
+    useTick($connection === "retrying");
+    const retrying = $connection === "retrying";
+    const nextIn = $next
+        ? Math.max(0, Math.ceil(($next - Date.now()) / 1000))
+        : null;
+    return (
+        <span
+            className={
+                $connection === "live"
+                    ? "text-xs text-green-400"
+                    : "text-xs text-amber-400"
+            }
+            data-testid="game-connection"
+        >
+            ● {CONNECTION_TEXT[$connection]}
+            {retrying &&
+                ` (last update ${$last ? ago($last) : "never"}${
+                    nextIn !== null ? `, next try in ${nextIn} s` : ""
+                })`}
+        </span>
+    );
+};
+
+/** Each round's hiding time plus bonuses; the best round of each hider wins. */
+const Scoreboard = ({ game }: { game: GameState }) => {
+    const rows = scoreRows(game, serverNow());
+    useTick(rows.some((row) => row.current));
+    const [open, setOpen] = useState(true);
+    if (rows.length === 0) return null;
+    const best = ranking(rows);
+    return (
+        <section
+            className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3"
+            data-testid="scoreboard"
+        >
+            <button
+                type="button"
+                className="flex w-full items-center justify-between text-left text-sm font-semibold font-poppins"
+                onClick={() => setOpen(!open)}
+                aria-expanded={open}
+            >
+                <span>Scoreboard</span>
+                <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+            </button>
+            {open && (
+                <>
+                    <table className="w-full text-xs">
+                        <thead className="text-slate-400">
+                            <tr>
+                                <th className="text-left font-normal">Round</th>
+                                <th className="text-left font-normal">Hider</th>
+                                <th className="text-right font-normal">
+                                    Hiding
+                                </th>
+                                <th className="text-right font-normal">
+                                    Bonus
+                                </th>
+                                <th className="text-right font-normal">
+                                    Total
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row) => (
+                                <tr
+                                    key={row.round}
+                                    data-current={row.current || undefined}
+                                >
+                                    <td>
+                                        {row.round}
+                                        {row.current && " (playing)"}
+                                    </td>
+                                    <td>{row.hider}</td>
+                                    <td className="text-right font-mono">
+                                        {formatDuration(row.hidingMs)}
+                                    </td>
+                                    <td className="text-right font-mono">
+                                        {row.bonusMinutes
+                                            ? `+${row.bonusMinutes} min`
+                                            : "–"}
+                                    </td>
+                                    <td className="text-right font-mono">
+                                        {formatDuration(row.totalMs)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {best.length > 0 && (
+                        <p className="text-xs text-slate-300">
+                            Best rounds:{" "}
+                            {best
+                                .map(
+                                    (row, index) =>
+                                        `${index + 1}. ${row.hider} ${formatDuration(row.totalMs)} (round ${row.round})`,
+                                )
+                                .join(" · ")}
+                        </p>
+                    )}
+                </>
+            )}
+        </section>
+    );
+};
+
+/** The questions this phone had before it joined a game, to bring back. */
+const EarlierQuestions = () => {
+    const [backup, setBackup] = useState(() => readBackup());
+    if (!backup) return null;
+    const restore = () => {
+        const before = questions.get();
+        const kept = backup;
+        questions.set(kept);
+        clearBackup();
+        setBackup(null);
+        showUndoToast("Your earlier questions are back.", () => {
+            questions.set(before);
+            writeBackup(kept);
+            setBackup(kept);
+        });
+    };
+    return (
+        <section
+            className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3"
+            data-testid="earlier-questions"
+        >
+            <p className="text-sm">
+                Your {backup.length} question{backup.length === 1 ? "" : "s"}{" "}
+                from before the game {backup.length === 1 ? "is" : "are"} kept.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+                <Button onClick={restore}>Restore them</Button>
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                        clearBackup();
+                        setBackup(null);
+                    }}
+                >
+                    Forget them
+                </Button>
+            </div>
+            <p className="text-xs text-slate-400">
+                Restoring replaces the questions you have now (undo for a few
+                seconds).
+            </p>
+        </section>
+    );
+};
 
 const NameInput = () => {
     const $name = useStore(playerName);
@@ -227,11 +437,11 @@ export const GamePanel = () => {
     const $lastGameId = useStore(currentGameId);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
-    const $connection = useStore(gameConnection);
     const $name = useStore(playerName);
     const $settings = useStore(gameSettings);
 
     const settings = $game?.settings ?? $settings;
+    const playArea = usePlayAreaName($game);
 
     if (!$gameId) {
         return (
@@ -264,7 +474,7 @@ export const GamePanel = () => {
                     <h3 className="text-sm font-semibold font-poppins">
                         Game settings
                     </h3>
-                    <SettingsSummary settings={settings} />
+                    <SettingsSummary settings={settings} playArea={playArea} />
                     <Button
                         variant="outline"
                         onClick={() => setupDialog.set("solo")}
@@ -272,6 +482,7 @@ export const GamePanel = () => {
                         Change game settings
                     </Button>
                 </section>
+                <EarlierQuestions />
                 <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
                     <h3 className="text-sm font-semibold font-poppins">
                         Play together
@@ -308,18 +519,9 @@ export const GamePanel = () => {
 
     return (
         <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
-            <h3 className="flex items-center justify-between text-sm font-semibold font-poppins">
+            <h3 className="flex items-center justify-between gap-2 text-sm font-semibold font-poppins">
                 Shared game
-                <span
-                    className={
-                        $connection === "live"
-                            ? "text-xs text-green-400"
-                            : "text-xs text-amber-400"
-                    }
-                    data-testid="game-connection"
-                >
-                    ● {CONNECTION_TEXT[$connection]}
-                </span>
+                <ConnectionStatus />
             </h3>
             <Button onClick={shareLink}>Share the game link</Button>
             <p className="break-all text-xs text-slate-400">{gameLink()}</p>
@@ -338,10 +540,11 @@ export const GamePanel = () => {
             </p>
             <HiderToggle />
 
+            {$game && <Scoreboard game={$game} />}
             <h4 className="text-xs font-semibold font-poppins text-slate-300">
                 Settings (fixed for this game)
             </h4>
-            <SettingsSummary settings={settings} />
+            <SettingsSummary settings={settings} playArea={playArea} />
             {$game && $role === "hider" && (
                 <>
                     <Label htmlFor="game-hiding-radius">

@@ -1,6 +1,20 @@
 // The phone's position, with errors people can act on. Browsers only give
 // a position over https, with the site allowed to use location, and with
 // location turned on for the phone and the browser app itself.
+import { atom } from "nanostores";
+
+/** Where the phone is, while "Follow me" is on (and when it last knew). */
+export const currentPosition = atom<{
+    latitude: number;
+    longitude: number;
+    at: number;
+} | null>(null);
+
+/** The position, if it's recent enough to start a question from. */
+export const recentPosition = (now = Date.now(), maxAgeMs = 2 * 60_000) => {
+    const here = currentPosition.get();
+    return here && now - here.at <= maxAgeMs ? here : null;
+};
 
 const HIGH: PositionOptions = {
     enableHighAccuracy: true,

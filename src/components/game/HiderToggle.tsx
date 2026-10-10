@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { ToggleCard } from "@/components/ui/toggle-card";
 import {
-    hiderChoosing,
     hiderMode,
     leafletMapContext,
     mapGeoLocation,
@@ -27,6 +26,7 @@ import {
     gameRole,
     gameState,
 } from "@/lib/game/session";
+import { hiderChoosing } from "@/lib/hiderSpot";
 import { errorMessage } from "@/maps/errors";
 
 /** Opens the sidebar on the Hider tab, so the hider sees where to go next. */

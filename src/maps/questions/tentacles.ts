@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 
-import { hiderAnswerPosition } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { findTentacleLocations } from "@/maps/api";
 import {
     arcBuffer,

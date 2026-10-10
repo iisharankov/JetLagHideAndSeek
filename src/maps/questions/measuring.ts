@@ -7,7 +7,6 @@ import {
     displayHidingZones,
     displayHidingZonesOptions,
     gameSettings,
-    hiderAnswerPosition,
     hidingRadius,
     hidingRadiusUnits,
     mapGeoJSON,
@@ -16,6 +15,7 @@ import {
     regionRules,
     trainStations,
 } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import {
     adminLevelLabel,

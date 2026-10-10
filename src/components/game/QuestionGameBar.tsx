@@ -3,23 +3,32 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
+import { useTick } from "@/hooks/useTick";
 import { questions } from "@/lib/context";
 import {
     answerChoices,
     describeAnswer,
     isCurrentAnswer,
 } from "@/lib/game/answers";
+import {
+    answerTimeLeft,
+    answerTimerText,
+    answerTimerTone,
+} from "@/lib/game/answerTimer";
 import { DRAWS } from "@/lib/game/hand";
+import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
+import { serverNow } from "@/lib/game/serverTime";
 import {
     gameRole,
     gameState,
     sendOp,
     suggestedAnswers,
 } from "@/lib/game/session";
+import type { SharedQuestion } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 
 const ago = (time: number) => {
-    const minutes = Math.round((Date.now() - time) / 60000);
+    const minutes = Math.round((serverNow() - time) / 60000);
     if (minutes < 1) return "just now";
     if (minutes < 60) return `${minutes} min ago`;
     return `${Math.round(minutes / 60)} h ago`;
@@ -32,9 +41,16 @@ const STATE_TEXT = {
     vetoed: "Vetoed by the hider: no answer, not applied",
 };
 
+const TONE_CLASS = {
+    ok: "opacity-80",
+    warning: "font-semibold text-amber-300",
+    overdue: "font-semibold text-red-300",
+};
+
 /**
- * A question's place in a shared game: its state, who changed it last, and
- * the next step (send it to the hider; the hider's answer).
+ * A question's place in a shared game: its state, who changed it last, the
+ * time left to answer, and the next step (send it to the hider; the hider's
+ * answer, veto or randomize).
  */
 export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const $game = useStore(gameState);
@@ -42,10 +58,12 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const $suggestions = useStore(suggestedAnswers);
     const $questions = useStore(questions);
     const [changing, setChanging] = useState(false);
+    const entry = $game?.questions[String(questionKey)];
+    // The countdown ticks while the hider has the question.
+    useTick(entry?.state === "asked");
     if (!$game) return null;
 
     const question = $questions.find((q) => q.key === questionKey);
-    const entry = $game.questions[String(questionKey)];
     if (!question) return null;
     if (!entry) {
         return <p className="mx-2 mb-1 text-xs text-slate-400">Sending…</p>;
@@ -60,11 +78,23 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const showChoices =
         mayAnswer &&
         (entry.state === "asked" || (entry.state === "answered" && changing));
-    // Veto: instead of answering. With the digital deck only with the card.
+    const hand = $game.deck?.hand;
+    // Veto and Randomize: instead of answering. With the digital deck only
+    // with the card in hand.
     const canVeto =
         $role === "hider" &&
         entry.state === "asked" &&
-        ($game.deck ? $game.deck.hand.includes("powerup_veto_question") : true);
+        (hand ? hand.includes("powerup_veto_question") : true);
+    const canRandomize =
+        $role === "hider" &&
+        entry.state === "asked" &&
+        question.id !== "thermometer" &&
+        (hand ? hand.includes("powerup_randomize_question") : true);
+    const timeLeft = answerTimeLeft(entry, serverNow());
+    const askedBefore =
+        entry.state === "draft"
+            ? timesAnsweredBefore($game, question as unknown as SharedQuestion)
+            : 0;
 
     return (
         <div
@@ -88,6 +118,29 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     : `Changed by ${entry.updatedBy}`}{" "}
                 · {ago(entry.updatedAt)}
             </p>
+            {timeLeft !== null && (
+                <p
+                    className={TONE_CLASS[answerTimerTone(timeLeft)]}
+                    data-testid="answer-timer"
+                    data-tone={answerTimerTone(timeLeft)}
+                >
+                    ⏳ {answerTimerText(timeLeft)}
+                </p>
+            )}
+            {entry.randomizedFrom && (
+                <p className="opacity-80" data-testid="randomized-from">
+                    Randomized: it was {entry.randomizedFrom}.
+                </p>
+            )}
+            {askedBefore > 0 && (
+                <p
+                    className="font-semibold text-amber-300"
+                    data-testid="asked-before"
+                >
+                    Asked before this round: it costs double (the hider draws
+                    twice).
+                </p>
+            )}
             {entry.state === "draft" && $role === "seeker" && (
                 <Button
                     size="sm"
@@ -151,27 +204,51 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     </div>
                 </div>
             )}
-            {canVeto && (
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1"
-                    title="Play Veto Question: no answer, no cards for you"
-                    onClick={() => {
-                        if (
-                            window.confirm(
-                                "Veto this question? No answer is given and you draw no cards.",
-                            )
-                        ) {
-                            void sendOp({
-                                type: "vetoQuestion",
-                                key: questionKey,
-                            });
-                        }
-                    }}
-                >
-                    Veto
-                </Button>
+            {(canVeto || canRandomize) && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                    {canVeto && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            title="Play Veto Question: no answer, no cards for you"
+                            onClick={() => {
+                                if (
+                                    window.confirm(
+                                        "Veto this question? No answer is given and you draw no cards.",
+                                    )
+                                ) {
+                                    void sendOp({
+                                        type: "vetoQuestion",
+                                        key: questionKey,
+                                    });
+                                }
+                            }}
+                        >
+                            Veto
+                        </Button>
+                    )}
+                    {canRandomize && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            title="Play Randomize Question: another question of this kind, chosen at random, which you answer instead"
+                            onClick={() => {
+                                if (
+                                    window.confirm(
+                                        "Randomize this question? It becomes another question of its kind, chosen at random, which you answer instead.",
+                                    )
+                                ) {
+                                    void sendOp({
+                                        type: "randomizeQuestion",
+                                        key: questionKey,
+                                    });
+                                }
+                            }}
+                        >
+                            Randomize
+                        </Button>
+                    )}
+                </div>
             )}
             {entry.state === "answered" && mayAnswer && !changing && (
                 <Button

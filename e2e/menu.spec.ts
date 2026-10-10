@@ -39,18 +39,19 @@ test("one Menu holds game and settings; hider mode is a switch in Game", async (
     await expect(page.getByRole("button", { name: "Hider mode" })).toHaveCount(
         0,
     );
-    if (testInfo.project.name === "desktop") {
-        await expect(
-            page.getByRole("radio", { name: "Hider" }),
-        ).toHaveAttribute("aria-checked", "true");
-        await expect(page.getByTestId("hider-panel")).toContainText(
-            "Pick your station",
-        );
-    }
+    // The Hider tab shows (on a phone, in the sheet that slid up).
+    await expect(page.getByRole("radio", { name: "Hider" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+    );
+    await expect(page.getByTestId("hider-panel")).toContainText(
+        "Pick your station",
+    );
 
-    // On a phone the sidebar opened as a sheet over the map: close it first.
-    if (testInfo.project.name !== "desktop")
-        await page.keyboard.press("Escape");
+    // On a phone the sheet covers half the screen: close it first.
+    if (testInfo.project.name !== "desktop") {
+        await page.getByRole("button", { name: "Close sidebar" }).click();
+    }
     await page.getByRole("button", { name: "Menu" }).click();
     await expect(hiderMode).toHaveAttribute("aria-checked", "true");
     await page.getByRole("radio", { name: "Settings" }).click();

@@ -131,3 +131,14 @@ OpenStreetMap base map). To allow one, add its host to `connect-src`
   `docker compose logs photon`.
 - **The installed app keeps showing the login page**: the Authelia session
   expired. Log in once in the browser, then reopen the app.
+
+## Push notifications
+
+The API signs push notifications with its own keys, made on its first start
+and kept in the data folder (`data/api/vapid.json`; back it up with the
+database, or the phones have to opt in again). Two settings in
+`docker-compose.yml`: `SITE_URL` (where a tap on a notification opens the
+app) and `PUSH_CONTACT`, a `mailto:` the browsers' push services may write
+to about this server. The phones opt in when they join a game or under
+Settings → Alerts; the push services (Mozilla's, Google's, Apple's) only
+ever see encrypted messages and the fact that one arrived.

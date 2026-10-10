@@ -29,6 +29,8 @@ const newId = (length: number) =>
 
 /** Games nobody has changed for this long are deleted, photos included. */
 export const KEEP_GAMES_MS = 365 * 24 * 3600 * 1000;
+/** Photos per game; anyone with the link can upload, so there is a cap. */
+export const MAX_PHOTOS_PER_GAME = 100;
 
 const PHOTO_TYPES: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -51,7 +53,7 @@ export interface GameStore {
     ): () => void;
     /** Removes a game for everyone, photos included. False if unknown. */
     delete(id: string): boolean;
-    claimHider(id: string, password: string): string;
+    claimHider(id: string, password: string, by?: string): string;
     isHider(id: string, token: string | undefined | null): boolean;
     addPhoto(
         id: string,
@@ -83,6 +85,12 @@ const passwordMatches = (password: string, stored: string) => {
 export const createGameStore = (
     database: string | DatabaseSync,
     photoDir: string,
+    {
+        onChange,
+    }: {
+        /** Called with the game before and after every change (e.g. push). */
+        onChange?: (before: GameState, after: GameState) => void;
+    } = {},
 ): GameStore => {
     const db =
         typeof database === "string" ? new DatabaseSync(database) : database;
@@ -132,15 +140,17 @@ export const createGameStore = (
         state.move ??= null;
         state.moves ??= [];
         state.hider ??= { station: null, pin: null };
+        state.hiderName ??= null;
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
     const notify = (state: GameState) => {
         for (const listener of listeners.get(state.id) ?? []) listener(state);
     };
-    const store = (state: GameState) => {
+    const store = (state: GameState, before?: GameState) => {
         save.run(JSON.stringify(state), state.updatedAt, state.id);
         notify(state);
+        if (before && onChange) onChange(before, state);
         return state;
     };
     const required = (id: string) => {
@@ -172,9 +182,10 @@ export const createGameStore = (
         get: load,
 
         apply(id, op, actor) {
-            const next = applyOp(required(id), op, actor, Date.now());
+            const before = required(id);
+            const next = applyOp(before, op, actor, Date.now());
             if (op.type === "newRound") setHider.run(null, null, id);
-            return store(next);
+            return store(next, before);
         },
 
         subscribe(id, listener) {
@@ -195,7 +206,7 @@ export const createGameStore = (
             return true;
         },
 
-        claimHider(id, password) {
+        claimHider(id, password, by) {
             const state = required(id);
             if (password.length < 4) {
                 throw new GameRuleError(
@@ -213,6 +224,9 @@ export const createGameStore = (
             const token = randomBytes(24).toString("base64url");
             setHider.run(hashPassword(password), token, id);
             state.hasHider = true;
+            // The first hider's name goes on the scoreboard.
+            if (by && by !== "Someone" && !state.hiderName)
+                state.hiderName = by;
             state.version += 1;
             state.updatedAt = Date.now();
             store(state);
@@ -236,6 +250,13 @@ export const createGameStore = (
                 );
             }
             const state = required(id);
+            const before = structuredClone(state);
+            if (state.photos.length >= MAX_PHOTOS_PER_GAME) {
+                throw new GameRuleError(
+                    `This game has its ${MAX_PHOTOS_PER_GAME} photos; start a new game for more.`,
+                    409,
+                );
+            }
             const photoId = `${newId(10)}.${extension}`;
             mkdirSync(photoFolder(id), { recursive: true });
             writeFileSync(join(photoFolder(id), photoId), bytes);
@@ -263,7 +284,7 @@ export const createGameStore = (
             }
             state.version += 1;
             state.updatedAt = now;
-            return { state: store(state), photoId };
+            return { state: store(state, before), photoId };
         },
 
         readPhoto(id, photoId) {

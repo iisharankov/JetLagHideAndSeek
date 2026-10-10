@@ -1,5 +1,4 @@
 import { useStore } from "@nanostores/react";
-import { useEffect, useState } from "react";
 
 import {
     AlertDialog,
@@ -13,22 +12,14 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTick } from "@/hooks/useTick";
 import { endgame } from "@/lib/context";
 import { clockState, formatDuration, hidingTimeMs } from "@/lib/game/clock";
 import { handBonusMinutes } from "@/lib/game/deck";
 import { bonusMinutes, hand } from "@/lib/game/hand";
+import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import type { ClockAction } from "@/lib/game/types";
-
-/** Re-renders every second while the clock runs. */
-const useTick = (running: boolean) => {
-    const [, setNow] = useState(Date.now());
-    useEffect(() => {
-        if (!running) return;
-        const timer = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(timer);
-    }, [running]);
-};
 
 /**
  * The round's hiding clock, at the top of the sidebar in a shared game:
@@ -47,12 +38,13 @@ export const RoundClock = () => {
     if (!$game) return null;
 
     const act = (action: ClockAction) => void sendOp({ type: "clock", action });
-    const elapsed = formatDuration(hidingTimeMs(clock));
+    // The clock runs on the server's time, so every phone shows the same.
+    const elapsed = formatDuration(hidingTimeMs(clock, serverNow()));
     const bonus = clock?.bonusMinutes;
     const total =
         bonus === undefined
             ? null
-            : formatDuration(hidingTimeMs(clock) + bonus * 60_000);
+            : formatDuration(hidingTimeMs(clock, serverNow()) + bonus * 60_000);
     // Digital deck: the game knows the hand; real deck: this phone's record.
     const mine = $game.deck
         ? handBonusMinutes(

@@ -711,3 +711,251 @@ describe("versions", () => {
         expect(before.photoRequests).toEqual([]); // not mutated
     });
 });
+
+describe("the answer timer and the scoreboard", () => {
+    it("records when a question was sent to the hider", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1),
+        });
+        expect(state.questions["1"].askedAt).toBeUndefined();
+        state = apply(state, { type: "sendQuestion", key: 1 }, seeker, 5000);
+        expect(state.questions["1"].askedAt).toBe(5000);
+        // The hider's own questions are asked from the start.
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(2) },
+            hider,
+            6000,
+        );
+        expect(state.questions["2"].askedAt).toBe(6000);
+    });
+
+    it("remembers who hid, round by round", () => {
+        let state = apply(fresh(), { type: "clock", action: "start" }, hider);
+        expect(state.hiderName).toBe("Ben");
+        state = apply(state, { type: "newRound" }, seeker);
+        expect(state.rounds[0].hiderName).toBe("Ben");
+        expect(state.hiderName).toBeNull();
+        // Someone with no name set doesn't count.
+        state = apply(
+            state,
+            { type: "clock", action: "start" },
+            {
+                name: "Someone",
+                role: "hider",
+            },
+        );
+        expect(state.hiderName).toBeNull();
+    });
+});
+
+describe("Curse of the Overflowing Chalice", () => {
+    const digital = () =>
+        newGameState(
+            "g2",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+
+    it("adds a card to each of the next three draws, then clears itself", () => {
+        let state = apply(
+            digital(),
+            { type: "castCurse", name: "Curse of the Overflowing Chalice" },
+            hider,
+        );
+        expect(state.deck!.chaliceLeft).toBe(3);
+        for (let key = 1; key <= 4; key++) {
+            state = apply(state, {
+                type: "putQuestion",
+                question: radius(key, { radius: key }),
+                state: "asked",
+            });
+            state = apply(
+                state,
+                {
+                    type: "answerQuestion",
+                    key,
+                    answer: { within: true },
+                    basedOn: 2000,
+                },
+                hider,
+                3000 + key,
+            );
+            // Each draw is dealt at once: one card more while the curse is on.
+            expect(state.deck!.pending.length).toBe(key <= 3 ? 3 : 2);
+            expect(state.deck!.pendingKeep).toBe(1);
+            // Keep one so the next draw can be dealt.
+            state = apply(state, { type: "keepCards", picks: [0] }, hider);
+        }
+        expect(state.deck!.chaliceLeft).toBe(0);
+        const curse = state.curses.find(
+            (c) => c.name === "Curse of the Overflowing Chalice",
+        )!;
+        expect(curse.clearedBy).toBe("the game");
+    });
+
+    it("does nothing with the real deck (the hider draws by hand)", () => {
+        const state = apply(
+            fresh(),
+            { type: "castCurse", name: "Curse of the Overflowing Chalice" },
+            hider,
+        );
+        expect(state.deck).toBeNull();
+        expect(state.curses).toHaveLength(1);
+    });
+});
+
+describe("Randomize Question", () => {
+    const asked = (question: SharedQuestion, state = fresh()) =>
+        apply(state, { type: "putQuestion", question, state: "asked" });
+
+    it("turns an asked question into another of its kind, unasked this round", () => {
+        let state = asked(radius(1, { radius: 5, unit: "kilometers" }));
+        state = apply(
+            state,
+            { type: "randomizeQuestion", key: 1 },
+            hider,
+            3000,
+        );
+        const entry = state.questions["1"];
+        expect(entry.state).toBe("asked");
+        expect(entry.question.data.radius).not.toBe(5);
+        expect(entry.question.data.unit).toBe("kilometers");
+        expect(entry.randomizedFrom).toBe("Radar 5 km");
+        expect(entry.updatedAt).toBe(3000);
+        expect(state.powerups.at(-1)?.name).toBe("Randomize Question");
+    });
+
+    it("only picks kinds the game allows and hasn't had yet", () => {
+        let state = fresh();
+        // Every matching type but one has been asked.
+        const types = [
+            "airport",
+            "major-city",
+            "zone",
+            "letter-zone",
+            "same-first-letter-station",
+            "same-length-station",
+            "same-train-line",
+        ];
+        const leftOut = [
+            "aquarium",
+            "hospital",
+            "museum",
+            "theme_park",
+            "zoo",
+            "cinema",
+            "library",
+            "golf_course",
+            "consulate",
+            "park",
+            "aquarium-full",
+            "zoo-full",
+            "theme_park-full",
+            "museum-full",
+            "hospital-full",
+            "cinema-full",
+            "library-full",
+            "golf_course-full",
+            "consulate-full",
+            "park-full",
+        ];
+        state = {
+            ...state,
+            settings: {
+                ...state.settings,
+                disabledQuestions: [
+                    ...state.settings.disabledQuestions,
+                    ...leftOut.map((type) => `matching:${type}`),
+                    "matching:same-train-line",
+                ],
+            },
+        };
+        types
+            .filter((type) => type !== "same-train-line")
+            .forEach((type, index) => {
+                if (type === "letter-zone") return;
+                state = asked(
+                    {
+                        id: "matching",
+                        key: index + 1,
+                        data: { lat: 1, lng: 2, type, cat: { adminLevel: 4 } },
+                    } as SharedQuestion,
+                    state,
+                );
+            });
+        state = apply(state, { type: "randomizeQuestion", key: 1 }, hider);
+        expect(state.questions["1"].question.data.type).toBe("letter-zone");
+        expect(state.questions["1"].question.data.cat).toEqual({
+            adminLevel: 4,
+        });
+        // Nothing is left now.
+        expect(() =>
+            apply(state, { type: "randomizeQuestion", key: 2 }, hider),
+        ).toThrow(/nothing to randomize to/);
+    });
+
+    it("is the hider's, for questions waiting for an answer, and not for thermometers", () => {
+        const state = asked(radius(1));
+        expect(() =>
+            apply(state, { type: "randomizeQuestion", key: 1 }, seeker),
+        ).toThrow(GameRuleError);
+        const answered = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: true },
+                basedOn: 2000,
+            },
+            hider,
+        );
+        expect(() =>
+            apply(answered, { type: "randomizeQuestion", key: 1 }, hider),
+        ).toThrow(/waiting for an answer/);
+        const thermo = asked({
+            id: "thermometer",
+            key: 9,
+            data: { latA: 1, lngA: 2, latB: 3, lngB: 4 },
+        } as SharedQuestion);
+        expect(() =>
+            apply(thermo, { type: "randomizeQuestion", key: 9 }, hider),
+        ).toThrow(/no variants/);
+    });
+
+    it("with the digital deck it costs the card", () => {
+        let state = newGameState(
+            "g3",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        state = asked(radius(1), state);
+        expect(() =>
+            apply(state, { type: "randomizeQuestion", key: 1 }, hider),
+        ).toThrow(/No Randomize Question card/);
+        state = {
+            ...state,
+            deck: {
+                ...state.deck!,
+                hand: ["powerup_randomize_question", "time_5"],
+            },
+        };
+        state = apply(state, { type: "randomizeQuestion", key: 1 }, hider);
+        expect(state.deck!.hand).toEqual(["time_5"]);
+    });
+});

@@ -46,6 +46,8 @@ export default defineConfig({
                 // Fonts: only the Latin subsets; browsers fetch others on demand.
                 globIgnores: ["JLIcon.png", "**/*devanagari*"],
                 maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+                // Push notifications are handled in public/push-sw.js.
+                importScripts: ["push-sw.js"],
                 navigateFallback: null,
                 runtimeCaching: [
                     {

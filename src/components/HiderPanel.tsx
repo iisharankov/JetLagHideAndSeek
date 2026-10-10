@@ -2,20 +2,22 @@ import { useStore } from "@nanostores/react";
 import { toast } from "react-toastify";
 
 import {
-    chosenStation,
     endgame,
-    hiderChoosing,
     hiderMode,
-    hiderShowAll,
     hidingRadius,
     hidingRadiusUnits,
     isLoading,
-    setHiderPin,
-    showHiderPin,
     trainStations,
 } from "@/lib/context";
 import { gameState, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
+import {
+    chosenStation,
+    hiderChoosing,
+    hiderShowAll,
+    setHiderPin,
+    showHiderPin,
+} from "@/lib/hiderSpot";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
 import {

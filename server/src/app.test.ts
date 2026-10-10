@@ -1,23 +1,38 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "./app";
 import { createGameStore } from "./games";
+import { createPushService, type PushMessage, type PushService } from "./push";
 import { createShareStore } from "./shareStore";
 
 let app: ReturnType<typeof createApp>;
+let push: PushService;
+let sentPushes: { to: string; message: PushMessage }[];
 
 beforeEach(() => {
-    app = createApp({
-        shares: createShareStore(":memory:"),
-        games: createGameStore(
-            ":memory:",
-            mkdtempSync(join(tmpdir(), "jetlag-api-")),
-        ),
-    });
+    const db = new DatabaseSync(":memory:");
+    sentPushes = [];
+    push = createPushService(
+        db,
+        { publicKey: "pub", privateKey: "priv" },
+        {
+            appUrl: (id) => `/?game=${id}`,
+            send: async (to, message) => {
+                sentPushes.push({ to: to.endpoint, message });
+            },
+        },
+    );
+    const games = createGameStore(
+        db,
+        mkdtempSync(join(tmpdir(), "jetlag-api-")),
+        { onChange: (before, after) => void push.notify(before, after) },
+    );
+    app = createApp({ shares: createShareStore(db), games, push });
 });
 
 const share = (body: string) =>
@@ -121,7 +136,52 @@ describe("shared games", () => {
         // Settings not sent get defaults.
         expect(body.state.settings.size).toBe("medium");
         expect(body.state.settings.hidingRadiusKm).toBe(0.5);
+        // The server's clock, so phones can correct their own.
+        expect(typeof body.now).toBe("number");
         expect((await app.request("/api/games/nope")).status).toBe(404);
+    });
+
+    it("a game being played is the hider's to delete", async () => {
+        const id = await newGame();
+        const { token } = await claim(id);
+        const asSeeker = await app.request(`/api/games/${id}`, {
+            method: "DELETE",
+        });
+        expect(asSeeker.status).toBe(403);
+        expect((await asSeeker.json()).error).toMatch(/Only the hider/);
+        const asHider = await app.request(`/api/games/${id}`, {
+            method: "DELETE",
+            headers: { "X-Hider-Token": token },
+        });
+        expect(asHider.status).toBe(200);
+        expect((await app.request(`/api/games/${id}`)).status).toBe(404);
+    });
+
+    it("takes the hider's token only from the header, the live stream included", async () => {
+        const id = await newGame();
+        await op(id, {
+            by: "Ana",
+            op: {
+                type: "putQuestion",
+                question: { id: "radius", key: 1, data: {} },
+            },
+        });
+        const { token } = await claim(id);
+        // Neither the URL (logged by servers) nor a cookie (shared by tabs).
+        const inUrl = await app.request(`/api/games/${id}?hider=${token}`);
+        expect((await inUrl.json()).role).toBe("seeker");
+        const inCookie = await app.request(`/api/games/${id}`, {
+            headers: { Cookie: `hider_${id}=${token}` },
+        });
+        expect((await inCookie.json()).role).toBe("seeker");
+        // The stream with the header: the hider's view, without the draft.
+        const events = await app.request(`/api/games/${id}/events`, {
+            headers: { "X-Hider-Token": token },
+        });
+        const reader = events.body!.getReader();
+        const { value } = await reader.read();
+        expect(new TextDecoder().decode(value)).not.toContain('"key":1');
+        await reader.cancel();
     });
 
     it("deletes a game on request", async () => {
@@ -200,7 +260,9 @@ describe("shared games", () => {
             return text;
         };
 
-        expect(await next()).toContain('"version":1');
+        const first = await next();
+        expect(first).toContain('"version":1');
+        expect(first).toContain('"now":');
         await op(id, { by: "Ana", op: { type: "askPhoto", name: "Tree" } });
         const update = await next();
         expect(update).toContain("event: state");
@@ -230,5 +292,56 @@ describe("shared games", () => {
             body: new Uint8Array(6 * 1024 * 1024 + 1),
         });
         expect(huge.status).toBe(413);
+    });
+});
+
+describe("push notifications", () => {
+    const subscription = {
+        endpoint: "https://push.example/abc",
+        keys: { p256dh: "p", auth: "a" },
+    };
+
+    it("hands out the server's key and keeps a phone's subscription per game", async () => {
+        const id = await newGame();
+        const key = await (await app.request("/api/push/key")).json();
+        expect(typeof key.key).toBe("string");
+        const saved = await app.request(
+            `/api/games/${id}/push`,
+            json({ subscription }),
+        );
+        expect(saved.status).toBe(200);
+        expect(push.count(id)).toBe(1);
+        const bad = await app.request(
+            `/api/games/${id}/push`,
+            json({ subscription: { endpoint: "nope" } }),
+        );
+        expect(bad.status).toBe(400);
+        const gone = await app.request(`/api/games/${id}/push`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        expect(gone.status).toBe(200);
+        expect(push.count(id)).toBe(0);
+    });
+
+    it("sends what happened to the phones in the game", async () => {
+        const id = await newGame();
+        await app.request(`/api/games/${id}/push`, json({ subscription }));
+        await op(id, { by: "Ana", op: { type: "askPhoto", name: "Tree" } });
+        // Seekers aren't told about their own photo questions; a curse they are.
+        const { token } = await claim(id);
+        await op(
+            id,
+            {
+                by: "Ben",
+                op: { type: "castCurse", name: "Curse of the Cairn" },
+            },
+            token,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(sentPushes.map((p) => p.message.title)).toEqual([
+            "The hider cast Curse of the Cairn",
+        ]);
     });
 });

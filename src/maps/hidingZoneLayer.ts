@@ -16,27 +16,35 @@ import { toast } from "react-toastify";
 import {
     animateMapMovements,
     busy,
-    chosenStation,
     disabledStations,
     displayHidingZones,
     displayHidingZonesOptions,
     displayHidingZonesStyle,
     endgame,
-    hiderChoosing,
-    hiderShowAll,
     hidingRadius,
     hidingRadiusUnits,
     highlightedStation,
     leafletMapContext,
-    pickHiderStation,
+    mapBottomInset,
     planningModeEnabled,
     questionFinishedMapData,
     questions,
     sidebarTab,
     trainStations,
 } from "@/lib/context";
-import { activeGameId, gameState, hiderPhone } from "@/lib/game/session";
+import {
+    activeGameId,
+    gameState,
+    hiderPhone,
+    zonesAllowed,
+} from "@/lib/game/session";
 import type { StationPick } from "@/lib/game/types";
+import {
+    chosenStation,
+    hiderChoosing,
+    hiderShowAll,
+    pickHiderStation,
+} from "@/lib/hiderSpot";
 import { escapeHtml } from "@/lib/html";
 import { createLatestRunner } from "@/lib/jobs";
 import {
@@ -106,8 +114,11 @@ export const goToStation = (station: StationCircle) => {
         [south, west],
         [north, east],
     ];
-    if (animateMapMovements.get()) map.flyToBounds(bounds);
-    else map.fitBounds(bounds);
+    const options: L.FitBoundsOptions = {
+        paddingBottomRight: [0, mapBottomInset.get()],
+    };
+    if (animateMapMovements.get()) map.flyToBounds(bounds, options);
+    else map.fitBounds(bounds, options);
 };
 
 /** The hider picks this station as theirs (the map stays where it is). */
@@ -128,8 +139,11 @@ export const goToPick = (station: StationPick) => {
         [south, west],
         [north, east],
     ];
-    if (animateMapMovements.get()) map.flyToBounds(bounds);
-    else map.fitBounds(bounds);
+    const options: L.FitBoundsOptions = {
+        paddingBottomRight: [0, mapBottomInset.get()],
+    };
+    if (animateMapMovements.get()) map.flyToBounds(bounds, options);
+    else map.fitBounds(bounds, options);
 };
 
 const radiusKm = () =>
@@ -256,6 +270,11 @@ const applyQuestionToHidingZones = async (
 
 const computeHidingZones = async () => {
     const eliminated = questionFinishedMapData.get();
+    if (!hiderPhone.get() && !zonesAllowed.get()) {
+        // This game keeps the stations to the hider's phone.
+        if (trainStations.get().length > 0) trainStations.set([]);
+        return;
+    }
     if (!(displayHidingZones.get() || hiderPhone.get()) || !eliminated) return;
 
     if (displayHidingZonesOptions.get().length === 0) {
@@ -386,7 +405,7 @@ const draw = () => {
     const choosing = hider && (hiderChoosing.get() || !mine);
     const showStations = hider
         ? choosing || hiderShowAll.get()
-        : displayHidingZones.get();
+        : displayHidingZones.get() && zonesAllowed.get();
 
     if (showStations) {
         const disabled = disabledStations.get();
@@ -490,6 +509,7 @@ export const startHidingZoneLayer = () => {
             hidingRadius,
             hidingRadiusUnits,
             hiderPhone,
+            zonesAllowed,
         ],
         () => void requestHidingZoneRefresh(),
     );
@@ -503,6 +523,7 @@ export const startHidingZoneLayer = () => {
             hiderChoosing,
             hiderShowAll,
             hiderPhone,
+            zonesAllowed,
             endgame,
             hidingRadius,
             hidingRadiusUnits,

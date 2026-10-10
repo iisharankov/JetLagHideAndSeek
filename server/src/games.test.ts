@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultGameSettings } from "@/lib/game/settings";
 
 import { GameRuleError } from "./gameOps";
-import { createGameStore, type GameStore } from "./games";
+import { createGameStore, type GameStore, MAX_PHOTOS_PER_GAME } from "./games";
 
 let dir: string;
 let games: GameStore;
@@ -186,5 +186,31 @@ describe("games from before the settings update", () => {
         expect(loaded.settings.disabledQuestions).toContain(
             "measuring:coastline",
         );
+    });
+});
+
+describe("limits", () => {
+    it("caps the photos of a game", () => {
+        const game = start();
+        for (let i = 0; i < MAX_PHOTOS_PER_GAME; i++) {
+            games.addPhoto(game.id, new Uint8Array([1]), "image/png", {
+                name: "Ana",
+                role: "seeker",
+            });
+        }
+        expect(() =>
+            games.addPhoto(game.id, new Uint8Array([1]), "image/png", {
+                name: "Ana",
+                role: "seeker",
+            }),
+        ).toThrow(/photos/);
+    });
+
+    it("puts the first hider's name on the scoreboard", () => {
+        const game = start();
+        games.claimHider(game.id, "secret", "Ben");
+        expect(games.get(game.id)!.hiderName).toBe("Ben");
+        games.claimHider(game.id, "secret", "Cem");
+        expect(games.get(game.id)!.hiderName).toBe("Ben");
     });
 });

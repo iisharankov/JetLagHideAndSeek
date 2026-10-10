@@ -155,16 +155,39 @@ export const parseSharedGame = (text: string): SharedGame => {
     };
 };
 
-/** "Zürich, Switzerland", or "a drawn play area". */
-export const playAreaName = (playArea: SharedGame["playArea"]) =>
-    playArea.kind === "place"
-        ? [
-              playArea.location.properties.name,
-              playArea.location.properties.country,
-          ]
-              .filter(Boolean)
-              .join(", ")
-        : "a drawn play area";
+const placeLabel = (location: OpenStreetMap) =>
+    [location.properties.name, location.properties.country]
+        .filter(Boolean)
+        .join(", ");
+
+/**
+ * The play area in words: the place it starts from, the places added to it
+ * and the ones cut out of it (a lake, a neighbouring canton).
+ */
+export const playAreaParts = (playArea: SharedGame["playArea"]) => {
+    if (playArea.kind !== "place") {
+        return { base: "a drawn play area", added: [], removed: [] };
+    }
+    const named = (added: boolean) =>
+        playArea.alternateLocations
+            .filter((entry) => entry.added === added)
+            .map((entry) => entry.location.properties.name ?? "a place");
+    return {
+        base: placeLabel(playArea.location),
+        added: named(true),
+        removed: named(false),
+    };
+};
+
+/** "Zürich, Switzerland + Kilchberg − Zürichsee", or "a drawn play area". */
+export const playAreaName = (playArea: SharedGame["playArea"]) => {
+    const { base, added, removed } = playAreaParts(playArea);
+    return [
+        base,
+        ...added.map((name) => `+ ${name}`),
+        ...removed.map((name) => `− ${name}`),
+    ].join(" ");
+};
 
 /** A short description for the "load this game?" prompt. */
 export const summarizeSharedGame = (game: SharedGame) => {

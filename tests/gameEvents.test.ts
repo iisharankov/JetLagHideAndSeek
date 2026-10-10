@@ -24,6 +24,7 @@ const base = (): GameState => ({
     moves: [],
     hider: null,
     hasHider: true,
+    hiderName: null,
     rounds: [],
 });
 
@@ -58,7 +59,7 @@ describe("game events", () => {
                 key: "q1",
                 kind: "question",
                 title: "New question",
-                body: "Radar, from Ana",
+                body: "Radar 5 km, from Ana",
             },
             {
                 key: "prr1",
@@ -88,7 +89,7 @@ describe("game events", () => {
         };
         const events = gameEvents(before, after, "seeker");
         expect(events.map((e) => e.kind)).toEqual(["answer", "curse", "move"]);
-        expect(events[0].body).toMatch(/^Radar: /);
+        expect(events[0].body).toMatch(/^Radar 5 km: /);
         expect(events[1].name).toBe("Curse of the Cairn");
         expect(events[2].body).toMatch(/was at Uster/);
         expect(gameEvents(before, after, "hider")).toEqual([]);

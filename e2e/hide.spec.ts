@@ -44,10 +44,6 @@ test("every question type can be hidden and shown again", async ({
     page,
     externalHosts,
 }, testInfo) => {
-    test.skip(
-        testInfo.project.name !== "desktop",
-        "sidebar is open on desktop",
-    );
     void externalHosts;
 
     await page.route("**/overpass/api/interpreter", (route) =>
@@ -67,6 +63,10 @@ test("every question type can be hidden and shown again", async ({
         { playArea, questions },
     );
     await page.reload();
+    // On a phone the questions are in a sheet: open it.
+    if (testInfo.project.name !== "desktop") {
+        await page.getByTestId("sidebar-trigger").click();
+    }
 
     const hidden = () =>
         page.evaluate(() =>

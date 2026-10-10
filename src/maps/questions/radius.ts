@@ -1,6 +1,6 @@
 import * as turf from "@turf/turf";
 
-import { hiderAnswerPosition } from "@/lib/context";
+import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { arcBuffer, arcDistance, modifyMapData } from "@/maps/geo-utils";
 import type { RadiusQuestion } from "@/maps/schema";
 

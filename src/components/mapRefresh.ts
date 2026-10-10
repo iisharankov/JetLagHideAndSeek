@@ -13,6 +13,7 @@ import {
     hidingRadius,
     hidingRadiusUnits,
     leafletMapContext,
+    mapBottomInset,
     mapGeoJSON,
     planningModeEnabled,
     polyGeoJSON,
@@ -234,6 +235,8 @@ const loadPlayArea = async () => {
 let focusNextRun = false;
 /** The key of the area last handed to the hiding zones. */
 let eliminatedKey = "";
+/** The area of the last refresh: a new one is worth zooming to. */
+let lastBaseKey = "";
 
 const refresh = async () => {
     const map = leafletMapContext.get();
@@ -262,6 +265,8 @@ const refresh = async () => {
         : $questions;
     if ($endgame) playArea = endgameArea(playArea, $endgame);
     const baseKey = areaKey(playArea);
+    const areaChanged = baseKey !== lastBaseKey;
+    lastBaseKey = baseKey;
 
     const game = gameState.get();
     const hider = hiderPhone.get();
@@ -432,16 +437,21 @@ const refresh = async () => {
         questionFinishedMapData.set(turf.featureCollection([mask!]));
     }
 
-    if (focus && autoZoom.get()) {
+    // Auto-zoom follows every change; otherwise only a new play area (or the
+    // end game's zone) moves the map.
+    if (focus && (autoZoom.get() || areaChanged)) {
         const [minLng, minLat, maxLng, maxLat] = turf.bbox(mapGeoData);
         const bounds: L.LatLngBoundsExpression = [
             [minLat, minLng],
             [maxLat, maxLng],
         ];
+        const options: L.FitBoundsOptions = {
+            paddingBottomRight: [0, mapBottomInset.get()],
+        };
         if (animateMapMovements.get()) {
-            map.flyToBounds(bounds);
+            map.flyToBounds(bounds, options);
         } else {
-            map.fitBounds(bounds);
+            map.fitBounds(bounds, options);
         }
     }
 };

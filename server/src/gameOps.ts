@@ -1,6 +1,6 @@
 // The rules of a shared game: who may change what. Pure functions, so they
 // are easy to test; games.ts stores the results and tells every phone.
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 
 import { applyClockAction } from "@/lib/game/clock";
 import {
@@ -15,7 +15,14 @@ import {
     newDeck,
     removeFromHand,
 } from "@/lib/game/deck";
-import { normalizeGameSettings } from "@/lib/game/settings";
+import { questionIdentity } from "@/lib/game/questionIdentity";
+import {
+    ALWAYS_OFF,
+    normalizeGameSettings,
+    questionKey,
+    RADAR_KM,
+    tentacleRadiusKm,
+} from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
     type GameOp,
@@ -27,6 +34,7 @@ import {
     type SharedQuestion,
     type StationPick,
 } from "@/lib/game/types";
+import { TYPES } from "@/lib/questionInfo";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
 const CLOCK_ACTIONS = new Set(["start", "pause", "resume", "stop", "reset"]);
@@ -36,6 +44,11 @@ const DISCARD_DRAW: Record<string, { discard: number; draw: number }> = {
     powerup_discard_1_draw_2: { discard: 1, draw: 2 },
     powerup_discard_2_draw_3: { discard: 2, draw: 3 },
 };
+
+/** "For the next three questions, you may draw an additional card." */
+const CHALICE = "Curse of the Overflowing Chalice";
+const CHALICE_QUESTIONS = 3;
+const RANDOMIZE = "powerup_randomize_question";
 
 /** A change the rules don't allow; the API answers with `status`. */
 export class GameRuleError extends Error {
@@ -82,6 +95,7 @@ export const newGameState = (
     moves: [],
     hider: { station: null, pin: null },
     hasHider: false,
+    hiderName: null,
     rounds: [],
 });
 
@@ -153,19 +167,10 @@ const assertNotMoving = (state: GameState) => {
 };
 
 /**
- * The same question asked again: the rulebook makes the seekers pay its cost
- * again, so the hider draws again. A question is the same when its category
- * and type (or, for radar, its radius) are.
+ * With the digital deck, an answered question earns the hider draws: the
+ * rulebook's draw, again for the same question asked again, and one card
+ * more while the Overflowing Chalice is on.
  */
-const questionIdentity = (question: SharedQuestion) => {
-    const data = question.data as Record<string, unknown>;
-    if (question.id === "radius") {
-        return `radius:${String(data.radius)}${String(data.unit ?? "")}`;
-    }
-    return `${question.id}:${String(data.type ?? data.locationType ?? "")}`;
-};
-
-/** With the digital deck, an answered question earns the hider draws. */
 const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
     if (!state.deck) return;
     const draw = DRAWS[entry.question.id];
@@ -176,13 +181,123 @@ const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
             other.state === "answered" &&
             questionIdentity(other.question) === identity,
     ).length;
+    const chalice = (state.deck.chaliceLeft ?? 0) > 0;
     for (let i = 0; i < Math.max(1, times); i++) {
+        const label = i === 0 ? draw.label : `${draw.label} (asked again)`;
         state.deck.owed.push({
             ...draw,
-            label: i === 0 ? draw.label : `${draw.label} (asked again)`,
+            draw: draw.draw + (chalice ? 1 : 0),
+            label: chalice ? `${label} + Overflowing Chalice` : label,
         });
     }
+    if (chalice) {
+        state.deck.chaliceLeft = (state.deck.chaliceLeft ?? 1) - 1;
+        if (state.deck.chaliceLeft === 0) {
+            const curse = state.curses.find(
+                (c) => c.name === CHALICE && !c.clearedAt,
+            );
+            if (curse) {
+                curse.clearedAt = now;
+                curse.clearedBy = "the game";
+            }
+        }
+    }
     state.deck = advanceDeck(state.deck, now);
+};
+
+/** The hider casts a curse; the Overflowing Chalice also starts counting. */
+const castCurse = (state: GameState, name: string, now: number) => {
+    state.curses.push({ id: shortId(), name, castAt: now });
+    if (name === CHALICE && state.deck) {
+        state.deck.chaliceLeft = CHALICE_QUESTIONS;
+    }
+};
+
+/** A variant of a question: what makes it a different question. */
+interface Variant {
+    identity: string;
+    label: string;
+    patch: Record<string, unknown>;
+}
+
+/** Every question of a category this game allows (custom ones aside). */
+const variantsOf = (
+    settings: GameSettings,
+    question: SharedQuestion,
+): Variant[] => {
+    const data = question.data as Record<string, unknown>;
+    if (question.id === "radius") {
+        return RADAR_KM.map((km) => ({
+            identity: `radius:${km}kilometers`,
+            label: `Radar ${km} km`,
+            patch: { radius: km, unit: "kilometers" },
+        }));
+    }
+    if (
+        question.id !== "matching" &&
+        question.id !== "measuring" &&
+        question.id !== "tentacles"
+    ) {
+        return [];
+    }
+    const category = question.id;
+    const field = category === "tentacles" ? "locationType" : "type";
+    return Object.entries(TYPES[category])
+        .filter(
+            ([type]) =>
+                !type.startsWith("custom") &&
+                !ALWAYS_OFF.includes(questionKey(category, type)) &&
+                !settings.disabledQuestions.includes(
+                    questionKey(category, type),
+                ),
+        )
+        .map(([type, info]) => ({
+            identity: `${category}:${type}`,
+            label: info.label,
+            patch: {
+                [field]: type,
+                ...(category === "tentacles"
+                    ? { radius: tentacleRadiusKm(type), unit: "kilometers" }
+                    : {}),
+                ...(category === "matching" &&
+                (type === "zone" || type === "letter-zone")
+                    ? { cat: data.cat ?? { adminLevel: 4 } }
+                    : {}),
+            },
+        }));
+};
+
+/** What the question is now, in the words of the setup screens. */
+const variantLabel = (settings: GameSettings, question: SharedQuestion) =>
+    variantsOf(settings, question).find(
+        (variant) => variant.identity === questionIdentity(question),
+    )?.label ?? questionIdentity(question);
+
+/**
+ * Randomize Question: "a new unasked question from the same category is
+ * chosen, at random". The questions asked this round don't come up again.
+ */
+const randomVariant = (state: GameState, question: SharedQuestion) => {
+    const asked = new Set(
+        Object.values(state.questions)
+            .filter((entry) => entry.state !== "draft")
+            .flatMap((entry) => [
+                questionIdentity(entry.question),
+                ...(entry.askedAs ?? []),
+            ]),
+    );
+    const candidates = variantsOf(state.settings, question).filter(
+        (variant) => !asked.has(variant.identity),
+    );
+    if (candidates.length === 0) {
+        throw new GameRuleError(
+            question.id === "thermometer"
+                ? "Thermometer questions have no variants to randomize."
+                : "Every question of this kind has been asked already: nothing to randomize to.",
+            409,
+        );
+    }
+    return candidates[randomInt(candidates.length)];
 };
 
 const ruleError = (error: unknown) =>
@@ -266,6 +381,14 @@ export const applyOp = (
     const state: GameState = structuredClone(current);
     state.version += 1;
     state.updatedAt = now;
+    // The hider's name goes on the scoreboard (a new round clears it below).
+    if (
+        actor.role === "hider" &&
+        actor.name !== "Someone" &&
+        !state.hiderName
+    ) {
+        state.hiderName = actor.name;
+    }
 
     switch (op.type) {
         case "putQuestion": {
@@ -280,15 +403,16 @@ export const applyOp = (
                 existing.updatedAt = now;
             } else {
                 if (actor.role !== "hider") assertNotMoving(state);
+                const initial =
+                    op.state ?? (actor.role === "hider" ? "asked" : "draft");
                 state.questions[key] = {
                     question,
-                    state:
-                        op.state ??
-                        (actor.role === "hider" ? "asked" : "draft"),
+                    state: initial,
                     createdBy: actor.name,
                     createdAt: now,
                     updatedBy: actor.name,
                     updatedAt: now,
+                    ...(initial === "asked" ? { askedAt: now } : {}),
                 };
             }
             break;
@@ -304,6 +428,7 @@ export const applyOp = (
             const entry = visibleEntry(state, op.key, actor);
             if (entry.state === "draft") {
                 entry.state = "asked";
+                entry.askedAt = now;
                 entry.updatedBy = actor.name;
                 entry.updatedAt = now;
             }
@@ -361,6 +486,47 @@ export const applyOp = (
             entry.updatedAt = now;
             break;
         }
+        case "randomizeQuestion": {
+            // Played instead of answering: the question becomes another of
+            // its kind, which the hider answers instead.
+            assertHider(actor, "randomize questions");
+            const entry = visibleEntry(state, op.key, actor);
+            if (entry.state !== "asked") {
+                throw new GameRuleError(
+                    "Only a question waiting for an answer can be randomized.",
+                    409,
+                );
+            }
+            const variant = randomVariant(state, entry.question);
+            if (state.deck) {
+                const index = state.deck.hand.indexOf(RANDOMIZE);
+                if (index === -1) {
+                    throw new GameRuleError(
+                        "No Randomize Question card in your hand.",
+                        409,
+                    );
+                }
+                state.deck = removeFromHand(state.deck, index);
+            }
+            entry.randomizedFrom = variantLabel(state.settings, entry.question);
+            entry.askedAs = [
+                ...(entry.askedAs ?? []),
+                questionIdentity(entry.question),
+            ];
+            entry.question = {
+                ...entry.question,
+                data: { ...entry.question.data, ...variant.patch },
+            };
+            entry.updatedBy = actor.name;
+            entry.updatedAt = now;
+            state.powerups.push({
+                id: shortId(),
+                name: "Randomize Question",
+                playedAt: now,
+                by: actor.name,
+            });
+            break;
+        }
         case "setPlayArea":
             state.playArea = op.playArea;
             break;
@@ -407,11 +573,7 @@ export const applyOp = (
             break;
         case "castCurse":
             assertHider(actor, "cast curses");
-            state.curses.push({
-                id: shortId(),
-                name: String(op.name).slice(0, 200),
-                castAt: now,
-            });
+            castCurse(state, String(op.name).slice(0, 200), now);
             break;
         case "clearCurse": {
             const curse = state.curses.find((c) => c.id === op.id);
@@ -610,11 +772,7 @@ export const applyOp = (
             }
             state.deck = next;
             if (card.kind === "curse") {
-                state.curses.push({
-                    id: shortId(),
-                    name: card.name,
-                    castAt: now,
-                });
+                castCurse(state, card.name, now);
                 break;
             }
             state.powerups.push({
@@ -661,7 +819,9 @@ export const applyOp = (
                 clock: state.clock,
                 deck: state.deck,
                 moves: state.moves,
+                ...(state.hiderName ? { hiderName: state.hiderName } : {}),
             });
+            state.hiderName = null;
             state.questions = {};
             state.photoRequests = [];
             state.curses = [];

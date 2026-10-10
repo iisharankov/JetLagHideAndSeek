@@ -75,6 +75,8 @@ test("a second tab becoming the hider leaves the first tab a seeker", async ({
     const other = await page.context().newPage();
     await prepare(other);
     await other.goto(link);
+    // The same browser already joined this game (first tab), so there is
+    // no join dialog: the hider switch is in the menu.
     await openMenu(other);
     await other.getByRole("switch", { name: "I'm the hider" }).click();
     await other.getByLabel("Hider password").fill("secret");

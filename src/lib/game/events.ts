@@ -32,9 +32,18 @@ const LABELS: Record<string, string> = {
 };
 
 const label = (question: SharedQuestion) => {
-    const data = question.data as { type?: string; locationType?: string };
-    const type = data.type ?? data.locationType;
+    const data = question.data as {
+        type?: string;
+        locationType?: string;
+        radius?: number;
+        unit?: string;
+    };
     const category = LABELS[question.id] ?? question.id;
+    if (question.id === "radius" && typeof data.radius === "number") {
+        const unit = data.unit === "kilometers" ? "km" : (data.unit ?? "km");
+        return `${category} ${data.radius} ${unit}`;
+    }
+    const type = data.type ?? data.locationType;
     return type
         ? `${category} (${String(type).replace(/[-_]/g, " ")})`
         : category;
@@ -143,6 +152,15 @@ export const gameEvents = (
     for (const powerup of after.powerups) {
         if (before.powerups.some((b) => b.id === powerup.id)) continue;
         const move = powerup.name === "Move";
+        // Randomize Question: say what the question became.
+        const randomized =
+            powerup.name === "Randomize Question"
+                ? Object.values(after.questions).find(
+                      (entry) =>
+                          entry.randomizedFrom &&
+                          entry.updatedAt === powerup.playedAt,
+                  )
+                : undefined;
         events.push({
             key: `p${powerup.id}`,
             kind: move ? "move" : "powerup",
@@ -154,7 +172,9 @@ export const gameEvents = (
                           ? ` and was at ${after.move.station.name}`
                           : ""
                   }. No questions until they continue; the questions so far are in Cards → History.`
-                : undefined,
+                : randomized
+                  ? `${randomized.randomizedFrom} became ${label(randomized.question)}; the hider answers that instead.`
+                  : undefined,
         });
     }
     return events;

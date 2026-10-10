@@ -8,16 +8,13 @@ import { toast } from "react-toastify";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
     activeQuestionKey,
-    autoSave,
     hiderMode,
     notePins,
     questions,
-    save,
-    setHiderPin,
-    showHiderPin,
     updateQuestion,
 } from "@/lib/context";
 import { gameState, hiderPhone } from "@/lib/game/session";
+import { setHiderPin, showHiderPin } from "@/lib/hiderSpot";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
@@ -55,7 +52,6 @@ const ColoredMarker = ({
 }) => {
     const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
-    const $autoSave = useStore(autoSave);
     const $game = useStore(gameState);
     const [open, setOpen] = useState(false);
 
@@ -183,14 +179,6 @@ const ColoredMarker = ({
                     >
                         Disable
                     </Button>
-                )}
-                {!$autoSave && (
-                    <button
-                        onClick={save}
-                        className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500"
-                    >
-                        Save
-                    </button>
                 )}
             </DialogContent>
         </Dialog>

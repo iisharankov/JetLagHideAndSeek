@@ -6,8 +6,6 @@ import { toast } from "react-toastify";
 
 import {
     additionalMapGeoLocations,
-    autoSave,
-    chosenStation,
     disabledStations,
     endgame,
     gameSettings,
@@ -16,10 +14,10 @@ import {
     mapGeoLocation,
     polyGeoJSON,
     questions,
-    saveTick,
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
+import { chosenStation } from "@/lib/hiderSpot";
 import { persistentAtom } from "@/lib/persist";
 import {
     applyPlayArea,
@@ -28,19 +26,22 @@ import {
     currentZoneSettings,
     parsePlayArea,
     parseZoneSettings,
-    playAreaName,
 } from "@/lib/sharedGame";
 import { errorMessage } from "@/maps/errors";
 
+import { refreshPush } from "./alerts";
 import {
     createGame,
     deleteGameRequest,
-    eventsUrl,
     fetchGame,
+    openEvents,
     postHiderPassword,
     postOp,
     postPhoto,
 } from "./api";
+import { writeBackup } from "./backup";
+import { forgetGame, markJoined, rememberGame } from "./knownGames";
+import { noteServerTime } from "./serverTime";
 import { diffLocal, mergeRemoteQuestions, syncedJson, toShared } from "./sync";
 import type { GameOp, GameState, Role } from "./types";
 
@@ -65,19 +66,6 @@ hiderTokens.listen(() => {});
 export const gameState = atom<GameState | null>(null);
 export const gameRole = atom<Role>("seeker");
 
-/** A shared game this phone has been in, for the list in Menu → Game. */
-export interface KnownGame {
-    id: string;
-    area: string;
-    joinedAt: number;
-    lastSeen: number;
-}
-export const knownGames = persistentAtom<Record<string, KnownGame>>(
-    "knownGames",
-    {},
-    { encode: JSON.stringify, decode: JSON.parse },
-);
-
 /**
  * This phone is the hider's: hider mode, and (in a shared game) the hider's
  * role. The one place this is worked out; it only tells its listeners when
@@ -90,6 +78,24 @@ export const hiderPhone = computed(
 export const gameConnection = atom<"off" | "connecting" | "live" | "retrying">(
     "off",
 );
+/** When this phone last heard from the game (its own clock), for "stale since". */
+export const lastUpdateAt = atom<number | null>(null);
+/** While reconnecting: when the next try is due. */
+export const reconnectAt = atom<number | null>(null);
+
+/** 5 s, 10 s, 20 s… up to a minute between tries. */
+export const retryDelayMs = (attempt: number) =>
+    Math.min(5000 * 2 ** Math.max(0, attempt), 60_000);
+
+/**
+ * Whether this phone may show the hiding zones: always alone or as the
+ * hider; as a seeker only when the game's settings allow it.
+ */
+export const zonesAllowed = computed(
+    [gameState, gameRole],
+    (game, role) =>
+        !game || role === "hider" || game.settings.seekersSeeStations !== false,
+);
 
 /** Hider: hider mode's suggested answers, by question key. */
 export const suggestedAnswers = atom<
@@ -101,6 +107,8 @@ export const suggestedAnswers = atom<
 
 const me = () => (playerName.get() ?? "").trim() || "Someone";
 const token = () => hiderTokens.get()[activeGameId.get()];
+/** This phone's hider token for the game it's in, if it is the hider. */
+export const hiderToken = token;
 
 /**
  * The hider's phone is in hider mode, full stop: answers are suggested from
@@ -117,40 +125,13 @@ const ensureHiderMode = () => {
     });
 };
 
-/** Keeps the game in the phone's list (Menu → Game). */
-const remember = (state: GameState) => {
-    const known = knownGames.get()[state.id];
-    const now = Date.now();
-    if (known && now - known.lastSeen < 60_000) return;
-    let area = known?.area ?? "";
-    try {
-        area = playAreaName(parsePlayArea(state.playArea));
-    } catch {
-        // An odd play area: keep what we had.
-    }
-    knownGames.set({
-        ...knownGames.get(),
-        [state.id]: {
-            id: state.id,
-            area,
-            joinedAt: known?.joinedAt ?? now,
-            lastSeen: now,
-        },
-    });
-};
-
-const forget = (id: string) => {
-    const { [id]: removed, ...rest } = knownGames.get();
-    void removed;
-    knownGames.set(rest);
-};
-
 // What this phone last had in common with the server.
 let synced = new Map<number, string>();
 let syncedPlayArea = "";
 let syncedZone = "";
 let applyingRemote = false;
-let source: EventSource | null = null;
+/** Closes the live stream, while one is open. */
+let closeStream: (() => void) | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 const setUrl = (id: string) => {
@@ -179,6 +160,7 @@ const receive = (received: GameState, force = false) => {
         return;
     }
     gameState.set(state);
+    lastUpdateAt.set(Date.now());
 
     applyingRemote = true;
     try {
@@ -257,7 +239,7 @@ const receive = (received: GameState, force = false) => {
         }
         // The game's settings are the server's.
         applyGameSettings(state.settings);
-        remember(state);
+        rememberGame(state);
     } catch (error) {
         toast.error(`Couldn't apply the shared game: ${errorMessage(error)}`, {
             toastId: "game-apply-error",
@@ -265,9 +247,7 @@ const receive = (received: GameState, force = false) => {
     } finally {
         applyingRemote = false;
     }
-    if (autoSave.get() && diffLocal(questions.get(), synced).length > 0) {
-        scheduleSync();
-    }
+    if (diffLocal(questions.get(), synced).length > 0) scheduleSync();
 };
 
 /** Reloads the game from the server, e.g. after a refused change. */
@@ -275,7 +255,8 @@ const resync = async () => {
     const id = activeGameId.get();
     if (!id) return;
     try {
-        const { role, state } = await fetchGame(id, token());
+        const { role, state, now } = await fetchGame(id, token());
+        noteServerTime(now);
         gameRole.set(role);
         receive(state, true);
     } catch (error) {
@@ -288,7 +269,8 @@ export const sendOp = async (op: GameOp) => {
     const id = activeGameId.get();
     if (!id) return;
     try {
-        const { state } = await postOp(id, op, me(), token());
+        const { state, now } = await postOp(id, op, me(), token());
+        noteServerTime(now);
         receive(state);
     } catch (error) {
         toast.error(errorMessage(error), { toastId: `game-op-${op.type}` });
@@ -351,9 +333,7 @@ let listening = false;
 const listenForLocalChanges = () => {
     if (listening) return;
     listening = true;
-    // Auto-save off: edits wait for Save before they go to the game.
-    questions.listen(() => inGame() && autoSave.get() && scheduleSync());
-    saveTick.listen(() => inGame() && scheduleSync());
+    questions.listen(() => inGame() && scheduleSync());
     for (const store of [
         polyGeoJSON,
         mapGeoLocation,
@@ -381,8 +361,18 @@ const listenForLocalChanges = () => {
 
 const disconnect = () => {
     clearTimeout(retryTimer);
-    source?.close();
-    source = null;
+    closeStream?.();
+    closeStream = null;
+};
+
+/** Failed tries in a row; the wait between tries grows with them. */
+let attempts = 0;
+const retryLater = () => {
+    gameConnection.set("retrying");
+    const delay = retryDelayMs(attempts++);
+    reconnectAt.set(Date.now() + delay);
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => void connect(), delay);
 };
 
 const connect = async () => {
@@ -391,7 +381,8 @@ const connect = async () => {
     if (!id) return;
     gameConnection.set("connecting");
     try {
-        const { role, state } = await fetchGame(id, token());
+        const { role, state, now } = await fetchGame(id, token());
+        noteServerTime(now);
         gameRole.set(role);
         receive(state, true);
     } catch (error) {
@@ -400,31 +391,36 @@ const connect = async () => {
             leaveGame();
             return;
         }
-        gameConnection.set("retrying");
-        retryTimer = setTimeout(() => void connect(), 5000);
+        retryLater();
         return;
     }
+    attempts = 0;
+    reconnectAt.set(null);
+    void refreshPush(id, token());
 
     // The hider's phone is in hider mode; a seeker's isn't.
     if (gameRole.get() === "hider") ensureHiderMode();
     else if (hiderMode.get() !== false) hiderMode.set(false);
-    const events = new EventSource(eventsUrl(id, token()));
-    source = events;
-    events.addEventListener("state", (event) => {
-        gameConnection.set("live");
-        receive(JSON.parse((event as MessageEvent).data));
+    closeStream = openEvents(id, token(), {
+        onEvent: (message) => {
+            if (message.event === "state") {
+                gameConnection.set("live");
+                attempts = 0;
+                reconnectAt.set(null);
+                const { state, now } = JSON.parse(message.data);
+                noteServerTime(now);
+                receive(state);
+            } else if (message.event === "deleted") {
+                toast.info("This game was deleted.");
+                forgetGame(id);
+                leaveGame();
+            }
+        },
+        onEnd: () => {
+            closeStream = null;
+            if (activeGameId.get() === id) retryLater();
+        },
     });
-    events.addEventListener("deleted", () => {
-        toast.info("This game was deleted.");
-        forget(id);
-        leaveGame();
-    });
-    events.onerror = () => {
-        gameConnection.set("retrying");
-        if (events.readyState === EventSource.CLOSED) {
-            retryTimer = setTimeout(() => void connect(), 5000);
-        }
-    };
 };
 
 /** The game `synced` belongs to, in this page session. */
@@ -437,14 +433,7 @@ export const joinGame = (id: string) => {
         // last had in common with the server, so ones not in the game are
         // dropped (kept as a backup) and none are sent.
         if (activeGameId.get() !== id && questions.get().length > 0) {
-            try {
-                localStorage.setItem(
-                    "questions-before-game",
-                    JSON.stringify(questions.get()),
-                );
-            } catch {
-                // Storage full or blocked: nothing to back up to.
-            }
+            writeBackup(questions.get());
         }
         synced = new Map(questions.get().map((q) => [q.key, syncedJson(q)]));
         syncedPlayArea = "";
@@ -486,6 +475,8 @@ export const startGame = async () => {
     });
     syncedPlayArea = JSON.stringify(state.playArea);
     syncedZone = JSON.stringify(state.zone);
+    // Whoever starts the game has given their name and is a seeker.
+    markJoined(state.id);
     joinGame(state.id);
     return state.id;
 };
@@ -493,14 +484,15 @@ export const startGame = async () => {
 /** Becomes the hider on this phone (the first hider sets the password). */
 export const claimHider = async (password: string) => {
     const id = activeGameId.get();
-    const { token: hiderToken } = await postHiderPassword(id, password);
+    const { token: hiderToken } = await postHiderPassword(id, password, me());
     hiderTokens.set({ ...hiderTokens.get(), [id]: hiderToken });
     await connect();
 };
 
 /** Stops being the hider on this phone (the role stays protected). */
 export const forgetHider = () => {
-    const { [activeGameId.get()]: removed, ...rest } = hiderTokens.get();
+    const id = activeGameId.get();
+    const { [id]: removed, ...rest } = hiderTokens.get();
     void removed;
     hiderTokens.set(rest);
     hiderMode.set(false);
@@ -510,11 +502,11 @@ export const forgetHider = () => {
 /** Deletes a game on the server, for everyone; this phone forgets it. */
 export const deleteGame = async (id: string) => {
     try {
-        await deleteGameRequest(id);
+        await deleteGameRequest(id, hiderTokens.get()[id]);
     } catch (error) {
         if ((error as { status?: number }).status !== 404) throw error;
     }
-    forget(id);
+    forgetGame(id);
     if (activeGameId.get() === id) leaveGame();
     if (currentGameId.get() === id) currentGameId.set("");
 };
@@ -523,13 +515,14 @@ export const uploadPhoto = async (
     photo: Blob,
     options: { requestId?: string; caption?: string } = {},
 ) => {
-    const { state } = await postPhoto(
+    const { state, now } = await postPhoto(
         activeGameId.get(),
         photo,
         me(),
         token(),
         options,
     );
+    noteServerTime(now);
     receive(state);
 };
 

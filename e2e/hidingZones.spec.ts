@@ -35,12 +35,14 @@ test("the Stations tab holds the hiding zone controls", async ({
     page,
     externalHosts,
 }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
     void externalHosts;
     await page.route("**/data/**", (route) => route.fulfill({ status: 404 }));
     await page.goto("/");
     await page.evaluate(() => localStorage.setItem("showTutorials", "false"));
     await page.reload();
+    if (testInfo.project.name !== "desktop") {
+        await page.getByTestId("sidebar-trigger").click();
+    }
 
     await page.getByRole("radio", { name: "Stations" }).click();
     const zones = page.getByRole("switch", { name: /Show hiding zones/ });

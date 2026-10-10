@@ -48,26 +48,32 @@ export const createGame = (start: {
     by: string;
 }) => post<{ state: GameState }>("/games", start);
 
+/** Every answer carries the server's clock, for the clocks on the phones. */
+type Timed<T> = T & { now: number };
+
 export const fetchGame = (id: string, token?: string) =>
-    call<{ role: Role; state: GameState }>(`/games/${encodeURIComponent(id)}`, {
-        headers: headers(token),
-    });
+    call<Timed<{ role: Role; state: GameState }>>(
+        `/games/${encodeURIComponent(id)}`,
+        { headers: headers(token) },
+    );
 
 export const postOp = (id: string, op: GameOp, by: string, token?: string) =>
-    post<{ state: GameState }>(
+    post<Timed<{ state: GameState }>>(
         `/games/${encodeURIComponent(id)}/ops`,
         { op, by },
         token,
     );
 
-export const deleteGameRequest = (id: string) =>
+export const deleteGameRequest = (id: string, token?: string) =>
     call<{ ok: true }>(`/games/${encodeURIComponent(id)}`, {
         method: "DELETE",
+        headers: headers(token),
     });
 
-export const postHiderPassword = (id: string, password: string) =>
+export const postHiderPassword = (id: string, password: string, by: string) =>
     post<{ token: string }>(`/games/${encodeURIComponent(id)}/hider`, {
         password,
+        by,
     });
 
 export const postPhoto = (
@@ -80,7 +86,7 @@ export const postPhoto = (
     const query = new URLSearchParams();
     if (options.requestId) query.set("request", options.requestId);
     if (options.caption) query.set("caption", options.caption);
-    return call<{ photoId: string; state: GameState }>(
+    return call<Timed<{ photoId: string; state: GameState }>>(
         `/games/${encodeURIComponent(id)}/photos?${query}`,
         {
             method: "POST",
@@ -96,7 +102,102 @@ export const postPhoto = (
 export const photoUrl = (id: string, photoId: string) =>
     `${API_URL}/games/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`;
 
-export const eventsUrl = (id: string, token?: string) =>
-    `${API_URL}/games/${encodeURIComponent(id)}/events${
-        token ? `?hider=${encodeURIComponent(token)}` : ""
-    }`;
+export const eventsUrl = (id: string) =>
+    `${API_URL}/games/${encodeURIComponent(id)}/events`;
+
+/** One server-sent event: its name and its data lines joined. */
+export interface SseMessage {
+    event: string;
+    data: string;
+}
+
+/** Parses one event's block of lines (the text between two blank lines). */
+export const parseSse = (block: string): SseMessage => {
+    let event = "message";
+    const data: string[] = [];
+    for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith(":") || line === "") continue;
+        const colon = line.indexOf(":");
+        const field = colon === -1 ? line : line.slice(0, colon);
+        const value =
+            colon === -1 ? "" : line.slice(colon + 1).replace(/^ /, "");
+        if (field === "event") event = value;
+        else if (field === "data") data.push(value);
+    }
+    return { event, data: data.join("\n") };
+};
+
+/**
+ * The game's live stream. EventSource can't send headers and a cookie
+ * would be shared between tabs (making a seeker's tab the hider), so the
+ * stream is read over fetch with the token in the header, like every other
+ * request. Returns a function that closes the stream.
+ */
+export const openEvents = (
+    id: string,
+    token: string | undefined,
+    handlers: {
+        onEvent: (message: SseMessage) => void;
+        /** The stream ended or failed (not closed by us). */
+        onEnd: () => void;
+    },
+) => {
+    const controller = new AbortController();
+    void (async () => {
+        try {
+            const response = await fetch(eventsUrl(id), {
+                headers: headers(token, { Accept: "text/event-stream" }),
+                cache: "no-store",
+                signal: controller.signal,
+            });
+            if (!response.ok || !response.body) {
+                throw new Error(`Game server answered HTTP ${response.status}`);
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                let end = buffer.indexOf("\n\n");
+                while (end !== -1) {
+                    const block = buffer.slice(0, end);
+                    buffer = buffer.slice(end + 2);
+                    if (block.trim() !== "") handlers.onEvent(parseSse(block));
+                    end = buffer.indexOf("\n\n");
+                }
+            }
+        } catch {
+            // Fell through to the end below.
+        }
+        if (!controller.signal.aborted) handlers.onEnd();
+    })();
+    return () => controller.abort();
+};
+
+// Push notifications ----------------------------------------------------
+
+export const fetchPushKey = () => call<{ key: string | null }>("/push/key");
+
+export const postPushSubscription = (
+    id: string,
+    subscription: unknown,
+    token?: string,
+) =>
+    post<{ ok: true }>(
+        `/games/${encodeURIComponent(id)}/push`,
+        { subscription },
+        token,
+    );
+
+export const deletePushSubscription = (
+    id: string,
+    endpoint: string,
+    token?: string,
+) =>
+    call<{ ok: true }>(`/games/${encodeURIComponent(id)}/push`, {
+        method: "DELETE",
+        headers: headers(token, { "Content-Type": "application/json" }),
+        body: JSON.stringify({ endpoint }),
+    });

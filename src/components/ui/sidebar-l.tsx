@@ -4,11 +4,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { atom } from "nanostores";
 import * as React from "react";
 import { TbMessage2Question } from "react-icons/tb";
+import { Drawer as DrawerPrimitive } from "vaul";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     Tooltip,
@@ -18,13 +18,13 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTutorialStep } from "@/hooks/use-tutorial-step";
+import { mapBottomInset } from "@/lib/context";
 import type { TutorialStepId } from "@/lib/tutorial";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
-const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 // Steps that show the (desktop) question sidebar expanded.
@@ -196,10 +196,16 @@ const Sidebar = React.forwardRef<
             "expanded",
             "collapsed",
         );
-        // On phones the sidebar is a modal sheet: opening it on top of the
+        // On phones the sidebar is a sheet: opening it on top of the
         // tutorial's modal dialog makes the two fight over focus and freezes
         // the tutorial, so keep it closed while the tutorial is showing.
         openMobile = useTutorialStep(openMobile, []);
+        // The map zooms to what's left above the sheet.
+        React.useEffect(() => {
+            mapBottomInset.set(
+                isMobile && openMobile ? Math.round(window.innerHeight / 2) : 0,
+            );
+        }, [isMobile, openMobile]);
 
         if (collapsible === "none") {
             return (
@@ -217,28 +223,49 @@ const Sidebar = React.forwardRef<
         }
 
         if (isMobile) {
+            // A bottom sheet over half the screen at most, with nothing
+            // dimmed: the map (and the game) stay in view and usable.
             return (
-                <Sheet
+                <DrawerPrimitive.Root
                     open={openMobile}
                     onOpenChange={setOpenMobile}
-                    {...props}
+                    modal={false}
+                    shouldScaleBackground={false}
                 >
-                    <SheetContent
-                        data-sidebar="sidebar"
-                        data-mobile="true"
-                        className="w-full bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden z-[1035]"
-                        style={
-                            {
-                                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-                            } as React.CSSProperties
+                    <DrawerPrimitive.Portal
+                        container={
+                            typeof document === "undefined"
+                                ? undefined
+                                : document.querySelector(
+                                      "#map-modal-dialog-container-leaflet",
+                                  )
                         }
-                        side={side}
                     >
-                        <div className="flex h-full w-full flex-col">
-                            {children}
-                        </div>
-                    </SheetContent>
-                </Sheet>
+                        <DrawerPrimitive.Content
+                            data-sidebar="sidebar"
+                            data-mobile="true"
+                            data-testid="sidebar-sheet"
+                            aria-describedby={undefined}
+                            className="fixed inset-x-0 bottom-0 z-[1035] flex max-h-[50svh] flex-col rounded-t-2xl border-t border-slate-600 bg-sidebar text-sidebar-foreground shadow-[0_-8px_30px_rgba(0,0,0,0.5)] outline-none"
+                            style={
+                                {
+                                    "--sidebar-width": "100%",
+                                } as React.CSSProperties
+                            }
+                        >
+                            <DrawerPrimitive.Title className="sr-only">
+                                Sidebar
+                            </DrawerPrimitive.Title>
+                            <div
+                                className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-slate-500"
+                                aria-hidden="true"
+                            />
+                            <div className="flex min-h-0 w-full flex-1 flex-col">
+                                {children}
+                            </div>
+                        </DrawerPrimitive.Content>
+                    </DrawerPrimitive.Portal>
+                </DrawerPrimitive.Root>
             );
         }
 
@@ -293,20 +320,40 @@ const SidebarTrigger = React.forwardRef<
     React.ElementRef<typeof Button>,
     React.ComponentProps<typeof Button>
 >(({ className, onClick, children, ...props }, ref) => {
-    const { toggleSidebar } = useStore(SidebarContext);
+    const { toggleSidebar, setOpenMobile, isMobile } = useStore(SidebarContext);
+    const touchStartY = React.useRef<number | null>(null);
 
     return (
         <button
             ref={ref}
             data-sidebar="trigger"
+            data-testid="sidebar-trigger"
             className={cn(
-                // Big enough for a thumb, and says what it opens.
-                "flex h-10 cursor-pointer items-center gap-2 rounded-md border-2 border-black/30 bg-white px-3 text-sm font-semibold text-black shadow-md hover:bg-[#f4f4f4]",
+                // Big enough for a thumb, and says what it opens. On a phone
+                // it sits at the bottom: a swipe up opens the sheet.
+                "flex h-10 cursor-pointer items-center gap-2 rounded-md border-2 border-black/30 bg-white px-3 text-sm font-semibold text-black shadow-md hover:bg-[#f4f4f4] max-md:rounded-full max-md:px-5",
                 className,
             )}
             onClick={(event) => {
                 onClick?.(event);
                 toggleSidebar();
+            }}
+            onTouchStart={(event) => {
+                touchStartY.current = event.touches[0]?.clientY ?? null;
+            }}
+            onTouchEnd={(event) => {
+                const start = touchStartY.current;
+                touchStartY.current = null;
+                const end = event.changedTouches[0]?.clientY;
+                if (
+                    isMobile &&
+                    start !== null &&
+                    end !== undefined &&
+                    start - end > 30
+                ) {
+                    event.preventDefault();
+                    setOpenMobile(true);
+                }
             }}
             {...props}
         >

@@ -2,7 +2,6 @@ import { useStore } from "@nanostores/react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
-import { CardText } from "@/components/RulesText";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -21,15 +20,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
-import { chosenStation, gameSettings } from "@/lib/context";
+import { gameSettings } from "@/lib/context";
 import {
     type CardInfo,
     cardInfo,
     cardLabel,
     CARDS,
     CUSTOM_PREFIX,
-    DRAWS,
     handBonusMinutes,
 } from "@/lib/game/deck";
 import { deckAct, localDeck, newLocalDeck } from "@/lib/game/deckSession";
@@ -44,16 +43,16 @@ import {
 } from "@/lib/game/hand";
 import { gameState, hiderPhone, sendOp } from "@/lib/game/session";
 import type {
-    CurseEntry,
-    CustomCard,
     Draw,
     GameSize,
     PowerupEntry,
+    SharedQuestion,
 } from "@/lib/game/types";
-import { CURSES, POWERUPS } from "@/lib/rules/cards";
-import { cn } from "@/lib/utils";
+import { chosenStation } from "@/lib/hiderSpot";
 
-import { CardFace } from "./CardFace";
+import { ActiveCurses } from "./ActiveCurses";
+import { CardHistory } from "./CardHistory";
+import { CardDialog, CardPicture, DrawButtons, HandTile } from "./CardTiles";
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
 
@@ -63,174 +62,29 @@ const DISCARDS: Record<string, number> = {
     powerup_discard_2_draw_3: 2,
 };
 
-/** Re-renders every 30 s, for the countdowns. */
-const useTick = () => {
-    const [, setNow] = useState(Date.now());
-    useEffect(() => {
-        const timer = setInterval(() => setNow(Date.now()), 30_000);
-        return () => clearInterval(timer);
-    }, []);
+const CATEGORY_LABELS: Record<string, string> = {
+    radius: "Radar",
+    thermometer: "Thermometer",
+    tentacles: "Tentacles",
+    matching: "Matching",
+    measuring: "Measuring",
 };
 
-const time = (at: number) =>
-    new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-const customPhoto = (card: CardInfo, custom: CustomCard[]) =>
-    custom.find((own) => CUSTOM_PREFIX + own.id === card.id)?.photo;
-
-/** A card's picture (a blank card with its name for the players' own). */
-const CardPicture = ({
-    card,
-    custom,
-    size,
-    onOpen,
-    selected,
-    className,
-}: {
-    card: CardInfo;
-    custom: CustomCard[];
-    size: GameSize;
-    onOpen: () => void;
-    selected?: boolean;
-    className?: string;
-}) => (
-    <button
-        type="button"
-        aria-label={card.name}
-        onClick={onOpen}
-        className={cn(
-            "block w-full overflow-hidden rounded-md border-2 border-transparent",
-            selected && "border-blue-400 ring-2 ring-blue-400",
-            className,
-        )}
-    >
-        <CardFace card={card} size={size} photo={customPhoto(card, custom)} />
-    </button>
-);
-
-/** The big view of a card, with its text. */
-const CardDialog = ({
-    card,
-    custom,
-    size,
-    onClose,
-}: {
-    card: CardInfo | null;
-    custom: CustomCard[];
-    size: GameSize;
-    onClose: () => void;
-}) => (
-    <Dialog open={card !== null} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
-            {card && (
-                <>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {cardLabel(card.id, size, custom)}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {card.kind === "time"
-                                ? "Counts at the end of the round if it's still in your hand."
-                                : "Tap outside to close."}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <CardFace
-                        card={card}
-                        size={size}
-                        photo={customPhoto(card, custom)}
-                        className="mx-auto max-h-[70vh] max-w-[360px]"
-                    />
-                </>
-            )}
-        </DialogContent>
-    </Dialog>
-);
-
-/** A card in the hand: picture, name, what you can do with it. */
-const HandTile = ({
-    card,
-    custom,
-    size,
-    onOpen,
-    onPlay,
-    onDiscard,
-    selected,
-    onSelect,
-}: {
-    card: CardInfo;
-    custom: CustomCard[];
-    size: GameSize;
-    onOpen: () => void;
-    onPlay?: () => void;
-    onDiscard: () => void;
-    /** Choosing cards to discard for a "Discard N, draw M". */
-    selected?: boolean;
-    onSelect?: () => void;
-}) => (
-    <li className="flex flex-col gap-1" data-testid="hand-card">
-        <CardPicture
-            card={card}
-            custom={custom}
-            size={size}
-            selected={selected}
-            onOpen={onOpen}
-        />
-        <p className="line-clamp-2 text-center text-xs leading-tight">
-            {cardLabel(card.id, size, custom)}
-        </p>
-        {onSelect && (
-            <Button
-                size="sm"
-                variant={selected ? "default" : "outline"}
-                onClick={onSelect}
-            >
-                {selected ? "Discard ✓" : "Discard this"}
-            </Button>
-        )}
-        {!onSelect && (
-            <div className="flex flex-col gap-1">
-                {onPlay && (
-                    <Button
-                        size="sm"
-                        className={cn(
-                            "w-full",
-                            card.kind === "curse"
-                                ? "bg-red-700 hover:bg-red-600"
-                                : "bg-amber-700 hover:bg-amber-600",
-                        )}
-                        onClick={onPlay}
-                    >
-                        {card.kind === "curse" ? "Cast" : "Play"}
-                    </Button>
-                )}
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={onDiscard}
-                >
-                    Discard
-                </Button>
-            </div>
-        )}
-    </li>
-);
-
-const DrawButtons = ({ onPick }: { onPick: (draw: Draw) => void }) => (
-    <div className="flex flex-col gap-1">
-        {Object.entries(DRAWS).map(([key, draw]) => (
-            <Button
-                key={key}
-                size="sm"
-                variant="outline"
-                className="justify-start whitespace-normal text-left"
-                onClick={() => onPick(draw)}
-            >
-                {draw.label}: draw {draw.draw}, keep {draw.keep}
-            </Button>
-        ))}
-    </div>
-);
+/** "Radar 5 km", "Matching (zone)". */
+const questionLabel = (question: SharedQuestion) => {
+    const data = question.data as {
+        type?: string;
+        locationType?: string;
+        radius?: number;
+        unit?: string;
+    };
+    const category = CATEGORY_LABELS[question.id] ?? question.id;
+    if (question.id === "radius" && typeof data.radius === "number") {
+        return `${category} ${data.radius} ${data.unit === "kilometers" ? "km" : data.unit}`;
+    }
+    const type = data.type ?? data.locationType;
+    return type ? `${category} (${type.replace(/[-_]/g, " ")})` : category;
+};
 
 /**
  * Sidebar → Cards: the hider's hand (hider's phone only), the curses on the
@@ -239,7 +93,8 @@ const DrawButtons = ({ onPick }: { onPick: (draw: Draw) => void }) => (
  * records what they keep.
  */
 export const CardsPanel = () => {
-    useTick();
+    // "x min ago" stays right.
+    useTick(true, 30_000);
     const $game = useStore(gameState);
     const hider = useStore(hiderPhone);
     const $settings = useStore(gameSettings);
@@ -260,6 +115,8 @@ export const CardsPanel = () => {
         | { digital: false; cardId: string }
         | null
     >(null);
+    // Randomize Question: which asked question it is played on.
+    const [randomizing, setRandomizing] = useState(false);
 
     const settings = $game?.settings ?? $settings;
     const size = settings.size;
@@ -274,11 +131,31 @@ export const CardsPanel = () => {
 
     const info = (id: string) => cardInfo(id, custom);
 
+    const askedQuestions = Object.values($game?.questions ?? {}).filter(
+        (entry) => entry.state === "asked",
+    );
+    /** Randomize Question is played on a question, from the question's card. */
+    const randomize = () => {
+        if (!$game) {
+            toast.info("Randomize Question needs a shared game.");
+            return;
+        }
+        if (askedQuestions.length === 0) {
+            toast.info("No question is waiting for an answer.");
+            return;
+        }
+        setRandomizing(true);
+    };
+
     const playDigital = (index: number) => {
         const id = deck?.hand[index];
         if (!id || !deck) return;
         if (id === "powerup_move") {
             setMoving({ digital: true, index });
+            return;
+        }
+        if (id === "powerup_randomize_question") {
+            randomize();
             return;
         }
         const need = DISCARDS[id];
@@ -304,6 +181,10 @@ export const CardsPanel = () => {
     const playReal = (card: HandCard) => {
         if (card.name === "Move") {
             setMoving({ digital: false, cardId: card.id });
+            return;
+        }
+        if (card.name === "Randomize Question") {
+            randomize();
             return;
         }
         if ($game) {
@@ -373,7 +254,6 @@ export const CardsPanel = () => {
     const played: PowerupEntry[] = [...($game?.powerups ?? [])].reverse();
     const log = [...(deck?.log ?? [])].reverse();
     const moves = [...($game?.moves ?? [])].reverse();
-    const history = cleared.length + played.length + log.length + moves.length;
     const handSize = digital ? (deck?.hand.length ?? 0) : $hand.length;
     const limit = digital ? (deck?.limit ?? 6) : $limit;
     const over = hider && handSize > limit;
@@ -632,6 +512,16 @@ export const CardsPanel = () => {
                             <p className="text-xs text-slate-400">
                                 Which question did you answer?
                             </p>
+                            {active.some(
+                                (c) =>
+                                    c.name ===
+                                    "Curse of the Overflowing Chalice",
+                            ) && (
+                                <p className="text-xs text-amber-300">
+                                    Overflowing Chalice is on: draw one card
+                                    more than shown, keep the same number.
+                                </p>
+                            )}
                             <DrawButtons
                                 onPick={(draw) => {
                                     setDrawing(draw);
@@ -740,148 +630,64 @@ export const CardsPanel = () => {
             )}
 
             {$game && (
-                <section className="flex flex-col gap-2">
-                    <h3 className="font-semibold font-poppins">
-                        On the seekers ({active.length})
-                    </h3>
-                    {active.length === 0 && (
-                        <p className="text-xs text-slate-400">
-                            No active curses.
-                        </p>
-                    )}
-                    {active.map((entry: CurseEntry) => {
-                        const curse = CURSES.find((c) => c.name === entry.name);
-                        const own = custom.find((c) => c.name === entry.name);
-                        const endsAt =
-                            curse?.minutes && size
-                                ? entry.castAt +
-                                  curse.minutes[SIZE_INDEX[size]] * 60_000
-                                : undefined;
-                        const left = endsAt
-                            ? Math.ceil((endsAt - Date.now()) / 60_000)
-                            : undefined;
-                        return (
-                            <div
-                                key={entry.id}
-                                className="flex flex-col gap-1 rounded-md border border-red-500/60 bg-red-950/40 p-2"
-                                data-testid="active-curse"
-                            >
-                                <p className="font-semibold">{entry.name}</p>
-                                {curse && (
-                                    <>
-                                        <p>
-                                            <CardText
-                                                text={curse.effect}
-                                                size={size}
-                                            />
-                                        </p>
-                                        <p className="text-xs">
-                                            <strong>Casting cost: </strong>
-                                            <CardText
-                                                text={curse.castingCost}
-                                                size={size}
-                                            />
-                                        </p>
-                                    </>
-                                )}
-                                {!curse && own && <p>{own.text}</p>}
-                                <p className="text-xs text-slate-300">
-                                    Cast {time(entry.castAt)}
-                                    {left !== undefined &&
-                                        (left > 0
-                                            ? ` · ${left} min left`
-                                            : " · time's up")}
-                                </p>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                        void sendOp({
-                                            type: "clearCurse",
-                                            id: entry.id,
-                                        })
-                                    }
-                                >
-                                    Cleared
-                                </Button>
-                            </div>
-                        );
-                    })}
-                    {!hider && digital && deck && (
-                        <p className="text-xs text-slate-400">
-                            The hider holds {deck.handSize ?? 0} card
-                            {deck.handSize === 1 ? "" : "s"};{" "}
-                            {deck.deckSize ?? 0} left in the deck.
-                        </p>
-                    )}
-                </section>
+                <ActiveCurses
+                    active={active}
+                    custom={custom}
+                    size={size}
+                    deck={deck}
+                    deckSizes={!hider && digital}
+                />
             )}
-
             {$game && (
-                <details className="rounded-md border border-slate-700 p-2">
-                    <summary className="cursor-pointer font-semibold font-poppins">
-                        History ({history})
-                    </summary>
-                    <div className="mt-2 flex flex-col gap-2 text-xs">
-                        {history === 0 && (
-                            <p className="text-slate-400">Nothing yet.</p>
-                        )}
-                        {moves.map((entry, index) => (
-                            <p key={`m${index}`} className="text-slate-300">
-                                Move at {time(entry.at)}
-                                {entry.station && ` from ${entry.station.name}`}
-                                : {entry.questions.length} question
-                                {entry.questions.length === 1 ? "" : "s"} put
-                                away.
-                            </p>
-                        ))}
-                        {played.map((entry) => {
-                            const powerup = POWERUPS.find(
-                                (p) => p.name === entry.name,
-                            );
-                            return (
-                                <div
-                                    key={entry.id}
-                                    className="rounded-md border border-amber-500/60 bg-amber-950/30 p-2"
-                                    data-testid="played-powerup"
-                                >
-                                    <p className="font-semibold">
-                                        {entry.name} · played{" "}
-                                        {time(entry.playedAt)}
-                                        {entry.by && ` by ${entry.by}`}
-                                    </p>
-                                    {powerup && (
-                                        <p className="text-slate-300">
-                                            <CardText
-                                                text={powerup.effect}
-                                                size={size}
-                                            />
-                                        </p>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {cleared.map((entry) => (
-                            <p key={entry.id} className="text-slate-300">
-                                {entry.name}: cast {time(entry.castAt)}, cleared
-                                by {entry.clearedBy}
-                            </p>
-                        ))}
-                        {log.map((entry, index) => (
-                            <p key={`l${index}`} className="text-slate-300">
-                                {time(entry.at)} {entry.text}
-                            </p>
-                        ))}
-                    </div>
-                </details>
+                <CardHistory
+                    moves={moves}
+                    played={played}
+                    cleared={cleared}
+                    log={log}
+                    size={size}
+                />
             )}
-
             <CardDialog
                 card={open}
                 custom={custom}
                 size={size}
                 onClose={() => setOpen(null)}
             />
+            <Dialog open={randomizing} onOpenChange={setRandomizing}>
+                <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
+                    <DialogHeader>
+                        <DialogTitle>Randomize which question?</DialogTitle>
+                        <DialogDescription>
+                            It becomes another question of its kind, chosen at
+                            random, which you answer instead.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ul className="flex flex-col gap-2">
+                        {askedQuestions.map((entry) => (
+                            <li key={entry.question.key}>
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={
+                                        entry.question.id === "thermometer"
+                                    }
+                                    onClick={() => {
+                                        setRandomizing(false);
+                                        void sendOp({
+                                            type: "randomizeQuestion",
+                                            key: entry.question.key,
+                                        });
+                                    }}
+                                >
+                                    {questionLabel(entry.question)}
+                                    {entry.question.id === "thermometer" &&
+                                        " (no variants)"}
+                                </Button>
+                            </li>
+                        ))}
+                    </ul>
+                </DialogContent>
+            </Dialog>
             <AlertDialog
                 open={moving !== null}
                 onOpenChange={(isOpen) => !isOpen && setMoving(null)}
