@@ -44,7 +44,6 @@ src/
     context.ts              the stores (questions, play area, hider pin, zone settings, UI state)
                             and the question helpers: addQuestion, updateQuestion, deleteQuestion
     hiderSpot.ts            the hider's station and pin: picking, clamping, where answers come from
-    shareLinks.ts           share-a-copy links and reading one from the address
     persist.ts              persistentAtom without cross-tab listening
     questionKey.ts          a question's identity for the map (its shared fields, cached per object)
     gameSettings.ts         applying a game's settings to the stores; newRadiusQuestion
@@ -58,11 +57,10 @@ src/
                             deck), clock.ts, endgame.ts, events.ts + alerts.ts (what to tell
                             whom; push opt-in), drafts.ts, photos.ts, answerTimer.ts,
                             questionIdentity.ts (asked again, randomize), scoreboard.ts,
-                            backup.ts (questions from before a game)
+                            curseRules.ts (what each curse does to the game)
     activeQuestion.ts       which question draws its reference places
     jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
-    sharedGame.ts           parse / summarize / apply shared games (links, files)
-    shareApi.ts             client for /api/share
+    sharedGame.ts           a game's play area and zone settings: names, checks, applying
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
     geolocation.ts          GPS with readable errors; the phone's position while Follow me is on
@@ -91,24 +89,23 @@ src/
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline
     DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
     QuestionSidebar.tsx     the sidebar: Questions, Stations (Hider on the hider's phone), Photos, Cards
-    cards/                  base.tsx (the card frame: fold, lock, hide, share, delete) + one card per type
+    cards/                  base.tsx (the card frame: fold, lock, hide, delete) + one card per type
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
     PlayAreaBar.tsx         choosing the play area (search, draw) during setup
     OptionDrawers.tsx       the Menu panel: Game (GamePanel) and Settings (SettingsPanel) tabs,
-                            ShareCopyDialog, MenuGroup
+                            MenuGroup
     game/                   GameSetupDialog (+ setup/DeckEditor, setup/QuestionsStep), GamePanel
-                            (incl. scoreboard, earlier questions), JoinDialog (name and role
+                            (incl. scoreboard), JoinDialog (name and role
                             first), HiderToggle, QuestionGameBar (send / answer / veto /
                             randomize, the answer timer), PhotosPanel, CardsPanel (the hand) with
                             CardTiles, ActiveCurses, CardHistory, CardFace; RoundClock, GamePopups
                             (alerts), PushCard, NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
-    SharedGameDialog.tsx    "load this shared game?" prompt
     TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
                             gameOps.ts (the rules: applyOp, viewFor), push.ts (push
-                            notifications, VAPID keys), shareStore.ts
+                            notifications, VAPID keys)
 server/datasets/            builds the reference data (build.ts; nearest.ts, routes.ts, elevation.ts)
 deploy/                     Docker Compose stack, nginx configs, data scripts, guide
 tests/, e2e/                unit and browser tests
@@ -236,6 +233,11 @@ progress, the hider's spot, and earlier rounds.
 - **The digital deck** (`deck.ts`, pure, shared with the server): the server
   shuffles and deals what an answered question earns, the hider keeps or
   plays cards, and the time bonuses are worked out from the hand.
+- **The curses** (`curseRules.ts`, shared with the server): which curses
+  stop the seekers from asking until cleared, which take questions away
+  (the Drained Brain's three, the Spotty Memory's die), which end by
+  themselves, and what they award the hider. The server refuses what a
+  curse forbids; the phones grey it out and say why.
 - Games untouched for a year are deleted (`games.cleanup`, daily).
 
 ## Persistence and sharing
@@ -243,17 +245,15 @@ progress, the hider's spot, and earlier rounds.
 - Game state lives in localStorage, read once per tab (another tab's writes
   are not picked up, on purpose). Saved questions that this version can't
   read are backed up (`questions-unreadable-backup`) instead of stopping the
-  app; the questions from before a shared game are kept
-  (`questions-before-game`) and can be restored from Menu → Game.
+  app. Questions belong to the game they were asked in: joining a game
+  replaces them with the game's, and leaving it (or the game being
+  deleted) drops them.
 - On phones the questions are a bottom sheet (`ui/bottom-sheet.tsx`, used
   by `ui/sidebar-l.tsx`): half the screen or all of it, nothing dimmed or
   blocked behind it; on desktop the left sidebar. The Menu is a panel from
   the right behind the gear (`OptionDrawers.tsx`).
-- A shared game (link, file or pasted JSON) is validated as a whole before
-  anything changes. Opening a link asks first if you already have questions.
-  Presets are merged, never removed.
-- Share links: `?share=<id>` (own server), with `?hzc=` (compressed game in
-  the link) as a fallback. `?hz=` and `?url=` still load.
+- There is no snapshot sharing (links, files, pasted games): the shared
+  game on the server is the one way to play together.
 
 ## Known structural debt
 

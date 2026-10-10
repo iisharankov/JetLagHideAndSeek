@@ -39,7 +39,6 @@ import {
     postOp,
     postPhoto,
 } from "./api";
-import { writeBackup } from "./backup";
 import {
     forgetGame,
     markJoined,
@@ -436,10 +435,7 @@ export const joinGame = (id: string) => {
     if (sessionGame !== id) {
         // The server's version wins: this phone's questions count as what it
         // last had in common with the server, so ones not in the game are
-        // dropped (kept as a backup) and none are sent.
-        if (activeGameId.get() !== id && questions.get().length > 0) {
-            writeBackup(questions.get());
-        }
+        // dropped and none are sent.
         synced = new Map(questions.get().map((q) => [q.key, syncedJson(q)]));
         syncedPlayArea = "";
         syncedZone = "";

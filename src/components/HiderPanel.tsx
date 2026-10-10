@@ -1,6 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { toast } from "react-toastify";
 
+import { useTick } from "@/hooks/useTick";
 import {
     endgame,
     hiderMode,
@@ -9,6 +10,8 @@ import {
     isLoading,
     trainStations,
 } from "@/lib/context";
+import { formatDuration } from "@/lib/game/clock";
+import { serverNow } from "@/lib/game/serverTime";
 import { gameState, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
 import {
@@ -45,6 +48,7 @@ export const HiderPanel = () => {
     const $pin = useStore(hiderMode);
     const $endgame = useStore(endgame);
     const $game = useStore(gameState);
+    useTick(!!$game?.move);
     const $isLoading = useStore(isLoading);
     const $hidingRadius = useStore(hidingRadius);
     const $hidingRadiusUnits = useStore(hidingRadiusUnits);
@@ -133,7 +137,13 @@ export const HiderPanel = () => {
                         <strong>Move.</strong> The seekers are frozen and know
                         you were at{" "}
                         {$game.move.station?.name ?? "your old station"}. Is
-                        this your new station? Then continue.
+                        this your new station? Then continue.{" "}
+                        <span data-testid="move-left">
+                            {formatDuration(
+                                Math.max(0, $game.move.endsAt - serverNow()),
+                            )}{" "}
+                            left; the game goes on by itself after that.
+                        </span>
                     </p>
                     <Button
                         size="sm"

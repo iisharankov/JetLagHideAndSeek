@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { SidebarCloseIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { withErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar-l";
 import { SegmentedControl } from "@/components/ui/toggle-card";
 import { showUndoToast } from "@/components/undoToast";
+import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
 import {
     clearQuestions,
@@ -34,7 +35,9 @@ import {
     questions,
     sidebarTab,
 } from "@/lib/context";
+import { formatDuration } from "@/lib/game/clock";
 import { hand, handLimit } from "@/lib/game/hand";
+import { serverNow } from "@/lib/game/serverTime";
 import {
     gameConnection,
     gameRole,
@@ -45,6 +48,7 @@ import {
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
+import { CurseBanner } from "./game/CurseBanner";
 import { NotePinList } from "./game/NotePins";
 import { PhotosPanel } from "./game/PhotosPanel";
 import { RoundClock } from "./game/RoundClock";
@@ -93,6 +97,17 @@ export const QuestionSidebar = () => {
         if (overLimit && tab !== "curses") sidebarTab.set("curses");
     }, [overLimit, tab]);
     const move = $game?.move ?? null;
+    // The Move card's period: counted down; when it's over the game goes on
+    // by itself (whichever phone notices first).
+    useTick(!!move);
+    const moveLeft = move ? move.endsAt - serverNow() : 0;
+    const resumedFor = useRef<number | null>(null);
+    useEffect(() => {
+        if (!move || moveLeft > 0 || resumedFor.current === move.startedAt)
+            return;
+        resumedFor.current = move.startedAt;
+        void sendOp({ type: "resumeMove" });
+    }, [move, moveLeft]);
     const activeCurses =
         $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
     // The hider: questions waiting for an answer.
@@ -195,7 +210,12 @@ export const QuestionSidebar = () => {
                                 ? "The seekers are frozen and know your old station. Pick your new station in the Hider tab, get there, then continue."
                                 : `${move.by} left ${
                                       move.station?.name ?? "their station"
-                                  } (shown on the map) and is moving. No questions until they continue; the questions so far are in Cards → History.`}
+                                  } (shown on the map) and is moving. No questions until they continue; the questions so far are in Cards → History.`}{" "}
+                            <span data-testid="move-countdown">
+                                {moveLeft > 0
+                                    ? `${formatDuration(moveLeft)} left; the game goes on by itself after that.`
+                                    : "The period is over: the game goes on."}
+                            </span>
                         </p>
                         {$role === "hider" && (
                             <Button
@@ -225,6 +245,7 @@ export const QuestionSidebar = () => {
                 </SidebarContent>
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
+                <CurseBanner />
                 <SidebarMenu
                     className="px-2 pt-2"
                     data-tutorial-id="add-questions-buttons"

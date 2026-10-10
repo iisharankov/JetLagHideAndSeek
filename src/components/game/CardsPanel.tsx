@@ -23,6 +23,7 @@ import {
 import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
 import { gameSettings } from "@/lib/context";
+import { activeCurses, curseRule } from "@/lib/game/curseRules";
 import {
     type CardInfo,
     cardInfo,
@@ -43,6 +44,7 @@ import {
     handLimit,
     keepCard,
 } from "@/lib/game/hand";
+import { serverNow } from "@/lib/game/serverTime";
 import { gameState, hiderPhone, sendOp } from "@/lib/game/session";
 import type {
     Draw,
@@ -53,8 +55,10 @@ import type {
 import { chosenStation } from "@/lib/hiderSpot";
 
 import { ActiveCurses } from "./ActiveCurses";
+import { Awards } from "./Awards";
 import { CardHistory } from "./CardHistory";
 import { CardDialog, CardPicture, DrawButtons, HandTile } from "./CardTiles";
+import { DrainedBrainChooser } from "./DrainedBrainChooser";
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
 
@@ -115,12 +119,16 @@ export const CardsPanel = () => {
         kind?: "time" | "powerup";
         /** "Cast" a curse, "Play" a powerup. */
         verb: "Play" | "Cast";
+        /** Duplicate Another Card standing in for the card at this index. */
+        copyOf?: number;
     } | null>(null);
     const [moving, setMoving] = useState<
-        | { digital: true; index: number }
+        | { digital: true; index: number; copyOf?: number }
         | { digital: false; cardId: string }
         | null
     >(null);
+    // Duplicate Another Card: which card in the hand it copies.
+    const [copying, setCopying] = useState<number | null>(null);
     // Randomize Question: which asked question it is played on.
     const [randomizing, setRandomizing] = useState(false);
 
@@ -153,11 +161,16 @@ export const CardsPanel = () => {
         setRandomizing(true);
     };
 
-    const playDigital = (index: number) => {
-        const id = deck?.hand[index];
+    /** Plays the card at `index`; a Duplicate plays as the card at `copyOf`. */
+    const playDigital = (index: number, copyOf?: number) => {
+        const id = deck?.hand[copyOf ?? index];
         if (!id || !deck) return;
+        if (copyOf === undefined && id === "powerup_duplicate_another_card") {
+            setCopying(index);
+            return;
+        }
         if (id === "powerup_move") {
-            setMoving({ digital: true, index });
+            setMoving({ digital: true, index, copyOf });
             return;
         }
         if (id === "powerup_randomize_question") {
@@ -172,7 +185,7 @@ export const CardsPanel = () => {
                 );
                 return;
             }
-            setSwap({ index, need, picked: [], verb: "Play" });
+            setSwap({ index, need, picked: [], verb: "Play", copyOf });
             return;
         }
         // A curse's casting cost in cards.
@@ -184,7 +197,7 @@ export const CardsPanel = () => {
                     `${info(id).name}: casting it discards your whole hand (${others} other card${others === 1 ? "" : "s"}). Cast it?`,
                 )
             ) {
-                deckAct({ type: "playCard", index });
+                deckAct({ type: "playCard", index, copyOf });
             }
             return;
         }
@@ -206,10 +219,11 @@ export const CardsPanel = () => {
                 picked: [],
                 kind: cost.kind,
                 verb: "Cast",
+                copyOf,
             });
             return;
         }
-        deckAct({ type: "playCard", index });
+        deckAct({ type: "playCard", index, copyOf });
         if (id === "powerup_draw_1_expand_1") {
             toast.info(
                 "Your hand may hold one more card now; the card you drew is below.",
@@ -248,7 +262,12 @@ export const CardsPanel = () => {
         if (!moving) return;
         const station = chosenStation.get();
         if (moving.digital) {
-            deckAct({ type: "playCard", index: moving.index, station });
+            deckAct({
+                type: "playCard",
+                index: moving.index,
+                station,
+                copyOf: moving.copyOf,
+            });
         } else {
             discardRealHand();
             if ($game) void sendOp({ type: "move", station });
@@ -289,7 +308,21 @@ export const CardsPanel = () => {
         );
     }
 
-    const active = ($game?.curses ?? []).filter((c) => !c.clearedAt).reverse();
+    // Timed curses end by themselves; the server clears them on its next change.
+    const active = $game
+        ? activeCurses($game, serverNow()).slice().reverse()
+        : [];
+    const brainToChoose =
+        hider && $game
+            ? active.find(
+                  (entry) =>
+                      curseRule(entry.name).takes === "kinds" && !entry.kinds,
+              )
+            : undefined;
+    const freeNext =
+        (deck?.freeQuestions ?? 0) > 0 ||
+        (!digital &&
+            active.some((entry) => curseRule(entry.name).freeQuestion));
     const cleared = ($game?.curses ?? []).filter((c) => c.clearedAt).reverse();
     const played: PowerupEntry[] = [...($game?.powerups ?? [])].reverse();
     const log = [...(deck?.log ?? [])].reverse();
@@ -324,6 +357,15 @@ export const CardsPanel = () => {
                             {deck.remaining.length} in the deck
                         </span>
                     </div>
+                    {freeNext && (
+                        <p
+                            className="text-xs text-amber-300"
+                            data-testid="free-question"
+                        >
+                            The seekers&apos; next question is free (Curse of
+                            the Impressionable Consumer): no draw for it.
+                        </p>
+                    )}
                     {deck.pending.length === 0 && (
                         <p className="text-xs text-slate-400">
                             Your cards come by themselves when you answer a
@@ -421,6 +463,7 @@ export const CardsPanel = () => {
                                             type: "playCard",
                                             index: swap.index,
                                             discards: swap.picked,
+                                            copyOf: swap.copyOf,
                                         });
                                         setSwap(null);
                                     }}
@@ -446,6 +489,7 @@ export const CardsPanel = () => {
                                 const selectable =
                                     selecting &&
                                     index !== swap.index &&
+                                    index !== swap.copyOf &&
                                     (!swap.kind || card.kind === swap.kind);
                                 return (
                                     <HandTile
@@ -560,6 +604,12 @@ export const CardsPanel = () => {
                             <p className="text-xs text-slate-400">
                                 Which question did you answer?
                             </p>
+                            {freeNext && (
+                                <p className="text-xs text-amber-300">
+                                    The seekers&apos; next question is free
+                                    (Impressionable Consumer): no draw for it.
+                                </p>
+                            )}
                             {active.some(
                                 (c) =>
                                     c.name ===
@@ -677,6 +727,7 @@ export const CardsPanel = () => {
                 </section>
             )}
 
+            {$game && <Awards awards={$game.awards ?? []} hider={hider} />}
             {$game && (
                 <ActiveCurses
                     active={active}
@@ -701,6 +752,50 @@ export const CardsPanel = () => {
                 size={size}
                 onClose={() => setOpen(null)}
             />
+            {brainToChoose && <DrainedBrainChooser curse={brainToChoose} />}
+            <Dialog
+                open={copying !== null}
+                onOpenChange={(open) => !open && setCopying(null)}
+            >
+                <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
+                    <DialogHeader>
+                        <DialogTitle>Play as a copy of which card?</DialogTitle>
+                        <DialogDescription>
+                            Duplicate Another Card: the card it copies stays in
+                            your hand. A time bonus is copied by itself at the
+                            end of the round.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ul className="flex flex-col gap-2">
+                        {(deck?.hand ?? []).map((id, index) => {
+                            const card = info(id);
+                            if (
+                                index === copying ||
+                                card.kind === "time" ||
+                                id === "powerup_duplicate_another_card"
+                            ) {
+                                return null;
+                            }
+                            return (
+                                <li key={`${id}-${index}`}>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => {
+                                            const from = copying;
+                                            setCopying(null);
+                                            if (from !== null)
+                                                playDigital(from, index);
+                                        }}
+                                    >
+                                        {cardLabel(id, size, custom)}
+                                    </Button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </DialogContent>
+            </Dialog>
             <Dialog open={randomizing} onOpenChange={setRandomizing}>
                 <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
                     <DialogHeader>

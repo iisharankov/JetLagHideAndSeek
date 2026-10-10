@@ -4,6 +4,7 @@
 import type { Question } from "@/maps/schema";
 
 import { describeAnswer } from "./answers";
+import { kindLabel } from "./curseRules";
 import type { GameState, Role, SharedQuestion } from "./types";
 
 export interface GameEvent {
@@ -16,7 +17,8 @@ export interface GameEvent {
         | "endgame"
         | "curse"
         | "powerup"
-        | "move";
+        | "move"
+        | "award";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
@@ -148,6 +150,27 @@ export const gameEvents = (
             title: `The hider cast ${curse.name}`,
             name: curse.name,
         });
+    }
+    for (const award of after.awards ?? []) {
+        if ((before.awards ?? []).some((b) => b.id === award.id)) continue;
+        events.push({
+            key: `aw${award.id}`,
+            kind: "award",
+            title: `The hider gets ${award.minutes} minutes`,
+            body: award.reason || undefined,
+        });
+    }
+    for (const curse of after.curses) {
+        const previous = before.curses.find((b) => b.id === curse.id);
+        if (curse.kinds && previous && !previous.kinds) {
+            events.push({
+                key: `ck${curse.id}`,
+                kind: "curse",
+                title: "Curse of the Drained Brain took questions away",
+                body: curse.kinds.map(kindLabel).join(", "),
+                name: curse.name,
+            });
+        }
     }
     for (const powerup of after.powerups) {
         if (before.powerups.some((b) => b.id === powerup.id)) continue;

@@ -532,6 +532,54 @@ Not in this round: the geometry worker; Authelia.
    locked for everyone), and the result row is smaller. Every question type
    got the same treatment.
 
+## Round 17: the curses enforced ✅ (2026-10-10)
+
+Every printed curse was read against the app. `src/lib/game/curseRules.ts`
+(shared with the server) holds what each one does to the game; the texts
+stay in `rules/cards.ts`.
+
+1. **Curses that stop the asking** (Luxury Car, Water Weight, Zoologist,
+   Egg Partner, Bird Guide, Unguided Tourist, Mediocre Travel Agent,
+   Impressionable Consumer, Cairn, Distant Cuisine, Lemon Phylactery,
+   Hidden Hangman, Endless Tumble, Labyrinth): the seekers' Questions tab
+   says so, "Send to the hider" and "Ask" are off and the server refuses,
+   until someone taps Cleared in Cards.
+2. **Curse of the Drained Brain:** the hider's phone opens a chooser
+   (three questions in three categories, from this game's radars, types
+   and photos); the seekers can't ask anything until then; afterwards
+   those questions are gone for the run (greyed radar chips, hidden types,
+   the thermometer button off, the server refuses them).
+   **Curse of the Spotty Memory:** the seekers enter their real die's
+   category in the banner; it's off until their next question, which
+   makes them roll again.
+3. **Timers:** curses with a duration end by themselves ("12:30 left" in
+   Cards). The Move's period (10/20/60 minutes by size) counts down on
+   both phones and the game goes on by itself when it's over. The Bird
+   Guide has a stopwatch on the hider's phone (the time goes to the
+   seekers); the Labyrinth shows the drawing time left.
+4. **Awards:** Cards → "Awarded minutes": the hider records minutes a
+   curse earned (a button per curse with a penalty, or any number with a
+   reason); they count in the clock's bonus tag and in "Send my bonuses".
+   The Impressionable Consumer makes the seekers' next question free of a
+   draw (digital deck) or says so (physical deck).
+5. **End game:** Egg Partner and Lemon Phylactery can't be cast during it.
+6. **Duplicate Another Card** is played as a copy of another card in the
+   hand (the copied card stays; a copied time bonus counts by itself).
+7. **Reminders** for the rule-only curses (Bridge Troll, Jammed Door,
+   Ransom Note, U-Turn, Gambler's Feet, Right Turn, Urban Explorer) in the
+   seekers' banner.
+
+8. **Questions belong to their game.** The "your questions from before the
+   game are kept" box (and the backup behind it) is gone: joining replaces
+   them, leaving or deleting the game drops them.
+9. **"Share a copy, save or load a file" is gone** with everything behind
+   it: the snapshot links (`?share=`, `?hzc=`, `?hz=`, `?url=`), the file
+   export and import, the copy and paste of whole games, and the server's
+   share store. Playing together is the shared game only. (Pasting a
+   single question is still there.)
+
+Not built, by your choice: dice (you roll real ones) and a hangman board.
+
 ## What's left ⏭️
 
 From [the audit](audit-2026-10.md), roughly in order of value:

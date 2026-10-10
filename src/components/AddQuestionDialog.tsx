@@ -18,6 +18,9 @@ import {
     isLoading,
     leafletMapContext,
 } from "@/lib/context";
+import { disabledCategory, kindRefusal } from "@/lib/game/curseRules";
+import { serverNow } from "@/lib/game/serverTime";
+import { gameState } from "@/lib/game/session";
 import { tentacleRadiusKm } from "@/lib/game/settings";
 import { newRadiusQuestion } from "@/lib/gameSettings";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
@@ -43,8 +46,20 @@ export const AddQuestionDialog = ({
     const $isLoading = useStore(isLoading);
     const $followMe = useStore(followMe);
     const $here = useStore(currentPosition);
+    const $game = useStore(gameState);
     const [open, setOpen] = React.useState(false);
     const fromGps = !!$here && !!recentPosition();
+    // A Spotty Memory disables a whole category; a Drained Brain may have
+    // taken the thermometer away.
+    const disabled = $game ? disabledCategory($game, serverNow()) : null;
+    const refusal = (category: string) =>
+        !$game
+            ? null
+            : category === "thermometer"
+              ? kindRefusal($game, "thermometer", serverNow())
+              : disabled === category
+                ? `${disabled.charAt(0).toUpperCase()}${disabled.slice(1)} questions are disabled right now (Curse of the Spotty Memory).`
+                : null;
 
     const runAddRadius = () => {
         const center = startPoint();
@@ -175,7 +190,8 @@ export const AddQuestionDialog = ({
                         onClick={() => {
                             if (runAddRadius()) setOpen(false);
                         }}
-                        disabled={$isLoading}
+                        disabled={$isLoading || refusal("radius") !== null}
+                        title={refusal("radius") ?? undefined}
                     >
                         Add Radius
                     </SidebarMenuButton>
@@ -183,7 +199,8 @@ export const AddQuestionDialog = ({
                         onClick={() => {
                             if (runAddThermometer()) setOpen(false);
                         }}
-                        disabled={$isLoading}
+                        disabled={$isLoading || refusal("thermometer") !== null}
+                        title={refusal("thermometer") ?? undefined}
                     >
                         Add Thermometer
                     </SidebarMenuButton>
@@ -191,7 +208,8 @@ export const AddQuestionDialog = ({
                         onClick={() => {
                             if (runAddTentacles()) setOpen(false);
                         }}
-                        disabled={$isLoading}
+                        disabled={$isLoading || refusal("tentacles") !== null}
+                        title={refusal("tentacles") ?? undefined}
                     >
                         Add Tentacles
                     </SidebarMenuButton>
@@ -199,7 +217,8 @@ export const AddQuestionDialog = ({
                         onClick={() => {
                             if (runAddMatching()) setOpen(false);
                         }}
-                        disabled={$isLoading}
+                        disabled={$isLoading || refusal("matching") !== null}
+                        title={refusal("matching") ?? undefined}
                     >
                         Add Matching
                     </SidebarMenuButton>
@@ -207,7 +226,8 @@ export const AddQuestionDialog = ({
                         onClick={() => {
                             if (runAddMeasuring()) setOpen(false);
                         }}
-                        disabled={$isLoading}
+                        disabled={$isLoading || refusal("measuring") !== null}
+                        title={refusal("measuring") ?? undefined}
                     >
                         Add Measuring
                     </SidebarMenuButton>

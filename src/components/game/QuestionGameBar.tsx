@@ -15,6 +15,11 @@ import {
     answerTimerText,
     answerTimerTone,
 } from "@/lib/game/answerTimer";
+import {
+    blockingCurses,
+    kindRefusal,
+    questionKind,
+} from "@/lib/game/curseRules";
 import { DRAWS } from "@/lib/game/hand";
 import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
 import { serverNow } from "@/lib/game/serverTime";
@@ -95,6 +100,18 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
         entry.state === "draft"
             ? timesAnsweredBefore($game, question as unknown as SharedQuestion)
             : 0;
+    // The curses on the seekers may stop this question from being sent.
+    const blocking = blockingCurses($game, serverNow())[0];
+    const refusal =
+        entry.state === "draft"
+            ? blocking
+                ? `${blocking.name}: no questions until it's cleared.`
+                : kindRefusal(
+                      $game,
+                      questionKind(question as unknown as SharedQuestion),
+                      serverNow(),
+                  )
+            : null;
 
     return (
         <div
@@ -144,8 +161,14 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     twice).
                 </p>
             )}
+            {refusal && $role === "seeker" && (
+                <p className="text-amber-300" data-testid="send-refusal">
+                    {refusal}
+                </p>
+            )}
             {entry.state === "draft" && $role === "seeker" && (
                 <Button
+                    disabled={refusal !== null}
                     size="sm"
                     className="mt-1 w-full"
                     onClick={() =>

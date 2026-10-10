@@ -12,6 +12,7 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { UnitToggle } from "@/components/UnitToggle";
+import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     drawingQuestionKey,
     gameSettings,
@@ -57,7 +58,10 @@ export const TentacleQuestionComponent = ({
     const answered =
         gameQuestionState === "answered" || gameQuestionState === "vetoed";
     // Types left out of this game are hidden (the current one stays).
-    const hidden = hiddenTypesFor("tentacles", $gameSettings);
+    const hidden = [
+        ...hiddenTypesFor("tentacles", $gameSettings),
+        ...useTakenAway("tentacles"),
+    ];
     const inGame = (type: string) =>
         type === data.locationType || !hidden.includes(type);
     const label = `Tentacles

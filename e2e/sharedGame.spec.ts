@@ -414,3 +414,162 @@ test("with the virtual deck the game deals the hider's cards", async ({
 
     await ben.context().close();
 });
+
+/** Ben (real deck) records a card he drew, then casts it from his hand. */
+const castFromRealDeck = async (ben: Page, name: string) => {
+    await ben.getByRole("button", { name: "Draw cards" }).click();
+    await ben.getByRole("button", { name: /^Radar/ }).click();
+    await ben.locator("li", { hasText: name }).getByRole("button").click();
+    await ben
+        .getByTestId("hand-card")
+        .filter({ hasText: name })
+        .getByRole("button", { name: "Cast" })
+        .click();
+};
+
+test("curses on the seekers: no asking until cleared, questions taken away, the memory's die, awards", async ({
+    page,
+    browser,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await openMenu(page, "Game");
+    await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("radio", { name: "Small" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Start the game" }).click();
+    await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
+    const link = page.url();
+    await closeMenu(page);
+    await page.getByRole("button", { name: "Add Question" }).click();
+    await page.getByRole("button", { name: "Add Radius" }).click();
+    await page.getByRole("button", { name: "5 km", exact: true }).click();
+    const send = page.getByRole("button", { name: "Send to the hider" });
+    await expect(send).toBeEnabled();
+    const banner = page.getByTestId("curse-banner");
+    await expect(banner).toHaveCount(0);
+
+    const ben = await newPhone(browser);
+    await preparePhone(ben, "Ben", link);
+    await ben.getByRole("button", { name: "I'm the hider" }).click();
+    await ben.getByLabel("Hider password").fill("secret");
+    await ben.getByRole("button", { name: "Become the hider" }).click();
+    await expect(ben.getByTestId("hider-panel")).toBeVisible();
+    await ben.getByRole("radio", { name: /Cards/ }).click();
+
+    // A curse that stops the asking: Ana can't send until it's cleared.
+    await castFromRealDeck(ben, "Curse of the Luxury Car");
+    await page.getByRole("button", { name: /^OK/ }).click();
+    await expect(banner).toContainText("Curse of the Luxury Car");
+    await expect(send).toBeDisabled();
+    await expect(page.getByTestId("send-refusal")).toContainText(
+        "Curse of the Luxury Car",
+    );
+    await page.getByRole("radio", { name: /Cards/ }).click();
+    await page
+        .getByTestId("active-curse")
+        .getByRole("button", { name: "Cleared" })
+        .click();
+    await page.getByRole("radio", { name: /^Questions/ }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(send).toBeEnabled();
+
+    // The Drained Brain: Ben chooses three questions, gone for his run.
+    await castFromRealDeck(ben, "Curse of the Drained Brain");
+    await page.getByRole("button", { name: /^OK/ }).click();
+    await expect(page.getByTestId("send-refusal")).toContainText(
+        "Curse of the Drained Brain",
+    );
+    const chooser = ben.getByTestId("drained-brain-chooser");
+    const take = chooser.getByRole("button", { name: /^Take these away/ });
+    await expect(take).toBeDisabled();
+    await chooser.getByRole("button", { name: "Radar 500 m" }).click();
+    await chooser
+        .getByRole("button", { name: "Thermometer", exact: true })
+        .click();
+    // Only one per category: a second radar replaces the first.
+    await chooser.getByRole("button", { name: "Radar 1 km" }).click();
+    await expect(take).toHaveText("Take these away (2/3)");
+    await chooser.getByRole("button", { name: "Radar 500 m" }).click();
+    await chooser
+        .locator("section", {
+            has: ben.locator("h3", { hasText: "Tentacles" }),
+        })
+        .getByRole("button")
+        .first()
+        .click();
+    await expect(take).toHaveText("Take these away (3/3)");
+    await take.click();
+    await expect(chooser).toBeHidden();
+    // Ana's phone shows what she lost.
+    await expect(
+        page.getByRole("dialog", { name: /took questions away/ }),
+    ).toContainText("Radar 500 m, Thermometer, Tentacles: Museums");
+    await page.getByRole("button", { name: /^OK/ }).click();
+    await expect(banner).toContainText(
+        "took away: Radar 500 m, Thermometer, Tentacles: Museums.",
+    );
+    await expect(ben.getByTestId("taken-away")).toContainText("Taken away");
+    // It lasts the run: nobody clears it.
+    await expect(
+        ben
+            .getByTestId("active-curse")
+            .getByRole("button", { name: "Cleared" }),
+    ).toHaveCount(0);
+    // Ana's 5 km question is fine; the 500 m radar and the thermometer aren't.
+    await expect(send).toBeEnabled();
+    await expect(
+        page.getByRole("button", { name: "500 m", exact: true }),
+    ).toBeDisabled();
+    await page.getByRole("button", { name: "Add Question" }).click();
+    await expect(
+        page.getByRole("button", { name: "Add Thermometer" }),
+    ).toBeDisabled();
+    await expect(
+        page.getByRole("button", { name: "Add Matching" }),
+    ).toBeEnabled();
+    await page.keyboard.press("Escape");
+
+    // The Spotty Memory: Ana's die names a category she loses until her
+    // next question.
+    await castFromRealDeck(ben, "Curse of the Spotty Memory");
+    await page.getByRole("button", { name: /^OK/ }).click();
+    await expect(send).toBeDisabled();
+    await banner.getByRole("button", { name: "4: Matching" }).click();
+    await expect(banner).toContainText("Matching questions are disabled");
+    await expect(send).toBeEnabled();
+    await page.getByRole("button", { name: "Add Question" }).click();
+    await expect(
+        page.getByRole("button", { name: "Add Matching" }),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
+    // Her next question makes her roll again.
+    await send.click();
+    await expect(page.getByTestId("question-game-state")).toHaveAttribute(
+        "data-state",
+        "asked",
+    );
+    await expect(banner).toContainText("roll a die");
+
+    // Awards: minutes the hider gets on top of the hand's time bonuses.
+    await ben.getByLabel("Minutes to award").fill("10");
+    await ben.getByLabel("Reason").fill("the egg cracked");
+    await ben.getByRole("button", { name: "Award", exact: true }).click();
+    await expect(ben.getByTestId("awards")).toContainText(
+        "+10 min: the egg cracked",
+    );
+    await page.getByRole("radio", { name: /Cards/ }).click();
+    await expect(page.getByTestId("awards")).toContainText("+10 min");
+    await ben.getByRole("radio", { name: /^Questions/ }).click();
+    await ben
+        .getByTestId("round-clock")
+        .getByRole("button", { name: "Start" })
+        .click();
+    await expect(ben.getByTestId("clock-bonus")).toHaveText("+10:00");
+
+    await ben.context().close();
+});

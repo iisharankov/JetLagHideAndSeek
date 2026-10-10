@@ -14,6 +14,7 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     customInitPreference,
     drawingQuestionKey,
@@ -75,6 +76,7 @@ export const MatchingQuestionComponent = ({
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
     const $gameSettings = useStore(gameSettings);
+    const takenAway = useTakenAway("matching");
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     const gameQuestionState = useGameQuestionState(questionKey);
     const answered =
@@ -82,7 +84,10 @@ export const MatchingQuestionComponent = ({
     // The game's own list of question types, plus the local rules' labels.
     const gameRules = {
         ...$regionRules,
-        hiddenQuestionTypes: hiddenTypesFor("matching", $gameSettings),
+        hiddenQuestionTypes: [
+            ...hiddenTypesFor("matching", $gameSettings),
+            ...takenAway,
+        ],
     };
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);

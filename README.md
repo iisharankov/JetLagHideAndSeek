@@ -8,7 +8,7 @@ matching and measuring questions, hiding zones around stations, hider mode
 link.
 
 This fork is set up to be **self-hosted and private**: map data, place search,
-basemap tiles and share links all come from your own server, and the app
+basemap tiles and shared games all come from your own server, and the app
 contacts no third party (no analytics, CDNs or public map services). It also
 has Swiss rule adaptations (canton/district/municipality zones, 100,000+
 "major cities").
@@ -30,7 +30,7 @@ pnpm dev          # app at http://localhost:4321
 around Switzerland, as the server does (downloads ~6.5 GB once, keeps a small
 file in `data/osm/`).
 
-Shared games and share links need the API server. In dev, run it next to
+Shared games need the API server. In dev, run it next to
 `pnpm dev` (which forwards `/api` to it):
 
 ```bash

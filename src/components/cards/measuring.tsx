@@ -14,6 +14,7 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     customInitPreference,
     displayHidingZones,
@@ -58,10 +59,14 @@ export const MeasuringQuestionComponent = ({
     const $isLoading = useStore(isLoading);
     const $regionRules = useStore(regionRules);
     const $gameSettings = useStore(gameSettings);
+    const takenAway = useTakenAway("measuring");
     // The game's own list of question types, plus the local rules' labels.
     const gameRules = {
         ...$regionRules,
-        hiddenQuestionTypes: hiddenTypesFor("measuring", $gameSettings),
+        hiddenQuestionTypes: [
+            ...hiddenTypesFor("measuring", $gameSettings),
+            ...takenAway,
+        ],
     };
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);

@@ -157,3 +157,12 @@ From your earlier answers (rounds 1–4), already built or planned:
   (which cards, or the hand); question cards are compact: the place as one
   row, hide and delete in the title row, no lock in a game, no result
   toggle once the game has the answer.
+- **Round 17:** the curses are enforced from their texts: one that stops
+  the asking blocks sends until cleared; the Drained Brain's three
+  questions are the hider's choice and gone for the run; the Spotty
+  Memory's category comes from a real die; timed curses and the Move's
+  period end by themselves; awarded minutes are recorded in Cards; Egg
+  Partner and Lemon Phylactery not in the end game; Duplicate Another Card
+  copies a card. No dice on the site, no hangman board. Questions belong
+  to their game (no "kept from before the game" box); no snapshot sharing
+  (links, files, copy and paste of whole games).

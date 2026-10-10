@@ -53,15 +53,20 @@ export const RoundClock = () => {
               $game.settings.customCards,
           )
         : bonusMinutes($hand);
+    // Minutes awarded during the round (a curse's penalty) count too.
+    const awarded = ($game.awards ?? []).reduce(
+        (sum, award) => sum + award.minutes,
+        0,
+    );
     /** "+21:00": the bonuses in the hider's hand, if caught right now. */
     const bonusTag =
         $role === "hider" ? (
             <span
                 className="font-mono text-sm text-green-300"
-                title="Time bonuses in your hand, added if you're caught now"
+                title={`Time bonuses in your hand${awarded ? ` and ${awarded} min awarded` : ""}, added if you're caught now`}
                 data-testid="clock-bonus"
             >
-                +{formatDuration(mine * 60_000)}
+                +{formatDuration((mine + awarded) * 60_000)}
             </span>
         ) : null;
 
@@ -166,7 +171,8 @@ export const RoundClock = () => {
                                 void sendOp({ type: "setBonus", minutes: mine })
                             }
                         >
-                            Send my bonuses ({mine} min)
+                            Send my bonuses ({mine} min
+                            {awarded ? ` + ${awarded} awarded` : ""})
                         </Button>
                     )}
                     <Button

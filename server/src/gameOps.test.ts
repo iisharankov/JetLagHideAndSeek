@@ -964,7 +964,7 @@ describe("Randomize Question", () => {
 describe("casting costs with the digital deck", () => {
     const timeId = CARDS.find((card) => card.kind === "time")!.id;
     const powerupId = CARDS.find((card) => card.kind === "powerup")!.id;
-    const withHand = (hand: string[]) => {
+    const withHand = (hand: string[]): GameState => {
         const state = newGameState(
             "g4",
             {
@@ -1020,5 +1020,445 @@ describe("casting costs with the digital deck", () => {
         const state = withHand(["curse_cairn", timeId]);
         const cast = apply(state, { type: "playCard", index: 0 }, hider);
         expect(cast.deck!.hand).toEqual([timeId]);
+    });
+});
+
+describe("curses that stop the seekers from asking", () => {
+    const cast = (name: string, state = fresh()) =>
+        apply(state, { type: "castCurse", name }, hider, 5000);
+    const draft = (state: GameState, key = 1) =>
+        apply(
+            state,
+            { type: "putQuestion", question: radius(key) },
+            seeker,
+            5100,
+        );
+
+    it("refuse questions and photo questions until the curse is cleared", () => {
+        let state = draft(cast("Curse of the Cairn"));
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 6000),
+        ).toThrow(/Cairn.*cleared/);
+        expect(() =>
+            apply(state, { type: "askPhoto", name: "Tree" }, seeker, 6000),
+        ).toThrow(/Cairn/);
+        // Drafts can still be prepared.
+        state = draft(state, 2);
+        state = apply(
+            state,
+            { type: "clearCurse", id: state.curses[0].id },
+            seeker,
+            7000,
+        );
+        state = apply(state, { type: "sendQuestion", key: 1 }, seeker, 8000);
+        expect(state.questions["1"].state).toBe("asked");
+    });
+
+    it("let the seekers ask under a curse that only reminds them", () => {
+        const state = draft(cast("Curse of the Urban Explorer"));
+        expect(
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 6000)
+                .questions["1"].state,
+        ).toBe("asked");
+    });
+
+    it("end timed curses by themselves, and clear a passed one on any change", () => {
+        const state = draft(cast("Curse of the Right Turn"));
+        const later = apply(
+            state,
+            { type: "sendQuestion", key: 1 },
+            seeker,
+            5000 + 41 * 60_000,
+        );
+        expect(later.curses[0].clearedBy).toBe("time");
+        expect(later.questions["1"].state).toBe("asked");
+    });
+
+    it("refuse the egg and the lemon during the end game", () => {
+        const state = apply(
+            fresh(),
+            {
+                type: "startEndgame",
+                station: { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 },
+            },
+            seeker,
+        );
+        expect(() => cast("Curse of the Egg Partner", state)).toThrow(
+            /end game/,
+        );
+        expect(() => cast("Curse of the Lemon Phylactery", state)).toThrow(
+            /end game/,
+        );
+        expect(cast("Curse of the Cairn", state).curses).toHaveLength(1);
+    });
+});
+
+describe("Curse of the Drained Brain", () => {
+    it("blocks until the hider has chosen three kinds in three categories, then takes them away", () => {
+        let state = apply(
+            fresh(),
+            { type: "castCurse", name: "Curse of the Drained Brain" },
+            hider,
+            5000,
+        );
+        const id = state.curses[0].id;
+        state = apply(
+            state,
+            {
+                type: "putQuestion",
+                question: radius(1, { radius: 5, unit: "kilometers" }),
+            },
+            seeker,
+            5100,
+        );
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 6000),
+        ).toThrow(/Drained Brain/);
+        expect(() =>
+            apply(
+                state,
+                {
+                    type: "blockQuestions",
+                    id,
+                    kinds: ["radius:5", "radius:10", "photo:tree"],
+                },
+                hider,
+                6000,
+            ),
+        ).toThrow(/three different categories/);
+        expect(() =>
+            apply(
+                state,
+                { type: "blockQuestions", id, kinds: ["radius:5"] },
+                seeker,
+                6000,
+            ),
+        ).toThrow(GameRuleError);
+        state = apply(
+            state,
+            {
+                type: "blockQuestions",
+                id,
+                kinds: ["radius:5", "matching:zone", "photo:tree"],
+            },
+            hider,
+            6000,
+        );
+        expect(state.curses[0].kinds).toEqual([
+            "radius:5",
+            "matching:zone",
+            "photo:tree",
+        ]);
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 7000),
+        ).toThrow(/taken away/);
+        expect(() =>
+            apply(state, { type: "askPhoto", name: "tree" }, seeker, 7000),
+        ).toThrow(/taken away/);
+        state = apply(
+            state,
+            {
+                type: "putQuestion",
+                question: radius(2, { radius: 10, unit: "kilometers" }),
+            },
+            seeker,
+            7100,
+        );
+        expect(
+            apply(state, { type: "sendQuestion", key: 2 }, seeker, 8000)
+                .questions["2"].state,
+        ).toBe("asked");
+        // It lasts the run: nobody clears it, a new round does.
+        expect(() =>
+            apply(state, { type: "clearCurse", id }, seeker, 8000),
+        ).toThrow(/rest of the run/);
+        expect(apply(state, { type: "newRound" }, seeker, 9000).curses).toEqual(
+            [],
+        );
+    });
+});
+
+describe("Curse of the Spotty Memory", () => {
+    it("disables the rolled category until the next question, then wants a new roll", () => {
+        let state = apply(
+            fresh(),
+            { type: "castCurse", name: "Curse of the Spotty Memory" },
+            hider,
+            5000,
+        );
+        const id = state.curses[0].id;
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1) },
+            seeker,
+            5100,
+        );
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 6000),
+        ).toThrow(/Spotty Memory/);
+        expect(() =>
+            apply(
+                state,
+                { type: "setCurseCategory", id, category: "dice" },
+                seeker,
+                6000,
+            ),
+        ).toThrow(/category/);
+        state = apply(
+            state,
+            { type: "setCurseCategory", id, category: "radius" },
+            seeker,
+            6000,
+        );
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 7000),
+        ).toThrow(/disabled right now/);
+        state = apply(state, { type: "askPhoto", name: "Tree" }, seeker, 7000);
+        // Asked: the die is rolled again before the next one.
+        expect(state.curses[0].category).toBeUndefined();
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 8000),
+        ).toThrow(/Spotty Memory/);
+    });
+});
+
+describe("awards and the hider's own tasks", () => {
+    it("add awarded minutes to the bonuses at the end", () => {
+        let state = apply(
+            fresh(),
+            { type: "clock", action: "start" },
+            seeker,
+            1000,
+        );
+        state = apply(
+            state,
+            { type: "awardMinutes", minutes: 45, reason: "The egg cracked." },
+            hider,
+            2000,
+        );
+        expect(state.awards[0]).toMatchObject({
+            minutes: 45,
+            reason: "The egg cracked.",
+            by: "Ben",
+        });
+        expect(() =>
+            apply(
+                state,
+                { type: "awardMinutes", minutes: 0, reason: "" },
+                hider,
+            ),
+        ).toThrow(/between 1 and 600/);
+        state = apply(state, { type: "clock", action: "stop" }, seeker, 3000);
+        state = apply(state, { type: "setBonus", minutes: 12 }, hider, 4000);
+        expect(state.clock!.bonusMinutes).toBe(57);
+        const next = apply(state, { type: "newRound" }, seeker, 5000);
+        expect(next.rounds[0].awards).toHaveLength(1);
+        expect(next.awards).toEqual([]);
+    });
+
+    it("keep how long the hider filmed a bird, within the card's limit", () => {
+        let state = apply(
+            fresh(),
+            { type: "castCurse", name: "Curse of the Bird Guide" },
+            hider,
+            5000,
+        );
+        const id = state.curses[0].id;
+        expect(() =>
+            apply(state, { type: "setCurseTime", id, seconds: 700 }, hider),
+        ).toThrow(/600 seconds/);
+        state = apply(state, { type: "setCurseTime", id, seconds: 272 }, hider);
+        expect(state.curses[0].seconds).toBe(272);
+    });
+
+    it("makes the next question free after the Impressionable Consumer", () => {
+        const digital = newGameState(
+            "g5",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        let state = apply(
+            digital,
+            { type: "castCurse", name: "Curse of the Impressionable Consumer" },
+            hider,
+            2000,
+        );
+        expect(state.deck!.freeQuestions).toBe(1);
+        state = apply(
+            state,
+            { type: "clearCurse", id: state.curses[0].id },
+            seeker,
+            2500,
+        );
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1), state: "asked" },
+            seeker,
+            3000,
+        );
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: true },
+                basedOn: 3000,
+            },
+            hider,
+            4000,
+        );
+        expect(state.deck!.pending).toEqual([]);
+        expect(state.deck!.hand).toEqual([]);
+        expect(state.deck!.freeQuestions).toBe(0);
+        state = apply(
+            state,
+            {
+                type: "putQuestion",
+                question: radius(2, { radius: 10 }),
+                state: "asked",
+            },
+            seeker,
+            5000,
+        );
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 2,
+                answer: { within: true },
+                basedOn: 5000,
+            },
+            hider,
+            6000,
+        );
+        expect(
+            state.deck!.pending.length + state.deck!.hand.length,
+        ).toBeGreaterThan(0);
+    });
+});
+
+describe("the Move's period", () => {
+    const moved = () => {
+        const state = apply(
+            fresh(),
+            { type: "clock", action: "start" },
+            seeker,
+            1000,
+        );
+        return apply(state, { type: "move", station: null }, hider, 2000);
+    };
+
+    it("is 20 minutes in a medium game, and only the hider continues before it's over", () => {
+        const state = moved();
+        expect(state.move!.endsAt).toBe(2000 + 20 * 60_000);
+        expect(() =>
+            apply(state, { type: "resumeMove" }, seeker, 3000),
+        ).toThrow(/Only the hider/);
+        expect(
+            apply(state, { type: "resumeMove" }, hider, 3000).move,
+        ).toBeNull();
+    });
+
+    it("takes a 'continue' after the period ran out as nothing to do", () => {
+        const state = moved();
+        const after = state.move!.endsAt + 1;
+        // Every phone sends one when it sees the time is up; none may fail.
+        const seekerFirst = apply(state, { type: "resumeMove" }, seeker, after);
+        expect(seekerFirst.move).toBeNull();
+        expect(seekerFirst.clock!.pausedAt).toBeNull();
+        expect(
+            apply(seekerFirst, { type: "resumeMove" }, hider, after + 1).move,
+        ).toBeNull();
+    });
+
+    it("runs out by itself: the next change resumes the game, whoever makes it", () => {
+        const state = moved();
+        const later = apply(
+            state,
+            { type: "askPhoto", name: "Tree" },
+            seeker,
+            2000 + 21 * 60_000,
+        );
+        expect(later.move).toBeNull();
+        expect(later.clock!.pausedAt).toBeNull();
+    });
+});
+
+describe("Duplicate Another Card", () => {
+    const withHand = (hand: string[]): GameState => {
+        const state = newGameState(
+            "g6",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        return { ...state, deck: { ...state.deck!, hand } };
+    };
+
+    it("is played as a copy of another card, which stays in the hand", () => {
+        const state = withHand([
+            "powerup_duplicate_another_card",
+            "curse_cairn",
+            "time_bonus_5",
+        ]);
+        expect(() =>
+            apply(state, { type: "playCard", index: 0 }, hider),
+        ).toThrow(/choose the card it copies/);
+        expect(() =>
+            apply(state, { type: "playCard", index: 0, copyOf: 2 }, hider),
+        ).toThrow(/counts by itself/);
+        const cast = apply(
+            state,
+            { type: "playCard", index: 0, copyOf: 1 },
+            hider,
+        );
+        expect(cast.curses.at(-1)?.name).toBe("Curse of the Cairn");
+        expect(cast.deck!.hand).toEqual(["curse_cairn", "time_bonus_5"]);
+    });
+
+    it("pays the copied card's cost, never with the copied card itself", () => {
+        const state = withHand([
+            "powerup_duplicate_another_card",
+            "curse_right_turn",
+            "time_bonus_5",
+        ]);
+        expect(() =>
+            apply(
+                state,
+                { type: "playCard", index: 0, copyOf: 1, discards: [1] },
+                hider,
+            ),
+        ).toThrow(/costs/);
+        const cast = apply(
+            state,
+            { type: "playCard", index: 0, copyOf: 1, discards: [2] },
+            hider,
+        );
+        expect(cast.deck!.hand).toEqual(["curse_right_turn"]);
+    });
+
+    it("stands in for a Veto", () => {
+        let state = withHand(["powerup_duplicate_another_card"]);
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1), state: "asked" },
+            seeker,
+        );
+        state = apply(state, { type: "vetoQuestion", key: 1 }, hider);
+        expect(state.questions["1"].state).toBe("vetoed");
+        expect(state.deck!.hand).toEqual([]);
     });
 });

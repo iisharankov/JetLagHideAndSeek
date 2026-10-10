@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
-import { showUndoToast } from "@/components/undoToast";
 import { useTick } from "@/hooks/useTick";
 import {
     additionalMapGeoLocations,
@@ -27,7 +26,6 @@ import {
     questions,
     setupDialog,
 } from "@/lib/context";
-import { clearBackup, readBackup, writeBackup } from "@/lib/game/backup";
 import { formatDuration } from "@/lib/game/clock";
 import { deckComposition } from "@/lib/game/deck";
 import { knownGames } from "@/lib/game/knownGames";
@@ -253,50 +251,6 @@ const Scoreboard = ({ game }: { game: GameState }) => {
     );
 };
 
-/** The questions this phone had before it joined a game, to bring back. */
-const EarlierQuestions = () => {
-    const [backup, setBackup] = useState(() => readBackup());
-    if (!backup) return null;
-    const restore = () => {
-        const before = questions.get();
-        const kept = backup;
-        questions.set(kept);
-        clearBackup();
-        setBackup(null);
-        showUndoToast("Your earlier questions are back.", () => {
-            questions.set(before);
-            writeBackup(kept);
-            setBackup(kept);
-        });
-    };
-    return (
-        <section
-            className="flex flex-col gap-2 rounded-lg border border-slate-700 p-3"
-            data-testid="earlier-questions"
-        >
-            <p className="text-sm">
-                Your {backup.length} question{backup.length === 1 ? "" : "s"}{" "}
-                from before the game {backup.length === 1 ? "is" : "are"} kept.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-                <Button onClick={restore}>Restore them</Button>
-                <Button
-                    variant="outline"
-                    onClick={() => {
-                        clearBackup();
-                        setBackup(null);
-                    }}
-                >
-                    Forget them
-                </Button>
-            </div>
-            <p className="text-xs text-slate-400">
-                Restoring replaces the questions you have now (undo for a few
-                seconds).
-            </p>
-        </section>
-    );
-};
 
 const NameInput = () => {
     const $name = useStore(playerName);
@@ -485,7 +439,6 @@ export const GamePanel = () => {
                         Change game settings
                     </Button>
                 </section>
-                <EarlierQuestions />
                 <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
                     <h3 className="text-sm font-semibold font-poppins">
                         Play together

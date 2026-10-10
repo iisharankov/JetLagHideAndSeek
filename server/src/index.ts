@@ -7,7 +7,6 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { createGameStore } from "./games";
 import { createPushService, loadOrCreateKeys } from "./push";
-import { createShareStore } from "./shareStore";
 
 const port = Number(process.env.PORT ?? 8787);
 const dataDir = process.env.DATA_DIR ?? "./data";
@@ -38,7 +37,7 @@ const games = createGameStore(db, join(dataDir, "photos"), {
         );
     },
 });
-const app = createApp({ shares: createShareStore(db), games, push });
+const app = createApp({ games, push });
 
 // Games untouched for a year are deleted, photos included.
 const cleanup = () => {

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar-l";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { UnitToggle } from "@/components/UnitToggle";
+import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     gameSettings,
     hiderMode,
@@ -53,6 +54,8 @@ export const RadiusQuestionComponent = ({
     // The game's radar distances, as cards; anything else is "custom".
     const radii = ($game?.settings ?? $settings).radarKm;
     const listed = data.unit === "kilometers" && radii.includes(data.radius);
+    // Radii a Curse of the Drained Brain took away.
+    const gone = useTakenAway("radius").map(Number);
     const [custom, setCustom] = useState(!listed);
     const showCustom = custom || !listed;
     const locked = !data.drag || $isLoading;
@@ -79,13 +82,23 @@ export const RadiusQuestionComponent = ({
                 >
                     {radii.map((km) => {
                         const on = !showCustom && data.radius === km;
+                        const taken = gone.includes(km);
                         return (
                             <button
                                 key={km}
                                 type="button"
-                                disabled={locked}
+                                disabled={locked || taken}
                                 aria-pressed={on}
-                                className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
+                                title={
+                                    taken
+                                        ? "Taken away by the Curse of the Drained Brain"
+                                        : undefined
+                                }
+                                className={cn(
+                                    CHIP,
+                                    on ? CHIP_ON : CHIP_OFF,
+                                    taken && "line-through",
+                                )}
                                 onClick={() => {
                                     set({ radius: km, unit: "kilometers" });
                                     setCustom(false);

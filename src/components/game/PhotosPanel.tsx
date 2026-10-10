@@ -5,8 +5,10 @@ import { toast } from "react-toastify";
 import { RulesText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import { photoUrl } from "@/lib/game/api";
+import { blockingCurses, kindRefusal, photoKind } from "@/lib/game/curseRules";
 import { shrinkPhoto } from "@/lib/game/photos";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
+import { serverNow } from "@/lib/game/serverTime";
 import {
     activeGameId,
     gameRole,
@@ -98,6 +100,14 @@ export const PhotosPanel = () => {
     const $role = useStore(gameRole);
     const size = $game?.settings.size ?? "medium";
     const available = photoQuestions().filter((q) => q.sizes.includes(size));
+    // The curses on the seekers may stop a photo question.
+    const askRefusal = (name: string) => {
+        if (!$game) return null;
+        const blocking = blockingCurses($game, serverNow())[0];
+        if (blocking)
+            return `${blocking.name}: no questions until it's cleared.`;
+        return kindRefusal($game, photoKind(name), serverNow());
+    };
 
     return (
         <div className="flex flex-col gap-3 p-3 text-sm">
@@ -187,6 +197,12 @@ export const PhotosPanel = () => {
                                 <Button
                                     size="sm"
                                     variant="outline"
+                                    disabled={
+                                        askRefusal(question.name) !== null
+                                    }
+                                    title={
+                                        askRefusal(question.name) ?? undefined
+                                    }
                                     onClick={(event) => {
                                         event.preventDefault();
                                         void sendOp({

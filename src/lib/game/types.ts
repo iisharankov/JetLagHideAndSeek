@@ -62,6 +62,21 @@ export interface CurseEntry {
     castAt: number;
     clearedAt?: number;
     clearedBy?: string;
+    /** Drained Brain: the three kinds the hider took away (see curseRules.ts). */
+    kinds?: string[];
+    /** Spotty Memory: the category the seekers' die disabled, until the next question. */
+    category?: string;
+    /** Bird Guide: how long the hider filmed, in seconds. */
+    seconds?: number;
+}
+
+/** Minutes the hider was awarded during the round (a curse's penalty, say). */
+export interface Award {
+    id: string;
+    minutes: number;
+    reason: string;
+    at: number;
+    by: string;
 }
 
 /** A powerup the hider played, so the seekers know (e.g. Move). */
@@ -112,6 +127,8 @@ export interface MoveState {
     /** The station the hider left, as the card makes them tell the seekers. */
     station: StationPick | null;
     startedAt: number;
+    /** The card's period: the game goes on by itself when it's over. */
+    endsAt: number;
     by: string;
 }
 
@@ -169,6 +186,8 @@ export interface Deck {
     log: { at: number; text: string }[];
     /** Curse of the Overflowing Chalice: questions left with an extra draw. */
     chaliceLeft?: number;
+    /** Curse of the Impressionable Consumer: answers that earn no draw. */
+    freeQuestions?: number;
     /** Seekers' view: how many cards the hider holds, and the deck's size. */
     handSize?: number;
     deckSize?: number;
@@ -231,6 +250,7 @@ export interface PastRound {
     moves?: MoveArchive[];
     /** Who hid that round (for the scoreboard). */
     hiderName?: string;
+    awards?: Award[];
 }
 
 export interface GameState {
@@ -261,6 +281,8 @@ export interface GameState {
     hasHider: boolean;
     /** The hider's name this round, once known (for the scoreboard). */
     hiderName: string | null;
+    /** Minutes awarded to the hider this round, on top of the hand's bonuses. */
+    awards: Award[];
     rounds: PastRound[];
 }
 
@@ -300,6 +322,14 @@ export type GameOp =
     | { type: "deletePhotoRequest"; id: string }
     | { type: "castCurse"; name: string }
     | { type: "clearCurse"; id: string }
+    /** Drained Brain: the hider names the three kinds the seekers lose. */
+    | { type: "blockQuestions"; id: string; kinds: string[] }
+    /** Spotty Memory: the seekers enter what their die disabled. */
+    | { type: "setCurseCategory"; id: string; category: string }
+    /** Bird Guide: how long the hider filmed. */
+    | { type: "setCurseTime"; id: string; seconds: number }
+    /** Minutes for the hider, with the reason (a curse's penalty, say). */
+    | { type: "awardMinutes"; minutes: number; reason: string }
     | { type: "playPowerup"; name: string }
     | { type: "startEndgame"; station: StationPick }
     | { type: "endEndgame" }
@@ -326,6 +356,8 @@ export type DeckOp =
           discards?: number[];
           /** Move: the station the hider leaves. */
           station?: StationPick | null;
+          /** Duplicate Another Card: the card in the hand it copies. */
+          copyOf?: number;
       }
     | { type: "discardCard"; index: number }
     | { type: "discardHand" };

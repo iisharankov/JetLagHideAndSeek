@@ -298,8 +298,8 @@ export const tutorialSteps: TutorialStep[] = [
                 <strong>Game:</strong> start a <strong>shared game</strong>{" "}
                 (everyone, hider included, opens the same link and sees
                 questions live; seekers&apos; drafts stay hidden from the hider
-                until sent), share a copy, save or load a file, the rules, the
-                question &amp; card reference and this tutorial.
+                until sent), the rules, the question &amp; card reference and
+                this tutorial.
                 <br />
                 <strong>I&apos;m the hider</strong> (in Game) turns your phone
                 into the hider&apos;s.

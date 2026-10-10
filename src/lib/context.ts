@@ -356,55 +356,6 @@ export const deleteCustomPreset = (id: string) => {
     customPresets.set(customPresets.get().filter((p) => p.id !== id));
 };
 
-export const hidingZone = computed(
-    [
-        questions,
-        polyGeoJSON,
-        mapGeoLocation,
-        additionalMapGeoLocations,
-        disabledStations,
-        hidingRadius,
-        hidingRadiusUnits,
-        displayHidingZonesOptions,
-        customPresets,
-    ],
-    (
-        q,
-        geo,
-        loc,
-        altLoc,
-        disabledStations,
-        radius,
-        hidingRadiusUnits,
-        zoneOptions,
-        presets,
-    ) => {
-        if (geo !== null) {
-            return {
-                ...geo,
-                questions: q,
-                disabledStations: disabledStations,
-                hidingRadius: radius,
-                hidingRadiusUnits,
-                zoneOptions: zoneOptions,
-                presets: structuredClone(presets),
-            };
-        } else {
-            const $loc = structuredClone(loc);
-            $loc.properties.isHidingZone = true;
-            $loc.properties.questions = q;
-            return {
-                ...$loc,
-                disabledStations: disabledStations,
-                hidingRadius: radius,
-                hidingRadiusUnits,
-                alternateLocations: structuredClone(altLoc),
-                zoneOptions: zoneOptions,
-                presets: structuredClone(presets),
-            };
-        }
-    },
-);
 
 export const drawingQuestionKey = atom<number>(-1);
 export const planningModeEnabled = persistentAtom<boolean>(

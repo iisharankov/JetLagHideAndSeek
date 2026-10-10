@@ -4,6 +4,19 @@ import { randomBytes, randomInt } from "node:crypto";
 
 import { applyClockAction } from "@/lib/game/clock";
 import {
+    blockingCurses,
+    curseEndsAt,
+    curseRule,
+    kindCategory,
+    kindRefusal,
+    lastsTheRun,
+    moveMinutes,
+    photoKind,
+    QUESTION_CATEGORIES,
+    questionKind,
+    SIZE_INDEX,
+} from "@/lib/game/curseRules";
+import {
     advanceDeck,
     cardInfo,
     castingCostText,
@@ -50,6 +63,8 @@ const DISCARD_DRAW: Record<string, { discard: number; draw: number }> = {
 const CHALICE = "Curse of the Overflowing Chalice";
 const CHALICE_QUESTIONS = 3;
 const RANDOMIZE = "powerup_randomize_question";
+const VETO = "powerup_veto_question";
+const DUPLICATE = "powerup_duplicate_another_card";
 
 /** A change the rules don't allow; the API answers with `status`. */
 export class GameRuleError extends Error {
@@ -97,6 +112,7 @@ export const newGameState = (
     hider: { station: null, pin: null },
     hasHider: false,
     hiderName: null,
+    awards: [],
     rounds: [],
 });
 
@@ -176,6 +192,15 @@ const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
     if (!state.deck) return;
     const draw = DRAWS[entry.question.id];
     if (!draw) return;
+    // Curse of the Impressionable Consumer: "the seekers' next question is free".
+    if ((state.deck.freeQuestions ?? 0) > 0) {
+        state.deck.freeQuestions = (state.deck.freeQuestions ?? 1) - 1;
+        state.deck.log.push({
+            at: now,
+            text: "That question was free (Curse of the Impressionable Consumer): no draw.",
+        });
+        return;
+    }
     const identity = questionIdentity(entry.question);
     const times = Object.values(state.questions).filter(
         (other) =>
@@ -208,11 +233,76 @@ const oweDraws = (state: GameState, entry: QuestionEntry, now: number) => {
 
 /** The hider casts a curse; the Overflowing Chalice also starts counting. */
 const castCurse = (state: GameState, name: string, now: number) => {
+    const rule = curseRule(name);
+    if (rule.notInEndgame && state.endgame) {
+        throw new GameRuleError(
+            `${name} can't be cast during the end game.`,
+            409,
+        );
+    }
     state.curses.push({ id: shortId(), name, castAt: now });
     if (name === CHALICE && state.deck) {
         state.deck.chaliceLeft = CHALICE_QUESTIONS;
     }
+    if (rule.freeQuestion && state.deck) {
+        state.deck.freeQuestions = (state.deck.freeQuestions ?? 0) + 1;
+    }
 };
+
+/** Timed curses end by themselves; a Move's period runs out by itself. */
+const passTime = (state: GameState, now: number) => {
+    for (const entry of state.curses) {
+        if (entry.clearedAt) continue;
+        const endsAt = curseEndsAt(entry, state.settings.size);
+        if (endsAt !== null && endsAt <= now) {
+            entry.clearedAt = endsAt;
+            entry.clearedBy = "time";
+        }
+    }
+    if (state.move && now >= state.move.endsAt) {
+        state.move = null;
+        state.clock = applyClockAction(state.clock, "resume", now);
+    }
+};
+
+/** The curses on the seekers may stop them from asking, or from asking a kind. */
+const assertMayAsk = (state: GameState, kind: string, now: number) => {
+    const blocking = blockingCurses(state, now)[0];
+    if (blocking) {
+        throw new GameRuleError(
+            `${blocking.name}: the seekers can't ask until it's done and cleared (Cards tab).`,
+            409,
+        );
+    }
+    const refusal = kindRefusal(state, kind, now);
+    if (refusal) throw new GameRuleError(refusal, 409);
+};
+
+/** Spotty Memory: after a question is asked, the seekers roll again. */
+const rollAgain = (state: GameState) => {
+    for (const entry of state.curses) {
+        if (!entry.clearedAt && curseRule(entry.name).takes === "category") {
+            delete entry.category;
+        }
+    }
+};
+
+/** A curse entry still in force, or a refusal. */
+const activeCurse = (state: GameState, id: string, now: number) => {
+    const entry = state.curses.find((c) => c.id === id);
+    if (!entry || entry.clearedAt) {
+        throw new GameRuleError("That curse isn't on the seekers.", 404);
+    }
+    const endsAt = curseEndsAt(entry, state.settings.size);
+    if (endsAt !== null && endsAt <= now) {
+        throw new GameRuleError("That curse is over.", 409);
+    }
+    return entry;
+};
+
+/** The hider's bonus at the end: the hand (or what they typed) plus the awards. */
+const awardedMinutes = (state: GameState) =>
+    state.awards.reduce((sum, award) => sum + award.minutes, 0);
 
 /** A variant of a question: what makes it a different question. */
 interface Variant {
@@ -307,6 +397,12 @@ const ruleError = (error: unknown) =>
         409,
     );
 
+/** Where a card is in the hand, or a Duplicate Another Card standing in for it. */
+const cardOrCopy = (hand: string[], id: string) => {
+    const own = hand.indexOf(id);
+    return own !== -1 ? own : hand.indexOf(DUPLICATE);
+};
+
 /** The deck, in a game that has one. */
 const deckOf = (state: GameState) => {
     if (!state.deck) {
@@ -359,7 +455,12 @@ const startMove = (
         questions: Object.values(state.questions),
     });
     state.questions = {};
-    state.move = { station, startedAt: now, by: actor.name };
+    state.move = {
+        station,
+        startedAt: now,
+        endsAt: now + moveMinutes(state.settings.size) * 60_000,
+        by: actor.name,
+    };
     // A new station is next; the pin stays where the hider is.
     state.hider = { station: null, pin: state.hider?.pin ?? null };
     state.clock = applyClockAction(state.clock, "pause", now);
@@ -390,6 +491,7 @@ export const applyOp = (
     ) {
         state.hiderName = actor.name;
     }
+    passTime(state, now);
 
     switch (op.type) {
         case "putQuestion": {
@@ -428,10 +530,12 @@ export const applyOp = (
             assertNotMoving(state);
             const entry = visibleEntry(state, op.key, actor);
             if (entry.state === "draft") {
+                assertMayAsk(state, questionKind(entry.question), now);
                 entry.state = "asked";
                 entry.askedAt = now;
                 entry.updatedBy = actor.name;
                 entry.updatedAt = now;
+                rollAgain(state);
             }
             break;
         }
@@ -470,7 +574,7 @@ export const applyOp = (
                 );
             }
             if (state.deck) {
-                const index = state.deck.hand.indexOf("powerup_veto_question");
+                const index = cardOrCopy(state.deck.hand, VETO);
                 if (index === -1) {
                     throw new GameRuleError("No Veto card in your hand.", 409);
                 }
@@ -500,7 +604,7 @@ export const applyOp = (
             }
             const variant = randomVariant(state, entry.question);
             if (state.deck) {
-                const index = state.deck.hand.indexOf(RANDOMIZE);
+                const index = cardOrCopy(state.deck.hand, RANDOMIZE);
                 if (index === -1) {
                     throw new GameRuleError(
                         "No Randomize Question card in your hand.",
@@ -560,6 +664,8 @@ export const applyOp = (
         }
         case "askPhoto":
             assertNotMoving(state);
+            assertMayAsk(state, photoKind(String(op.name)), now);
+            rollAgain(state);
             state.photoRequests.push({
                 id: shortId(),
                 name: String(op.name).slice(0, 200),
@@ -579,8 +685,111 @@ export const applyOp = (
         case "clearCurse": {
             const curse = state.curses.find((c) => c.id === op.id);
             if (!curse) throw new GameRuleError("No such curse.", 404);
+            if (lastsTheRun(curse.name)) {
+                throw new GameRuleError(
+                    `${curse.name} lasts for the rest of the run.`,
+                    409,
+                );
+            }
             curse.clearedAt = now;
             curse.clearedBy = actor.name;
+            break;
+        }
+        case "blockQuestions": {
+            // Drained Brain: three kinds, in different categories.
+            assertHider(actor, "choose the questions to take away");
+            const entry = activeCurse(state, op.id, now);
+            if (curseRule(entry.name).takes !== "kinds") {
+                throw new GameRuleError(
+                    "That curse doesn't take questions away.",
+                    409,
+                );
+            }
+            if (entry.kinds) {
+                throw new GameRuleError(
+                    "The questions were already chosen.",
+                    409,
+                );
+            }
+            const kinds = Array.isArray(op.kinds)
+                ? [
+                      ...new Set(
+                          op.kinds.map((kind) => String(kind).slice(0, 80)),
+                      ),
+                  ]
+                : [];
+            const categories = new Set(kinds.map(kindCategory));
+            if (
+                kinds.length !== 3 ||
+                categories.size !== 3 ||
+                ![...categories].every((category) =>
+                    (QUESTION_CATEGORIES as readonly string[]).includes(
+                        category,
+                    ),
+                )
+            ) {
+                throw new GameRuleError(
+                    "Choose three questions in three different categories.",
+                    400,
+                );
+            }
+            // In the categories' order, so every phone lists them alike.
+            entry.kinds = [...kinds].sort(
+                (a, b) =>
+                    QUESTION_CATEGORIES.indexOf(kindCategory(a)) -
+                    QUESTION_CATEGORIES.indexOf(kindCategory(b)),
+            );
+            break;
+        }
+        case "setCurseCategory": {
+            // Spotty Memory: what the seekers' die disabled.
+            const entry = activeCurse(state, op.id, now);
+            if (curseRule(entry.name).takes !== "category") {
+                throw new GameRuleError(
+                    "That curse doesn't disable a category.",
+                    409,
+                );
+            }
+            if (
+                !(QUESTION_CATEGORIES as readonly string[]).includes(
+                    op.category,
+                )
+            ) {
+                throw new GameRuleError("That isn't a question category.", 400);
+            }
+            entry.category = op.category;
+            break;
+        }
+        case "setCurseTime": {
+            // Bird Guide: how long the hider filmed.
+            assertHider(actor, "set the time");
+            const entry = activeCurse(state, op.id, now);
+            const limit = curseRule(entry.name).stopwatch;
+            if (!limit)
+                throw new GameRuleError("That curse has no stopwatch.", 409);
+            const seconds = Math.round(Number(op.seconds));
+            const most = limit[SIZE_INDEX[state.settings.size]] * 60;
+            if (!Number.isFinite(seconds) || seconds < 0 || seconds > most) {
+                throw new GameRuleError(`Between 0 and ${most} seconds.`, 400);
+            }
+            entry.seconds = seconds;
+            break;
+        }
+        case "awardMinutes": {
+            const minutes = Math.round(Number(op.minutes));
+            if (!Number.isFinite(minutes) || minutes < 1 || minutes > 600) {
+                throw new GameRuleError(
+                    "Award between 1 and 600 minutes.",
+                    400,
+                );
+            }
+            state.awards.push({
+                id: shortId(),
+                minutes,
+                reason: String(op.reason ?? "").slice(0, 120),
+                at: now,
+                by: actor.name,
+            });
             break;
         }
         case "playPowerup":
@@ -623,8 +832,13 @@ export const applyOp = (
             break;
         }
         case "resumeMove":
-            assertHider(actor, "continue after a move");
-            if (!state.move) throw new GameRuleError("No move under way.", 409);
+            // The period may have run out by itself just now (passTime
+            // above): the phones' "continue" is then nothing to do.
+            if (!state.move) break;
+            // The hider continues when ready; once the period is over, anyone.
+            if (actor.role !== "hider" && now < state.move.endsAt) {
+                assertHider(actor, "continue after a move");
+            }
             state.move = null;
             state.clock = applyClockAction(state.clock, "resume", now);
             break;
@@ -663,17 +877,18 @@ export const applyOp = (
                 );
             }
             // With the digital deck the game knows the hand.
-            const minutes = state.deck
+            const fromHand = state.deck
                 ? handBonusMinutes(
                       state.deck.hand,
                       state.settings.size,
                       state.settings.customCards,
                   )
                 : Number(op.minutes);
-            if (!Number.isFinite(minutes) || minutes < 0 || minutes > 600) {
+            if (!Number.isFinite(fromHand) || fromHand < 0 || fromHand > 600) {
                 throw new GameRuleError("Bonus minutes must be a number.", 400);
             }
-            state.clock.bonusMinutes = Math.round(minutes);
+            state.clock.bonusMinutes =
+                Math.round(fromHand) + awardedMinutes(state);
             break;
         }
         case "drawCards": {
@@ -732,13 +947,37 @@ export const applyOp = (
         case "playCard": {
             assertHider(actor, "play cards");
             const deck = deckOf(state);
-            const id = deck.hand[op.index];
-            if (!id)
+            const played = deck.hand[op.index];
+            if (!played)
                 throw new GameRuleError("That card isn't in the hand.", 409);
+            // Duplicate Another Card: played as a copy of another card in the
+            // hand, which stays.
+            let id = played;
+            let copyOf: number | undefined;
+            if (played === DUPLICATE) {
+                copyOf = Number(op.copyOf);
+                const copied = deck.hand[copyOf];
+                if (
+                    !Number.isInteger(copyOf) ||
+                    copyOf === op.index ||
+                    !copied
+                ) {
+                    throw new GameRuleError(
+                        "Duplicate Another Card: choose the card it copies.",
+                        400,
+                    );
+                }
+                if (copied === DUPLICATE) {
+                    throw new GameRuleError("A copy of a copy? No.", 400);
+                }
+                id = copied;
+            }
             const card = cardInfo(id, state.settings.customCards);
             if (card.kind === "time") {
                 throw new GameRuleError(
-                    "Time bonuses can't be played, only discarded.",
+                    copyOf === undefined
+                        ? "Time bonuses can't be played, only discarded."
+                        : "A copied time bonus counts by itself at the end of the round.",
                     409,
                 );
             }
@@ -754,7 +993,7 @@ export const applyOp = (
                 // "Discard your hand": everything else goes with it.
                 discards = deck.hand
                     .map((_, index) => index)
-                    .filter((index) => index !== op.index);
+                    .filter((index) => index !== op.index && index !== copyOf);
             } else if (swap || cost) {
                 const need = swap ? swap.discard : (cost!.discard as number);
                 discards = [...new Set((op.discards ?? []).map(Number))].filter(
@@ -762,7 +1001,8 @@ export const applyOp = (
                         Number.isInteger(index) &&
                         index >= 0 &&
                         index < deck.hand.length &&
-                        index !== op.index,
+                        index !== op.index &&
+                        index !== copyOf,
                 );
                 if (discards.length !== need) {
                     throw new GameRuleError(
@@ -846,9 +1086,11 @@ export const applyOp = (
                 clock: state.clock,
                 deck: state.deck,
                 moves: state.moves,
+                awards: state.awards,
                 ...(state.hiderName ? { hiderName: state.hiderName } : {}),
             });
             state.hiderName = null;
+            state.awards = [];
             state.questions = {};
             state.photoRequests = [];
             state.curses = [];

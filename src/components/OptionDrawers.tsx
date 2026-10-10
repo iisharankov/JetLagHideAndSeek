@@ -1,7 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "react-toastify";
 
 import {
     Drawer,
@@ -18,10 +17,7 @@ import {
     showTutorial,
 } from "@/lib/context";
 import { resumeGame } from "@/lib/game/session";
-import { parseSharedGame } from "@/lib/sharedGame";
-import { readSharedGameFromUrl } from "@/lib/shareLinks";
 import { cn } from "@/lib/utils";
-import { errorMessage } from "@/maps/errors";
 
 import { GamePanel } from "./game/GamePanel";
 import { GamePopups } from "./game/GamePopups";
@@ -29,34 +25,18 @@ import { GameSetupDialog } from "./game/GameSetupDialog";
 import { JoinDialog } from "./game/JoinDialog";
 import { MenuGroup } from "./MenuGroup";
 import { SettingsPanel } from "./SettingsPanel";
-import { ShareCopyDialog } from "./ShareCopyDialog";
-import { offerSharedGame, SharedGameDialog } from "./SharedGameDialog";
 import { Button } from "./ui/button";
 import { SegmentedControl } from "./ui/toggle-card";
 
 export const OptionDrawers = ({ className }: { className?: string }) => {
     const isOptionsOpen = useStore(menuOpen);
     const setOptionsOpen = menuOpen.set;
-    const [copyOpen, setCopyOpen] = useState(false);
     const [menuTab, setMenuTab] = useState<MenuTab>("game");
     const $setup = useStore(setupDialog);
     const $playAreaEditing = useStore(playAreaEditing);
 
     useEffect(() => {
         resumeGame();
-        const params = new URL(window.location.toString()).searchParams;
-
-        readSharedGameFromUrl(params)
-            .then((shared) => {
-                if (!shared) return;
-                window.history.replaceState({}, "", window.location.pathname);
-                offerSharedGame(parseSharedGame(shared.text), shared.source);
-            })
-            .catch((error) =>
-                toast.error(
-                    `Couldn't open the shared game: ${errorMessage(error)}`,
-                ),
-            );
     }, []);
 
     // Choosing the play area happens on the map, under the menu.
@@ -66,7 +46,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
 
     return (
         <div className={cn("flex justify-end gap-2", className)}>
-            <SharedGameDialog />
             <GamePopups />
             <JoinDialog />
             {$setup !== null && (
@@ -76,7 +55,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     mode={$setup}
                 />
             )}
-            <ShareCopyDialog open={copyOpen} onOpenChange={setCopyOpen} />
             <Drawer
                 open={isOptionsOpen}
                 onOpenChange={setOptionsOpen}
@@ -120,13 +98,6 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                 <>
                                     <GamePanel />
                                     <MenuGroup title="Help">
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setCopyOpen(true)}
-                                            data-tutorial-id="share-questions-button"
-                                        >
-                                            Share a copy, save or load a file…
-                                        </Button>
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button variant="outline" asChild>
                                                 <a

@@ -21,14 +21,10 @@ test("one Menu holds game and settings; hider mode is a switch in Game", async (
         "href",
         "/rules/",
     );
-    // Sharing a copy is one button that opens a dialog.
-    await page
-        .getByRole("button", { name: /Share a copy, save or load/ })
-        .click();
+    // No snapshot sharing: questions live in the shared game only.
     await expect(
-        page.getByRole("button", { name: "Share a copy as a link" }),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
+        page.getByRole("button", { name: /Share a copy/ }),
+    ).toHaveCount(0);
 
     const hiderMode = page.getByRole("switch", { name: /^Hider mode/ });
     await expect(hiderMode).toHaveAttribute("aria-checked", "false");

@@ -25,6 +25,7 @@ const base = (): GameState => ({
     hider: null,
     hasHider: true,
     hiderName: null,
+    awards: [],
     rounds: [],
 });
 
@@ -84,6 +85,7 @@ describe("game events", () => {
             move: {
                 station: { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 },
                 startedAt: 6,
+                endsAt: 1200006,
                 by: "Ben",
             },
         };

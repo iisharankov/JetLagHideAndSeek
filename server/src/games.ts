@@ -11,6 +11,7 @@ import {
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { moveMinutes } from "@/lib/game/curseRules";
 import { advanceDeck } from "@/lib/game/deck";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { normalizeGameSettings } from "@/lib/game/settings";
@@ -142,6 +143,12 @@ export const createGameStore = (
         state.moves ??= [];
         state.hider ??= { station: null, pin: null };
         state.hiderName ??= null;
+        state.awards ??= [];
+        if (state.move && !state.move.endsAt) {
+            state.move.endsAt =
+                state.move.startedAt +
+                moveMinutes(state.settings.size) * 60_000;
+        }
         for (const round of state.rounds) round.powerups ??= [];
         return state;
     };
