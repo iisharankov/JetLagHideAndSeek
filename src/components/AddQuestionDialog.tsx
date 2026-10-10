@@ -40,9 +40,21 @@ const startPoint = () => {
 
 export const AddQuestionDialog = ({
     children,
+    research = false,
 }: {
     children: React.ReactNode;
+    /** The hider's own probe of a hiding spot: never shared. */
+    research?: boolean;
 }) => {
+    const add = (question: Parameters<typeof addQuestion>[0]) =>
+        addQuestion(
+            research
+                ? ({
+                      ...question,
+                      data: { ...question.data, research: true },
+                  } as typeof question)
+                : question,
+        );
     const $isLoading = useStore(isLoading);
     const $followMe = useStore(followMe);
     const $here = useStore(currentPosition);
@@ -53,7 +65,7 @@ export const AddQuestionDialog = ({
     // taken the thermometer away.
     const disabled = $game ? disabledCategory($game, serverNow()) : null;
     const refusal = (category: string) =>
-        !$game
+        !$game || research
             ? null
             : category === "thermometer"
               ? kindRefusal($game, "thermometer", serverNow())
@@ -64,7 +76,7 @@ export const AddQuestionDialog = ({
     const runAddRadius = () => {
         const center = startPoint();
         if (!center) return false;
-        addQuestion(newRadiusQuestion(center.lat, center.lng));
+        add(newRadiusQuestion(center.lat, center.lng));
         return true;
     };
 
@@ -75,7 +87,7 @@ export const AddQuestionDialog = ({
             units: "miles",
         });
 
-        addQuestion({
+        add({
             id: "thermometer",
             data: {
                 latA: center.lat,
@@ -91,7 +103,7 @@ export const AddQuestionDialog = ({
     const runAddTentacles = () => {
         const center = startPoint();
         if (!center) return false;
-        addQuestion({
+        add({
             id: "tentacles",
             data: defaultCustomQuestions.get()
                 ? {
@@ -115,7 +127,7 @@ export const AddQuestionDialog = ({
     const runAddMatching = () => {
         const center = startPoint();
         if (!center) return false;
-        addQuestion({
+        add({
             id: "matching",
             data: defaultCustomQuestions.get()
                 ? { lat: center.lat, lng: center.lng, type: "custom-points" }
@@ -127,7 +139,7 @@ export const AddQuestionDialog = ({
     const runAddMeasuring = () => {
         const center = startPoint();
         if (!center) return false;
-        addQuestion({
+        add({
             id: "measuring",
             data: defaultCustomQuestions.get()
                 ? { lat: center.lat, lng: center.lng, type: "custom-measure" }
@@ -153,7 +165,7 @@ export const AddQuestionDialog = ({
                             ? { ...parsed, key: Math.random() }
                             : parsed;
 
-                    return addQuestion(question);
+                    return add(question);
                 }),
                 {
                     pending: "Reading from clipboard",
@@ -173,9 +185,13 @@ export const AddQuestionDialog = ({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent>
-                <DialogTitle>Add Question</DialogTitle>
+                <DialogTitle>
+                    {research ? "Add a research question" : "Add Question"}
+                </DialogTitle>
                 <DialogDescription>
-                    Select which question type you would like to add.
+                    {research
+                        ? "Only on your phone, answered from the station you tapped (or your pin)."
+                        : "Select which question type you would like to add."}
                 </DialogDescription>
                 <p className="text-xs text-slate-400" data-testid="start-point">
                     {fromGps

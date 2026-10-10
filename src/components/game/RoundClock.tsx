@@ -31,6 +31,8 @@ import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import type { ClockAction } from "@/lib/game/types";
 
+import { nextHiderOpen } from "./NextHiderDialog";
+
 /**
  * Found: the hider's phone asks for minutes awarded during the round (a
  * curse's penalty) before the time bonuses go out.
@@ -176,7 +178,7 @@ export const RoundClock = () => {
     );
     /** "+21:00": the bonuses in the hider's hand, if caught right now. */
     const bonusTag =
-        $role === "hider" ? (
+        $role === "hider" && mine + awarded > 0 ? (
             <span
                 className="font-mono text-sm text-green-300"
                 title={`Time bonuses in your hand${awarded ? ` and ${awarded} min awarded` : ""}, added if you're caught now`}
@@ -292,6 +294,15 @@ export const RoundClock = () => {
                                 mine={mine}
                             />
                         </>
+                    )}
+                    {$game.teams.length > 0 && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => nextHiderOpen.set(true)}
+                        >
+                            Who hides next?
+                        </Button>
                     )}
                     <Button
                         size="sm"

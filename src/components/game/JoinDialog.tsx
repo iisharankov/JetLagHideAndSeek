@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,12 @@ import {
     gameState,
     hiderToken,
     playerName,
+    sendOp,
 } from "@/lib/game/session";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 import { errorMessage } from "@/maps/errors";
+
+import { currentTeamChoice, type TeamChoice, TeamPicker } from "./TeamPicker";
 
 /** Opens the sidebar (the sheet, on a phone) on the Hider tab. */
 const showHiderTab = () => {
@@ -51,11 +54,29 @@ export const JoinDialog = () => {
     const [hiding, setHiding] = useState(false);
     const [busy, setBusy] = useState(false);
     const [notifyMe, setNotifyMe] = useState(true);
+    const [team, setTeam] = useState<TeamChoice | null>(null);
 
     const open = $gameId !== "" && !$joined[$gameId];
+    // Each time it opens (a new round, say) the choices start afresh.
+    useEffect(() => {
+        if (open) {
+            setTeam(null);
+            setHiding(false);
+        }
+    }, [open]);
     if (!open) return null;
     const area = $known[$gameId]?.area;
     const named = $name.trim().length > 0;
+    const teams = $game?.teams ?? [];
+    const teamChoice = team ?? currentTeamChoice(teams, $name.trim());
+    // With teams, only the team hiding this round hides.
+    const hiderTeam = teams.find((t) => t.id === $game?.hiderTeamId);
+    const chosenTeamName =
+        teamChoice.kind === "none"
+            ? null
+            : teamChoice.name.trim().toLowerCase();
+    const mayHide =
+        !hiderTeam || chosenTeamName === hiderTeam.name.toLowerCase();
 
     return (
         <Dialog open>
@@ -71,6 +92,9 @@ export const JoinDialog = () => {
                     <DialogTitle>Joining the game</DialogTitle>
                     <DialogDescription>
                         {area ? `Hide and seek in ${area}. ` : ""}
+                        {$game && hiderTeam
+                            ? `Round ${$game.rounds.length + 1}: team ${hiderTeam.name} hides. `
+                            : ""}
                         Who are you, and are you hiding or seeking?
                     </DialogDescription>
                 </DialogHeader>
@@ -86,6 +110,28 @@ export const JoinDialog = () => {
                             return;
                         }
                         playerName.set(name);
+                        // The team first: the hider's team hides this round.
+                        const mine = teams.find((t) =>
+                            t.members.includes(name),
+                        );
+                        if (teamChoice.kind === "none") {
+                            if (mine) await sendOp({ type: "leaveTeam" });
+                        } else {
+                            const teamName = teamChoice.name.trim();
+                            if (!teamName) {
+                                toast.error("Give the team a name.");
+                                return;
+                            }
+                            if (
+                                mine?.name.toLowerCase() !==
+                                teamName.toLowerCase()
+                            ) {
+                                await sendOp({
+                                    type: "joinTeam",
+                                    name: teamName,
+                                });
+                            }
+                        }
                         // Even with the app closed, if the phone can.
                         const notifications = async () => {
                             if (!notifyMe || !pushSupported()) return;
@@ -150,6 +196,20 @@ export const JoinDialog = () => {
                         onChange={(event) => playerName.set(event.target.value)}
                         autoFocus={!named}
                     />
+                    {$game && (
+                        <TeamPicker
+                            teams={teams}
+                            value={teamChoice}
+                            onChange={setTeam}
+                            hiderTeamId={$game.hiderTeamId}
+                        />
+                    )}
+                    {hiderTeam && !mayHide && (
+                        <p className="text-xs text-amber-300">
+                            Team {hiderTeam.name} hides this round: pick it
+                            above to hide.
+                        </p>
+                    )}
                     {!hiding ? (
                         <div className="grid grid-cols-2 gap-2">
                             <Button type="submit" disabled={busy}>
@@ -158,7 +218,7 @@ export const JoinDialog = () => {
                             <Button
                                 type="button"
                                 variant="outline"
-                                disabled={busy || !$game}
+                                disabled={busy || !$game || !mayHide}
                                 onClick={() => setHiding(true)}
                             >
                                 I&apos;m the hider

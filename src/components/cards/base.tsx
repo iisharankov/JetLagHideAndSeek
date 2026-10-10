@@ -80,8 +80,11 @@ export const QuestionCard = ({
     const locked = question ? !question.data.drag : false;
     const hidden = question?.data.hidden ?? false;
     const draw = question ? DRAWS[question.id] : undefined;
+    // The hider's research questions never join the game.
+    const research = !!question?.data.research;
     const isDraft =
         !!$game &&
+        !research &&
         ($game.questions[String(questionKey)]?.state ?? "draft") === "draft";
 
     /** "Only the open card" drafts: this one opens, the other drafts fold. */
@@ -229,7 +232,7 @@ export const QuestionCard = ({
                             />
                         )}
                     </div>
-                    <QuestionGameBar questionKey={questionKey} />
+                    {!research && <QuestionGameBar questionKey={questionKey} />}
                     {status?.state === "skipped" &&
                         status.reason === "inactive-draft" && (
                             <p

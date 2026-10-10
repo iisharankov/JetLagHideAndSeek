@@ -530,6 +530,7 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
             lat: $hiderMode.latitude,
             lng: $hiderMode.longitude,
             hiderCloser: true,
+            research: false,
             type: (question as HomeGameMeasuringQuestions).type,
             drag: false,
             color: "black",

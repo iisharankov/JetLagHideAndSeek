@@ -113,6 +113,9 @@ export const newGameState = (
     hider: { station: null, pin: null },
     hasHider: false,
     hiderReadyAt: null,
+    teams: [],
+    hiderTeamId: null,
+    nextHiderTeamId: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -393,6 +396,12 @@ const randomVariant = (state: GameState, question: SharedQuestion) => {
     return candidates[randomInt(candidates.length)];
 };
 
+/** The team a player is in, by name. */
+export const teamOf = (state: GameState, name: string) =>
+    state.teams.find((team) => team.members.includes(name));
+export const teamById = (state: GameState, id: string | null) =>
+    id ? state.teams.find((team) => team.id === id) : undefined;
+
 const photoKey = (name: string) => name.trim().toLowerCase();
 
 /**
@@ -528,7 +537,7 @@ export const applyOp = (
         actor.name !== "Someone" &&
         !state.hiderName
     ) {
-        state.hiderName = actor.name;
+        state.hiderName = teamOf(state, actor.name)?.name ?? actor.name;
     }
     passTime(state, now);
 
@@ -879,6 +888,82 @@ export const applyOp = (
             if (!station) throw new GameRuleError("Pick a station first.", 400);
             state.hider = { station, pin: state.hider?.pin ?? null };
             state.hiderReadyAt = now;
+            // The hiding clock runs from here, unless someone started it
+            // sooner.
+            if (clockState(state.clock) === "idle") {
+                state.clock = applyClockAction(state.clock, "start", now);
+            }
+            break;
+        }
+        case "joinTeam": {
+            // Teams: people hiding or seeking together. One team per name;
+            // an existing team's name joins it, a new one makes it.
+            const name = String(op.name ?? "")
+                .trim()
+                .slice(0, 30);
+            if (!name) throw new GameRuleError("Give the team a name.", 400);
+            if (actor.name === "Someone") {
+                throw new GameRuleError("Give your name first.", 400);
+            }
+            for (const team of state.teams) {
+                team.members = team.members.filter((m) => m !== actor.name);
+            }
+            let team = state.teams.find(
+                (t) => t.name.toLowerCase() === name.toLowerCase(),
+            );
+            if (!team) {
+                team = { id: shortId(), name, members: [] };
+                state.teams.push(team);
+            }
+            team.members.push(actor.name);
+            // The hider's team is the round's hider team, named on the
+            // scoreboard.
+            if (actor.role === "hider" && !state.hiderTeamId) {
+                state.hiderTeamId = team.id;
+                state.hiderName = team.name;
+            }
+            break;
+        }
+        case "leaveTeam":
+            for (const team of state.teams) {
+                team.members = team.members.filter((m) => m !== actor.name);
+            }
+            break;
+        case "claimNextRound": {
+            // After a round, a team says it hides next; only one can.
+            if (clockState(state.clock) !== "stopped") {
+                throw new GameRuleError("The round isn't over yet.", 409);
+            }
+            const mine = teamOf(state, actor.name);
+            if (!mine) {
+                throw new GameRuleError(
+                    "Join a team first (Menu → Game).",
+                    409,
+                );
+            }
+            if (op.teamId === null) {
+                if (state.nextHiderTeamId !== mine.id) {
+                    throw new GameRuleError(
+                        "Only the team that claimed the next round can withdraw.",
+                        409,
+                    );
+                }
+                state.nextHiderTeamId = null;
+                break;
+            }
+            if (op.teamId !== mine.id) {
+                throw new GameRuleError(
+                    "You can only claim the next round for your own team.",
+                    409,
+                );
+            }
+            if (state.nextHiderTeamId && state.nextHiderTeamId !== mine.id) {
+                throw new GameRuleError(
+                    `${teamById(state, state.nextHiderTeamId)?.name ?? "Another team"} already hides next.`,
+                    409,
+                );
+            }
+            state.nextHiderTeamId = mine.id;
             break;
         }
         case "setHiderPin": {
@@ -924,11 +1009,6 @@ export const applyOp = (
                 by: actor.name,
                 before: Object.keys(state.questions).map(Number),
             };
-            // The hiding clock runs by now at the latest; anyone may have
-            // started it sooner.
-            if (clockState(state.clock) === "idle") {
-                state.clock = applyClockAction(state.clock, "start", now);
-            }
             break;
         }
         case "endEndgame":
@@ -1148,7 +1228,18 @@ export const applyOp = (
             assertHider(actor, "discard the hand");
             state.deck = discardHand(deckOf(state));
             break;
-        case "newRound":
+        case "newRound": {
+            // With teams, the next hider team is settled first (everyone's
+            // popup after the round); it hides the new round.
+            const next = state.nextHiderTeamId
+                ? teamById(state, state.nextHiderTeamId)
+                : undefined;
+            if (state.teams.length > 0 && !next) {
+                throw new GameRuleError(
+                    "Pick the team that hides next first.",
+                    409,
+                );
+            }
             state.rounds.push({
                 endedAt: now,
                 questions: Object.values(state.questions),
@@ -1179,7 +1270,11 @@ export const applyOp = (
             state.hider = { station: null, pin: null };
             state.hasHider = false;
             state.hiderReadyAt = null;
+            state.hiderTeamId = next?.id ?? null;
+            state.hiderName = next?.name ?? null;
+            state.nextHiderTeamId = null;
             break;
+        }
         default:
             throw new GameRuleError("Unknown change.", 400);
     }

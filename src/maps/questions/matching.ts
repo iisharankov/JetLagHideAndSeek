@@ -293,6 +293,7 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
             lat: $hiderMode.latitude,
             lng: $hiderMode.longitude,
             same: true,
+            research: false,
             type: (question as HomeGameMatchingQuestions).type,
             drag: false,
             color: "black",

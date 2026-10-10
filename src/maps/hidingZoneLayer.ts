@@ -43,6 +43,7 @@ import {
     chosenStation,
     hiderChoosing,
     hiderShowAll,
+    pendingStation,
     pickHiderStation,
 } from "@/lib/hiderSpot";
 import { escapeHtml } from "@/lib/html";
@@ -310,6 +311,8 @@ const computeHidingZones = async () => {
 
     for (const question of questions.get()) {
         if (question.data.hidden) continue;
+        // The hider's research questions never narrow their own choice.
+        if (question.data.research) continue;
         if (planningModeEnabled.get() && question.data.drag) continue;
 
         try {
@@ -401,8 +404,9 @@ const draw = () => {
     removeZoneLayers(map);
 
     const hider = hiderPhone.get();
-    const mine = hider ? chosenStation.get() : null;
-    const choosing = hider && (hiderChoosing.get() || !mine);
+    const confirmed = hider ? chosenStation.get() : null;
+    const mine = hider ? (pendingStation.get() ?? confirmed) : null;
+    const choosing = hider && (hiderChoosing.get() || !confirmed);
     const showStations = hider
         ? choosing || hiderShowAll.get()
         : displayHidingZones.get() && zonesAllowed.get();
@@ -520,6 +524,7 @@ export const startHidingZoneLayer = () => {
             displayHidingZones,
             displayHidingZonesStyle,
             chosenStation,
+            pendingStation,
             hiderChoosing,
             hiderShowAll,
             hiderPhone,

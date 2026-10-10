@@ -25,6 +25,9 @@ const base = (): GameState => ({
     hider: null,
     hasHider: true,
     hiderReadyAt: null,
+    teams: [],
+    hiderTeamId: null,
+    nextHiderTeamId: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -74,6 +77,35 @@ describe("game events", () => {
         expect(gameEvents(before, after, "seeker")).toEqual([]);
         // The first state of a game is never news.
         expect(gameEvents(null, after, "hider")).toEqual([]);
+    });
+
+    it("announces a new round and the team that hides next", () => {
+        const teams = [
+            { id: "t1", name: "Foxes", members: ["Ben"] },
+            { id: "t2", name: "Owls", members: ["Ana"] },
+        ];
+        const before: GameState = { ...base(), teams };
+        const claimed: GameState = { ...base(), teams, nextHiderTeamId: "t2" };
+        expect(
+            gameEvents(before, claimed, "seeker").map((e) => e.title),
+        ).toEqual(["Owls hides next"]);
+        const next: GameState = {
+            ...base(),
+            teams,
+            hiderTeamId: "t2",
+            rounds: [
+                {
+                    endedAt: 9,
+                    questions: [],
+                    photoRequests: [],
+                    curses: [],
+                    powerups: [],
+                },
+            ],
+        };
+        const events = gameEvents(claimed, next, "hider");
+        expect(events.map((e) => e.kind)).toEqual(["round"]);
+        expect(events[0].body).toBe("Team Owls hides. Say who you are.");
     });
 
     it("tells the seekers the hider is in place, and what a photo question became", () => {

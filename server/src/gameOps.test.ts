@@ -421,38 +421,123 @@ describe("the hiding spot", () => {
 });
 
 describe("the hiding clock", () => {
-    it("runs for everyone; the hider adds bonuses once it's stopped", () => {
+    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+
+    it("starts by itself when the hider confirms their station", () => {
+        const state = apply(
+            fresh(),
+            { type: "hiderReady", station },
+            hider,
+            4000,
+        );
+        expect(state.clock?.startedAt).toBe(4000);
+        expect(state.clock?.pausedAt).toBeNull();
+    });
+
+    it("keeps a clock started sooner, and the end game doesn't start one", () => {
         let state = apply(
             fresh(),
             { type: "clock", action: "start" },
             seeker,
             1000,
         );
+        state = apply(state, { type: "hiderReady", station }, hider, 4000);
         expect(state.clock?.startedAt).toBe(1000);
+        expect(
+            apply(fresh(), { type: "startEndgame", station }, seeker, 4000)
+                .clock,
+        ).toBeNull();
+    });
+});
+
+describe("teams", () => {
+    const owl: Actor = { name: "Cem", role: "seeker" };
+    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+    const withTeams = () => {
+        let state = apply(fresh(), { type: "joinTeam", name: "Foxes" }, hider);
+        state = apply(state, { type: "joinTeam", name: " owls " }, seeker);
+        return apply(state, { type: "joinTeam", name: "Owls" }, owl);
+    };
+    /** A finished round: the hider was found. */
+    const over = (state: GameState) => {
+        state = apply(state, { type: "hiderReady", station }, hider, 1000);
+        return apply(state, { type: "clock", action: "stop" }, seeker, 5000);
+    };
+
+    it("are joined by name, made when new, and one per player", () => {
+        let state = withTeams();
+        expect(state.teams.map((t) => [t.name, t.members])).toEqual([
+            ["Foxes", ["Ben"]],
+            ["owls", ["Ana", "Cem"]],
+        ]);
+        state = apply(state, { type: "joinTeam", name: "Foxes" }, owl);
+        expect(state.teams.map((t) => t.members)).toEqual([
+            ["Ben", "Cem"],
+            ["Ana"],
+        ]);
+        state = apply(state, { type: "leaveTeam" }, owl);
+        expect(state.teams.map((t) => t.members)).toEqual([["Ben"], ["Ana"]]);
         expect(() =>
-            apply(state, { type: "setBonus", minutes: 5 }, hider),
-        ).toThrow(/still running/);
-        expect(() => apply(state, { type: "clock", action: "dance" })).toThrow(
-            /Unknown clock action/,
-        );
+            apply(state, { type: "joinTeam", name: " " }, owl),
+        ).toThrow(/Give the team a name/);
+    });
 
-        state = apply(state, { type: "clock", action: "pause" }, hider, 2000);
-        state = apply(state, { type: "clock", action: "resume" }, hider, 3000);
-        state = apply(state, { type: "clock", action: "stop" }, seeker, 4000);
-        expect(state.clock).toMatchObject({
-            startedAt: 1000,
-            pausedMs: 1000,
-            stoppedAt: 4000,
-        });
-        expect(() => apply(state, { type: "setBonus", minutes: 5 })).toThrow(
-            /Only the hider/,
+    it("put the hider's team on the scoreboard", () => {
+        const state = apply(
+            withTeams(),
+            { type: "hiderReady", station },
+            hider,
         );
-        state = apply(state, { type: "setBonus", minutes: 5 }, hider);
-        expect(state.clock?.bonusMinutes).toBe(5);
+        expect(state.hiderName).toBe("Foxes");
+    });
 
-        state = apply(state, { type: "newRound" });
-        expect(state.clock).toBeNull();
-        expect(state.rounds[0].clock?.bonusMinutes).toBe(5);
+    it("let one team claim the next round once the round is over", () => {
+        let state = withTeams();
+        expect(() =>
+            apply(
+                state,
+                { type: "claimNextRound", teamId: state.teams[1].id },
+                seeker,
+            ),
+        ).toThrow(/isn't over yet/);
+        state = over(state);
+        const [foxes, owls] = state.teams;
+        expect(() =>
+            apply(state, { type: "claimNextRound", teamId: foxes.id }, seeker),
+        ).toThrow(/own team/);
+        state = apply(
+            state,
+            { type: "claimNextRound", teamId: owls.id },
+            seeker,
+        );
+        expect(state.nextHiderTeamId).toBe(owls.id);
+        expect(() =>
+            apply(state, { type: "claimNextRound", teamId: foxes.id }, hider),
+        ).toThrow(/owls already hides next/);
+        // Withdrawing is the claiming team's.
+        expect(() =>
+            apply(state, { type: "claimNextRound", teamId: null }, hider),
+        ).toThrow(/withdraw/);
+        expect(
+            apply(state, { type: "claimNextRound", teamId: null }, owl)
+                .nextHiderTeamId,
+        ).toBeNull();
+    });
+
+    it("hand the new round to the team that claimed it", () => {
+        let state = over(withTeams());
+        expect(() => apply(state, { type: "newRound" }, seeker)).toThrow(
+            /Pick the team that hides next/,
+        );
+        const owls = state.teams[1];
+        state = apply(state, { type: "claimNextRound", teamId: owls.id }, owl);
+        state = apply(state, { type: "newRound" }, seeker);
+        expect(state.rounds).toHaveLength(1);
+        expect(state.rounds[0].hiderName).toBe("Foxes");
+        expect(state.hiderTeamId).toBe(owls.id);
+        expect(state.hiderName).toBe("owls");
+        expect(state.nextHiderTeamId).toBeNull();
+        expect(state.hasHider).toBe(false);
     });
 });
 
@@ -988,32 +1073,6 @@ describe("the hider's station", () => {
         expect(() =>
             apply(fresh(), { type: "hiderReady", station: null }, hider),
         ).toThrow(/Pick a station first/);
-    });
-});
-
-describe("the hiding clock", () => {
-    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
-
-    it("starts by itself when the seekers pick the station, if nobody did", () => {
-        const state = apply(
-            fresh(),
-            { type: "startEndgame", station },
-            seeker,
-            4000,
-        );
-        expect(state.clock?.startedAt).toBe(4000);
-        expect(state.clock?.pausedAt).toBeNull();
-    });
-
-    it("keeps a clock started sooner", () => {
-        let state = apply(
-            fresh(),
-            { type: "clock", action: "start" },
-            seeker,
-            1000,
-        );
-        state = apply(state, { type: "startEndgame", station }, seeker, 4000);
-        expect(state.clock?.startedAt).toBe(1000);
     });
 });
 

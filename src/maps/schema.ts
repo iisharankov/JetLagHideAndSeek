@@ -78,6 +78,8 @@ const thermometerQuestionSchema = z
         drag: z.boolean().default(true),
         collapsed: z.boolean().default(false),
         hidden: z.boolean().default(false),
+        /** The hider's own probe of a hiding spot: never shared, gone once the station is set. */
+        research: z.boolean().default(false),
     })
     .transform((question) => {
         if (question.colorA === question.colorB) {
@@ -101,6 +103,8 @@ const ordinaryBaseQuestionSchema = z.object({
     color: iconColorSchema.default(randomColor),
     collapsed: z.boolean().default(false),
     hidden: z.boolean().default(false),
+    /** The hider's own probe of a hiding spot: never shared, gone once the station is set. */
+    research: z.boolean().default(false),
 });
 
 const getDefaultUnit = () => {

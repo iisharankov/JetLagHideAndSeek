@@ -271,7 +271,20 @@ const refresh = async () => {
     const game = gameState.get();
     const hider = hiderPhone.get();
     const hiderModeErrors: Record<number, QuestionStatus> = {};
-    if (hider && !game) inPlay = await answerFromPin(inPlay, hiderModeErrors);
+    if (hider) {
+        // Alone, every question follows the pin; in a game only the hider's
+        // own research questions (probing a hiding spot) do.
+        const probing = game ? inPlay.filter((q) => q.data.research) : inPlay;
+        if (probing.length > 0) {
+            const answered = new Map(
+                (await answerFromPin(probing, hiderModeErrors)).map((q) => [
+                    q.key,
+                    q,
+                ]),
+            );
+            inPlay = inPlay.map((q) => answered.get(q.key) ?? q);
+        }
+    }
 
     const confirmed = inPlay.filter((q) => roleOnMap(q, game) === "confirmed");
     const drafts = inPlay.filter((q) => roleOnMap(q, game) === "speculative");
@@ -306,7 +319,19 @@ const refresh = async () => {
     const patched: { question: Question; area: Feature }[] = [];
     let current = known.mapGeoData;
     let currentKey = known.key;
-    for (const draft of speculative) {
+    // The hider's research questions are drawn last, and the hiding zones
+    // (the stations the hider may still pick) don't follow them.
+    const ordered = [
+        ...speculative.filter((q) => !q.data.research),
+        ...speculative.filter((q) => q.data.research),
+    ];
+    let zoneData: typeof current | null = null;
+    let zoneKey = currentKey;
+    for (const draft of ordered) {
+        if (draft.data.research && zoneData === null) {
+            zoneData = current;
+            zoneKey = currentKey;
+        }
         const step = await applyQuestionsToMapGeoData(
             [draft],
             current,
@@ -337,6 +362,10 @@ const refresh = async () => {
         currentKey = step.key;
     }
     const mapGeoData = current;
+    if (zoneData === null) {
+        zoneData = current;
+        zoneKey = currentKey;
+    }
     for (const question of outlinedDrafts) {
         try {
             const outline = await questionOutline(question);
@@ -428,12 +457,10 @@ const refresh = async () => {
         layer.addTo(map);
     }
     // The hiding zones follow what's left; they only recompute when it changed.
-    if (
-        currentKey !== eliminatedKey ||
-        questionFinishedMapData.get() === null
-    ) {
-        eliminatedKey = currentKey;
-        const mask = masks(currentKey, () => holedMask(mapGeoData));
+    if (zoneKey !== eliminatedKey || questionFinishedMapData.get() === null) {
+        eliminatedKey = zoneKey;
+        const zoneArea = zoneData;
+        const mask = masks(zoneKey, () => holedMask(zoneArea));
         questionFinishedMapData.set(turf.featureCollection([mask!]));
     }
 

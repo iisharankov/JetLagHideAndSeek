@@ -9,6 +9,7 @@ import {
     hiderMode,
     hidingRadius,
     hidingRadiusUnits,
+    questions,
 } from "@/lib/context";
 import type { StationPick } from "@/lib/game/types";
 import { persistentAtom } from "@/lib/persist";
@@ -25,6 +26,11 @@ export const chosenStation = persistentAtom<StationPick | null>(
     null,
     json,
 );
+/**
+ * The station the hider has tapped but not confirmed with Done. Not kept:
+ * a refresh forgets it, so nothing becomes the hiding spot by accident.
+ */
+export const pendingStation = atom<StationPick | null>(null);
 /** The hider is picking (or changing) their station on the map. */
 export const hiderChoosing = atom<boolean>(false);
 /** The hider also shows what the seekers see: every station still in play. */
@@ -41,7 +47,8 @@ export const hiderAnswerPosition = ():
     | { latitude: number; longitude: number } => {
     const pin = hiderMode.get();
     if (pin === false) return false;
-    const station = chosenStation.get();
+    // While choosing, the tapped station: research questions probe it.
+    const station = pendingStation.get() ?? chosenStation.get();
     if (station && !endgame.get()) {
         return { latitude: station.lat, longitude: station.lng };
     }
@@ -64,7 +71,7 @@ export const setHiderPin = (
     latitude: number,
     longitude: number,
 ): "ok" | "clamped" => {
-    const station = chosenStation.get();
+    const station = pendingStation.get() ?? chosenStation.get();
     let result: "ok" | "clamped" = "ok";
     if (station) {
         const centre = turf.point([station.lng, station.lat]);
@@ -85,9 +92,19 @@ export const setHiderPin = (
     return result;
 };
 
-/** The hider picks their station; the pin moves there unless it's already in the zone. */
-export const pickHiderStation = (station: StationPick) => {
+/** Done: the tapped station is the hider's for the round; the research questions go. */
+export const confirmHiderStation = () => {
+    const station = pendingStation.get();
+    if (!station) return null;
     chosenStation.set(station);
+    pendingStation.set(null);
+    questions.set(questions.get().filter((q) => !q.data.research));
+    return station;
+};
+
+/** The hider taps a station; the pin moves there unless it's already in the zone. */
+export const pickHiderStation = (station: StationPick) => {
+    pendingStation.set(station);
     const pin = hiderMode.get();
     const inZone =
         pin !== false &&

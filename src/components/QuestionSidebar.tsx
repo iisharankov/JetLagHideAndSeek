@@ -33,6 +33,7 @@ import {
     clearQuestions,
     isLoading,
     questions,
+    type SidebarTab,
     sidebarTab,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
@@ -46,6 +47,7 @@ import {
     sendOp,
 } from "@/lib/game/session";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
+import type { Question } from "@/maps/schema";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
@@ -104,7 +106,10 @@ export const QuestionSidebar = () => {
     const $choosing = useStore(hiderChoosing);
     const noStationYet = hider && !!$game && ($choosing || !$chosen);
     useEffect(() => {
-        if (noStationYet && tab !== "stations") sidebarTab.set("stations");
+        if (noStationYet && tab !== "stations" && tab !== "research") {
+            sidebarTab.set("stations");
+        }
+        if (!noStationYet && tab === "research") sidebarTab.set("stations");
     }, [noStationYet, tab]);
     // The Move card's period: counted down; when it's over the game goes on
     // by itself (whichever phone notices first).
@@ -128,6 +133,83 @@ export const QuestionSidebar = () => {
             : 0;
     const waitingPhotos =
         $game?.photoRequests.filter((request) => !request.photoId).length ?? 0;
+
+    /** The hider's own probing questions, before the station is set. */
+    const research = $questions.filter((q) => q.data.research);
+    const tabOptions: { value: SidebarTab; label: string }[] = noStationYet
+        ? [
+              { value: "stations", label: "Hider" },
+              {
+                  value: "research",
+                  label: research.length
+                      ? `Research (${research.length})`
+                      : "Research",
+              },
+          ]
+        : [
+              {
+                  value: "questions",
+                  label: waitingQuestions
+                      ? `Questions (${waitingQuestions})`
+                      : "Questions",
+              },
+              { value: "stations", label: hider ? "Hider" : "Stations" },
+              {
+                  value: "photos",
+                  label: waitingPhotos ? `Photos (${waitingPhotos})` : "Photos",
+              },
+              {
+                  value: "curses",
+                  label: activeCurses ? `Cards (${activeCurses})` : "Cards",
+              },
+          ];
+    const cards = (list: Question[]) =>
+        list.map((question) => {
+            switch (question.id) {
+                case "radius":
+                    return (
+                        <RadiusQuestionComponent
+                            data={question.data}
+                            key={question.key}
+                            questionKey={question.key}
+                        />
+                    );
+                case "thermometer":
+                    return (
+                        <ThermometerQuestionComponent
+                            data={question.data}
+                            key={question.key}
+                            questionKey={question.key}
+                        />
+                    );
+                case "tentacles":
+                    return (
+                        <TentacleQuestionComponent
+                            data={question.data}
+                            key={question.key}
+                            questionKey={question.key}
+                        />
+                    );
+                case "matching":
+                    return (
+                        <MatchingQuestionComponent
+                            data={question.data}
+                            key={question.key}
+                            questionKey={question.key}
+                        />
+                    );
+                case "measuring":
+                    return (
+                        <MeasuringQuestionComponent
+                            data={question.data}
+                            key={question.key}
+                            questionKey={question.key}
+                        />
+                    );
+                default:
+                    return null;
+            }
+        });
 
     return (
         <Sidebar>
@@ -174,40 +256,15 @@ export const QuestionSidebar = () => {
             <div className="px-2 pt-2">
                 <SegmentedControl
                     label="Sidebar section"
-                    options={[
-                        {
-                            value: "questions",
-                            label: waitingQuestions
-                                ? `Questions (${waitingQuestions})`
-                                : "Questions",
-                            disabled: noStationYet,
-                        },
-                        {
-                            value: "stations",
-                            label: hider ? "Hider" : "Stations",
-                        },
-                        {
-                            value: "photos",
-                            label: waitingPhotos
-                                ? `Photos (${waitingPhotos})`
-                                : "Photos",
-                            disabled: noStationYet,
-                        },
-                        {
-                            value: "curses",
-                            label: activeCurses
-                                ? `Cards (${activeCurses})`
-                                : "Cards",
-                            disabled: noStationYet,
-                        },
-                    ]}
+                    options={tabOptions}
                     value={tab}
                     onValueChange={sidebarTab.set}
                     disabled={overLimit}
                 />
                 {noStationYet && (
                     <p className="mt-1 text-xs text-amber-400">
-                        Pick your station first.
+                        Questions, Photos and Cards come once your station is
+                        set.
                     </p>
                 )}
                 {overLimit && (
@@ -286,52 +343,32 @@ export const QuestionSidebar = () => {
                     )}
                 </SidebarMenu>
                 <NotePinList />
-                {$questions.map((question) => {
-                    switch (question.id) {
-                        case "radius":
-                            return (
-                                <RadiusQuestionComponent
-                                    data={question.data}
-                                    key={question.key}
-                                    questionKey={question.key}
-                                />
-                            );
-                        case "thermometer":
-                            return (
-                                <ThermometerQuestionComponent
-                                    data={question.data}
-                                    key={question.key}
-                                    questionKey={question.key}
-                                />
-                            );
-                        case "tentacles":
-                            return (
-                                <TentacleQuestionComponent
-                                    data={question.data}
-                                    key={question.key}
-                                    questionKey={question.key}
-                                />
-                            );
-                        case "matching":
-                            return (
-                                <MatchingQuestionComponent
-                                    data={question.data}
-                                    key={question.key}
-                                    questionKey={question.key}
-                                />
-                            );
-                        case "measuring":
-                            return (
-                                <MeasuringQuestionComponent
-                                    data={question.data}
-                                    key={question.key}
-                                    questionKey={question.key}
-                                />
-                            );
-                        default:
-                            return null;
-                    }
-                })}
+                {cards($questions.filter((q) => !q.data.research))}
+            </SidebarContent>
+            <SidebarContent className={tab === "research" ? "" : "hidden"}>
+                <SidebarMenu className="px-2 pt-2">
+                    <p
+                        className="px-2 py-1 text-xs text-slate-400"
+                        data-testid="research-note"
+                    >
+                        Only on your phone: probe a hiding spot before you
+                        commit. The answers follow the station you tapped (or
+                        your pin). These questions go when you confirm your
+                        station.
+                    </p>
+                    <SidebarMenuItem>
+                        <AddQuestionDialog research>
+                            <Button
+                                className="w-full font-semibold"
+                                disabled={$isLoading}
+                                data-testid="add-research"
+                            >
+                                Add a research question
+                            </Button>
+                        </AddQuestionDialog>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+                {cards(research)}
             </SidebarContent>
             <SidebarGroup>
                 {$game && <RoundClock />}

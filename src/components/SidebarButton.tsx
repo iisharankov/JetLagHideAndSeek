@@ -13,6 +13,7 @@ export const SidebarButton = () => {
         stations: hider ? "Hider" : "Stations",
         photos: "Photos",
         curses: "Cards",
+        research: "Research",
     }[tab];
     return (
         <SidebarTrigger title="Open or close the sidebar">

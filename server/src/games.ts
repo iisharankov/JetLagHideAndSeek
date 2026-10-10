@@ -145,6 +145,9 @@ export const createGameStore = (
         state.hiderName ??= null;
         state.awards ??= [];
         state.hiderReadyAt ??= null;
+        state.teams ??= [];
+        state.hiderTeamId ??= null;
+        state.nextHiderTeamId ??= null;
         if (state.move && !state.move.endsAt) {
             state.move.endsAt =
                 state.move.startedAt +
@@ -224,6 +227,19 @@ export const createGameStore = (
                 );
             }
             const found = row(id)!;
+            // With teams, only the team hiding this round hides.
+            const team = by
+                ? state.teams.find((t) => t.members.includes(by))
+                : undefined;
+            if (state.hiderTeamId && team?.id !== state.hiderTeamId) {
+                const hiders = state.teams.find(
+                    (t) => t.id === state.hiderTeamId,
+                );
+                throw new GameRuleError(
+                    `This round's hider is team ${hiders?.name ?? "?"}: join it to hide.`,
+                    409,
+                );
+            }
             if (found.hider_secret && found.hider_token) {
                 if (!passwordMatches(password, found.hider_secret)) {
                     throw new GameRuleError("Wrong hider password.");
@@ -233,8 +249,10 @@ export const createGameStore = (
             const token = randomBytes(24).toString("base64url");
             setHider.run(hashPassword(password), token, id);
             state.hasHider = true;
-            // The first hider's name goes on the scoreboard.
-            if (by && by !== "Someone" && !state.hiderName)
+            if (team && !state.hiderTeamId) state.hiderTeamId = team.id;
+            // The first hider's name (or their team's) goes on the scoreboard.
+            if (team) state.hiderName = team.name;
+            else if (by && by !== "Someone" && !state.hiderName)
                 state.hiderName = by;
             state.version += 1;
             state.updatedAt = Date.now();

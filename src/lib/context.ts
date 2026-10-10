@@ -239,9 +239,14 @@ export const endgame = persistentAtom<Endgame | null>("endgame", null, json);
 export const highlightedStation = atom<string>("");
 
 /** The sidebar's open tab (a tap on a zone switches to Stations). */
-export const sidebarTab = atom<"questions" | "stations" | "photos" | "curses">(
-    "questions",
-);
+export type SidebarTab =
+    | "questions"
+    | "stations"
+    | "photos"
+    | "curses"
+    /** The hider's own probing questions, before the station is set. */
+    | "research";
+export const sidebarTab = atom<SidebarTab>("questions");
 
 /** The Menu drawer is open. */
 export const menuOpen = atom<boolean>(false);

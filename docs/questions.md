@@ -172,4 +172,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   The hider's station is picked first (other tabs wait) and set for the
   round unless Move is played; the seekers hear that it's picked, not
   where; the hiding clock starts by itself at the end game at the latest;
-  awarded minutes are asked for when the hider is found.
+  awarded minutes are asked for when the hider is found. A tapped station
+  counts only once confirmed (a refresh forgets it); the clock starts at
+  that confirmation; teams (one hides, the rest seek; the next hider team
+  is claimed after each round, then everyone re-joins); a Research tab for
+  the hider's own probing questions before the station is set.

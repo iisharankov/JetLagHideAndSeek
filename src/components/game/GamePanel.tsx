@@ -14,6 +14,13 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleCard } from "@/components/ui/toggle-card";
@@ -51,6 +58,9 @@ import type { GameSettings, GameState } from "@/lib/game/types";
 import { currentPlayArea, parsePlayArea, playAreaName } from "@/lib/sharedGame";
 import { shareOrFallback } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
+
+import { nextHiderOpen } from "./NextHiderDialog";
+import { currentTeamChoice, type TeamChoice, TeamPicker } from "./TeamPicker";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -163,6 +173,78 @@ const ConnectionStatus = () => {
                     nextIn !== null ? `, next try in ${nextIn} s` : ""
                 })`}
         </span>
+    );
+};
+
+/** Menu → Game: the player's team, and changing it. */
+const TeamLine = ({ game }: { game: GameState }) => {
+    const $name = useStore(playerName);
+    const me = $name.trim();
+    const mine = game.teams.find((team) => team.members.includes(me));
+    const [open, setOpen] = useState(false);
+    const [choice, setChoice] = useState<TeamChoice | null>(null);
+    const value = choice ?? currentTeamChoice(game.teams, me);
+    const save = async () => {
+        if (value.kind === "none") {
+            if (mine) await sendOp({ type: "leaveTeam" });
+        } else {
+            const name = value.name.trim();
+            if (!name) {
+                toast.error("Give the team a name.");
+                return;
+            }
+            if (mine?.name.toLowerCase() !== name.toLowerCase()) {
+                await sendOp({ type: "joinTeam", name });
+            }
+        }
+        setOpen(false);
+    };
+    return (
+        <div
+            className="flex items-center justify-between gap-2 text-sm"
+            data-testid="team-line"
+        >
+            <span>
+                {mine ? (
+                    <>
+                        Team <strong>{mine.name}</strong> (
+                        {mine.members.join(", ")})
+                    </>
+                ) : (
+                    "No team"
+                )}
+            </span>
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+                Team…
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
+                    <DialogHeader>
+                        <DialogTitle>Your team</DialogTitle>
+                        <DialogDescription>
+                            Teams hide and seek together (2 v 2, say): one team
+                            hides a round, the others seek. Join one, or make a
+                            new one.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <TeamPicker
+                        teams={game.teams}
+                        value={value}
+                        onChange={setChoice}
+                        hiderTeamId={game.hiderTeamId}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button onClick={() => void save()}>Save</Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 };
 
@@ -488,6 +570,7 @@ export const GamePanel = () => {
                 Chosen when you joined. Leave the game and open its link again
                 to join as someone else.
             </p>
+            {$game && <TeamLine game={$game} />}
 
             {$game && <Scoreboard game={$game} />}
             <h4 className="text-xs font-semibold font-poppins text-slate-300">
@@ -555,9 +638,18 @@ export const GamePanel = () => {
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                                onClick={() =>
-                                    void sendOp({ type: "newRound" })
-                                }
+                                onClick={() => {
+                                    // With teams, who hides next comes first.
+                                    if (
+                                        $game &&
+                                        $game.teams.length > 0 &&
+                                        !$game.nextHiderTeamId
+                                    ) {
+                                        nextHiderOpen.set(true);
+                                        return;
+                                    }
+                                    void sendOp({ type: "newRound" });
+                                }}
                             >
                                 New round
                             </AlertDialogAction>

@@ -95,6 +95,8 @@ export const diffLocal = (
     const ops: GameOp[] = [];
     const keys = new Set(local.map((q) => q.key));
     for (const question of local) {
+        // The hider's research questions stay on their phone.
+        if (question.data.research) continue;
         if (synced.get(question.key) !== syncedJson(question)) {
             ops.push({ type: "putQuestion", question: toShared(question) });
         }
@@ -121,14 +123,18 @@ export const canChangeQuestion = (
 
 /**
  * How a question shapes the map: confirmed answers shade it; seekers'
- * drafts shade it as speculation; questions waiting for the hider don't;
- * vetoed ones never will. Without a shared game every question counts.
+ * drafts (and the hider's research questions) shade it as speculation;
+ * questions waiting for the hider don't; vetoed ones never will. Without a
+ * shared game every question counts.
  */
 export const roleOnMap = (
     question: Question,
     state: GameState | null,
 ): "confirmed" | "speculative" | "waiting" | "vetoed" => {
     if (!state) return "confirmed";
+    // The hider's research: drawn as speculation, so the stations they may
+    // still pick stay on the list.
+    if (question.data.research) return "speculative";
     const entry = state.questions[String(question.key)];
     if (!entry || entry.state === "draft") return "speculative";
     if (entry.state === "vetoed") return "vetoed";

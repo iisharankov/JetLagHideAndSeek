@@ -16,8 +16,10 @@ import { gameState, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
 import {
     chosenStation,
+    confirmHiderStation,
     hiderChoosing,
     hiderShowAll,
+    pendingStation,
     setHiderPin,
     showHiderPin,
 } from "@/lib/hiderSpot";
@@ -42,6 +44,7 @@ const label = (station: StationCircle) =>
  */
 export const HiderPanel = () => {
     const $chosen = useStore(chosenStation);
+    const $pending = useStore(pendingStation);
     const $choosing = useStore(hiderChoosing);
     const $showAll = useStore(hiderShowAll);
     const $showPin = useStore(showHiderPin);
@@ -73,25 +76,26 @@ export const HiderPanel = () => {
                     map with its hiding zone ({radius} around it). Tap yours on
                     the map or in the list; it turns red.
                 </p>
-                {$chosen && (
+                {$pending && (
                     <p data-testid="hider-station">
-                        Picked: <strong>{$chosen.name}</strong>
+                        Picked: <strong>{$pending.name}</strong> (tap Done to
+                        make it yours)
                     </p>
                 )}
                 <Button
-                    disabled={!$chosen}
+                    disabled={!$pending}
                     onClick={() => {
+                        // Confirmed: the seekers hear that the hider is in
+                        // place (not where), and the clock starts.
+                        const station = confirmHiderStation();
+                        if (!station) return;
                         hiderChoosing.set(false);
-                        if ($chosen) goToPick($chosen);
-                        // The seekers hear that the hider is in place.
-                        if ($game && $chosen) {
-                            void sendOp({
-                                type: "hiderReady",
-                                station: $chosen,
-                            });
+                        goToPick(station);
+                        if ($game) {
+                            void sendOp({ type: "hiderReady", station });
                         }
                         toast.success(
-                            `Your station is ${$chosen?.name}. The red circle is your hiding zone.`,
+                            `Your station is ${station.name}. The red circle is your hiding zone.`,
                         );
                     }}
                     data-testid="hider-done"
@@ -122,10 +126,10 @@ export const HiderPanel = () => {
                             <button
                                 type="button"
                                 className="rounded-md bg-slate-600 px-1.5 py-0.5 text-xs disabled:opacity-50"
-                                disabled={stationId(station) === $chosen?.id}
+                                disabled={stationId(station) === $pending?.id}
                                 onClick={() => pickStation(station)}
                             >
-                                {stationId(station) === $chosen?.id
+                                {stationId(station) === $pending?.id
                                     ? "Picked"
                                     : "Mine"}
                             </button>

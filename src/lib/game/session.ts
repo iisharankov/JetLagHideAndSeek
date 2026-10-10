@@ -17,7 +17,7 @@ import {
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
-import { chosenStation } from "@/lib/hiderSpot";
+import { chosenStation, hiderChoosing, pendingStation } from "@/lib/hiderSpot";
 import { persistentAtom } from "@/lib/persist";
 import {
     applyPlayArea,
@@ -126,6 +126,8 @@ const ensureHiderMode = () => {
 
 // What this phone last had in common with the server.
 let synced = new Map<number, string>();
+/** Rounds the game had when last seen: one more means "say who you are again". */
+let roundsSeen = -1;
 let syncedPlayArea = "";
 let syncedZone = "";
 let applyingRemote = false;
@@ -160,6 +162,10 @@ const receive = (received: GameState, force = false) => {
     }
     gameState.set(state);
     lastUpdateAt.set(Date.now());
+    // A new round: the hider's password is new, so everyone says who they
+    // are again; the old hider's phone is a seeker's until then.
+    if (roundsSeen >= 0 && state.rounds.length > roundsSeen) startOfRound();
+    roundsSeen = state.rounds.length;
 
     applyingRemote = true;
     try {
@@ -435,6 +441,7 @@ export const joinGame = (id: string) => {
         syncedPlayArea = "";
         syncedZone = "";
         sessionGame = id;
+        roundsSeen = -1;
         gameState.set(null);
         suggestedAnswers.set({});
     }
@@ -449,11 +456,27 @@ export const joinGame = (id: string) => {
  * Back to no game. The game's questions were the game's: they go, and
  * joining again asks who you are.
  */
+/** A new round began on the server: nothing of the old one lingers here. */
+const startOfRound = () => {
+    const id = activeGameId.get();
+    if (gameRole.get() === "hider") {
+        // The old token is void: a seeker until someone claims the hider.
+        gameRole.set("seeker");
+        forgetHider();
+    }
+    chosenStation.set(null);
+    pendingStation.set(null);
+    hiderChoosing.set(false);
+    if (id) unmarkJoined(id);
+};
+
 export const leaveGame = () => {
     const id = activeGameId.get();
     disconnect();
     if (gameRole.get() === "hider") hiderMode.set(false);
     sessionGame = "";
+    roundsSeen = -1;
+    pendingStation.set(null);
     currentGameId.set("");
     activeGameId.set("");
     gameState.set(null);
@@ -473,7 +496,10 @@ export const startGame = async () => {
         playArea: currentPlayArea(),
         zone: currentZoneSettings(),
         settings: gameSettings.get(),
-        questions: questions.get().map(toShared),
+        questions: questions
+            .get()
+            .filter((q) => !q.data.research)
+            .map(toShared),
         by: me(),
     });
     syncedPlayArea = JSON.stringify(state.playArea);

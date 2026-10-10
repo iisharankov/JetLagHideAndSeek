@@ -75,6 +75,14 @@ export interface CurseEntry {
     seconds?: number;
 }
 
+/** A team: people hiding or seeking together (2 v 2, say). */
+export interface Team {
+    id: string;
+    name: string;
+    /** Player names. */
+    members: string[];
+}
+
 /** Minutes the hider was awarded during the round (a curse's penalty, say). */
 export interface Award {
     id: string;
@@ -283,6 +291,11 @@ export interface GameState {
     hasHider: boolean;
     /** When the hider confirmed their station this round (the seekers know that, not where). */
     hiderReadyAt: number | null;
+    teams: Team[];
+    /** The team hiding this round, when teams are used. */
+    hiderTeamId: string | null;
+    /** After a round: the team that claimed the next one. */
+    nextHiderTeamId: string | null;
     /** The hider's name this round, once known (for the scoreboard). */
     hiderName: string | null;
     /** Minutes awarded to the hider this round, on top of the hand's bonuses. */
@@ -301,7 +314,12 @@ export const ANSWER_FIELDS = [
 ] as const;
 
 /** Per-phone view fields that are never shared. */
-export const LOCAL_FIELDS = ["collapsed", "hidden", "drag"] as const;
+export const LOCAL_FIELDS = [
+    "collapsed",
+    "hidden",
+    "drag",
+    "research",
+] as const;
 
 export type GameOp =
     | {
@@ -346,6 +364,9 @@ export type GameOp =
     | { type: "randomizePhoto"; id: string }
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "hiderReady"; station: StationPick }
+    | { type: "joinTeam"; name: string }
+    | { type: "leaveTeam" }
+    | { type: "claimNextRound"; teamId: string | null }
     | { type: "setHiderPin"; pin: { latitude: number; longitude: number } }
     | { type: "move"; station: StationPick | null }
     | { type: "resumeMove" }

@@ -234,6 +234,15 @@ progress, the hider's spot, and earlier rounds.
 - **The digital deck** (`deck.ts`, pure, shared with the server): the server
   shuffles and deals what an answered question earns, the hider keeps or
   plays cards, and the time bonuses are worked out from the hand.
+- **Teams** (`teams` in the game state): optional; a player is in one team
+  at a time, the hider's team is the round's hider (`hiderTeamId`), and
+  after a round one team claims the next (`nextHiderTeamId`) before anyone
+  starts it. A new round voids the hider token, so every phone re-joins.
+- **The hider's station:** a tapped station is `pendingStation` (memory
+  only) until Done makes it `chosenStation` and tells the server
+  (`hiderReady`): the seekers hear that, the clock starts. Before that the
+  hider's Research tab holds `research` questions: never synced, answered
+  from the tapped station or the pin, deleted on Done.
 - **The curses** (`curseRules.ts`, shared with the server): which curses
   stop the seekers from asking until cleared, which take questions away
   (the Drained Brain's three, the Spotty Memory's die), which end by

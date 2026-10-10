@@ -62,6 +62,9 @@ const game = (entries: QuestionEntry[]): GameState => ({
     hider: null,
     hasHider: false,
     hiderReadyAt: null,
+    teams: [],
+    hiderTeamId: null,
+    nextHiderTeamId: null,
     hiderName: null,
     awards: [],
     rounds: [],
@@ -159,6 +162,13 @@ describe("mergeRemoteQuestions", () => {
 });
 
 describe("diffLocal", () => {
+    it("keeps the hider's research questions on the phone", () => {
+        const probe = radius(7);
+        probe.data.research = true;
+        expect(diffLocal([probe], new Map())).toEqual([]);
+        expect(roleOnMap(probe, game([]))).toBe("speculative");
+    });
+
     it("sends new and changed questions, and deletions", () => {
         const unchanged = radius(1);
         const changed = radius(2, { radius: 9 });

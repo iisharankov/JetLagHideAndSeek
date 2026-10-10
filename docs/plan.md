@@ -609,6 +609,23 @@ stay in `rules/cards.ts`.
     found, their phone asks for any minutes awarded during the round
     before sending the time bonuses.
 
+19. **A tapped station isn't a hiding spot** until Done: the pick lives
+    in memory only, so a refresh forgets it (the bug: a refresh while
+    choosing made the tapped station final, with no word to the seekers).
+    The seekers' notice and the clock come with Done.
+20. **The hiding clock starts when the hider confirms their station**
+    (anyone may start it sooner); the end game no longer starts it.
+21. **Teams.** Joining asks for a team (one of the game's, or a new one);
+    the team's name is on the scoreboard. After a round, everyone's phone
+    asks who hides next: one team claims it (only one can), anyone starts
+    the new round, and everyone says who they are again; only that team
+    may take the hider password. Menu → Game shows and changes your team.
+22. **The Research tab.** Until the station is confirmed, the hider has
+    only the Hider tab and a Research tab: questions for themselves, never
+    shared, answered from the tapped station (or the pin) to see how the
+    map draws. Confirming the station deletes them and brings the normal
+    tabs back.
+
 Not built, by your choice: dice (you roll real ones) and a hangman board.
 
 ## What's left ⏭️

@@ -24,6 +24,7 @@ import { GamePanel } from "./game/GamePanel";
 import { GamePopups } from "./game/GamePopups";
 import { GameSetupDialog } from "./game/GameSetupDialog";
 import { JoinDialog } from "./game/JoinDialog";
+import { NextHiderDialog } from "./game/NextHiderDialog";
 import { MenuGroup } from "./MenuGroup";
 import { SettingsPanel } from "./SettingsPanel";
 import { Button } from "./ui/button";
@@ -50,6 +51,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
             <GamePopups />
             <JoinDialog />
             <CoachMark />
+            <NextHiderDialog />
             {$setup !== null && (
                 <GameSetupDialog
                     open

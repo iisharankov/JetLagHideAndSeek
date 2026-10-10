@@ -19,7 +19,8 @@ export interface GameEvent {
         | "powerup"
         | "move"
         | "award"
-        | "hider";
+        | "hider"
+        | "round";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
@@ -108,6 +109,31 @@ export const gameEvents = (
                 });
             }
         }
+    }
+
+    // A new round: everyone says who they are again.
+    if (after.rounds.length > before.rounds.length) {
+        const team = after.teams.find((t) => t.id === after.hiderTeamId);
+        events.push({
+            key: `rd${after.rounds.length}`,
+            kind: "round",
+            title: `Round ${after.rounds.length + 1}`,
+            body: team
+                ? `Team ${team.name} hides. Say who you are.`
+                : "The next hider sets a new password. Say who you are.",
+        });
+    }
+    if (
+        after.nextHiderTeamId &&
+        after.nextHiderTeamId !== before.nextHiderTeamId
+    ) {
+        const team = after.teams.find((t) => t.id === after.nextHiderTeamId);
+        events.push({
+            key: `nh${after.nextHiderTeamId}`,
+            kind: "round",
+            title: `${team?.name ?? "A team"} hides next`,
+            body: "Anyone can start the new round.",
+        });
     }
 
     if (role === "hider") {
