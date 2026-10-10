@@ -86,7 +86,11 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 <DrawerTrigger asChild>
                     <button
                         type="button"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-black/30 bg-white text-black shadow-md hover:bg-[#f4f4f4]"
+                        className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-full border-2 border-black/30 bg-white text-black shadow-md hover:bg-[#f4f4f4]",
+                            // Out of the way of its own panel.
+                            isOptionsOpen && "invisible",
+                        )}
                         data-tutorial-id="menu-button"
                         title="Game, settings and rules"
                         onClick={() => setMenuTab("game")}

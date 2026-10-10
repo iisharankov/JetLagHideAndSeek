@@ -18,6 +18,7 @@ import { joinedGames, knownGames, markJoined } from "@/lib/game/knownGames";
 import {
     activeGameId,
     claimHider,
+    forgetHider,
     gameState,
     hiderToken,
     playerName,
@@ -91,6 +92,8 @@ export const JoinDialog = () => {
                             }
                         };
                         if (!hiding) {
+                            // A seeker, whatever this phone was before.
+                            if (hiderToken()) forgetHider();
                             markJoined($gameId);
                             void notifications();
                             return;

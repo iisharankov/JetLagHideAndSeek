@@ -59,4 +59,14 @@ test("one Menu holds game and settings; hider mode is a switch in Game", async (
     const before = await autoZoom.getAttribute("aria-checked");
     await autoZoom.click();
     await expect(autoZoom).not.toHaveAttribute("aria-checked", before!);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+
+    // On a phone the Menu opens over the sheet too.
+    if (testInfo.project.name !== "desktop") {
+        await page.getByTestId("sidebar-trigger").click();
+        await expect(page.getByTestId("sidebar-sheet")).toBeVisible();
+        await page.getByRole("button", { name: "Menu" }).click();
+        await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
+    }
 });

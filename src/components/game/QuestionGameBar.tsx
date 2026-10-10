@@ -108,16 +108,19 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
             data-testid="question-game-state"
             data-state={entry.state}
         >
-            <p>
-                <strong>{STATE_TEXT[entry.state]}</strong>
-                {entry.state === "answered" && `: ${describeAnswer(question)}`}
-            </p>
-            <p className="opacity-80">
-                {entry.updatedBy === entry.createdBy
-                    ? `By ${entry.createdBy}`
-                    : `Changed by ${entry.updatedBy}`}{" "}
-                · {ago(entry.updatedAt)}
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                <p>
+                    <strong>{STATE_TEXT[entry.state]}</strong>
+                    {entry.state === "answered" &&
+                        `: ${describeAnswer(question)}`}
+                </p>
+                <p className="opacity-80">
+                    {entry.updatedBy === entry.createdBy
+                        ? `By ${entry.createdBy}`
+                        : `Changed by ${entry.updatedBy}`}{" "}
+                    · {ago(entry.updatedAt)}
+                </p>
+            </div>
             {timeLeft !== null && (
                 <p
                     className={TONE_CLASS[answerTimerTone(timeLeft)]}
@@ -224,7 +227,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                                 }
                             }}
                         >
-                            Veto
+                            Veto this question
                         </Button>
                     )}
                     {canRandomize && (

@@ -28,12 +28,15 @@ import { deckComposition } from "@/lib/game/deck";
 import { startGame } from "@/lib/game/session";
 import {
     hidingRadiusDefaultKm,
+    RADAR_KM,
     radarDefaultKm,
+    radarDefaults,
     regionDisabledQuestions,
 } from "@/lib/game/settings";
 import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
 import { playAreaParts } from "@/lib/sharedGame";
+import { cn } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 
 import { DeckEditor } from "./setup/DeckEditor";
@@ -80,7 +83,20 @@ export const GameSetupDialog = ({
         setDraft((current) => ({ ...current, ...changes }));
 
     const setSize = (size: GameSize) =>
-        update({ size, hidingRadiusKm: hidingRadiusDefaultKm(size) });
+        update({
+            size,
+            hidingRadiusKm: hidingRadiusDefaultKm(size),
+            radarKm: radarDefaults(size),
+        });
+    const toggleRadius = (km: number) => {
+        const on = draft.radarKm.includes(km);
+        if (on && draft.radarKm.length === 1) return;
+        update({
+            radarKm: on
+                ? draft.radarKm.filter((other) => other !== km)
+                : [...draft.radarKm, km].sort((a, b) => a - b),
+        });
+    };
 
     const setRegion = (region: GameSettings["region"]) =>
         update({ region, disabledQuestions: regionDisabledQuestions(region) });
@@ -263,6 +279,40 @@ export const GameSetupDialog = ({
                                 country. Sets the defaults: radar questions
                                 start at {radarDefaultKm(draft.size)} km, hiding
                                 zones at {hidingRadiusDefaultKm(draft.size)} km.
+                            </p>
+                            <Label>Radar distances</Label>
+                            <div
+                                className="flex flex-wrap gap-1"
+                                role="group"
+                                aria-label="Radar distances"
+                                data-testid="radar-choices"
+                            >
+                                {RADAR_KM.map((km) => {
+                                    const on = draft.radarKm.includes(km);
+                                    return (
+                                        <button
+                                            key={km}
+                                            type="button"
+                                            aria-pressed={on}
+                                            className={cn(
+                                                "rounded-md px-2 py-1 text-xs font-semibold",
+                                                on
+                                                    ? "bg-blue-600 text-white"
+                                                    : "bg-slate-700",
+                                            )}
+                                            onClick={() => toggleRadius(km)}
+                                        >
+                                            {km < 1
+                                                ? `${km * 1000} m`
+                                                : `${km} km`}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-slate-400">
+                                The radar question&apos;s distances in this
+                                game; the size picks a sensible set, tap to
+                                change it.
                             </p>
                             <Label>Local rules</Label>
                             <SegmentedControl<GameSettings["region"]>

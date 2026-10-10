@@ -13,31 +13,27 @@ import { SidebarProvider } from "@/components/ui/sidebar-l";
 <Layout className="bg-jetlag">
     <SidebarProvider client:load>
         <QuestionSidebar client:only />
-        <main class="flex flex-col flex-grow group">
+        <main class="flex flex-col flex-grow">
             <div class="flex justify-center" id="map-modal-dialog-container-leaflet">
                 <div class="w-full h-full relative">
                     <!-- Phones: at the bottom, where a swipe up opens the sheet.
                          Desktop: top left, next to the sidebar. -->
                     <div
-                        class="absolute z-[1030] group-[.fullscreen]:hidden max-md:bottom-4 max-md:left-1/2 max-md:-translate-x-1/2 md:top-2 md:left-2"
+                        class="absolute z-[1030] max-md:bottom-4 max-md:left-1/2 max-md:-translate-x-1/2 md:top-2 md:left-2"
                         data-tutorial-id="left-sidebar-trigger"
                     >
                         <SidebarButton client:load />
                     </div>
                     <div
-                        class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto group-[.fullscreen]:hidden"
+                        class="flex flex-shrink max-w-fit z-[1030] absolute left-4 right-0 m-auto"
                     >
                         <PlayAreaBar client:only className="m-4" />
                     </div>
-                    <div
-                        class="absolute top-2 right-2 z-[1030] group-[.fullscreen]:hidden"
-                    >
+                    <!-- Above the phone's sheet, so the Menu opens whatever is up. -->
+                    <div class="absolute top-2 right-2 z-[1036]">
                         <OptionDrawers client:load />
                     </div>
-                    <Map
-                        className="w-full group-[.fullscreen]:w-full group-[.fullscreen]:h-full"
-                        client:only
-                    />
+                    <Map className="w-full" client:only />
                 </div>
             </div>
         </main>

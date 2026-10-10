@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
     questionIdentity,
     timesAnsweredBefore,
+    timesPhotoAnsweredBefore,
 } from "@/lib/game/questionIdentity";
 import type { QuestionEntry, SharedQuestion } from "@/lib/game/types";
 
@@ -53,5 +54,40 @@ describe("timesAnsweredBefore", () => {
         expect(timesAnsweredBefore(state, radar(1, 5))).toBe(1);
         expect(timesAnsweredBefore(state, radar(6, 10))).toBe(1);
         expect(timesAnsweredBefore(state, matching(7, "zone"))).toBe(0);
+    });
+});
+
+describe("timesPhotoAnsweredBefore", () => {
+    it("counts answered photo questions with the same name, not the one being answered", () => {
+        const state = {
+            photoRequests: [
+                {
+                    id: "a",
+                    name: "Tree",
+                    askedBy: "Ana",
+                    askedAt: 1,
+                    photoId: "p1",
+                },
+                {
+                    id: "b",
+                    name: "tree ",
+                    askedBy: "Ana",
+                    askedAt: 2,
+                    photoId: "p2",
+                },
+                { id: "c", name: "Tree", askedBy: "Ana", askedAt: 3 },
+                {
+                    id: "d",
+                    name: "Sky",
+                    askedBy: "Ana",
+                    askedAt: 4,
+                    photoId: "p4",
+                },
+            ],
+        };
+        expect(timesPhotoAnsweredBefore(state, "Tree", "c")).toBe(2);
+        expect(timesPhotoAnsweredBefore(state, "Tree", "a")).toBe(1);
+        expect(timesPhotoAnsweredBefore(state, "Sky")).toBe(1);
+        expect(timesPhotoAnsweredBefore(state, "Bridge")).toBe(0);
     });
 });

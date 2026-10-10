@@ -4,8 +4,8 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { atom } from "nanostores";
 import * as React from "react";
 import { TbMessage2Question } from "react-icons/tb";
-import { Drawer as DrawerPrimitive } from "vaul";
 
+import { BottomSheet, type SheetSnap } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -200,7 +200,12 @@ const Sidebar = React.forwardRef<
         // tutorial's modal dialog makes the two fight over focus and freezes
         // the tutorial, so keep it closed while the tutorial is showing.
         openMobile = useTutorialStep(openMobile, []);
-        // The map zooms to what's left above the sheet.
+        // Half the screen, or all of it; the map zooms to what's left above
+        // the half sheet.
+        const [snap, setSnap] = React.useState<SheetSnap>("half");
+        React.useEffect(() => {
+            if (!openMobile) setSnap("half");
+        }, [openMobile]);
         React.useEffect(() => {
             mapBottomInset.set(
                 isMobile && openMobile ? Math.round(window.innerHeight / 2) : 0,
@@ -223,49 +228,21 @@ const Sidebar = React.forwardRef<
         }
 
         if (isMobile) {
-            // A bottom sheet over half the screen at most, with nothing
+            // A bottom sheet, half the screen or all of it, with nothing
             // dimmed: the map (and the game) stay in view and usable.
             return (
-                <DrawerPrimitive.Root
+                <BottomSheet
                     open={openMobile}
-                    onOpenChange={setOpenMobile}
-                    modal={false}
-                    shouldScaleBackground={false}
+                    snap={snap}
+                    onSnapChange={setSnap}
+                    onClose={() => setOpenMobile(false)}
+                    data-sidebar="sidebar"
+                    data-mobile="true"
+                    data-testid="sidebar-sheet"
+                    style={{ "--sidebar-width": "100%" } as React.CSSProperties}
                 >
-                    <DrawerPrimitive.Portal
-                        container={
-                            typeof document === "undefined"
-                                ? undefined
-                                : document.querySelector(
-                                      "#map-modal-dialog-container-leaflet",
-                                  )
-                        }
-                    >
-                        <DrawerPrimitive.Content
-                            data-sidebar="sidebar"
-                            data-mobile="true"
-                            data-testid="sidebar-sheet"
-                            aria-describedby={undefined}
-                            className="fixed inset-x-0 bottom-0 z-[1035] flex max-h-[50svh] flex-col rounded-t-2xl border-t border-slate-600 bg-sidebar text-sidebar-foreground shadow-[0_-8px_30px_rgba(0,0,0,0.5)] outline-none"
-                            style={
-                                {
-                                    "--sidebar-width": "100%",
-                                } as React.CSSProperties
-                            }
-                        >
-                            <DrawerPrimitive.Title className="sr-only">
-                                Sidebar
-                            </DrawerPrimitive.Title>
-                            <div
-                                className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-slate-500"
-                                aria-hidden="true"
-                            />
-                            <div className="flex min-h-0 w-full flex-1 flex-col">
-                                {children}
-                            </div>
-                        </DrawerPrimitive.Content>
-                    </DrawerPrimitive.Portal>
-                </DrawerPrimitive.Root>
+                    {children}
+                </BottomSheet>
             );
         }
 

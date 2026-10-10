@@ -7,6 +7,7 @@ import {
     hidingRadiusDefaultKm,
     normalizeGameSettings,
     radarDefaultKm,
+    radarDefaults,
     stationFilters,
     stationKindsFromFilters,
 } from "@/lib/game/settings";
@@ -15,7 +16,13 @@ describe("game settings", () => {
     it("has the defaults the players asked for", () => {
         expect(radarDefaultKm("small")).toBe(2);
         expect(radarDefaultKm("medium")).toBe(10);
-        expect(radarDefaultKm("large")).toBe(50);
+        expect(radarDefaultKm("large")).toBe(40);
+        // Each size's radar distances include its default.
+        for (const size of ["small", "medium", "large"] as const) {
+            expect(radarDefaults(size)).toContain(radarDefaultKm(size));
+        }
+        expect(radarDefaults("small")).not.toContain(160);
+        expect(radarDefaults("medium")).not.toContain(160);
         expect(hidingRadiusDefaultKm("medium")).toBe(0.5);
         expect(hidingRadiusDefaultKm("large")).toBe(1);
 
@@ -110,5 +117,22 @@ describe("game settings", () => {
             seekersCanAnswer: true,
         };
         expect(normalizeGameSettings(settings)).toEqual(settings);
+    });
+});
+
+describe("radar distances", () => {
+    it("are tidied up, or fall back to the size's own", () => {
+        expect(
+            normalizeGameSettings({
+                size: "small",
+                radarKm: [5, "2", 5, -1, 0],
+            }).radarKm,
+        ).toEqual([2, 5]);
+        expect(
+            normalizeGameSettings({ size: "large", radarKm: [] }).radarKm,
+        ).toEqual(radarDefaults("large"));
+        expect(normalizeGameSettings({ size: "medium" }).radarKm).toEqual(
+            radarDefaults("medium"),
+        );
     });
 });

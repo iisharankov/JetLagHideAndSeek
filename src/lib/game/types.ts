@@ -195,6 +195,8 @@ export interface GameSettings {
     region: "standard" | "switzerland";
     /** The hider may still change this during the game. */
     hidingRadiusKm: number;
+    /** The radar question's distances in this game (km), by game size. */
+    radarKm: number[];
     stationKinds: StationKinds;
     /** Lake shore question: only lakes at least this big count. */
     minLakeAreaKm2: number;

@@ -1,7 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from "lucide-react";
-import { useRef } from "react";
-import { VscChevronDown, VscShare, VscTrash } from "react-icons/vsc";
+import { VscChevronDown, VscTrash } from "react-icons/vsc";
 
 import { QuestionGameBar } from "@/components/game/QuestionGameBar";
 import {
@@ -16,14 +15,6 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
     SidebarGroup,
@@ -70,7 +61,6 @@ export const QuestionCard = ({
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
     const status = useStore(questionStatuses)[questionKey];
-    const copyButtonRef = useRef<HTMLButtonElement>(null);
     const question = $questions.find((q) => q.key === questionKey);
     const isActive = useStore(activeQuestionKey) === questionKey;
     const $game = useStore(gameState);
@@ -130,7 +120,7 @@ export const QuestionCard = ({
                     <button
                         onClick={toggleCollapse}
                         className={cn(
-                            "absolute top-2 left-2 text-white border rounded-md transition-all duration-500",
+                            "absolute top-2 left-2 text-white border rounded-md transition-transform duration-200",
                             isCollapsed && "-rotate-90",
                         )}
                     >
@@ -214,107 +204,12 @@ export const QuestionCard = ({
                     )}
                     <SidebarGroupContent
                         className={cn(
-                            "overflow-hidden transition-all duration-1000 max-h-[100rem]", // 100rem is arbitrary
-                            isCollapsed && "max-h-0",
+                            "overflow-hidden transition-[max-height] duration-200 max-h-[100rem]", // 100rem is arbitrary
+                            isCollapsed && "max-h-0 duration-150",
                         )}
                     >
                         <SidebarMenu>{children}</SidebarMenu>
-                        <div className="flex gap-2 pt-2 px-2 justify-center">
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <VscShare />
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle className="text-2xl">
-                                            Share this Question!
-                                        </DialogTitle>
-                                        <DialogDescription>
-                                            Below you can access the JSON
-                                            representing the question. Send this
-                                            to another player for them to copy.
-                                            They can then click &ldquo;Paste
-                                            Question&rdquo; at the bottom of the
-                                            &ldquo;Questions&rdquo; sidebar.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mb-2 sm:mb-0 transition-colors"
-                                        ref={copyButtonRef}
-                                        onClick={() => {
-                                            navigator.clipboard
-                                                .writeText(
-                                                    JSON.stringify(
-                                                        $questions.find(
-                                                            (q) =>
-                                                                q.key ===
-                                                                questionKey,
-                                                        ),
-                                                        null,
-                                                        4,
-                                                    ),
-                                                )
-                                                .then(() => {
-                                                    if (copyButtonRef.current) {
-                                                        copyButtonRef.current.textContent =
-                                                            "Copied!";
-                                                        copyButtonRef.current.classList.add(
-                                                            "bg-green-500",
-                                                        );
-                                                        setTimeout(() => {
-                                                            if (
-                                                                copyButtonRef.current
-                                                            ) {
-                                                                copyButtonRef.current.textContent =
-                                                                    "Copy to Clipboard";
-                                                                copyButtonRef.current.classList.remove(
-                                                                    "bg-green-500",
-                                                                );
-                                                            }
-                                                        }, 2000);
-                                                    }
-                                                })
-                                                .catch(() => {
-                                                    if (copyButtonRef.current) {
-                                                        copyButtonRef.current.textContent =
-                                                            "Failed to Copy";
-                                                        copyButtonRef.current.classList.add(
-                                                            "bg-red-500",
-                                                        );
-                                                        setTimeout(() => {
-                                                            if (
-                                                                copyButtonRef.current
-                                                            ) {
-                                                                copyButtonRef.current.textContent =
-                                                                    "Copy to Clipboard";
-                                                                copyButtonRef.current.classList.remove(
-                                                                    "bg-red-500",
-                                                                );
-                                                            }
-                                                        }, 2000);
-                                                    }
-                                                });
-                                        }}
-                                    >
-                                        Copy to Clipboard
-                                    </Button>
-                                    <textarea
-                                        className="w-full h-[300px] bg-slate-900 text-white rounded-md p-2"
-                                        readOnly
-                                        value={JSON.stringify(
-                                            $questions.find(
-                                                (q) => q.key === questionKey,
-                                            ),
-                                            null,
-                                            4,
-                                        )}
-                                    ></textarea>
-                                </DialogContent>
-                            </Dialog>
+                        <div className="flex gap-1 pt-1 px-2 justify-end">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button

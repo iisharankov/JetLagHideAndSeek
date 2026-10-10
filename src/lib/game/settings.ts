@@ -4,9 +4,23 @@ import type { CustomCard, GameSettings, GameSize, StationKinds } from "./types";
 
 export const GAME_SIZES: GameSize[] = ["small", "medium", "large"];
 
-/** Radar question default (km) by game size. */
+/** The metric investigation book's radar distances, in km. */
+export const RADAR_KM = [0.5, 1, 2, 5, 10, 15, 40, 80, 160];
+
+/**
+ * The radar distances that fit a game size (a town, a canton, a country);
+ * the setup screens let the players change the list.
+ */
+export const radarDefaults = (size: GameSize): number[] =>
+    ({
+        small: [0.5, 1, 2, 5],
+        medium: [1, 2, 5, 10, 15, 40],
+        large: [5, 10, 15, 40, 80, 160],
+    })[size];
+
+/** A new radar question's distance (km) by game size. */
 export const radarDefaultKm = (size: GameSize) =>
-    ({ small: 2, medium: 10, large: 50 })[size];
+    ({ small: 2, medium: 10, large: 40 })[size];
 
 /** Hiding zone radius (km) by game size: ¼ mile → 500 m, ½ mile → 1 km. */
 export const hidingRadiusDefaultKm = (size: GameSize) =>
@@ -46,6 +60,7 @@ export const defaultGameSettings = (
     size,
     region,
     hidingRadiusKm: hidingRadiusDefaultKm(size),
+    radarKm: radarDefaults(size),
     stationKinds: { trams: false, boats: false },
     minLakeAreaKm2: 10,
     disabledQuestions: regionDisabledQuestions(region),
@@ -117,6 +132,21 @@ export const stationKindsFromFilters = (filters: string[]): StationKinds => ({
     boats: filters.includes("[amenity=ferry_terminal]"),
 });
 
+/** A list of radar distances in km, sorted and without repeats, or undefined. */
+const normalizeRadii = (value: unknown): number[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+    const radii = [
+        ...new Set(
+            value
+                .map(Number)
+                .filter((km) => Number.isFinite(km) && km > 0 && km <= 1000),
+        ),
+    ]
+        .sort((a, b) => a - b)
+        .slice(0, 12);
+    return radii.length > 0 ? radii : undefined;
+};
+
 const isSize = (value: unknown): value is GameSize =>
     GAME_SIZES.includes(value as GameSize);
 
@@ -139,6 +169,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
             Number.isFinite(radius) && radius > 0 && radius <= 50
                 ? radius
                 : defaults.hidingRadiusKm,
+        radarKm: normalizeRadii(input.radarKm) ?? defaults.radarKm,
         stationKinds: {
             trams: kinds.trams === true,
             boats: kinds.boats === true,
@@ -175,9 +206,6 @@ export const describeStations = (kinds: StationKinds) =>
     ["trains", kinds.trams && "trams", kinds.boats && "boats"]
         .filter(Boolean)
         .join(", ");
-
-/** The metric investigation book's radar distances, in km. */
-export const RADAR_KM = [0.5, 1, 2, 5, 10, 15, 40, 80, 160];
 
 /**
  * The metric book's tentacle distance for a kind of place: 25 km for the

@@ -1,4 +1,5 @@
 import { useStore } from "@nanostores/react";
+import { useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import { Input } from "@/components/ui/input";
@@ -8,19 +9,26 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { UnitSelect } from "@/components/UnitSelect";
+import { UnitToggle } from "@/components/UnitToggle";
 import {
+    gameSettings,
     hiderMode,
     isLoading,
     type QuestionPatch,
     questions,
     updateQuestion,
 } from "@/lib/context";
-import { RADAR_KM } from "@/lib/game/settings";
+import { gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
 import { QuestionCard } from "./base";
+
+const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
+
+const CHIP = "rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-50";
+const CHIP_ON = "bg-blue-600 text-white";
+const CHIP_OFF = "bg-slate-700 hover:bg-slate-600";
 
 export const RadiusQuestionComponent = ({
     data,
@@ -36,7 +44,15 @@ export const RadiusQuestionComponent = ({
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
+    const $game = useStore(gameState);
+    const $settings = useStore(gameSettings);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
+    // The game's radar distances, as cards; anything else is "custom".
+    const radii = ($game?.settings ?? $settings).radarKm;
+    const listed = data.unit === "kilometers" && radii.includes(data.radius);
+    const [custom, setCustom] = useState(!listed);
+    const showCustom = custom || !listed;
+    const locked = !data.drag || $isLoading;
     const label = `Radius
     ${
         $questions
@@ -53,47 +69,67 @@ export const RadiusQuestionComponent = ({
             className={className}
         >
             <SidebarMenuItem>
-                <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
-                    <Input
-                        type="number"
-                        className="rounded-md p-2 w-16"
-                        value={data.radius}
-                        disabled={!data.drag || $isLoading}
-                        onChange={(e) =>
-                            set({ radius: parseFloat(e.target.value) })
-                        }
-                    />
-                    <UnitSelect
-                        unit={data.unit}
-                        disabled={!data.drag || $isLoading}
-                        onChange={(unit) => set({ unit })}
-                    />
-                </div>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
                 <div
                     className={cn(MENU_ITEM_CLASSNAME, "flex flex-wrap gap-1")}
+                    role="group"
+                    aria-label="Radius"
                 >
-                    {RADAR_KM.map((km) => (
-                        <button
-                            key={km}
-                            type="button"
-                            disabled={!data.drag || $isLoading}
-                            className={cn(
-                                "rounded-md px-2 py-0.5 text-xs disabled:opacity-50",
-                                data.unit === "kilometers" && data.radius === km
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-slate-700",
-                            )}
-                            onClick={() =>
-                                set({ radius: km, unit: "kilometers" })
-                            }
-                        >
-                            {km < 1 ? `${km * 1000} m` : `${km} km`}
-                        </button>
-                    ))}
+                    {radii.map((km) => {
+                        const on = !showCustom && data.radius === km;
+                        return (
+                            <button
+                                key={km}
+                                type="button"
+                                disabled={locked}
+                                aria-pressed={on}
+                                className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
+                                onClick={() => {
+                                    set({ radius: km, unit: "kilometers" });
+                                    setCustom(false);
+                                }}
+                            >
+                                {kmLabel(km)}
+                            </button>
+                        );
+                    })}
+                    <button
+                        type="button"
+                        disabled={locked}
+                        aria-pressed={showCustom}
+                        className={cn(CHIP, showCustom ? CHIP_ON : CHIP_OFF)}
+                        onClick={() => setCustom(true)}
+                    >
+                        Custom
+                    </button>
                 </div>
             </SidebarMenuItem>
+            {showCustom && (
+                <SidebarMenuItem>
+                    <div
+                        className={cn(
+                            MENU_ITEM_CLASSNAME,
+                            "flex flex-row items-center gap-2",
+                        )}
+                    >
+                        <Input
+                            type="number"
+                            inputMode="decimal"
+                            aria-label="Custom radius"
+                            className="w-24 rounded-md p-2"
+                            value={data.radius}
+                            disabled={locked}
+                            onChange={(e) =>
+                                set({ radius: parseFloat(e.target.value) })
+                            }
+                        />
+                        <UnitToggle
+                            unit={data.unit}
+                            disabled={locked}
+                            onChange={(unit) => set({ unit })}
+                        />
+                    </div>
+                </SidebarMenuItem>
+            )}
             <LatitudeLongitude
                 latitude={data.lat}
                 longitude={data.lng}
@@ -101,7 +137,7 @@ export const RadiusQuestionComponent = ({
                 onChange={(lat, lng) =>
                     set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
                 }
-                disabled={!data.drag || $isLoading}
+                disabled={locked}
             />
             <div className="flex gap-2 items-center p-2">
                 <Label
@@ -119,7 +155,7 @@ export const RadiusQuestionComponent = ({
                     onValueChange={(value: "inside" | "outside") =>
                         set({ within: value === "inside" })
                     }
-                    disabled={!!$hiderMode || !data.drag || $isLoading}
+                    disabled={!!$hiderMode || locked}
                 >
                     <ToggleGroupItem value="outside">Outside</ToggleGroupItem>
                     <ToggleGroupItem value="inside">Inside</ToggleGroupItem>

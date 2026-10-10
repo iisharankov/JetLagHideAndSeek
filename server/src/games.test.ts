@@ -214,3 +214,42 @@ describe("limits", () => {
         expect(games.get(game.id)!.hiderName).toBe("Ben");
     });
 });
+
+describe("photo questions asked again", () => {
+    it("earn the hider a second draw with the digital deck", () => {
+        const game = games.create(
+            {
+                playArea: { kind: "place" },
+                zone: {},
+                settings: { ...settings, deck: "virtual" },
+            },
+            [],
+            "Ana",
+        );
+        const seeker = { name: "Ana", role: "seeker" as const };
+        const hider = { name: "Ben", role: "hider" as const };
+        const ask = () =>
+            games
+                .apply(game.id, { type: "askPhoto", name: "Tree" }, seeker)
+                .photoRequests.at(-1)!.id;
+        const first = ask();
+        let { state } = games.addPhoto(
+            game.id,
+            new Uint8Array([1]),
+            "image/png",
+            hider,
+            { requestId: first },
+        );
+        // One draw of one: dealt and kept by itself.
+        expect(state.deck!.hand).toHaveLength(1);
+        const second = ask();
+        ({ state } = games.addPhoto(
+            game.id,
+            new Uint8Array([1]),
+            "image/png",
+            hider,
+            { requestId: second },
+        ));
+        expect(state.deck!.hand).toHaveLength(3);
+    });
+});

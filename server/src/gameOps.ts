@@ -20,7 +20,6 @@ import {
     ALWAYS_OFF,
     normalizeGameSettings,
     questionKey,
-    RADAR_KM,
     tentacleRadiusKm,
 } from "@/lib/game/settings";
 import {
@@ -227,7 +226,7 @@ const variantsOf = (
 ): Variant[] => {
     const data = question.data as Record<string, unknown>;
     if (question.id === "radius") {
-        return RADAR_KM.map((km) => ({
+        return settings.radarKm.map((km) => ({
             identity: `radius:${km}kilometers`,
             label: `Radar ${km} km`,
             patch: { radius: km, unit: "kilometers" },

@@ -65,6 +65,7 @@ const CONNECTION_TEXT = {
 };
 
 const SIZE_NAMES = { small: "Small", medium: "Medium", large: "Large" };
+const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
 
 /** The settings in a few lines. */
 const SettingsSummary = ({
@@ -90,6 +91,8 @@ const SettingsSummary = ({
             {settings.hidingRadiusKm} km around{" "}
             {describeStations(settings.stationKinds)}
         </dd>
+        <dt>Radar</dt>
+        <dd>{settings.radarKm.map(kmLabel).join(", ")}</dd>
         <dt>Questions</dt>
         <dd>
             {settings.disabledQuestions.length === 0
@@ -538,7 +541,10 @@ export const GamePanel = () => {
                     </>
                 )}
             </p>
-            <HiderToggle />
+            <p className="text-xs text-slate-400">
+                Chosen when you joined. Leave the game and open its link again
+                to join as someone else.
+            </p>
 
             {$game && <Scoreboard game={$game} />}
             <h4 className="text-xs font-semibold font-poppins text-slate-300">

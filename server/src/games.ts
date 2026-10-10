@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { advanceDeck } from "@/lib/game/deck";
+import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import type {
     GameOp,
@@ -276,9 +277,21 @@ export const createGameStore = (
                 const first = !request.photoId;
                 request.photoId = photoId;
                 request.answeredAt = now;
-                // With the digital deck, an answered photo question earns a draw.
+                // With the digital deck, an answered photo question earns a
+                // draw; the same photo asked again costs the seekers double.
                 if (first && state.deck) {
-                    state.deck.owed.push({ draw: 1, keep: 1, label: "Photo" });
+                    const again = timesPhotoAnsweredBefore(
+                        state,
+                        request.name,
+                        request.id,
+                    );
+                    for (let i = 0; i <= again; i++) {
+                        state.deck.owed.push({
+                            draw: 1,
+                            keep: 1,
+                            label: i === 0 ? "Photo" : "Photo (asked again)",
+                        });
+                    }
                     state.deck = advanceDeck(state.deck, now);
                 }
             }

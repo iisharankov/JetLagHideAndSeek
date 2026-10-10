@@ -11,7 +11,7 @@ import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { UnitSelect } from "@/components/UnitSelect";
+import { UnitToggle } from "@/components/UnitToggle";
 import {
     drawingQuestionKey,
     gameSettings,
@@ -83,7 +83,7 @@ export const TentacleQuestionComponent = ({
                         }
                         disabled={!data.drag || $isLoading}
                     />
-                    <UnitSelect
+                    <UnitToggle
                         unit={data.unit}
                         onChange={(unit) => set({ unit })}
                         disabled={!data.drag || $isLoading}

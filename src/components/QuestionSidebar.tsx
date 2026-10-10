@@ -237,9 +237,12 @@ export const QuestionSidebar = () => {
                     ) : (
                         <SidebarMenuItem>
                             <AddQuestionDialog>
-                                <SidebarMenuButton disabled={$isLoading}>
+                                <Button
+                                    className="w-full font-semibold"
+                                    disabled={$isLoading}
+                                >
                                     Add Question
-                                </SidebarMenuButton>
+                                </Button>
                             </AddQuestionDialog>
                         </SidebarMenuItem>
                     )}

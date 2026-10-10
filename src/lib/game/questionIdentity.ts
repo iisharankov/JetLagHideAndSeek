@@ -28,3 +28,20 @@ export const timesAnsweredBefore = (
             questionIdentity(entry.question) === identity,
     ).length;
 };
+
+/** Photo names compare without case or spaces around. */
+const photoName = (name: string) => name.trim().toLowerCase();
+
+/** How often a photo question with this name was already answered this round. */
+export const timesPhotoAnsweredBefore = (
+    state: Pick<GameState, "photoRequests">,
+    name: string,
+    /** The request being answered now, if any. */
+    exceptId?: string,
+) =>
+    state.photoRequests.filter(
+        (request) =>
+            request.id !== exceptId &&
+            !!request.photoId &&
+            photoName(request.name) === photoName(name),
+    ).length;

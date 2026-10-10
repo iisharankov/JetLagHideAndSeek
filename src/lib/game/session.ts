@@ -40,7 +40,12 @@ import {
     postPhoto,
 } from "./api";
 import { writeBackup } from "./backup";
-import { forgetGame, markJoined, rememberGame } from "./knownGames";
+import {
+    forgetGame,
+    markJoined,
+    rememberGame,
+    unmarkJoined,
+} from "./knownGames";
 import { noteServerTime } from "./serverTime";
 import { diffLocal, mergeRemoteQuestions, syncedJson, toShared } from "./sync";
 import type { GameOp, GameState, Role } from "./types";
@@ -449,8 +454,13 @@ export const joinGame = (id: string) => {
     void connect();
 };
 
-/** Back to playing alone; this phone keeps its copy of the questions. */
+/**
+ * Back to playing alone. The game's questions were the game's: they go
+ * (the questions from before the game can be restored from Menu → Game),
+ * and joining again asks who you are.
+ */
 export const leaveGame = () => {
+    const id = activeGameId.get();
     disconnect();
     if (gameRole.get() === "hider") hiderMode.set(false);
     sessionGame = "";
@@ -461,6 +471,9 @@ export const leaveGame = () => {
     gameConnection.set("off");
     suggestedAnswers.set({});
     synced = new Map();
+    if (id) unmarkJoined(id);
+    questions.set([]);
+    endgame.set(null);
     setUrl("");
 };
 
@@ -536,7 +549,14 @@ export const resumeGame = () => {
     const fromUrl = new URL(window.location.href).searchParams.get(
         GAME_URL_PARAM,
     );
-    if (fromUrl) joinGame(fromUrl);
+    if (fromUrl) {
+        joinGame(fromUrl);
+    } else if (currentGameId.get() !== "") {
+        // The plain address after a game: its questions don't belong here
+        // (Menu → Game still offers to rejoin, which brings them back).
+        questions.set([]);
+        endgame.set(null);
+    }
 };
 
 /** Forgets the last game without having to join it first. */

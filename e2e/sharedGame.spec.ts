@@ -103,9 +103,9 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await page.getByRole("button", { name: "Add Radius" }).click();
     const anaState = page.getByTestId("question-game-state");
     await expect(anaState).toHaveAttribute("data-state", "draft");
-    // A draft's guessed answer shades the map as speculation (amber). The
-    // default 50 km radar covers this whole play area, so make it 5 km.
-    await page.locator('input[type="number"]').first().fill("5");
+    // A draft's guessed answer shades the map as speculation (amber); the
+    // 5 km radar card keeps it inside this play area.
+    await page.getByRole("button", { name: "5 km", exact: true }).click();
     // Drafts shade the map dashed, in the question's own colour.
     const speculation = page.locator('path[stroke-dasharray="6 4"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });

@@ -41,7 +41,6 @@ import { cn } from "@/lib/utils";
 import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 
 import { DraggableMarkers } from "./DraggableMarkers";
-import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { requestMapRefresh } from "./mapRefresh";
 import { PMTilesLayer } from "./PMTilesLayer";
 import { PolygonDraw } from "./PolygonDraw";
@@ -244,11 +243,6 @@ export const Map = ({ className }: { className?: string }) => {
                 {getTileLayer($baseTileLayer)}
                 <DraggableMarkers />
                 <ReferenceMarkers />
-                <div className="leaflet-top leaflet-right">
-                    <div className="leaflet-control flex-col flex gap-2">
-                        <LeafletFullScreenButton />
-                    </div>
-                </div>
                 <PolygonDraw />
                 <ScaleControl position="bottomleft" />
             </MapContainer>
@@ -303,30 +297,6 @@ export const Map = ({ className }: { className?: string }) => {
 
     // The hiding zones follow the answers whichever panels are open.
     useEffect(startHidingZoneLayer, []);
-
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            const mainElement: HTMLElement | null =
-                document.querySelector("main");
-
-            if (mainElement) {
-                if (document.fullscreenElement) {
-                    mainElement.classList.add("fullscreen");
-                } else {
-                    mainElement.classList.remove("fullscreen");
-                }
-            }
-        };
-
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-        return () => {
-            document.removeEventListener(
-                "fullscreenchange",
-                handleFullscreenChange,
-            );
-        };
-    }, []);
 
     useEffect(() => {
         if (!map) return;

@@ -6,6 +6,7 @@ import { RulesText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import { photoUrl } from "@/lib/game/api";
 import { shrinkPhoto } from "@/lib/game/photos";
+import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import {
     activeGameId,
     gameRole,
@@ -167,7 +168,21 @@ export const PhotosPanel = () => {
                         className="rounded-md bg-slate-900 px-2 py-1"
                     >
                         <summary className="flex cursor-pointer items-center justify-between gap-2">
-                            <span>{question.name}</span>
+                            <span>
+                                {question.name}
+                                {$game &&
+                                    timesPhotoAnsweredBefore(
+                                        $game,
+                                        question.name,
+                                    ) > 0 && (
+                                        <span
+                                            className="ml-2 text-[10px] font-semibold text-amber-300"
+                                            data-testid="photo-asked-before"
+                                        >
+                                            asked before: costs double
+                                        </span>
+                                    )}
+                            </span>
                             {$game && $role === "seeker" && (
                                 <Button
                                     size="sm"

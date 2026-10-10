@@ -484,6 +484,35 @@ superseded, the plan's self-hosting phase marked done.
 
 Not in this round: the geometry worker; Authelia.
 
+## Round 15: the phone's sheet, radar cards, joining once ✅ (2026-10-10)
+
+1. The fullscreen button is gone (the gear stands alone at the top right).
+2. The Menu opens with the sheet up: the sheet is now the app's own
+   (`ui/bottom-sheet.tsx`), with no dialog semantics that hid the rest of
+   the page from taps and screen readers.
+3. The sheet snaps to half or all of the screen (drag the handle, or tap it
+   to switch); at half the map stays usable, dragging and pinching included.
+4. "Add Question" is a button like the others.
+5. Radar distances per game: each size has its own set (small 0.5–5 km,
+   medium 1–40 km, large 5–160 km), changed on the Game screen of setup;
+   the radius card shows them as cards plus "Custom", which alone shows
+   the number field, with a km/m toggle instead of a unit list (tentacles
+   too). Randomize Question draws from the game's set.
+6. The "I'm the hider" switch is gone from the Menu in a game: the role is
+   chosen when joining, once per tab (a second tab asks again); "I'm a
+   seeker" also drops a hider token the phone had. Leaving a game forgets
+   the choice.
+7. Leaving a game clears its questions, and so does opening the plain
+   address after a game (Menu → Game still offers to rejoin, which brings
+   them back).
+8. A photo question asked again says "asked before: costs double" and earns
+   the hider two draws with the digital deck.
+9. Veto: the button sits on each asked question and says "Veto this
+   question"; with two questions open, each has its own.
+10. The seekers' cards: no share button, folding takes a moment instead of
+    a second, and "By … · x min ago" sits on the state's line.
+11. Not done: nothing from this list.
+
 ## What's left ⏭️
 
 From [the audit](audit-2026-10.md), roughly in order of value:

@@ -148,3 +148,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   enforced; push notifications opt-in per phone and game; on phones the
   questions are a bottom sheet and the Menu a panel behind a gear; new
   questions start where the phone is while Follow me is on.
+- **Round 15:** the sheet snaps to half or full and never blocks the page;
+  radar distances are a game setting with defaults per size; the role is
+  asked once per tab when joining and nowhere else; leaving a game (or
+  opening the plain address after one) clears its questions; photo
+  questions asked again cost double; no share button on the cards.

@@ -102,14 +102,13 @@ div.leaflet-control-attribution.leaflet-control {
     }
 
     /* Below the sidebar button. */
-    main:not(.fullscreen) .leaflet-top .leaflet-control {
+    main .leaflet-top .leaflet-control {
         @apply !mt-[56px];
     }
 
-    /* Phones pinch to zoom and have no window to fill: no +/− or fullscreen. */
+    /* Phones pinch to zoom: no +/− buttons. */
     @media (max-width: 767px) {
-        .leaflet-control-zoom,
-        .leaflet-full-screen-specific-name {
+        .leaflet-control-zoom {
             display: none;
         }
     }

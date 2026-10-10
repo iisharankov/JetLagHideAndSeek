@@ -245,9 +245,10 @@ progress, the hider's spot, and earlier rounds.
   read are backed up (`questions-unreadable-backup`) instead of stopping the
   app; the questions from before a shared game are kept
   (`questions-before-game`) and can be restored from Menu → Game.
-- On phones the questions are a bottom sheet (half the screen at most, the
-  map stays usable; `ui/sidebar-l.tsx`), on desktop the left sidebar; the
-  Menu is a panel from the right behind the gear (`OptionDrawers.tsx`).
+- On phones the questions are a bottom sheet (`ui/bottom-sheet.tsx`, used
+  by `ui/sidebar-l.tsx`): half the screen or all of it, nothing dimmed or
+  blocked behind it; on desktop the left sidebar. The Menu is a panel from
+  the right behind the gear (`OptionDrawers.tsx`).
 - A shared game (link, file or pasted JSON) is validated as a whole before
   anything changes. Opening a link asks first if you already have questions.
   Presets are merged, never removed.
