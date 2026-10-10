@@ -473,7 +473,6 @@ export type MatchingQuestion = z.infer<typeof matchingQuestionSchema>;
 export type HomeGameMatchingQuestions = z.infer<
     typeof homeGameMatchingQuestionsSchema
 >;
-export type ZoneMatchingQuestions = z.infer<typeof zoneMatchingQuestionsSchema>;
 export type CustomMatchingQuestion = z.infer<
     typeof customMatchingQuestionSchema
 >;

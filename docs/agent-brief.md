@@ -1,6 +1,6 @@
 # Working on JetLagHideAndSeek: brief for a new agent
 
-How the owner (Ilia) works with an agent on this repo. Read this, then
+How the owner (Ivan) works with an agent on this repo. Read this, then
 `docs/plan.md` (status) and `docs/questions.md` (open questions and the
 decisions so far) before touching code.
 
@@ -59,9 +59,9 @@ test fails, say so with the output; don't paper over it.
 - Match the surrounding code; comments say *why*; UI copy is short, plain
   English (no jargon, no hedging), written for people on a phone mid-game.
 - Keep the domain rules the owner decided (hiding zones are about the
-  station's own position; the hider's station never leaves the hider's
-  phone; saved settings don't sync between tabs; …) — they're in
-  `docs/plan.md` and `docs/questions.md`.
+  station's own position; the hider's station and pin are shared between
+  the hider's phones but never shown to seekers; saved settings don't sync
+  between tabs; …) — they're in `docs/plan.md` and `docs/questions.md`.
 - Questions are never changed in place: go through `updateQuestion(key,
   patch)` (`src/lib/context.ts`), which replaces the question with a new
   object. The map's result cache and the game sync rely on that. "Is this

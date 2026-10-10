@@ -9,7 +9,6 @@ import {
     existsSync,
     linkSync,
     mkdirSync,
-    readFileSync,
     writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -205,10 +204,4 @@ export const buildElevation = async ({
         }),
     );
     return tiles.length;
-};
-
-/** Reads a tile written by buildElevation (for tests and tools). */
-export const readElevationTile = (path: string) => {
-    const bytes = readFileSync(path);
-    return new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
 };

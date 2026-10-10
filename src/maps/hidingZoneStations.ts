@@ -1,12 +1,6 @@
 import osmtogeojson from "osmtogeojson";
 
-import {
-    displayHidingZones,
-    displayHidingZonesOptions,
-    gameSettings,
-    hidingRadius,
-    hidingRadiusUnits,
-} from "@/lib/context";
+import { displayHidingZonesOptions, gameSettings } from "@/lib/context";
 import { findPlacesInZone, type StationPlace } from "@/maps/api";
 import {
     applyStationKinds,
@@ -38,12 +32,3 @@ export const loadStationPlaces = async (): Promise<StationPlace[]> => {
         ),
     );
 };
-
-/** Changes whenever the hiding zone settings change (for caches). */
-export const hidingZoneKey = () =>
-    JSON.stringify({
-        on: displayHidingZones.get(),
-        radius: hidingRadius.get(),
-        units: hidingRadiusUnits.get(),
-        options: displayHidingZonesOptions.get(),
-    });

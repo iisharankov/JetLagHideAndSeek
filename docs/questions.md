@@ -13,7 +13,7 @@ Decisions are listed at the end.
 a question. Show a countdown on every question waiting for an answer (both
 phones), amber in the last minute? _Recommended: yes._
 
-**Answer:**
+**Answer:** Yes
 
 **Q35.** Asking again. A question asked a second time costs double (the
 hider draws twice). With the digital deck the game already deals a second
@@ -21,27 +21,28 @@ draw when the same question (category and type, or radar radius) is answered
 again. Also tell the seekers before they ask ("asked before: costs double")?
 _Recommended: yes, small._
 
-**Answer:**
+**Answer:**Yes
 
 **Q37.** Scoreboard. Each round's hiding time plus bonuses, per hider, in
 Menu → Game; the best round wins (the rulebook counts only a player's best
 round). _Recommended: yes, now that the clock exists._
 
-**Answer:**
+**Answer:** Yes
 
 **Q38.** Rest periods. The rulebook suggests agreed rest periods in long
 games. A shared "rest" switch that pauses the clock and freezes questions?
 _Recommended: later, if you play large games._
 
-**Answer:**
+**Answer:** Later for large games, we only play ovver one day for now
 
 **Q39.** Questions from before a game. Joining a shared game backs up the
 phone's own questions (`questions-before-game` in storage) but nothing brings
 them back. A "Restore my earlier questions" button in Menu → Game?
 _Recommended: yes, small._
 
-**Answer:**
-
+**Answer:** sure? I think? Have to see it
+---
+Also: Make it so when someone joins a game, the user must give a name for themselves and set if they are the hider or not before the rest of the app is open for them, i.e. a pop up. Also set auto-zoom off by default. Also make a game setting during set up for seekers to even have the option to see all statoins, since it might be too much of a gameplay boost to see them all, but idk yet we'd have to test it
 ---
 
 ## Decisions already made

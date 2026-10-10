@@ -465,5 +465,3 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
         },
     };
 };
-
-export type Datasets = ReturnType<typeof createDatasets>;

@@ -10,7 +10,6 @@ import {
 } from "@/lib/context";
 import {
     normalizeGameSettings,
-    questionKey,
     radarDefaultKm,
     stationFilters,
 } from "@/lib/game/settings";
@@ -49,9 +48,6 @@ export const hiddenTypesFor = (
     settings.disabledQuestions
         .filter((key) => key.startsWith(`${category}:`))
         .map((key) => key.slice(category.length + 1));
-
-export const isQuestionEnabled = (category: string, type: string) =>
-    !gameSettings.get().disabledQuestions.includes(questionKey(category, type));
 
 /** A new radar question at a point, with the radius for the game size. */
 export const newRadiusQuestion = (lat: number, lng: number) => ({

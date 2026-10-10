@@ -32,9 +32,6 @@ export const handLimit = persistentAtom<number>("hiderHandLimit", 6, json);
 /** What the hider draws after answering a question (see deck.ts). */
 export const DRAWS = DECK_DRAWS;
 
-export const cardLabel = (card: Omit<HandCard, "id">) =>
-    card.kind === "time" ? `Time bonus ${card.minutes} min` : card.name;
-
 /** Every card the hider might keep, with time bonuses for this game size. */
 export const cardChoices = (size: GameSize): Omit<HandCard, "id">[] =>
     CARDS.map((card) => ({

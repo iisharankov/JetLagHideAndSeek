@@ -10,7 +10,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
     animateMapMovements,
     leafletMapContext,
@@ -165,5 +164,3 @@ export const NotePinList = () => {
         </details>
     );
 };
-
-export { Input as NoteInput };

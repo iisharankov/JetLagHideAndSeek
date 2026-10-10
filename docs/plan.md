@@ -3,8 +3,8 @@
 Goal: **self-hosted, private, reliable on game day, with team sync.**
 Switzerland first, nothing that stops other regions working.
 
-Updated after your first real game (round 5, 2026-10-09). Status: ✅ done and
-tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dropped.
+Updated 2026-10-10 (round 12 and the housekeeping after it). Status: ✅ done
+and tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dropped.
 
 ## What changed in the plan
 
@@ -52,11 +52,12 @@ tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dro
 | **Found during the work:** changing the default unit relabelled the hiding radius without converting it (0.5 mi became 0.5 km) | new | fixed by removing that sync; no automated test |
 | Search text URL-encoded; search errors reported | round 1 #4 | `tests/geocode.test.ts` |
 
-## Phase 2: self-hosting 🟡
+## Phase 2: self-hosting ✅
 
-All written and checked as far as possible without Docker access. **Your
-next step:** follow [deploy/README.md](../deploy/README.md) on the server, and
-send me any errors.
+Running on the server since round 6 (set up with
+[deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md)); the real games since
+were played on it. Authelia in front of the site is still to come. The table
+is as it stood before the first deploy.
 
 | Piece | Status |
 | --- | --- |
@@ -410,13 +411,48 @@ Still open from the audit: the Web Worker (the question modules read the
 stores and the Overpass caches directly, so they'd need their own copies of
 that state) and the live view without the archive.
 
-## Phase 4: game-day UX ⏭️
+## Round 13: housekeeping ✅ (2026-10-10)
 
-- Phone-first layout: question list as the main view, bigger buttons, a
-  "remaining area" figure (km² and % left).
-- Heavy geometry in a background worker, so the map never freezes (the
-  per-question cache from Round 12 covers the common edits).
-- Split OptionDrawers, CardsPanel and GameSetupDialog by feature.
+No behaviour change. Credits name the fork's owner (README, LICENSE,
+package.json, the agent brief). Dead code found with knip is gone: two
+unused UI components, two unused dependencies, and nine functions, types and
+constants nothing called. The docs were brought up to date: a new docs
+index, `architecture.md` rewritten for round 12, the round-2 audit marked as
+superseded, the plan's self-hosting phase marked done.
+
+## What's left ⏭️
+
+From [the audit](audit-2026-10.md), roughly in order of value:
+
+1. **A shakedown game** and the fixes it brings.
+2. **Open questions** Q34 (answer countdown), Q35 ("asked before" hint), Q37
+   (scoreboard), Q38 (rest periods), Q39 (restore the pre-game backup); the
+   auto-save setting is to be removed (round 12 decision).
+3. **Hardening:** the hider token out of the SSE URL (header or cookie); a
+   per-game photo cap and a delete that asks for the hider's password or
+   the game's age; clock times corrected by the server's offset; reconnects
+   with backoff and a "stale since" hint.
+4. **Live view without the archive** (`rounds`, the deck log), later deltas
+   keyed by version.
+5. **Split the big files** by feature: CardsPanel, GameSetupDialog,
+   OptionDrawers, context.ts (stores vs. hider-pin rules), session.ts
+   (connection vs. known games vs. hider sync).
+6. **Geometry worker**, only if a real game still stutters after round 12's
+   cache (the question modules would need their own copies of the stores
+   and caches).
+7. **Bundle:** try Turf's planar buffers instead of ArcGIS (1.2 MB + wasm;
+   metres of error at this scale), lazy-load the references/voronoi code
+   (the 472 kB `thermometer` chunk), keep the first load's `context` chunk
+   (496 kB) smaller.
+8. **Phone-first layout:** question list as the main view, bigger buttons,
+   a "remaining area" figure (km² and % left); more of the e2e suite run on
+   the phone project (several tests skip the closed sidebar sheet).
+9. **Rules not automated:** Randomize Question and Overflowing Chalice are
+   recorded, not enforced.
+10. **Push notifications** for a locked phone (VAPID keys on the server,
+    the service worker shows them); **Authelia** in front of the site.
+11. **No offline map:** a dead spot means a grey map; caching the play
+    area's tiles would be a feature of its own.
 
 ## Later / dropped 💤
 

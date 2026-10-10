@@ -10,6 +10,8 @@
 > The self-hosting pieces are written but not yet run on the server. Which
 > change fixed each item, and which test covers it, is in [plan.md](plan.md).
 > The text below is the audit as written, before the fixes.
+> **Superseded** on 2026-10-10 by [audit-2026-10.md](audit-2026-10.md);
+> kept for the history of what was found and fixed.
 
 This replaces round 1's `bugs-and-risks.md`. It's measured against your goal: **self-hosted, private, less buggy, and usable offline on game day**.
 

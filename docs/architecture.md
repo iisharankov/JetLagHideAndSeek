@@ -1,12 +1,13 @@
 # Architecture
 
-How the app works **as of round 4** (2026-10-09). Plans are in
-[plan.md](plan.md); the original findings are in [audit.md](audit.md).
+How the app works **as of round 12** (2026-10-10). Status and what's left are
+in [plan.md](plan.md); the audits are [audit-2026-10.md](audit-2026-10.md)
+(current) and [audit.md](audit.md) (round 2, history).
 
 ## The big picture
 
 ```
-Phone (installable web app)                 Your server (Docker, behind host nginx + Authelia)
+Phone (installable web app)                 Your server (Docker, behind host nginx; Authelia later)
   React islands on an Astro page   ──────►  web       the app + /tiles/basemap.pmtiles + /data/
   Leaflet map, Protomaps basemap   ──────►  api       /api/share, /api/games (SQLite, photos, live updates)
   question engine (Turf + ArcGIS)  ──────►  overpass  /overpass/api/interpreter (Swiss OSM data)
@@ -20,88 +21,113 @@ at public services instead.
 
 ## Stack
 
-| Layer      | Tech                                                                                                            |
-| ---------- | --------------------------------------------------------------------------------------------------------------- |
-| Page       | Astro 5 (static), one page `src/pages/index.astro`; each panel is a React 19 island behind an error boundary (`src/components/islands/`) |
-| UI         | Tailwind 3, shadcn/ui (Radix), react-toastify                                                                    |
-| Map        | Leaflet 1.9 via react-leaflet; basemap drawn from a Protomaps `.pmtiles` file by `protomaps-leaflet`            |
-| State      | nanostores (`src/lib/context.ts`), mostly persisted to localStorage                                             |
-| Geo maths  | Turf; ArcGIS geodesic distance/buffer (its engine served from `/arcgis/`, copied there by `scripts/copy-arcgis-assets.mjs`) |
-| Map data   | Overpass API (own server) through `src/maps/api/overpassClient.ts`                                              |
-| PWA        | `@vite-pwa/astro`, registered in `src/pwa.ts`; precaches the app (not pages, so an expired Authelia login reaches the login page) |
-| API        | `server/`: Hono on Node with `node:sqlite`, bundled by esbuild                                                  |
-| Tests      | Vitest (unit, `tests/` and `server/`), Playwright with Firefox (browser, `e2e/`); CI in `.github/workflows/ci.yml` |
+| Layer     | Tech                                                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Page      | Astro 5 (static), one page `src/pages/index.astro` plus the reference and rulebook pages; each panel is a React 19 island behind an error boundary (`src/components/islands/`) |
+| UI        | Tailwind 3, shadcn/ui (Radix), react-toastify                                                                                             |
+| Map       | Leaflet 1.9 via react-leaflet; basemap drawn from a Protomaps `.pmtiles` file by `protomaps-leaflet`                                      |
+| State     | nanostores (`src/lib/context.ts`, `src/lib/game/session.ts`), saved to localStorage per tab through `src/lib/persist.ts` (no cross-tab sync) |
+| Geo maths | Turf; ArcGIS geodesic distance/buffer (its engine served from `/arcgis/`, copied there by `scripts/copy-arcgis-assets.mjs`)               |
+| Map data  | Reference files under `/data/` first, Overpass (own server) through `src/maps/api/overpassClient.ts` as the fallback                      |
+| PWA       | `@vite-pwa/astro`, registered in `src/pwa.ts`; precaches the app (not the data), shows background notifications                           |
+| API       | `server/`: Hono on Node with `node:sqlite`, bundled by esbuild                                                                             |
+| Tests     | Vitest (unit, `tests/` and `server/`), Playwright with Firefox (browser, `e2e/`, desktop and phone); CI in `.github/workflows/ci.yml`      |
 
 ## Directory map
 
 ```
 src/
-  pages/index.astro         page layout
-  layouts/Layout.astro      <head>: local fonts, icons, manifest, service worker
-  pages/reference.astro     question reference page (descriptions + rules links)
+  pages/index.astro         the page; pages/reference.astro and pages/rules/ (the rulebook, from src/content/rules)
+  layouts/Layout.astro      <head>: local fonts, icons, manifest, service worker, toasts
   lib/
     config.ts               where the self-hosted services live (PUBLIC_* overrides)
-    context.ts              global state (nanostores) + helpers like deleteQuestion
+    context.ts              the stores (questions, play area, hider pin, zone settings, UI state)
+                            and the question helpers: addQuestion, updateQuestion, deleteQuestion
+    persist.ts              persistentAtom without cross-tab listening
+    questionKey.ts          a question's identity for the map (its shared fields, cached per object)
+    gameSettings.ts         applying a game's settings to the stores; newRadiusQuestion
     questionInfo.ts         each question type: rulebook section + how the app answers it
-    rules/                  rulebook sections, transcribed cards (cards.ts)
-    game/                   shared games: types (shared with the server), API client,
-                            session.ts (connection, sync), sync.ts, answers.ts, photos.ts
+    rules/                  rulebook sections and the transcribed cards (cards.ts)
+    game/                   shared games: types.ts (shared with the server), api.ts, session.ts
+                            (connection, sync, hiderPhone), sync.ts, answers.ts, settings.ts,
+                            deck.ts (the digital deck, pure), deckSession.ts, hand.ts (physical
+                            deck), clock.ts, endgame.ts, events.ts + alerts.ts (what to tell
+                            whom), drafts.ts, photos.ts
     activeQuestion.ts       which question draws its reference places
-    jobs.ts                 busy tracker + "latest runner" (no overlapping refreshes)
+    jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
     sharedGame.ts           parse / summarize / apply shared games (links, files)
     shareApi.ts             client for /api/share
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
+    geolocation.ts          GPS with readable errors
   maps/
     schema.ts               zod schemas for the 5 question types
-    index.ts                question engine: applies questions, reports per-question status
+    index.ts                question engine: applies questions, remembers each step, reports status
     errors.ts               NotApplicableError ("doesn't apply here", shown in amber)
     regionRules.ts          Swiss adaptations (100k cities, hidden question types)
     adminBorders.ts         border lines, "closer to a border" region, level labels
     distanceRegion.ts       grid distance maps ("within X km of these lines")
     stationNames.ts         station-name rules (name on the sign, accents ignored)
-    hidingZones.ts          unit-safe hiding-zone maths, station kinds
-    hidingZoneStations.ts   the stations hiding zones are drawn around
+    hidingZones.ts          station filters, expanding search
+    hidingZoneStations.ts   the stations hiding zones are drawn around (kinds, de-duplication)
+    hidingZoneLayer.ts      the zones on the map: which stations are left, drawing, the hider
+                            picking a station, the end game, the Move marker
     trainLines.ts           "same train line" (reference data, else Overpass)
     references.ts           what to draw for a question: star, dots, zone outline
     elevation.ts            ground height from the elevation tiles (altitude question)
-    datasets/               reading the reference data; airports.ts is the airport list
+    datasets/               reading the reference data; airports.ts, stations.ts (unreachable ones)
     questions/*.ts          per question type: adjust map, hider mode, planning outline
     questions/places.ts     airports / big cities / places of a type, incl. across the border
     api/overpass*.ts        Overpass queries and the client (fallbacks, cache, remarks)
     api/geocode.ts          Photon place search
   components/
+    islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar, TutorialDialog
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline
-    QuestionSidebar.tsx, cards/*.tsx
-    ZoneSidebar.tsx         hiding zones (stations, filters, per-zone check)
+    DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
+    QuestionSidebar.tsx     the sidebar: Questions, Stations (Hider on the hider's phone), Photos, Cards
+    cards/                  base.tsx (the card frame: fold, lock, hide, share, delete) + one card per type
+    StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
+    HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
+    PlayAreaBar.tsx         choosing the play area (search, draw) during setup
+    OptionDrawers.tsx       the Menu: Game (GamePanel) and Settings tabs, share a copy
+    game/                   GameSetupDialog (deck, cards, questions, play area), GamePanel,
+                            HiderToggle, QuestionGameBar (send / answer / veto), PhotosPanel,
+                            CardsPanel + CardFace (the hand), RoundClock, GamePopups (alerts), NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
-    cards/QuestionInfoButton.tsx  the ⓘ popover (rulebook text)
-    game/                   shared game panel, question state bar, Photos and Curses tabs
-    OptionDrawers.tsx       share/load/settings bar
     SharedGameDialog.tsx    "load this shared game?" prompt
     TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
-server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live
-                            updates), gameOps.ts (who may change what), shareStore.ts
-server/datasets/            builds the reference data (build.ts; nearest.ts, routes.ts,
-                            elevation.ts)
+server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
+                            gameOps.ts (the rules: applyOp, viewFor), shareStore.ts
+server/datasets/            builds the reference data (build.ts; nearest.ts, routes.ts, elevation.ts)
 deploy/                     Docker Compose stack, nginx configs, data scripts, guide
 tests/, e2e/                unit and browser tests
 ```
 
 ## How a map refresh works (`components/mapRefresh.ts`)
 
-1. `requestMapRefresh()` is called when questions or hider mode change. Runs
-   never overlap: a call during a run schedules one more run afterwards.
-2. The play area comes from the drawn polygon or the chosen place (Overpass).
-3. In hider mode, each question is auto-answered (`hiderify*`); failures are
-   recorded per question instead of aborting.
+1. `requestMapRefresh()` runs when something the map can see changes: a
+   question's data, hidden or locked (`questionsMapKey`; folding a card
+   isn't one), the hider pin, the play area, the end game, a question's
+   state in the shared game. Runs never overlap: a call during a run
+   schedules one more run afterwards.
+2. The play area comes from the drawn polygon or the chosen place; in the
+   end game it is clipped to the picked station's zone.
+3. On the hider's phone (`hiderPhone`): alone, each unlocked question is
+   answered from the pin on a copy, and the ones whose answer changed are
+   written back; in a shared game, answers are only suggested (nothing is
+   sent until the hider taps one).
 4. `applyQuestionsToMapGeoData` narrows the area question by question and
-   returns a status per question: ok, skipped (hidden / planning), not
-   applicable, or error. An answer that would leave no area is reported as a
-   contradiction and skipped. Statuses go to `questionStatuses`; each card
-   shows its own.
-5. The area outside is shaded; the hiding-zone sidebar recomputes from it
-   (through its own no-overlap runner).
+   returns a status per question: ok, skipped (hidden / planning / waiting
+   / vetoed / before the end game / inactive draft), not applicable, or
+   error. An answer that would leave no area is reported as a contradiction
+   and skipped. Each step's result is remembered by the chain of questions
+   before it, so editing the newest question recomputes one step. The page
+   gets to paint between steps.
+5. Confirmed answers are applied first, then each seekers' draft on its own
+   so its ruled-out area can be drawn in its colour; questions waiting for
+   the hider are outlined, not applied.
+6. The area outside is shaded; the hiding zones recompute from it only when
+   it changed (`hidingZoneLayer.ts`, through its own no-overlap runner).
 
 All background work goes through `busy.track()`, which counts running jobs, so
 one failing job can't leave the app stuck in "loading".
@@ -112,16 +138,16 @@ Map questions are answered from pre-built files instead of live queries.
 `server/datasets/build.ts` turns the OSM extract (Switzerland + 30 km) into
 `/data/*.json`:
 
-| File | What | Used by |
-| --- | --- | --- |
-| `<category>.json` | Overpass-shaped places: POIs, airports (only those on `airports.ts`), cities, stations, brands | places in the play area, tentacles, hiding zones |
-| `voronoi-<set>.json` | for each place type, airports and cities of 100k / 1M people: the part of the covered area nearest to each place | matching ("same nearest X?"): the seeker's cell is the answer |
-| `admin-<level>.json` | boundaries with bbox | zone questions, admin-border measuring |
-| `train-lines.json` | train lines (OSM `route=train`) stopping at each station | "same train line" |
-| `lakes.json` | lakes of 10 km² or more, with their area | lake shore measuring |
-| `highspeed.json` | high-speed lines | high-speed measuring |
-| `elevation/<z>/<x>/<y>.i16` | ground height in metres, 256 × 256 per web-map tile, zooms 9–11, from AWS Terrain Tiles | altitude question |
-| `manifest.json` | covered area, counts, the wider area if built with it | coverage checks |
+| File                        | What                                                                                                             | Used by                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `<category>.json`           | Overpass-shaped places: POIs, airports (only those on `airports.ts`), cities, stations, brands                   | places in the play area, tentacles, hiding zones            |
+| `voronoi-<set>.json`        | for each place type, airports and cities of 100k / 1M people: the part of the covered area nearest to each place | matching ("same nearest X?"): the seeker's cell is the answer |
+| `admin-<level>.json`        | boundaries with bbox                                                                                             | zone questions, admin-border measuring                      |
+| `train-lines.json`          | train lines (OSM `route=train`) stopping at each station                                                         | "same train line"                                           |
+| `lakes.json`                | lakes of 10 km² or more, with their area                                                                         | lake shore measuring                                        |
+| `highspeed.json`            | high-speed lines                                                                                                 | high-speed measuring                                        |
+| `elevation/<z>/<x>/<y>.i16` | ground height in metres, 256 × 256 per web-map tile, zooms 9–11, from AWS Terrain Tiles                         | altitude question                                           |
+| `manifest.json`             | covered area, counts, the wider area if built with it                                                            | coverage checks                                             |
 
 **Places across the border.** With `--far far-places.osm.pbf` (airports,
 cities and POIs within ~300 km, see `deploy/update-data.sh`), the builder
@@ -140,14 +166,15 @@ grid distance maps (`src/maps/distanceRegion.ts`) instead of buffering.
 
 ## Data the app requests (all from the own server)
 
-| What                         | Request                                                                 | Cached                                  |
-| ---------------------------- | ----------------------------------------------------------------------- | --------------------------------------- |
-| Play-area boundary           | Overpass `relation(id); out geom;`                                      | Cache Storage (permanent)               |
-| Places, stations, borders    | Overpass `nwr[...](area...)`, `way(r)` for borders                      | Cache Storage, and in memory per play area |
-| Admin levels at a point      | Overpass `is_in`                                                        | Cache Storage                           |
-| Basemap                      | HTTP range requests into `/tiles/basemap.pmtiles`                       | browser HTTP cache                      |
-| Place search                 | Photon `/photon/api/?q=...`                                             | no                                      |
-| Share links                  | `POST /api/share`, `GET /api/share/:id`                                 | no                                      |
+| What                      | Request                                                          | Cached                                     |
+| ------------------------- | ---------------------------------------------------------------- | ------------------------------------------ |
+| Play-area boundary        | Overpass `relation(id); out geom;`                               | Cache Storage (permanent)                  |
+| Places, stations, borders | reference files, else Overpass `nwr[...](area...)`, `way(r)`     | Cache Storage, and in memory per play area |
+| Admin levels at a point   | reference files, else Overpass `is_in`                           | Cache Storage                              |
+| Basemap                   | HTTP range requests into `/tiles/basemap.pmtiles`                | browser HTTP cache                         |
+| Place search              | Photon `/photon/api/?q=...`                                      | no                                         |
+| Share links               | `POST /api/share`, `GET /api/share/:id`                          | no                                         |
+| Shared games              | `/api/games/...` (see below), a server-sent-events stream        | no                                         |
 
 Overpass answers that are really errors (HTTP 200 with a "runtime error"
 remark) are treated as failures and never cached.
@@ -155,35 +182,44 @@ remark) are treated as failures and never cached.
 ## Shared games (`src/lib/game/`, `server/src/games.ts`)
 
 One game per link (`?game=<id>`). The server keeps each game as one JSON
-document in SQLite: play area, hiding zone settings, game settings
-(size, whether seekers may answer), questions, photo questions, photos
-(files on disk) and curses, plus earlier rounds.
+document in SQLite: play area, hiding zone settings, game settings (size,
+rules, deck, which questions and cards), questions, photo questions, photos
+(files on disk), curses and powerups, the clock, the digital deck, a Move in
+progress, the hider's spot, and earlier rounds.
 
 - **Changes** are small operations (`putQuestion`, `sendQuestion`,
-  `answerQuestion`, `castCurse`…) checked by `gameOps.ts`: a seeker's new
-  question is a *draft* the hider can't see; *asked* questions wait for the
-  hider; *answered* ones are locked for seekers unless the hider allows them
-  to answer. Last change wins.
+  `answerQuestion`, `vetoQuestion`, `castCurse`, `drawCards`, `playCard`,
+  `move`, `startEndgame`, `clock`…) checked by `gameOps.ts`: a seeker's new
+  question is a _draft_ the hider can't see; _asked_ questions wait for the
+  hider; _answered_ ones are locked for seekers unless the hider allows them
+  to answer. Last change wins. `viewFor` strips what a role may not see
+  (drafts from the hider, the hider's spot and the deck's order from the
+  seekers).
 - **Live updates:** each phone keeps a server-sent-events stream
   (`/api/games/<id>/events`) and gets the whole game, as its role may see
-  it, after every change.
+  it, after every change. `events.ts` diffs the old and new game into what
+  to tell this phone (toast, buzz, beep, background notification).
 - **On the phone**, `session.ts` mirrors the game into the usual stores
-  (questions, play area, zone settings). Local edits are compared with what
-  the server last sent and the differences go out as operations; edits not
-  sent yet survive incoming updates. View settings (collapsed, hidden,
-  locked) stay per phone.
+  (questions, play area, zone settings, end game, the hider's spot). Local
+  edits are compared with what the server last sent and the differences go
+  out as operations; edits not sent yet survive incoming updates. View
+  settings (folded, hidden, locked) stay per phone.
 - **The map** applies answered questions as usual, then the seekers' drafts
-  on top, shaded amber; questions waiting for the hider aren't applied.
+  on top in their colours; questions waiting for the hider are outlined.
 - **The hider** proves the role with a token (from the password) on every
-  request. Hider mode works out suggested answers on copies of the questions;
-  only the answer the hider taps is sent. Their position never leaves the
-  phone. Photos are re-encoded before upload, which drops their location
-  data.
+  request. The hider's station and pin live in the game so two hider phones
+  share one spot, and are never sent to seekers; answers are worked out from
+  the station until the end game, then from the pin. Photos are re-encoded
+  before upload, which drops their location data.
+- **The digital deck** (`deck.ts`, pure, shared with the server): the server
+  shuffles and deals what an answered question earns, the hider keeps or
+  plays cards, and the time bonuses are worked out from the hand.
 - Games untouched for a year are deleted (`games.cleanup`, daily).
 
 ## Persistence and sharing
 
-- Game state lives in localStorage. Saved questions that this version can't
+- Game state lives in localStorage, read once per tab (another tab's writes
+  are not picked up, on purpose). Saved questions that this version can't
   read are backed up (`questions-unreadable-backup`) instead of stopping the
   app.
 - A shared game (link, file or pasted JSON) is validated as a whole before
@@ -192,8 +228,11 @@ document in SQLite: play area, hiding zone settings, game settings
 - Share links: `?share=<id>` (own server), with `?hzc=` (compressed game in
   the link) as a fallback. `?hz=` and `?url=` still load.
 
-## Known structural debt (not yet addressed)
+## Known structural debt
 
-- Questions are still mutated in place and refreshed with `questionModified()`.
-- ZoneSidebar (≈1.4k lines) and OptionDrawers are still large.
-- The question engine still reads global state, so it can't run in a worker yet.
+- The question engine reads global state (the stores, the Overpass caches),
+  so it can't run in a Web Worker yet; the per-question cache covers the
+  common edits.
+- Every change sends the whole game to every phone, earlier rounds included.
+- Big files: CardsPanel, GameSetupDialog, OptionDrawers, context.ts,
+  session.ts.

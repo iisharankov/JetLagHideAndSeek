@@ -58,6 +58,7 @@ each push.
 
 ## Credits
 
+This fork: Ivan Sharankov ([iisharankov](https://github.com/iisharankov)).
 Built on [taibeled/JetLagHideAndSeek](https://github.com/taibeled/JetLagHideAndSeek)
 and its contributors. MIT licensed (see [LICENSE](LICENSE)). Map data ©
 OpenStreetMap contributors; basemap by [Protomaps](https://protomaps.com);
