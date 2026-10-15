@@ -34,6 +34,7 @@ import {
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
 import { deckComposition } from "@/lib/game/deck";
+import { downloadGame } from "@/lib/game/download";
 import { knownGames } from "@/lib/game/knownGames";
 import { describeRest } from "@/lib/game/rest";
 import { ranking, scoreRows } from "@/lib/game/scoreboard";
@@ -563,6 +564,16 @@ export const GamePanel = () => {
             </h3>
             <Button onClick={shareLink}>Share the game link</Button>
             <p className="break-all text-xs text-slate-400">{gameLink()}</p>
+            <Button
+                variant="outline"
+                size="sm"
+                title="The whole game as a JSON file: questions, answers, rounds and links to the photos"
+                onClick={() => {
+                    if (!downloadGame()) toast.error("No game to download.");
+                }}
+            >
+                Download this game (file)
+            </Button>
             <NameInput />
             <p className="text-sm" data-testid="game-role">
                 {$role === "hider" ? (

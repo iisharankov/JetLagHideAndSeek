@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { notify } from "@/lib/game/alerts";
 import { type CardInfo, CARDS, customCardInfo } from "@/lib/game/deck";
-import { gameEvents } from "@/lib/game/events";
+import { gameEvents, needsAttention } from "@/lib/game/events";
 import { gameRole, gameState } from "@/lib/game/session";
 import type { GameState } from "@/lib/game/types";
 
@@ -79,7 +79,14 @@ export const GamePopups = () => {
                 );
             }
         }
-        if (events.length > 0) notify(events[0].title, events[0].body);
+        if (events.length > 0) {
+            // A sound only for news worth one (not "the rest is over").
+            notify(
+                events[0].title,
+                events[0].body,
+                events.some(needsAttention),
+            );
+        }
         if (popups.length > 0) setQueue((current) => [...current, ...popups]);
     }, [$game, $role]);
 

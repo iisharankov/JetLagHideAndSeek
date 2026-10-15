@@ -85,15 +85,26 @@ const systemNotification = async (title: string, body?: string) => {
     }
 };
 
-/** Buzzes, beeps and notifies (if allowed) about something that happened. */
-export const notify = (title: string, body?: string) => {
+/** Two beeps within this time would be one: a burst of news sounds once. */
+const QUIET_MS = 3000;
+let lastSoundAt = 0;
+
+/**
+ * Buzzes, beeps and notifies (if allowed) about something that happened;
+ * with `sound` off, only the notification for a hidden tab.
+ */
+export const notify = (title: string, body?: string, sound = true) => {
     if (!alertsEnabled.get()) return;
-    try {
-        navigator.vibrate?.([200, 100, 200]);
-    } catch {
-        // No vibration here.
+    const now = Date.now();
+    if (sound && now - lastSoundAt >= QUIET_MS) {
+        lastSoundAt = now;
+        try {
+            navigator.vibrate?.([200, 100, 200]);
+        } catch {
+            // No vibration here.
+        }
+        beep();
     }
-    beep();
     void systemNotification(title, body);
 };
 

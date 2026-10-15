@@ -3,16 +3,19 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 
 import { normalizeGameSettings } from "@/lib/game/settings";
-import type { GameOp, GameState, SharedQuestion } from "@/lib/game/types";
+import type { GameState } from "@/lib/game/types";
 
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
 import type { GameStore } from "./games";
+import { opProblem, parseOp, parseQuestions } from "./opSchema";
 import { parseSubscription, type PushService } from "./push";
 
 const MAX_GAME_BYTES = 2 * 1024 * 1024;
 /** Phones shrink photos to at most 5 MB before uploading. */
 const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 const KEEPALIVE_MS = 25_000;
+/** A play area or zone description can't be bigger than this. */
+const MAX_PART_BYTES = 300_000;
 /** A game with a hider is theirs to delete, until it has been quiet this long. */
 export const DELETE_AFTER_MS = 24 * 3600 * 1000;
 
@@ -78,9 +81,18 @@ export const createApp = ({
         bodyLimit({ maxSize: MAX_GAME_BYTES, onError: tooLarge("game") }),
         async (c) => {
             const body = await c.req.json();
-            const questions = Array.isArray(body?.questions)
-                ? (body.questions as SharedQuestion[])
-                : [];
+            const questions = parseQuestions(body?.questions ?? []);
+            if (!questions) {
+                throw new GameRuleError(
+                    "The questions aren't in a shape the game knows.",
+                    400,
+                );
+            }
+            const sized = (value: unknown) =>
+                JSON.stringify(value ?? null).length <= MAX_PART_BYTES;
+            if (!sized(body?.playArea) || !sized(body?.zone)) {
+                throw new GameRuleError("The play area is too large.", 400);
+            }
             const state = games.create(
                 {
                     playArea: body?.playArea ?? null,
@@ -114,7 +126,14 @@ export const createApp = ({
                 name: playerName(body?.by),
                 role: roleOf(c, id),
             };
-            const state = games.apply(id, body?.op as GameOp, actor);
+            const op = parseOp(body?.op);
+            if (!op) {
+                throw new GameRuleError(
+                    `That change isn't well-formed: ${opProblem(body?.op)}.`,
+                    400,
+                );
+            }
+            const state = games.apply(id, op, actor);
             return c.json({
                 state: viewFor(state, actor.role),
                 now: Date.now(),

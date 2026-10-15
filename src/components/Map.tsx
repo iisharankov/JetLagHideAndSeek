@@ -6,10 +6,17 @@ import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
 import { useEffect, useMemo } from "react";
-import { MapContainer, ScaleControl, TileLayer } from "react-leaflet";
+import {
+    MapContainer,
+    ScaleControl,
+    TileLayer,
+    ZoomControl,
+} from "react-leaflet";
 import { toast } from "react-toastify";
 
 import { addNotePin } from "@/components/game/NotePins";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { TILES_URL } from "@/lib/config";
 import {
     additionalMapGeoLocations,
@@ -93,6 +100,11 @@ export const Map = ({ className }: { className?: string }) => {
     const $hidingRadiusUnits = useStore(hidingRadiusUnits);
     const $zoneOptions = useStore(displayHidingZonesOptions);
     const map = useStore(leafletMapContext);
+    // Phones and tablets pinch to zoom: no +/− buttons. Elsewhere they sit
+    // at the bottom right with the scale, away from the sidebar button.
+    const isMobile = useIsMobile();
+    const touch = useMediaQuery("(pointer: coarse)");
+    const showZoom = !isMobile && !touch;
 
     const followMeMarkerRef = useMemo(
         () => ({ current: null as L.Marker | null }),
@@ -110,6 +122,9 @@ export const Map = ({ className }: { className?: string }) => {
                 zoom={5}
                 className={cn("w-[500px] h-[500px]", className)}
                 ref={leafletMapContext.set}
+                zoomControl={false}
+                // The credits are in Menu → Settings → Map data instead.
+                attributionControl={false}
                 // @ts-expect-error Typing doesn't update from react-contextmenu
                 contextmenu={true}
                 contextmenuWidth={140}
@@ -245,10 +260,11 @@ export const Map = ({ className }: { className?: string }) => {
                 <ReferenceMarkers />
                 <PlaceReviewMarkers />
                 <PolygonDraw />
-                <ScaleControl position="bottomleft" />
+                {showZoom && <ZoomControl position="bottomright" />}
+                <ScaleControl position="bottomright" />
             </MapContainer>
         ),
-        [map, $baseTileLayer],
+        [map, $baseTileLayer, showZoom],
     );
 
     // Admin-border answers shade only inside hiding zones while those are

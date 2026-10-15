@@ -431,18 +431,3 @@ export const customInitPreference = persistentAtom<"ask" | "blank" | "prefill">(
         decode: JSON.parse,
     },
 );
-
-/** Extra Overpass server tried after the app's own one (blank: none). */
-export const overpassCustomHost = persistentAtom<string>(
-    "overpassCustomHost",
-    "",
-);
-/** Opt-in: fall back to public Overpass servers, which then see the queries. */
-export const allowPublicOverpass = persistentAtom<boolean>(
-    "allowPublicOverpass",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);

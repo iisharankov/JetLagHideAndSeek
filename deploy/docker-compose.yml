@@ -51,33 +51,6 @@ services:
             retries: 3
             start_period: 10s
 
-    # OpenStreetMap queries, from the extract made by `updater`. The first
-    # start imports it (about an hour); refresh-data.sh redoes that monthly.
-    overpass:
-        image: wiktorn/overpass-api:latest
-        restart: unless-stopped
-        ports:
-            - "127.0.0.1:${OVERPASS_PORT:-18781}:80"
-        environment:
-            OVERPASS_MODE: init
-            OVERPASS_META: "no"
-            OVERPASS_PLANET_URL: file:///osm/region.osm.bz2
-            OVERPASS_DIFF_URL: "" # no live updates; refreshed from new extracts
-            OVERPASS_UPDATE_SLEEP: 86400
-            OVERPASS_COMPRESSION: gz
-            OVERPASS_USE_AREAS: "true" # needed for "which canton is this in?"
-            OVERPASS_RULES_LOAD: 10
-            OVERPASS_STOP_AFTER_INIT: "false"
-            OVERPASS_MAX_TIMEOUT: 300s
-            OVERPASS_FASTCGI_PROCESSES: 8
-            # Every request arrives from the same address (the host's nginx),
-            # so per-address limits would throttle the whole team.
-            OVERPASS_RATE_LIMIT: 64
-            OVERPASS_ALLOW_DUPLICATE_QUERIES: "yes"
-        volumes:
-            - "${DATA_DIR:-./data}/overpass:/db"
-            - "${DATA_DIR:-./data}/osm:/osm:ro"
-
     # Downloads map data and builds the reference datasets; run with
     # `docker compose run --rm updater`.
     updater:

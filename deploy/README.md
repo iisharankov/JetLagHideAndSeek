@@ -14,23 +14,21 @@ Players' phones only ever talk to `jetlag.sharankov.com`.
 
 ## What runs
 
-| Service    | What it does                                                                 | Port on 127.0.0.1 | Data in `deploy/data/`               |
-| ---------- | ---------------------------------------------------------------------------- | ----------------- | ------------------------------------ |
-| `web`      | The app, the basemap at `/tiles/` and the reference data at `/data/`         | 18780             | `tiles/`, `datasets/`                |
-| `api`      | Share links and shared games (live updates, photos)                          | 18787             | `api/` (SQLite, `photos/`)           |
-| `overpass` | OpenStreetMap queries (which canton, museums…)                               | 18781             | `overpass/`, `osm/`                  |
-| `updater`  | Downloads fresh map data and builds the reference data, only when you run it | –                 | writes `osm/`, `datasets/`, `tiles/` |
+| Service   | What it does                                                                 | Port on 127.0.0.1 | Data in `deploy/data/`               |
+| --------- | ---------------------------------------------------------------------------- | ----------------- | ------------------------------------ |
+| `web`     | The app, the basemap at `/tiles/` and the reference data at `/data/`         | 18780             | `tiles/`, `datasets/`                |
+| `api`     | Share links and shared games (live updates, photos)                          | 18787             | `api/` (SQLite, `photos/`)           |
+| `updater` | Downloads fresh map data and builds the reference data, only when you run it | –                 | writes `osm/`, `datasets/`, `tiles/` |
 
 The map covers Switzerland plus about 30 km into each neighbour, from
 Geofabrik extracts (about 3.7 GB to download). The basemap is about 1.5 GB.
 Expect the databases to need a few tens of GB in total.
 
-**Reference data:** the updater also turns the extract into small files of
-every zoo, museum, airport, city, station, train line, big lake, admin border
-and so on, plus pre-computed "which place is nearest" maps (about 30–40 MB,
-served compressed). The app answers every question type from these files,
-with no live query, and only falls back to Overpass outside the covered area.
-Overpass stays as that fallback.
+**Reference data:** the updater turns the extract into small files of every
+zoo, museum, airport, city, station, train line, big lake, admin border and
+so on (about 20 MB of JSON, served compressed, plus the elevation tiles). The
+app answers every question and every place search from these files, with no
+live query; a play area outside the box isn't possible.
 
 **Only the play area counts:** the rulebook says places outside it don't
 exist, so the pack holds only what's inside the box and nothing from further
@@ -59,11 +57,7 @@ away is downloaded.
 5. **Start everything:**
     ```bash
     docker compose up -d
-    docker compose logs -f overpass   # Ctrl-C to stop watching
     ```
-    On the first start Overpass imports the map data (roughly an hour). The
-    app works meanwhile: questions and place search come from the reference
-    data; only the Overpass fallback waits.
 6. **Check each service from the server:**
     ```bash
     curl -s localhost:18787/api/health                                   # {"ok":true}
@@ -87,10 +81,9 @@ away is downloaded.
 deploy/refresh-data.sh
 ```
 
-It downloads new extracts and rebuilds the reference data and the databases.
-Questions and place search keep working from the reference data, but the
-Overpass fallback is down for about an hour: don't run it on a game day. To schedule it (04:00 on the
-1st of each month), add this to your crontab:
+It downloads new extracts and rebuilds the reference data; the app keeps
+working throughout. To schedule it (04:00 on the 1st of each month), add
+this to your crontab:
 
 ```
 0 4 1 * * /path/to/repo/deploy/refresh-data.sh >> /var/log/jetlag-refresh.log 2>&1
@@ -114,15 +107,15 @@ data, so it follows the box. What Bern and Munich need, step by step:
 ## The privacy policy and external services
 
 The nginx config sends a Content-Security-Policy that lets the browser contact
-only this server. That's what guarantees no tracking, but it also blocks the
-optional external services in Options ("public Overpass fallback" and the
-OpenStreetMap base map). To allow one, add its host to `connect-src`
-(Overpass) or `img-src` (base map) in the nginx config.
+only this server. That's what guarantees no tracking; it also blocks the
+OpenStreetMap base map that development uses. To allow it, add its host to
+`img-src` in the nginx config.
 
 ## Troubleshooting
 
-- **"Map data unavailable"**: Overpass is still importing or has stopped.
-  Check `docker compose logs overpass`.
+- **"No map data for this area"**: the play area is outside the box the
+  data was built for (`BBOX`), or the reference data isn't built yet
+  (`curl localhost:18780/data/manifest.json`).
 - **Search finds nothing**: the reference data isn't built yet
   (`curl localhost:18780/data/manifest.json`); run the updater.
 - **The installed app keeps showing the login page**: the Authelia session

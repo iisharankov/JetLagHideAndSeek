@@ -17,13 +17,16 @@ body {
     height: 100svh;
 }
 
+/* Bottom right: the scale beside the zoom buttons, both on the bottom edge. */
 .leaflet-bottom.leaflet-right {
-    /* Hypothetically this could cause an issue with other bottom right elements */
     z-index: 752;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-end;
 }
-
-div.leaflet-control-attribution.leaflet-control {
-    z-index: 751;
+.leaflet-bottom.leaflet-right .leaflet-control {
+    float: none;
+    clear: none;
 }
 
 @layer base {
@@ -99,18 +102,6 @@ div.leaflet-control-attribution.leaflet-control {
         --sidebar-accent-foreground: 240 4.8% 95.9%;
         --sidebar-border: 240 3.7% 15.9%;
         --sidebar-ring: 217.2 91.2% 59.8%;
-    }
-
-    /* Below the sidebar button. */
-    main .leaflet-top .leaflet-control {
-        @apply !mt-[56px];
-    }
-
-    /* Phones pinch to zoom: no +/− buttons. */
-    @media (max-width: 767px) {
-        .leaflet-control-zoom {
-            display: none;
-        }
     }
 
     .selected-card-background-temporary {

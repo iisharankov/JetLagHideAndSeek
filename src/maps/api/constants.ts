@@ -1,12 +1,6 @@
 import type { APILocations } from "@/maps/schema";
 
 /** Public Overpass servers, only used when the player opts in. */
-export const PUBLIC_OVERPASS_HOSTS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-];
-
 export const ICON_COLORS = {
     black: "#3D3D3D",
     blue: "#2A81CB",

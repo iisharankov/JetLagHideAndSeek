@@ -372,7 +372,7 @@ From the photos of the metric edition and the counted deck:
 
 ## Audit (2026-10-10)
 
-See [audit-2026-10.md](audit-2026-10.md): what's left, the architecture's
+See [audit.md](audit.md) (the audits are merged there): what's left, the architecture's
 weak points (in-place mutation, main-thread geometry, full-state
 broadcast), open risks, and why a rewrite isn't worth it.
 
@@ -748,24 +748,59 @@ From your answers to Q38, Q40, Q41 and Q42.
    want a "subject" for the server's keys, which is who to contact if the
    server misbehaves; the site's address does, and that's the default
    now (`PUSH_CONTACT` only if you'd rather give a `mailto:`).
+5. **Map controls.** The zoom buttons sit at the bottom right with the
+   scale beside them, out of the sidebar button's way; touch devices
+   (phones, tablets) get none and pinch instead. The attribution text is
+   off the map; the credits are in Settings → Map data.
+
+## Round 19: places in one block, quieter alerts, no Overpass, a public site's checks ✅ (2026-10-15)
+
+1. **Places within a block are one dot.** After the name merge, any two
+   places of a kind within 150 m (a hospital and its clinic, two cinemas
+   on one street, "… AG" next to the same place without it) are one; the
+   first listed stays. Places tagged not open to the public (`access`
+   private, no, permit, customers) are out, and so are "zoos" whose names
+   say private, breeding or farm. The data build keeps the `access` tag
+   from the next refresh on (the local pack needs `osmium-tool` to
+   rebuild). `tests/placeRules.test.ts`.
+2. **Alert sounds.** A sound only for news worth one (a question, an
+   answer, a photo, a request, a card, the end game), one sound per burst
+   (three seconds), and none for the rest period's own messages; the
+   toasts stay. A test holds that an unchanged game, or one that only
+   changed its version (the server's rest check), is never news.
+3. **No Overpass.** The service is out of the deploy (compose, nginx, the
+   updater's extract conversion, the refresh script, which no longer needs
+   a quiet day); Settings → Map data lost the public-fallback switch and
+   the extra-server field; development points at no public service. A
+   play area outside the downloaded data says so instead of querying.
+4. **Every change is checked** (`server/src/opSchema.ts`): shape, sizes
+   and the known operations only, before the rules see it; a bad one is a
+   400 with the reason. The same for the questions a game is created with
+   and the play area's size.
+5. **Download this game (file)** in Menu → Game: the game as this phone
+   sees it plus links to the photos, as JSON. `deploy/backup.sh` copies
+   the database (consistently, through the api container) and the photos
+   nightly when scheduled (Q48).
 
 ## What's left ⏭️
 
-From [the second audit](audit-2026-10b.md), roughly in order of value:
+From [the audit](audit.md) (consolidated; the decisions are Q47–Q49 in
+[questions.md](questions.md)), in order of value:
 
-1. **A shakedown game** with teams and the new curses, and the fixes it
-   brings.
-2. **Shared-game tests on the phone project** (the sheet layout of the
-   new dialogs has only run on desktop).
-3. **Split `CardsPanel.tsx`** (the rules file's helpers now live in
-   `server/src/rules/`; its 38-case switch is still one function).
-4. **Live view without the archive** (`rounds`, `moves`, the deck log),
-   later deltas keyed by version.
-6. **Geometry worker**, only if a real game still stutters.
-7. **Bundle:** Turf's planar buffers instead of ArcGIS (1.2 MB + wasm),
-   lazy-load the references/voronoi code, a smaller first-load chunk.
-8. **Authelia** in front of the site.
-9. **No offline map:** a dead spot means a grey map.
+1. **A shakedown game** with the rest period, the null answers, the
+   cleaned-up places and the offline search; the rest-period notes
+   (audit 4) checked the morning after.
+2. **Several areas on one server** (Q43: Switzerland, Zürich, Munich, and
+   cities further away): one pack, tile file and elevation set per area,
+   picked by the play area.
+3. **The public site's gates** (Q47): an invite code to create games and a
+   per-address cap; the backup schedule (Q48).
+4. **Cleanups** (audit 13, 14, 7, 6): duplicates, exports, lazy Places
+   counts, a name index for the search.
+5. **Tests** (audit 18–20): the zone layer, the answer suggestions, a
+   pack smoke test, the shared-game flows on the phone project.
+6. **Live view without the archive**; the bundle; the worker, only if a
+   real game stutters; the offline map.
 
 ## Later / dropped 💤
 

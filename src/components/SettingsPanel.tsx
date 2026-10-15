@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import {
     alertsEnabled,
-    allowPublicOverpass,
     animateMapMovements,
     autoZoom,
     baseTileLayer,
@@ -14,7 +13,6 @@ import {
     draftsOnMap,
     followMe,
     leafletMapContext,
-    overpassCustomHost,
     planningModeEnabled,
     questions,
     referencePlacesMode,
@@ -31,7 +29,6 @@ import { PushCard } from "./game/PushCard";
 import { MenuGroup } from "./MenuGroup";
 import { PlacesSettings } from "./PlacesSettings";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
 import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
@@ -49,13 +46,11 @@ export const SettingsPanel = () => {
     const $followMe = useStore(followMe);
     const $referencePlaces = useStore(referencePlacesMode);
     const $customInitPref = useStore(customInitPreference);
-    const $allowPublicOverpass = useStore(allowPublicOverpass);
     const $draftsOnMap = useStore(draftsOnMap);
     const $alerts = useStore(alertsEnabled);
     const [notifications, setNotifications] =
         useState<NotificationState>("default");
     useEffect(() => setNotifications(notificationsState()), []);
-    const $overpassCustomHost = useStore(overpassCustomHost);
 
     const setPlanningMode = (on: boolean) => {
         if (!on) {
@@ -237,20 +232,11 @@ export const SettingsPanel = () => {
                 </MenuGroup>
                 <MenuGroup title="Map data">
                     <p className="text-xs text-slate-400">
-                        Questions are answered from this app&apos;s own server.
+                        Questions and the place search are answered from the map
+                        data downloaded to this server; a play area outside it
+                        isn&apos;t possible. Map data © OpenStreetMap
+                        contributors; basemap by Protomaps.
                     </p>
-                    <Input
-                        type="text"
-                        value={$overpassCustomHost}
-                        onChange={(e) => overpassCustomHost.set(e.target.value)}
-                        placeholder="Extra Overpass server (optional)"
-                    />
-                    <ToggleCard
-                        title="Fall back to public Overpass servers"
-                        description="Public servers are often overloaded, and they see the play area and question locations."
-                        checked={$allowPublicOverpass}
-                        onCheckedChange={allowPublicOverpass.set}
-                    />
                 </MenuGroup>
             </>
         </>

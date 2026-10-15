@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Downloads fresh map data for the play region into /data:
-#   /data/osm/region.osm.bz2       OpenStreetMap data, imported by Overpass
+#   /data/osm/region.osm.pbf       the OpenStreetMap extract the data is built from
 #   /data/elevation/               elevation tiles (downloaded once, ~100 MB)
 #   /data/datasets/                places, stations and borders, served by `web`
 #   /data/tiles/basemap.pmtiles    vector basemap tiles, served by `web`
@@ -28,8 +28,6 @@ osmium merge --overwrite -o /data/osm/merged.osm.pbf /data/osm/downloads/*.osm.p
 # "smart" keeps admin boundaries and multipolygons that cross the box complete.
 osmium extract --strategy=smart -S types=multipolygon,boundary \
     --bbox="$BBOX" --overwrite -o /data/osm/region.osm.pbf /data/osm/merged.osm.pbf
-osmium cat --overwrite -f osm.bz2 -o /data/osm/region.osm.bz2.tmp /data/osm/region.osm.pbf
-mv /data/osm/region.osm.bz2.tmp /data/osm/region.osm.bz2
 rm /data/osm/merged.osm.pbf
 
 echo "Building reference datasets..."
@@ -49,4 +47,4 @@ pmtiles extract "https://build.protomaps.com/${build}" /data/tiles/basemap.pmtil
     --bbox="$BBOX" --maxzoom="$MAX_ZOOM"
 mv /data/tiles/basemap.pmtiles.tmp /data/tiles/basemap.pmtiles
 
-echo "Done: $(du -h /data/osm/region.osm.bz2 | cut -f1) of map data and $(du -h /data/tiles/basemap.pmtiles | cut -f1) of tiles (build ${build})."
+echo "Done: $(du -h /data/osm/region.osm.pbf | cut -f1) of map data and $(du -h /data/tiles/basemap.pmtiles | cut -f1) of tiles (build ${build})."

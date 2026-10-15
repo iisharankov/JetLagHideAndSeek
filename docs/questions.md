@@ -9,7 +9,72 @@ Decisions are listed at the end.
 
 ## Open questions
 
-None at the moment.
+Your answers to Q43–Q46 (round 19) are answered below; what is still
+yours to decide is Q47–Q49.
+
+**Q43, answered.** Overpass is gone from the deploy (round 19): the data
+downloaded for an area is all a game there needs, and nothing falls back.
+Sizes, with the Swiss box as the one measured point (reference data 20 MB
+of JSON plus 83 MB of elevation tiles; basemap tiles 1.5 GB at zoom 15 for
+about 100,000 km²), the rest scaled by area and density, give or take half:
+
+| Area                              | On the server (data + basemap) | Download to build it (deleted after) |
+| --------------------------------- | ------------------------------ | ------------------------------------ |
+| Switzerland, all (today's box)    | about 1.6 GB                   | 3.7 GB (kept for faster refreshes)   |
+| Zürich (canton, 50 km around)     | about 70 MB                    | the Swiss extract, 550 MB            |
+| Munich (city and S-Bahn)          | about 120 MB                   | Oberbayern, 400 MB                   |
+| Berlin (city and ring)            | about 150 MB                   | Berlin, 80 MB                        |
+| London (Greater London and more)  | about 250 MB                   | Greater London, 120 MB               |
+| Toronto (the GTA)                 | about 200 MB                   | Ontario, 600 MB                      |
+| New York (the five boroughs, NJ)  | about 400 MB                   | New York state, 400 MB               |
+
+One thing first: today the server serves **one box**. Switzerland and
+Munich fit in one (5.5–12.3 E); London or Toronto don't. Serving several
+areas means one pack, tile file and elevation set per area, picked by the
+play area: a round of work on `datasets/load.ts`, the tile layer and the
+updater (one `BBOX` and `REGIONS` per area). Say when, and which areas
+first.
+
+**Q44, answered.** No Authelia then. For a public site, round 19 checks
+every change the phones send (shape and size) before the rules see it. See
+Q47 for the rest.
+
+**Q45, answered.** A game is small: tens to a few hundred kB of JSON;
+photos are separate files (up to 5 MB each, 100 per game). Round 19 adds
+**Download this game (file)** in Menu → Game: the whole game as this phone
+sees it, with links to the photos. `deploy/backup.sh` is written too
+(nightly copy of the database and photos, 14 days kept) but not scheduled:
+Q48. Accounts: Q49.
+
+**Q46, answered.** No addresses. Done.
+
+**Q47.** A public site without accounts: anyone with the address can make
+games. Two cheap gates, both or either: an invite code to create a game
+(one shared secret in `.env`, told to friends; joining a game by link stays
+open), and a cap of, say, 20 new games per day per address in nginx.
+_Recommended: both, before the address goes anywhere._
+
+**Answer:**
+
+**Q48.** Schedule `deploy/backup.sh` nightly (one crontab line, in
+`deploy/README.md`)? Players won't press a download button before a disk
+dies. _Recommended: yes._
+
+**Answer:**
+
+**Q49.** Accounts and a fee. Accounts (name, password, reset by email,
+sessions) are about a round of work and a running duty (lost passwords,
+abuse reports, a privacy notice: Swiss and EU rules apply to a public
+service). Without a fee, the invite code (Q47) does the same job for
+friends of friends. With a fee, three things come first, before any code:
+the rulebook and card texts in the app are Jet Lag: The Game's (a free fan
+tool is tolerated; a paid one needs their permission or their texts out);
+a public map must credit OpenStreetMap on the map itself (the small corner
+line, which round 18 removed at your request); and payments mean a payment
+service, which sees who pays. _Recommended: no accounts and no fee for now;
+revisit if more than friends of friends turn up._
+
+**Answer:**
 
 ---
 
@@ -184,3 +249,7 @@ From your earlier answers (rounds 1–4), already built or planned:
   place search from the reference data instead of Photon (one service
   fewer, any box works); a German rule set; the push "contact" is the
   site's address, no email needed.
+- **Round 19 (Q43–Q46):** no Overpass: the downloaded data is all a game
+  needs, a play area outside it isn't possible; the site stays public, so
+  every change is checked for shape and size; no addresses in the
+  coordinate picker; a "Download this game" file, and a backup script.

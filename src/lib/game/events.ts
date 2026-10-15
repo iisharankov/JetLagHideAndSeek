@@ -24,12 +24,20 @@ export interface GameEvent {
         | "round"
         | "late"
         | "clock"
+        | "rest"
         | "delete";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
     name?: string;
 }
+
+/** News that is only news: a toast, no buzz, beep or notification. */
+const QUIET_KINDS = new Set<GameEvent["kind"]>(["rest", "award"]);
+
+/** Whether an event is worth a sound: something to do, or something that changes the game. */
+export const needsAttention = (event: GameEvent) =>
+    !QUIET_KINDS.has(event.kind);
 
 const LABELS: Record<string, string> = {
     radius: "Radar",
@@ -196,7 +204,7 @@ export const gameEvents = (
     ) {
         events.push({
             key: `rs${after.updatedAt}`,
-            kind: "clock",
+            kind: "rest",
             title: after.settings.rest
                 ? `Rest period: ${describeRest(after.settings.rest)}`
                 : "No rest period any more",
@@ -208,7 +216,7 @@ export const gameEvents = (
     if (after.clock?.pausedBy === "rest" && before.clock?.pausedBy !== "rest") {
         events.push({
             key: `rp${after.clock.pausedAt}`,
-            kind: "clock",
+            kind: "rest",
             title: `Rest period until ${after.settings.rest?.until ?? "later"}`,
             body: "The clock is paused; no questions until it goes on.",
         });
@@ -222,7 +230,7 @@ export const gameEvents = (
     ) {
         events.push({
             key: `rg${after.updatedAt}`,
-            kind: "clock",
+            kind: "rest",
             title: "The rest is over",
             body: "The clock runs again.",
         });

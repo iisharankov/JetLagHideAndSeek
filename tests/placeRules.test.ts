@@ -20,7 +20,7 @@ describe("place rules", () => {
             place("Stadtpark", 47.371, 8.541),
             place("stadtpark ", 47.3705, 8.5405),
             place("Stadtpark", 47.4, 8.6),
-            place("Seepark", 47.37, 8.54),
+            place("Seepark", 47.38, 8.56), // another block
         ]);
         expect(merged.map((p) => p.properties.name)).toEqual([
             "Stadtpark",
@@ -135,6 +135,63 @@ describe("the kinds' own rules", () => {
                 place("Dorfpark", 47.2954, 8.53),
             ]),
         ).toHaveLength(2);
+    });
+
+    it("merge places within a block of each other, whatever their names", () => {
+        const merged = mergeDuplicates([
+            place("Universitätsspital Zürich", 47.3778, 8.5508),
+            place("USZ Dermatologie", 47.3785, 8.5515), // ~90 m away
+            place("Stadtspital Waid", 47.3984, 8.5204), // far away
+        ]);
+        expect(merged.map((p) => p.properties.name)).toEqual([
+            "Universitätsspital Zürich",
+            "Stadtspital Waid",
+        ]);
+        // 200 m apart is two places.
+        expect(
+            mergeDuplicates([
+                place("Kino A", 47.37, 8.54),
+                place("Kino B", 47.3718, 8.54),
+            ]),
+        ).toHaveLength(2);
+        // With areas known, the big one keeps the dot whatever the order.
+        const big = mergeDuplicates([
+            turf.point([8.5515, 47.3785], {
+                name: "USZ Dermatologie",
+                areaM2: 900,
+            }),
+            turf.point([8.5508, 47.3778], {
+                name: "Universitätsspital Zürich",
+                areaM2: 80_000,
+            }),
+        ]);
+        expect(big.map((p) => p.properties.name)).toEqual([
+            "Universitätsspital Zürich",
+        ]);
+    });
+
+    it("drop places not open to the public, and private 'zoos'", () => {
+        expect(
+            fitsKind(
+                "park",
+                turf.point([8.5, 47.4], {
+                    name: "Villa garden",
+                    access: "private",
+                }),
+            ),
+        ).toBe(false);
+        expect(
+            fitsKind(
+                "park",
+                turf.point([8.5, 47.4], { name: "Stadtpark", access: "yes" }),
+            ),
+        ).toBe(true);
+        expect(fitsKind("zoo", place("Privatzoo Müller", 47.4, 8.5))).toBe(
+            false,
+        );
+        expect(fitsKind("zoo", place("Geflügelzucht Zoo", 47.4, 8.5))).toBe(
+            false,
+        );
     });
 
     it("drop the places looked at by hand, wherever the game is", () => {

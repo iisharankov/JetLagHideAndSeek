@@ -13,10 +13,8 @@ import { toast } from "react-toastify";
 import { OVERPASS_URLS, withBase } from "@/lib/config";
 import {
     additionalMapGeoLocations,
-    allowPublicOverpass,
     mapGeoJSON,
     mapGeoLocation,
-    overpassCustomHost,
     polyGeoJSON,
 } from "@/lib/context";
 import { applyPlaceRules, insidePlayArea } from "@/lib/placeRules";
@@ -24,7 +22,7 @@ import { datasets } from "@/maps/datasets/load";
 import { safeUnion } from "@/maps/geo-utils";
 
 import { cacheFetch } from "./cache";
-import { LOCATION_FIRST_TAG, PUBLIC_OVERPASS_HOSTS } from "./constants";
+import { LOCATION_FIRST_TAG } from "./constants";
 import {
     cacheStorageCache,
     createOverpassClient,
@@ -42,14 +40,8 @@ type TentacleLocationQuery = Pick<
 >;
 
 /** Servers to ask, in order: our own, an optional custom one, then (opt-in) public ones. */
-export const overpassEndpoints = () =>
-    _.uniq(
-        [
-            ...OVERPASS_URLS,
-            overpassCustomHost.get().trim(),
-            ...(allowPublicOverpass.get() ? PUBLIC_OVERPASS_HOSTS : []),
-        ].filter(Boolean),
-    );
+/** The app's own map server only: nothing leaves this server. */
+export const overpassEndpoints = () => OVERPASS_URLS;
 
 const queryOverpass = createOverpassClient({ endpoints: overpassEndpoints });
 

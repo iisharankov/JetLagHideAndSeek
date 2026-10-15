@@ -83,6 +83,8 @@ export const KEPT_TAGS = [
     "zoo",
     "animal",
     "golf",
+    // Places not open to the public don't count.
+    "access",
 ];
 
 /** A city's population as a number (0 if unknown). */

@@ -24,7 +24,6 @@ downloading.
 | Reference data (places, borders, train lines, lakes…) | ~40–50 MB                           | built by `updater` from the above                    | ~2 min     |
 | Elevation tiles (altitude question)                   | ~100 MB                             | free AWS Terrain Tiles, downloaded once by `updater` | ~1–2 min   |
 | Basemap tiles                                         | ~1.5 GB                             | Protomaps, extracted by `updater`                    | ~5–15 min  |
-| Overpass database (fallback map queries)              | ~10–20 GB                           | imported by the `overpass` container on first start  | ~1 hour    |
 
 Nothing needs copying from your PC: your Swiss extract and `public/data/`
 are not used by the server (it builds a wider area itself).
@@ -91,12 +90,10 @@ reused.
 
 ```bash
 docker compose up -d
-docker compose logs -f overpass   # Ctrl-C to stop watching
 ```
 
-Overpass imports the map data (~1 hour). The app already works meanwhile:
-questions and place search come from the reference data; only the Overpass
-fallback waits.
+The app works as soon as `web` and `api` are up: questions and place search
+come from the reference data.
 
 Check from the server:
 
@@ -106,12 +103,10 @@ curl -sI localhost:18780/ | grep -iE "^HTTP|content-type"    # 200, text/html
 curl -s localhost:18780/data/manifest.json | head -c 200     # reference data
 curl -sI localhost:18780/tiles/basemap.pmtiles | head -1     # 200 OK
 curl -s localhost:18787/api/health                           # {"ok":true}
-curl -s 'localhost:18781/api/interpreter?data=[out:json];node(1);out;' | head -c 200  # after Overpass's import
 ```
 
 A `curl` that prints nothing means nothing is listening on that port yet:
-for Overpass that's normal during its first hour; for anything else, look at
-`docker compose logs --tail=50 <service>`.
+look at `docker compose logs --tail=50 <service>`.
 
 ## 7. HTTPS and nginx (no Authelia)
 
@@ -229,7 +224,7 @@ Photos are stored with the games in `deploy/data/api/photos/`.
 - **502 Bad Gateway**: nginx is up but the container behind that address
   isn't answering. `docker compose ps` shows which one (look for
   "Restarting" or "unhealthy"), `docker compose logs --tail=50 api` (or
-  `web`) shows why. For `/overpass/` during the first hour it's normal.
+  `web`) shows why.
 - **The browser downloads a file instead of showing the app**: the `web`
   image is from before the fix above; `docker compose build web &&
 docker compose up -d web`.
@@ -241,8 +236,8 @@ docker compose up -d web`.
   `update-data.sh`.
 - **`nginx -t` complains about the certificate**: the two `ssl_certificate`
   lines must point at an existing one (`ls /etc/letsencrypt/live/`).
-- **"Map data unavailable" on a question**: Overpass is still importing
-  (`docker compose logs overpass`). Most questions don't need it.
+- **"No map data for this area" on a question**: the play area is outside
+  the box the data was built for (`BBOX`), or the data isn't built yet.
 - **Search finds nothing**: the reference data isn't built yet (`curl
 localhost:18780/data/manifest.json`); run the updater.
 - **A panel shows "ran into a problem"**: press "Reset its settings"; if it

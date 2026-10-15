@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { gameEvents } from "@/lib/game/events";
+import { gameEvents, needsAttention } from "@/lib/game/events";
 import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, QuestionEntry } from "@/lib/game/types";
 
@@ -54,6 +54,62 @@ const entry = (
     createdAt: 1,
     updatedBy: "Ana",
     updatedAt: 2,
+});
+
+describe("what isn't news", () => {
+    it("says nothing for the same state again, or one that only changed its version", () => {
+        const state = base();
+        state.clock = {
+            startedAt: 1000,
+            pausedAt: null,
+            pausedMs: 0,
+            stoppedAt: null,
+        };
+        state.settings = {
+            ...state.settings,
+            rest: { from: "22:00", until: "07:00", timeZone: "Europe/Zurich" },
+        };
+        const again = JSON.parse(JSON.stringify(state)) as GameState;
+        const bumped = {
+            ...again,
+            version: state.version + 1,
+            updatedAt: state.updatedAt + 20_000,
+        };
+        for (const role of ["seeker", "hider"] as const) {
+            expect(gameEvents(state, again, role)).toEqual([]);
+            expect(gameEvents(state, bumped, role)).toEqual([]);
+        }
+    });
+
+    it("keeps the rest period quiet, and a rest request loud", () => {
+        const before = base();
+        const after = {
+            ...base(),
+            settings: {
+                ...base().settings,
+                rest: {
+                    from: "22:00",
+                    until: "07:00",
+                    timeZone: "Europe/Zurich",
+                },
+            },
+        };
+        const [changed] = gameEvents(before, after, "seeker");
+        expect(changed.kind).toBe("rest");
+        expect(needsAttention(changed)).toBe(false);
+        const asked = {
+            ...after,
+            restRequest: {
+                rest: null,
+                by: "Ben",
+                role: "hider" as const,
+                at: 5,
+            },
+        };
+        const [request] = gameEvents(after, asked, "seeker");
+        expect(request.title).toMatch(/Ben asks to drop the rest period/);
+        expect(needsAttention(request)).toBe(true);
+    });
 });
 
 describe("game events", () => {

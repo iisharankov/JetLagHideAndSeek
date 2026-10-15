@@ -49,6 +49,7 @@ const toPoint = (element: any) => {
         {
             name: tags.name ?? tags["name:en"],
             ...(Number.isFinite(area) && area > 0 ? { areaM2: area } : {}),
+            ...(tags.access ? { access: tags.access } : {}),
         },
     );
 };

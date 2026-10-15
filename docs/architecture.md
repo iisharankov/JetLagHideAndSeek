@@ -1,8 +1,7 @@
 # Architecture
 
-How the app works **as of round 18** (2026-10-15). Status and what's left are
-in [plan.md](plan.md); the audits are [audit-2026-10.md](audit-2026-10.md)
-(current) and [audit.md](audit.md) (round 2, history).
+How the app works **as of round 19** (2026-10-15). Status and what's left are
+in [plan.md](plan.md); the audit is [audit.md](audit.md).
 
 ## The big picture
 
@@ -10,7 +9,7 @@ in [plan.md](plan.md); the audits are [audit-2026-10.md](audit-2026-10.md)
 Phone (installable web app)                 Your server (Docker, behind host nginx; Authelia later)
   React islands on an Astro page   ──────►  web       the app + /tiles/basemap.pmtiles + /data/
   Leaflet map, Protomaps basemap   ──────►  api       /api/share, /api/games (SQLite, photos, live updates)
-  question engine (Turf + ArcGIS)  ──────►  overpass  /overpass/api/interpreter (Swiss OSM data)
+  question engine (Turf + ArcGIS)
   service worker (app shell)
 ```
 
@@ -28,7 +27,7 @@ at public services instead.
 | Map       | Leaflet 1.9 via react-leaflet; basemap drawn from a Protomaps `.pmtiles` file by `protomaps-leaflet`                                      |
 | State     | nanostores (`src/lib/context.ts`, `src/lib/game/session.ts`), saved to localStorage per tab through `src/lib/persist.ts` (no cross-tab sync) |
 | Geo maths | Turf; ArcGIS geodesic distance/buffer (its engine served from `/arcgis/`, copied there by `scripts/copy-arcgis-assets.mjs`)               |
-| Map data  | Reference files under `/data/` first, Overpass (own server) through `src/maps/api/overpassClient.ts` as the fallback                      |
+| Map data  | Reference files under `/data/`, built on the server for one box; a play area outside it isn't possible (the old Overpass client in `src/maps/api/` only ever answers "no map data for this area" now) |
 | PWA       | `@vite-pwa/astro`, registered in `src/pwa.ts`; precaches the app (not the data), shows background notifications                           |
 | API       | `server/`: Hono on Node with `node:sqlite`, bundled by esbuild                                                                             |
 | Tests     | Vitest (unit, `tests/` and `server/`), Playwright with Firefox (browser, `e2e/`, desktop and phone); CI in `.github/workflows/ci.yml`      |
@@ -78,13 +77,13 @@ src/
     hidingZoneStations.ts   the stations hiding zones are drawn around (kinds, de-duplication)
     hidingZoneLayer.ts      the zones on the map: which stations are left, drawing, the hider
                             picking a station, the end game, the Move marker
-    trainLines.ts           "same train line" (reference data, else Overpass)
+    trainLines.ts           "same train line" (reference data)
     references.ts           what to draw for a question: star, dots, zone outline
     elevation.ts            ground height from the elevation tiles (altitude question)
     datasets/               reading the reference data; airports.ts, stations.ts (unreachable ones)
     questions/*.ts          per question type: adjust map, hider mode, planning outline
     questions/places.ts     airports / big cities / places of a type inside the play area; the null answer when none
-    api/overpass*.ts        Overpass queries and the client (fallbacks, cache, remarks)
+    api/overpass*.ts        the queries that read the reference data (placesInZone…); the Overpass client behind them has no server any more
     api/geocode.ts          place search over the reference data (zones, stations, places)
   components/
     islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar, TutorialDialog
@@ -172,7 +171,8 @@ pre-computed nearest-place maps.
 
 `src/maps/datasets/` answers questions from these files. When they can't
 answer (outside the covered area, or no file for a filter) it returns
-null/undefined and the caller falls back to Overpass. "Closer to a border",
+null/undefined and the caller's query ends in "no map data for this area"
+(there is no Overpass server in the deploy since round 19). "Closer to a border",
 "closer to a lake shore" and the admin-border answer inside hiding zones use
 grid distance maps (`src/maps/distanceRegion.ts`) instead of buffering.
 
@@ -180,9 +180,9 @@ grid distance maps (`src/maps/distanceRegion.ts`) instead of buffering.
 
 | What                      | Request                                                          | Cached                                     |
 | ------------------------- | ---------------------------------------------------------------- | ------------------------------------------ |
-| Play-area boundary        | Overpass `relation(id); out geom;`                               | Cache Storage (permanent)                  |
-| Places, stations, borders | reference files, else Overpass `nwr[...](area...)`, `way(r)`     | Cache Storage, and in memory per play area |
-| Admin levels at a point   | reference files, else Overpass `is_in`                           | Cache Storage                              |
+| Play-area boundary        | reference files (`admin-<level>.json` by relation id)             | in memory per session                      |
+| Places, stations, borders | reference files                                                  | in memory per play area                    |
+| Admin levels at a point   | reference files                                                  | in memory                                  |
 | Basemap                   | HTTP range requests into `/tiles/basemap.pmtiles`                | browser HTTP cache                         |
 | Share links               | `POST /api/share`, `GET /api/share/:id`                          | no                                         |
 | Shared games              | `/api/games/...` (see below), a server-sent-events stream        | no                                         |
@@ -200,7 +200,9 @@ progress, the hider's spot, and earlier rounds.
 
 - **Changes** are small operations (`putQuestion`, `sendQuestion`,
   `answerQuestion`, `vetoQuestion`, `castCurse`, `drawCards`, `playCard`,
-  `move`, `startEndgame`, `clock`…) checked by `gameOps.ts`: a seeker's new
+  `move`, `startEndgame`, `clock`…), checked for shape and size by
+  `server/src/opSchema.ts` (a bad one is a 400) and for the rules by
+  `gameOps.ts`: a seeker's new
   question is a _draft_ the hider can't see; _asked_ questions wait for the
   hider; _answered_ ones are locked for seekers unless the hider allows them
   to answer. Last change wins. `viewFor` strips what a role may not see
@@ -210,8 +212,10 @@ progress, the hider's spot, and earlier rounds.
   (`/api/games/<id>/events`, over fetch so the hider's token can go in the
   header) and gets the whole game, as its role may see it, after every
   change, with the server's clock. `events.ts` diffs the old and new game
-  into what to tell this phone (toast, buzz, beep, background
-  notification); the server runs the same diff for push notifications.
+  into what to tell this phone (toast; buzz, beep and background
+  notification only for news worth it, one sound per burst); the server
+  runs the same diff for push notifications. "Download this game" in Menu
+  → Game saves the game this phone sees as a JSON file (`download.ts`).
   Lost connections are retried with a growing wait (5 s to a minute).
 - **On the phone**, `session.ts` mirrors the game into the usual stores
   (questions, play area, zone settings, end game, the hider's spot). Local

@@ -94,10 +94,11 @@ export const createOverpassClient = ({
             }
         }
 
+        // The usual reason: a play area outside the map data on the server.
         throw new OverpassError(
             attempts.length > 0
-                ? `Map data unavailable (${attempts.join("; ")})`
-                : "Map data unavailable (no Overpass server configured)",
+                ? `No map data for this area on the server: pick a play area inside the downloaded map data (${attempts.join("; ")})`
+                : "No map server configured: pick a play area inside the downloaded map data",
             attempts,
         );
     };

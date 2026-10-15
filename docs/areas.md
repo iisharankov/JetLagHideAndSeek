@@ -34,15 +34,15 @@ play area on that phone and go into the next game started from it.
 Munich (11.58 E, 48.14 N) is east of the box. Steps, all on the server:
 
 1. **The box.** `BBOX=5.5,45.6,12.3,48.6` in `deploy/.env` (the compose file
-   reads it). Everything downstream follows it: the OpenStreetMap extract
-   that Overpass imports, the pack, the basemap tiles and the elevation
-   tiles. Munich's S-Bahn reaches about 11.0–12.1 E, 47.8–48.5 N.
+   reads it). Everything downstream follows it: the OpenStreetMap extract,
+   the pack, the basemap tiles and the elevation tiles. Munich's S-Bahn
+   reaches about 11.0–12.1 E, 47.8–48.5 N.
 2. **The extracts.** `REGIONS` in `deploy/update-data.sh` must cover the box:
    add `europe/germany/bayern/oberbayern` (Munich; about 400 MB). The
    north-east corner of that box is Niederbayern; add
    `europe/germany/bayern/niederbayern` too or accept a thin empty corner.
-   Then `deploy/refresh-data.sh`. Count on a bigger Overpass database (a
-   few GB more, an hour more to import) and a bigger tile file.
+   Then `deploy/refresh-data.sh` (the app keeps working meanwhile). Count
+   on a bigger tile file.
 3. **Place search** follows the pack: the picker searches the pack's own
    zones (every state, district and municipality in the box, with their
    relation ids), so Munich's districts are found as soon as the pack
@@ -65,11 +65,11 @@ it replaces the Swiss one).
 
 ## What doesn't scale yet
 
-- **One box per server.** A far-away city (Berlin, Vienna) makes the box,
-  the Overpass database and the tile file huge. The fix is one pack per
-  area, chosen by the play area's box (`manifest.json` per pack, a small
-  change in `src/maps/datasets/load.ts` and the build script). Not needed
-  for Munich or Bern.
+- **One box per server.** A far-away city (Berlin, London, Toronto) makes
+  the box and the tile file huge. The fix is one pack, tile file and
+  elevation set per area, chosen by the play area's box (`manifest.json`
+  per pack; `src/maps/datasets/load.ts`, the tile layer and the updater).
+  Not needed for Munich or Bern; needed before anything overseas (Q43).
 - **The kind rules** are name-based and German/English; a French- or
   Italian-speaking area may need a few more words in
   `src/lib/placeRules.ts` (`KIND_RULES`), found by reviewing on the map.

@@ -17,6 +17,10 @@ const REJECT_KM = 1;
 const DUPLICATE_KM = 0.3;
 /** The parts of one place ("… West" and "… Ost") can be this far apart. */
 const PART_KM = 1;
+/** Two places of a kind this close (the same block) are one dot. */
+const SAME_BLOCK_KM = 0.15;
+/** OSM access values that mean "not open to the public". */
+const NOT_PUBLIC = new Set(["private", "no", "permit", "customers"]);
 
 /**
  * A name as compared: lower case, without a company suffix, a trailing
@@ -53,7 +57,7 @@ interface KindRule {
 const KIND_RULES: Record<string, KindRule> = {
     zoo: {
         keep: /zoo|tierpark|tiergarten|tierwelt|wildpark|wildnispark|kinderzoo|zoologi|animal park|wildlife park|safari|papiliorama|sikypark/i,
-        drop: /streichel|voli[eè]re|gehege|\bstall\b|wiese\b|gatter|vogel|storch|hirsch|ziegen|fischotter/i,
+        drop: /streichel|voli[eè]re|gehege|\bstall\b|wiese\b|gatter|vogel|storch|hirsch|ziegen|fischotter|privat|zucht|hof\b/i,
     },
     theme_park: {
         drop: /trampolin|waldlabor|feldbahn|\blabor|bowling|minigolf|\bkart|escape|indoor ?play|hüpf|jump/i,
@@ -176,12 +180,63 @@ export const toggleRejection = (
           )
         : [...list, place];
 
+const areaOf = (point: Feature<Point>) =>
+    typeof point.properties?.areaM2 === "number"
+        ? (point.properties.areaM2 as number)
+        : 0;
+
 /**
- * The same place listed several times (same name, close together) once.
- * Only places of the same name are compared, so thousands of parks stay
- * cheap.
+ * Places within a block of each other are one dot: a hospital and its
+ * clinic next door, two cinemas on one street. The biggest (by mapped
+ * area, when known) stays, else the first listed. A grid of cells keeps
+ * thousands of parks cheap.
  */
-export const mergeDuplicates = <F extends Feature<Point>>(points: F[]): F[] => {
+const mergeNeighbours = <F extends Feature<Point>>(points: F[]): F[] => {
+    const kept: F[] = [];
+    const cells = new Map<string, F[]>();
+    const size = SAME_BLOCK_KM / 100; // about a block, in degrees of latitude
+    const cellOf = (point: F) => {
+        const [lng, lat] = point.geometry.coordinates;
+        return { row: Math.floor(lat / size), col: Math.floor(lng / size) };
+    };
+    for (const point of points) {
+        const [lng, lat] = point.geometry.coordinates;
+        const { row, col } = cellOf(point);
+        let neighbour: F | undefined;
+        for (let r = row - 1; r <= row + 1 && !neighbour; r++) {
+            for (let c = col - 1; c <= col + 1 && !neighbour; c++) {
+                neighbour = (cells.get(`${r}:${c}`) ?? []).find((other) => {
+                    const [otherLng, otherLat] = other.geometry.coordinates;
+                    return km(lat, lng, otherLat, otherLng) <= SAME_BLOCK_KM;
+                });
+            }
+        }
+        if (neighbour) {
+            if (areaOf(point) > areaOf(neighbour)) {
+                // The bigger place takes the dot (and its place in the lists).
+                kept[kept.indexOf(neighbour)] = point;
+                const { row: nr, col: nc } = cellOf(neighbour);
+                const cell = cells.get(`${nr}:${nc}`)!;
+                cell[cell.indexOf(neighbour)] = point;
+            }
+            continue;
+        }
+        const key = `${row}:${col}`;
+        cells.set(key, [...(cells.get(key) ?? []), point]);
+        kept.push(point);
+    }
+    return kept;
+};
+
+/**
+ * The same place listed several times (same name, close together) once,
+ * then anything within a block of another place of the kind. Only places
+ * of the same name are compared by name, so thousands of parks stay cheap.
+ */
+export const mergeDuplicates = <F extends Feature<Point>>(points: F[]): F[] =>
+    mergeNeighbours(mergeByName(points));
+
+const mergeByName = <F extends Feature<Point>>(points: F[]): F[] => {
     const kept: F[] = [];
     const byName = new Map<
         string,
@@ -221,9 +276,10 @@ export const mergeDuplicates = <F extends Feature<Point>>(points: F[]): F[] => {
 /** A place the questions can name. */
 export const named = (point: Feature<Point>) => !!point.properties?.name;
 
-/** A place that is named and fits its kind's built-in rules. */
+/** A place that is named, open to the public and fits its kind's rules. */
 export const fitsKind = (kind: string, point: Feature<Point>) => {
     if (!named(point)) return false;
+    if (NOT_PUBLIC.has(String(point.properties?.access ?? ""))) return false;
     const name = point.properties!.name as string;
     const [lng, lat] = point.geometry.coordinates;
     return (

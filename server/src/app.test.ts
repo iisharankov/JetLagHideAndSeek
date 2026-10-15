@@ -183,6 +183,32 @@ describe("shared games", () => {
         expect(body.state.hasHider).toBe(true);
     });
 
+    it("refuses a change that isn't well-formed, with a 400", async () => {
+        const id = await newGame();
+        const bad = await op(id, {
+            by: "Ana",
+            op: { type: "awardMinutes", minutes: "lots", reason: 7 },
+        });
+        expect(bad.status).toBe(400);
+        expect((await bad.json()).error).toMatch(/well-formed/);
+        const unknown = await op(id, { by: "Ana", op: { type: "explode" } });
+        expect(unknown.status).toBe(400);
+        // A well-formed one still goes through the rules; question keys are
+        // the phones' random fractions.
+        const fine = await op(id, {
+            by: "Ana",
+            op: {
+                type: "putQuestion",
+                question: {
+                    id: "radius",
+                    key: 0.7312,
+                    data: { lat: 47, lng: 8, radius: 5 },
+                },
+            },
+        });
+        expect(fine.status).toBe(200);
+    });
+
     it("refuses changes the rules don't allow, with a reason", async () => {
         const id = await newGame();
         const response = await op(id, {
