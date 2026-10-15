@@ -6,6 +6,7 @@ import {
     curseRule,
     kindRefusal,
 } from "@/lib/game/curseRules";
+import { restRefusal } from "@/lib/game/rest";
 import { type GameState } from "@/lib/game/types";
 
 import { CHALICE, CHALICE_QUESTIONS, GameRuleError, shortId } from "./shared";
@@ -47,6 +48,8 @@ export const passTime = (state: GameState, now: number) => {
 /** The curses on the seekers may stop them from asking, or from asking a kind. */
 
 export const assertMayAsk = (state: GameState, kind: string, now: number) => {
+    const rest = restRefusal(state);
+    if (rest) throw new GameRuleError(rest, 409);
     const blocking = blockingCurses(state, now)[0];
     if (blocking) {
         throw new GameRuleError(

@@ -68,7 +68,6 @@ const PLACES: [string, string, string][] = [
     ["aquarium", "Aquarium", "Aquarium"],
     ["zoo", "Zoo", "Zoo"],
     ["theme_park", "Amusement park", "Amusement Park"],
-    ["peak", "Mountain", "Mountain"],
     ["museum", "Museum", "Museum"],
     ["hospital", "Hospital", "Hospital"],
     ["cinema", "Movie theater", "Movie Theater"],

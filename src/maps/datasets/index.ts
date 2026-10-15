@@ -22,7 +22,6 @@ import {
     type DatasetElement,
     type DatasetManifest,
     type LakeProperties,
-    type NearestCellProperties,
     type TrainLinesFile,
 } from "./categories";
 
@@ -30,12 +29,10 @@ export type {
     DatasetElement,
     DatasetManifest,
     LakeProperties,
-    NearestCellProperties,
 } from "./categories";
 
 type Bbox = [number, number, number, number];
 type Zone = Feature<Polygon | MultiPolygon, Record<string, any>>;
-type Cell = Feature<Polygon | MultiPolygon, NearestCellProperties>;
 type Lake = Feature<Polygon | MultiPolygon, LakeProperties>;
 type Condition =
     | { key: string; op: "=" | "!=" | "~"; value: string }
@@ -127,6 +124,26 @@ const within = (inner: Bbox, outer: Bbox, slack = 0.01) =>
 const bboxesOverlap = (a: Bbox, b: Bbox) =>
     a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
 
+/** Lower case and without accents, for comparing names. */
+const fold = (text: string) =>
+    text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+/** 0: the name is the query, 1: starts with it, 2: contains it, -1: no. */
+const nameRank = (names: (string | undefined)[], needle: string) => {
+    const folded = names.filter((n): n is string => !!n).map(fold);
+    // "Zürich/Zurich" style names list several languages.
+    const parts = folded.flatMap((name) =>
+        name.split("/").map((p) => p.trim()),
+    );
+    if (parts.includes(needle)) return 0;
+    if (parts.some((part) => part.startsWith(needle))) return 1;
+    if (folded.some((name) => name.includes(needle))) return 2;
+    return -1;
+};
+
 const matchesSearchType = (element: DatasetElement, searchType: string) =>
     searchType === "nwr" || searchType.includes(element.type[0]);
 
@@ -168,21 +185,6 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
         return [lng - dLng, lat - dLat, lng + dLng, lat + dLat];
     };
 
-    const expandBbox = (bbox: Bbox, km: number): Bbox => {
-        const latMid = (bbox[1] + bbox[3]) / 2;
-        const dLat = km / 110.57;
-        const dLng = km / (111.32 * Math.cos((latMid * Math.PI) / 180));
-        return [bbox[0] - dLng, bbox[1] - dLat, bbox[2] + dLng, bbox[3] + dLat];
-    };
-
-    const cells = async (set: string) =>
-        (
-            (await file(`voronoi-${set}`)) as FeatureCollection<
-                Polygon | MultiPolygon,
-                NearestCellProperties
-            > | null
-        )?.features as Cell[] | undefined;
-
     return {
         manifest,
 
@@ -212,10 +214,16 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
                 for (const element of candidates) {
                     if (!matchesSearchType(element, searchType)) continue;
                     if (!matchesTagFilter(element.tags, conditions)) continue;
-                    const point = turf.point(pointOf(element));
+                    const [lon, lat] = pointOf(element);
+                    const point = turf.point([lon, lat]);
                     if (
-                        polygons.some((polygon) =>
-                            turf.booleanPointInPolygon(point, polygon),
+                        polygons.some(
+                            (polygon) =>
+                                within(
+                                    [lon, lat, lon, lat],
+                                    polygon.bbox as Bbox,
+                                    0,
+                                ) && turf.booleanPointInPolygon(point, polygon),
                         )
                     ) {
                         found.set(`${element.type}/${element.id}`, element);
@@ -246,118 +254,64 @@ export const createDatasets = (load: (file: string) => Promise<any | null>) => {
         },
 
         /**
-         * The nearest place of a type. Only answers when no place outside the
-         * data could be nearer than the one found.
+         * Admin zones (cantons, districts, municipalities…) whose name
+         * matches, best matches and biggest zones first; null without data.
          */
-        nearestPlace: async (
-            type: string,
-            lat: number,
-            lng: number,
-            accept?: (element: DatasetElement) => boolean,
-        ): Promise<DatasetElement | undefined> => {
-            const info = await manifest();
-            if (!info || !within([lng, lat, lng, lat], info.bbox, 0)) {
-                return undefined;
-            }
-            // Unnamed places can't be compared ("same nearest zoo?").
-            const candidates = (await elements(`poi-${type}`))?.filter(
-                (element) =>
-                    (element.tags.name || element.tags["name:en"]) &&
-                    (!accept || accept(element)),
-            );
-            if (!candidates?.length) return undefined;
-
-            const center = turf.point([lng, lat]);
-            // With the wider-area data, every place that is nearest
-            // somewhere in the covered area is included.
-            const complete = !!info.far;
-            let nearest: DatasetElement | undefined;
-            let nearestKm = Infinity;
-            for (const element of candidates) {
-                const km = turf.distance(center, turf.point(pointOf(element)), {
-                    units: "kilometers",
-                });
-                if (km < nearestKm) {
-                    nearest = element;
-                    nearestKm = km;
+        searchZones: async (query: string, limit = 12) => {
+            if (!(await manifest())) return null;
+            const needle = fold(query.trim());
+            if (!needle) return [];
+            const found: { zone: Zone; rank: number }[] = [];
+            for (const level of ADMIN_LEVELS) {
+                for (const zone of (await zones(level)) ?? []) {
+                    const rank = nameRank(
+                        [zone.properties.name, zone.properties["name:en"]],
+                        needle,
+                    );
+                    if (rank >= 0) found.push({ zone, rank });
                 }
             }
-
-            const [minLng, minLat, maxLng, maxLat] = info.bbox;
-            const kmPerLng = 111.32 * Math.cos((lat * Math.PI) / 180);
-            const toEdgeKm = Math.min(
-                (lng - minLng) * kmPerLng,
-                (maxLng - lng) * kmPerLng,
-                (lat - minLat) * 110.57,
-                (maxLat - lat) * 110.57,
-            );
-            return complete || nearestKm <= toEdgeKm ? nearest : undefined;
+            return found
+                .sort(
+                    (a, b) =>
+                        a.rank - b.rank ||
+                        Number(a.zone.properties.admin_level) -
+                            Number(b.zone.properties.admin_level),
+                )
+                .slice(0, limit)
+                .map((entry) => entry.zone);
         },
 
         /**
-         * The pre-computed cell of the place of a set (see NEAREST_SETS)
-         * nearest to a point: null if the set is empty, undefined if there's
-         * no map for it or the point is outside the data.
+         * Stations, airports, cities and places (zoos, museums…) whose name
+         * matches, best matches first; null without data. Bus stops are
+         * left out: too many to load for a search box.
          */
-        nearestCell: async (
-            set: string,
-            lat: number,
-            lng: number,
-        ): Promise<Cell | null | undefined> => {
-            const info = await manifest();
-            if (!info || !within([lng, lat, lng, lat], info.bbox, 0)) {
-                return undefined;
+        searchPlaces: async (query: string, limit = 12) => {
+            if (!(await manifest())) return null;
+            const needle = fold(query.trim());
+            if (needle.length < 2) return [];
+            const files = DATASET_CATEGORIES.map((c) => c.file).filter(
+                (file) => file !== "stations-bus" && !file.startsWith("brand-"),
+            );
+            const found: {
+                element: DatasetElement;
+                file: string;
+                rank: number;
+            }[] = [];
+            for (const file of files) {
+                for (const element of (await elements(file)) ?? []) {
+                    const rank = nameRank(
+                        [element.tags.name, element.tags["name:en"]],
+                        needle,
+                    );
+                    if (rank >= 0) found.push({ element, file, rank });
+                }
             }
-            const all = await cells(set);
-            if (!all) return undefined;
-            const point = turf.point([lng, lat]);
-            return (
-                all.find(
-                    (cell) =>
-                        within([lng, lat, lng, lat], cell.bbox as Bbox, 0) &&
-                        turf.booleanPointInPolygon(point, cell),
-                ) ?? null
-            );
-        },
-
-        /** The pre-computed cells of a set that overlap a box. */
-        cellsIn: async (set: string, bbox: Bbox) =>
-            (await cells(set))?.filter((cell) =>
-                bboxesOverlap(cell.bbox as Bbox, bbox),
-            ),
-
-        /**
-         * Places of a file that a "closer to the nearest X" question needs
-         * for an area: every place that could be someone's nearest, which
-         * includes places outside the area. Null if the data can't answer.
-         */
-        placesForMeasuring: async (
-            name: string,
-            accept: ((tags: Record<string, string>) => boolean) | undefined,
-            bbox: Bbox,
-            seeker: { lat: number; lng: number },
-        ): Promise<DatasetElement[] | null> => {
-            if (!(await covers(bbox))) return null;
-            const candidates = (await elements(name))?.filter(
-                (element) => !accept || accept(element.tags),
-            );
-            if (!candidates) return null;
-            if (candidates.length === 0) return [];
-
-            // The answer splits the area at the seeker's distance from a
-            // place, so places further than that from the area's box don't
-            // change anything inside it.
-            const from = turf.point([seeker.lng, seeker.lat]);
-            const seekerKm = Math.min(
-                ...candidates.map((element) =>
-                    turf.distance(from, turf.point(pointOf(element))),
-                ),
-            );
-            const reach = expandBbox(bbox, seekerKm + 1);
-            return candidates.filter((element) => {
-                const [lon, lat] = pointOf(element);
-                return within([lon, lat, lon, lat], reach, 0);
-            });
+            return found
+                .sort((a, b) => a.rank - b.rank)
+                .slice(0, limit)
+                .map(({ element, file }) => ({ element, file }));
         },
 
         /**

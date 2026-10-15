@@ -5,6 +5,7 @@ import type { Question } from "@/maps/schema";
 
 import { describeAnswer } from "./answers";
 import { kindLabel } from "./curseRules";
+import { describeRest } from "./rest";
 import type { GameState, Role, SharedQuestion } from "./types";
 
 export interface GameEvent {
@@ -174,6 +175,56 @@ export const gameEvents = (
             kind: "clock",
             title: `${clockRequest.by} asks to ${clockRequest.action} the clock`,
             body: "Agree in the clock bar: it takes both sides.",
+        });
+    }
+    const restRequest = after.restRequest;
+    if (
+        restRequest &&
+        restRequest.role !== role &&
+        JSON.stringify(restRequest) !== JSON.stringify(before.restRequest)
+    ) {
+        events.push({
+            key: `rr${restRequest.at}`,
+            kind: "clock",
+            title: `${restRequest.by} asks to ${restRequest.rest ? `rest ${describeRest(restRequest.rest)}` : "drop the rest period"}`,
+            body: "Agree in the clock bar: it takes both sides.",
+        });
+    }
+    if (
+        JSON.stringify(after.settings.rest) !==
+        JSON.stringify(before.settings.rest)
+    ) {
+        events.push({
+            key: `rs${after.updatedAt}`,
+            kind: "clock",
+            title: after.settings.rest
+                ? `Rest period: ${describeRest(after.settings.rest)}`
+                : "No rest period any more",
+            body: after.settings.rest
+                ? "The clock pauses and goes on by itself at those times."
+                : undefined,
+        });
+    }
+    if (after.clock?.pausedBy === "rest" && before.clock?.pausedBy !== "rest") {
+        events.push({
+            key: `rp${after.clock.pausedAt}`,
+            kind: "clock",
+            title: `Rest period until ${after.settings.rest?.until ?? "later"}`,
+            body: "The clock is paused; no questions until it goes on.",
+        });
+    }
+    if (
+        before.clock?.pausedBy === "rest" &&
+        after.clock &&
+        after.clock.pausedBy !== "rest" &&
+        after.clock.pausedAt === null &&
+        after.clock.stoppedAt === null
+    ) {
+        events.push({
+            key: `rg${after.updatedAt}`,
+            kind: "clock",
+            title: "The rest is over",
+            body: "The clock runs again.",
         });
     }
     for (const [key, request] of Object.entries(after.deleteRequests)) {

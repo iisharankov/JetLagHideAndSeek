@@ -120,7 +120,11 @@ describe("toElement", () => {
             type: "relation",
             id: 42,
             center: { lat: 47.1, lon: 8.1 },
-            tags: { tourism: "zoo", name: "Zoo" },
+            tags: {
+                tourism: "zoo",
+                name: "Zoo",
+                area_m2: expect.stringMatching(/^\d+$/),
+            },
         });
     });
 });

@@ -677,8 +677,77 @@ stay in `rules/cards.ts`.
     "ago" and clock-time helpers; the "hiding zones only" question
     variants are gone from the schema, the cards, the zone layer and the
     references.
+35. **Only the play area counts** (the rulebook: places outside a map's
+    boundaries don't exist). Every place question (airports, cities, the
+    zoo/museum/park… kinds, the lake shore, McDonald's, the reference
+    pins) works from the places inside the play area; none inside is the
+    **null answer**, the first choice on the hider's card for those
+    questions, sent and shown like any other, ruling nothing out (the
+    hider still draws). The data build no longer collects far-away places
+    or nearest-place maps (`--far`, `voronoi-*.json`, `nearest.ts` are
+    gone; the updater skips 6.5 GB of downloads).
+36. **The places cleaned up.** Mountains are gone as a question and a
+    tentacle kind. Built-in kind rules (`lib/placeRules.ts`), written from
+    the Zürich data: a "zoo" must say zoo, Tierpark, Wildpark… (pet
+    corners, aviaries, enclosures, a stork colony are out: 37 → 8 around
+    Zürich, 7 real ones plus a snake zoo); theme parks lose trampoline
+    halls, forest labs and a field railway (5 → 1); golf courses lose
+    simulator lounges, short courses and SNAG (22 → 17); consulates lose a
+    visa centre; libraries lose toy libraries; hospitals lose vets,
+    dentists, practices, emergency rooms listed next to their hospital
+    and day clinics; parks lose playgrounds, car parks, cemeteries, dog
+    zones and (once the data is rebuilt with areas) anything under
+    5,000 m². Two places dropped after a look by hand: Tierpark Waidberg
+    (a deer enclosure) and John's Golf (a practice ground). "West"/"Ost"
+    parts, "1 + 2"/"3 + 4" halls and "… AG" twins are one place.
+37. **Settings → Places:** the count each place question would find in
+    the play area after the rules, this phone's rejections, "Review on the
+    map…" (the same review as in game setup, coming back to Settings) and
+    "Reset rejections". The review notes what the built-in rules already
+    leave out.
+38. **Ready for new areas:** German, Austrian, French and Italian names for
+    the zone levels (state, district, municipality, borough…); the data
+    build is one box with nothing from beyond it; [areas.md](areas.md)
+    says what Bern needs (nothing) and what Munich needs (a wider box,
+    one more extract, and a place-search decision: Q41).
 
 Not built, by your choice: dice (you roll real ones) and a hangman board.
+
+## Round 18: rest periods, place search from the data, German rules ✅ (2026-10-15)
+
+From your answers to Q38, Q40, Q41 and Q42.
+
+1. **Rest periods** (Q38). Game setup → "Rest period": from/until clock
+   times (22:00–07:00 to start with, in the phone's time zone). The
+   server checks every 20 seconds: when the time comes the clock pauses by
+   itself ("resting until 07:00" in the clock bar, no questions or photo
+   questions meanwhile, both phones told) and goes on by itself at the
+   end; the night is left out of the hiding time. Resumed early by
+   agreement (the usual pause/resume), it stays running for that rest.
+   "Rest…" in the clock bar changes it: before the round it just applies;
+   during the round the other side must agree (Agree / Decline in the
+   clock bar), like a pause. The rest period is on Menu → Game.
+   `lib/game/rest.ts` (shared), `games.tick` on the server; tests:
+   `tests/rest.test.ts`, `gameOps.test.ts`, `games.test.ts`.
+2. **Place search without Photon** (Q41). The play-area picker and the
+   coordinate pickers search the reference data: every state, canton,
+   district and municipality in the pack (by name, accents ignored,
+   exact matches and big zones first, named with their canton and
+   country), plus stations, airports, cities and places for a point on
+   the map. Works for any box the pack covers, offline. The Photon
+   service is gone from the deploy (compose, nginx, the Dockerfile and
+   its entrypoint); `update-app.sh` removes its container. A Photon URL
+   is used only where there's no reference data (`PUBLIC_GEOCODER_URL`,
+   development). The data build keeps the zones' ISO country codes for
+   the rules and labels; older packs fall back to the country's name.
+3. **German rules** (Q42): "Germany" in game setup and in Settings →
+   Local rules, picked by itself for a German play area: the Swiss
+   question list (no coastline or 7-Eleven, lake shores on), cities of a
+   million, the rulebook's 2 and 25 km tentacles.
+4. **Push contact** (Q40): no email needed. The browsers' push services
+   want a "subject" for the server's keys, which is who to contact if the
+   server misbehaves; the site's address does, and that's the default
+   now (`PUSH_CONTACT` only if you'd rather give a `mailto:`).
 
 ## What's left ⏭️
 
@@ -692,7 +761,6 @@ From [the second audit](audit-2026-10b.md), roughly in order of value:
    `server/src/rules/`; its 38-case switch is still one function).
 4. **Live view without the archive** (`rounds`, `moves`, the deck log),
    later deltas keyed by version.
-5. **Open question** Q38 (rest periods), parked until you play longer games.
 6. **Geometry worker**, only if a real game still stutters.
 7. **Bundle:** Turf's planar buffers instead of ArcGIS (1.2 MB + wasm),
    lazy-load the references/voronoi code, a smaller first-load chunk.

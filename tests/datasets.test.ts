@@ -98,27 +98,6 @@ const files: Record<string, unknown> = {
     },
 };
 
-// Pre-computed "nearest zoo" cells: the western and eastern halves.
-const cell = (
-    key: string,
-    name: string,
-    poly: any,
-    lat: number,
-    lon: number,
-) => ({
-    type: "Feature",
-    bbox: turf.bbox(poly),
-    properties: { key, name, lat, lon },
-    geometry: poly.geometry,
-});
-files["voronoi-poi-zoo"] = {
-    type: "FeatureCollection",
-    features: [
-        cell("node/1", "West Zoo", square(7, 45, 9, 48), 46.5, 8.5),
-        cell("way/2", "East Zoo", square(9, 45, 11, 48), 46.5, 9.5),
-    ],
-};
-files["voronoi-cities-1000000"] = { type: "FeatureCollection", features: [] };
 files["train-lines"] = {
     lines: [{ name: "S1" }, { name: "S2" }],
     stations: { "node/10": [0], "node/11": [0, 1], "node/12": [1] },
@@ -224,20 +203,6 @@ describe("placesAround", () => {
     });
 });
 
-describe("nearestPlace", () => {
-    it("finds the nearest place of a type", async () => {
-        const { data } = datasets();
-        const nearest = await data.nearestPlace("zoo", 46.5, 9.2);
-        expect(nearest?.tags.name).toBe("East Zoo");
-    });
-
-    it("gives up when a place outside the data could be nearer", async () => {
-        const { data } = datasets();
-        // 0.1° from the edge of the data, but the nearest zoo is ~1° away.
-        expect(await data.nearestPlace("zoo", 46.5, 10.9)).toBeUndefined();
-    });
-});
-
 describe("admin zones", () => {
     it("finds the zone containing a point", async () => {
         const { data } = datasets();
@@ -272,63 +237,33 @@ describe("admin zones", () => {
     });
 });
 
-describe("nearestCell", () => {
-    it("finds the pre-computed cell of the nearest place", async () => {
+describe("search", () => {
+    it("finds zones by name, exact matches and big zones first", async () => {
         const { data } = datasets();
-        const found = await data.nearestCell("poi-zoo", 46.5, 9.2);
-        expect(found?.properties.name).toBe("East Zoo");
-        expect(found?.properties.key).toBe("way/2");
+        expect(
+            (await data.searchZones("ostk"))?.map((z) => z.properties.name),
+        ).toEqual(["Ostkanton"]);
+        expect(
+            (await data.searchZones("KANTON"))?.map((z) => z.properties.name),
+        ).toEqual(["Westkanton", "Ostkanton"]);
+        expect(await data.searchZones("  ")).toEqual([]);
     });
 
-    it("says null when there are no such places at all", async () => {
+    it("finds stations and places by name", async () => {
         const { data } = datasets();
-        expect(await data.nearestCell("cities-1000000", 46.5, 9.2)).toBeNull();
+        const found = await data.searchPlaces("zoo");
+        expect(found?.map((f) => f.element.tags.name)).toEqual([
+            "West Zoo",
+            "East Zoo",
+        ]);
+        expect(found?.[0].file).toBe("poi-zoo");
+        expect(await data.searchPlaces("z")).toEqual([]);
     });
 
-    it("gives up (undefined) without a map or outside the data", async () => {
-        const { data } = datasets();
-        expect(await data.nearestCell("poi-museum", 46.5, 9.2)).toBeUndefined();
-        expect(await data.nearestCell("poi-zoo", 46.5, 12)).toBeUndefined();
-    });
-
-    it("lists the cells overlapping a box", async () => {
-        const { data } = datasets();
-        const cells = await data.cellsIn("poi-zoo", [8, 46, 8.9, 47]);
-        expect(cells?.map((c) => c.properties.name)).toEqual(["West Zoo"]);
-    });
-});
-
-describe("placesForMeasuring", () => {
-    it("includes places outside the play area that could be nearest", async () => {
-        const { data } = datasets();
-        // Play area: a small box in the west; the seeker is nearest to the
-        // West Zoo, ~38 km away, so the East Zoo (~1° east) is too far.
-        const near = await data.placesForMeasuring(
-            "poi-zoo",
-            undefined,
-            [8.0, 46.8, 8.2, 47.0],
-            { lat: 46.8, lng: 8.2 },
-        );
-        expect(near?.map((e) => e.tags.name)).toEqual(["West Zoo"]);
-
-        const both = await data.placesForMeasuring(
-            "poi-zoo",
-            undefined,
-            [8.8, 46.4, 9.2, 46.6],
-            { lat: 46.5, lng: 9.0 },
-        );
-        expect(both?.map((e) => e.tags.name)).toEqual(["West Zoo", "East Zoo"]);
-    });
-
-    it("applies a filter, e.g. a population threshold", async () => {
-        const { data } = datasets();
-        const big = await data.placesForMeasuring(
-            "cities",
-            (tags) => Number(tags.population) >= 100_000,
-            [8, 46, 10, 47],
-            { lat: 46.5, lng: 9 },
-        );
-        expect(big?.map((e) => e.tags.name)).toEqual(["Big"]);
+    it("answers null without data", async () => {
+        const data = createDatasets(async () => null);
+        expect(await data.searchZones("zoo")).toBeNull();
+        expect(await data.searchPlaces("zoo")).toBeNull();
     });
 });
 
@@ -366,7 +301,6 @@ describe("without data", () => {
         const data = createDatasets(async () => null);
         expect(await data.adminZoneAt(46.5, 9.5, 4)).toBeUndefined();
         expect(await data.placesAround("zoo", 46.5, 8.6, 20)).toBeNull();
-        expect(await data.nearestCell("poi-zoo", 46.5, 9.2)).toBeUndefined();
         expect(await data.stationsOnSameLine("node/10")).toBeUndefined();
         expect(await data.lakes(10)).toBeUndefined();
     });

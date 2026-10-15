@@ -294,14 +294,8 @@ export const PlacePicker = ({
                                 <>Loading...</>
                             ) : error ? (
                                 <>
-                                    <a
-                                        href="https://github.com/komoot/photon"
-                                        className="text-blue-500"
-                                    >
-                                        Photon
-                                    </a>{" "}
-                                    is down. Please draw a polygon instead at
-                                    the bottom left of the map.
+                                    Place search failed. Draw a polygon instead,
+                                    at the bottom left of the map.
                                 </>
                             ) : (
                                 "No locations found."

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import {
     applyPlaceRules,
+    fitsKind,
     isRejected,
     mergeDuplicates,
+    passesKindRules,
     toggleRejection,
 } from "@/lib/placeRules";
 
@@ -74,5 +76,84 @@ describe("place rules at scale", () => {
         const merged = mergeDuplicates(many);
         expect(Date.now() - started).toBeLessThan(2000);
         expect(merged.length).toBeLessThanOrEqual(many.length);
+    });
+});
+
+describe("the kinds' own rules", () => {
+    it("keep real zoos, golf courses and theme parks and drop the mis-tagged", () => {
+        expect(passesKindRules("zoo", "Zoo Zürich")).toBe(true);
+        expect(passesKindRules("zoo", "Knie's Kinderzoo")).toBe(true);
+        expect(passesKindRules("zoo", "Wildnispark Zürich Langenberg")).toBe(
+            true,
+        );
+        expect(passesKindRules("zoo", "Streichelzoo")).toBe(false);
+        expect(passesKindRules("zoo", "Volière")).toBe(false);
+        expect(passesKindRules("zoo", "Fischotter-Gehege")).toBe(false);
+        expect(passesKindRules("golf_course", "Golfpark Otelfingen")).toBe(
+            true,
+        );
+        expect(passesKindRules("golf_course", "Swiss Golf Lounge")).toBe(false);
+        expect(passesKindRules("golf_course", "Otelfingen SNAG course")).toBe(
+            false,
+        );
+        expect(passesKindRules("theme_park", "Freizeitpark Ticiland")).toBe(
+            true,
+        );
+        expect(passesKindRules("theme_park", "Trampolino")).toBe(false);
+        expect(passesKindRules("library", "Ludothek")).toBe(false);
+        expect(
+            passesKindRules("consulate", "China Visa Application Center"),
+        ).toBe(false);
+        expect(passesKindRules("museum", "Ortsmuseum")).toBe(true);
+    });
+
+    it("drop parks known to be tiny, and keep those of unknown size", () => {
+        expect(passesKindRules("park", "Josefwiese", 40_000)).toBe(true);
+        expect(passesKindRules("park", "Pocket park", 900)).toBe(false);
+        expect(passesKindRules("park", "Pocket park")).toBe(true);
+        expect(passesKindRules("park", "Spielplatz Hard")).toBe(false);
+    });
+
+    it("merge the parts of one place, up to a kilometre apart", () => {
+        const merged = mergeDuplicates([
+            place("Wildnispark Zürich Langenberg West", 47.2903, 8.5249),
+            place("Wildnispark Zürich Langenberg Ost", 47.2944, 8.5302),
+            place("Riffraff 1 + 2", 47.3827, 8.5293),
+            place("Riffraff 3 + 4", 47.3828, 8.529),
+            place("Derma Medical Clinic AG", 47.3576, 8.5231),
+            place("Derma Medical Clinic", 47.357, 8.5236),
+        ]);
+        expect(merged.map((p) => p.properties.name)).toEqual([
+            "Wildnispark Zürich Langenberg West",
+            "Riffraff 1 + 2",
+            "Derma Medical Clinic AG",
+        ]);
+        // The same name 600 m apart is two places (two parks called Dorfpark).
+        expect(
+            mergeDuplicates([
+                place("Dorfpark", 47.29, 8.53),
+                place("Dorfpark", 47.2954, 8.53),
+            ]),
+        ).toHaveLength(2);
+    });
+
+    it("drop the places looked at by hand, wherever the game is", () => {
+        expect(
+            fitsKind("zoo", place("Tierpark Waidberg", 47.40033, 8.517)),
+        ).toBe(false);
+        // The same name far away is another place.
+        expect(fitsKind("zoo", place("Tierpark Waidberg", 46.9, 7.4))).toBe(
+            true,
+        );
+        expect(
+            fitsKind(
+                "hospital",
+                place("Notfallstation Spital Männedorf", 47.25, 8.69),
+            ),
+        ).toBe(false);
+        expect(
+            fitsKind("hospital", place("Spital Männedorf", 47.25, 8.69)),
+        ).toBe(true);
+        expect(fitsKind("zoo", turf.point([8.5, 47.4], {}))).toBe(false);
     });
 });

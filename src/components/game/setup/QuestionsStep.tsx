@@ -8,6 +8,7 @@ import {
     ALWAYS_OFF,
     LAKE_AREA_CHOICES,
     questionKey,
+    REGION_LABELS,
 } from "@/lib/game/settings";
 import type { GameSettings } from "@/lib/game/types";
 import { TYPES } from "@/lib/questionInfo";
@@ -54,8 +55,8 @@ export const QuestionsStep = ({
                     <strong>
                         {typesOn} of {allTypes.length} question types
                     </strong>{" "}
-                    on ({draft.region === "switzerland" ? "Swiss" : "standard"}{" "}
-                    rules). Radar and thermometer are always in.
+                    on ({REGION_LABELS[draft.region]} rules). Radar and
+                    thermometer are always in.
                 </span>
                 <Button
                     size="sm"

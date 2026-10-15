@@ -28,6 +28,7 @@ import {
 import { DRAWS } from "@/lib/game/hand";
 import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
 import { questionReference } from "@/lib/game/reference";
+import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     gameRole,
@@ -312,13 +313,14 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const blocking = blockingCurses($game, serverNow())[0];
     const refusal =
         entry.state === "draft"
-            ? blocking
-                ? `${blocking.name}: no questions until it's cleared.`
-                : kindRefusal(
-                      $game,
-                      questionKind(question as unknown as SharedQuestion),
-                      serverNow(),
-                  )
+            ? (restRefusal($game) ??
+              (blocking
+                  ? `${blocking.name}: no questions until it's cleared.`
+                  : kindRefusal(
+                        $game,
+                        questionKind(question as unknown as SharedQuestion),
+                        serverNow(),
+                    )))
             : null;
 
     return (

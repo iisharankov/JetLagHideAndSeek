@@ -14,6 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import { moveMinutes } from "@/lib/game/curseRules";
 import { advanceDeck } from "@/lib/game/deck";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
+import { applyRest } from "@/lib/game/rest";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import type {
     GameOp,
@@ -69,6 +70,8 @@ export interface GameStore {
         photoId: string,
     ): { bytes: Buffer; type: string } | undefined;
     cleanup(now?: number): number;
+    /** Applies the rest periods (pause, resume) to recent games; how many changed. */
+    tick(now?: number): number;
 }
 
 const hashPassword = (password: string, salt = randomBytes(16)) =>
@@ -118,6 +121,7 @@ export const createGameStore = (
         "UPDATE games SET hider_secret = ?, hider_token = ? WHERE id = ?",
     );
     const stale = db.prepare("SELECT id FROM games WHERE updated_at < ?");
+    const recent = db.prepare("SELECT id FROM games WHERE updated_at >= ?");
     const remove = db.prepare("DELETE FROM games WHERE id = ?");
 
     const listeners = new Map<string, Set<(state: GameState | null) => void>>();
@@ -151,6 +155,8 @@ export const createGameStore = (
         state.lateAnswers ??= 0;
         state.freeQuestions ??= 0;
         state.clockRequest ??= null;
+        state.restRequest ??= null;
+        state.restWindow ??= null;
         state.deleteRequests ??= {};
         state.revealedPin ??= null;
         if (state.move && !state.move.endsAt) {
@@ -342,6 +348,30 @@ export const createGameStore = (
                 ([, ext]) => ext === extension,
             )![0];
             return { bytes: readFileSync(file), type };
+        },
+
+        tick(now = Date.now()) {
+            // Only games touched in the last days can be mid-round.
+            const rows = recent.all(now - 3 * 24 * 3600_000) as {
+                id: string;
+            }[];
+            let changed = 0;
+            for (const { id } of rows) {
+                const before = load(id);
+                if (
+                    !before ||
+                    (!before.settings.rest && !before.clock?.pausedBy)
+                ) {
+                    continue;
+                }
+                const next = applyRest(before, now);
+                if (!next) continue;
+                next.version += 1;
+                next.updatedAt = now;
+                store(next, before);
+                changed += 1;
+            }
+            return changed;
         },
 
         cleanup(now = Date.now()) {

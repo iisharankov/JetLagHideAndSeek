@@ -8,6 +8,7 @@ import { photoUrl } from "@/lib/game/api";
 import { blockingCurses, kindRefusal, photoKind } from "@/lib/game/curseRules";
 import { shrinkPhoto } from "@/lib/game/photos";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
+import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     activeGameId,
@@ -109,6 +110,8 @@ export const PhotosPanel = () => {
     // The curses on the seekers may stop a photo question.
     const askRefusal = (name: string) => {
         if (!$game) return null;
+        const rest = restRefusal($game);
+        if (rest) return rest;
         const blocking = blockingCurses($game, serverNow())[0];
         if (blocking)
             return `${blocking.name}: no questions until it's cleared.`;

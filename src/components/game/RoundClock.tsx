@@ -27,11 +27,86 @@ import { endgame } from "@/lib/context";
 import { clockState, formatDuration, hidingTimeMs } from "@/lib/game/clock";
 import { handBonusMinutes } from "@/lib/game/deck";
 import { bonusMinutes, hand } from "@/lib/game/hand";
+import { describeRest, phoneTimeZone } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
-import type { ClockAction } from "@/lib/game/types";
+import type { ClockAction, RestPeriod } from "@/lib/game/types";
 
 import { nextHiderOpen } from "./NextHiderDialog";
+import { RestTimes } from "./RestTimes";
+
+/**
+ * Rest…: proposes a rest period (or none). Before the round it just
+ * applies; during it the other side must agree.
+ */
+const RestDialog = ({
+    open,
+    onOpenChange,
+    current,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    current: RestPeriod | null;
+}) => {
+    const [rest, setRest] = useState<RestPeriod | null>(current);
+    useEffect(() => {
+        if (open) setRest(current);
+    }, [open]);
+    const send = async () => {
+        await sendOp({ type: "setRest", rest });
+        onOpenChange(false);
+    };
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent
+                className="!bg-[hsl(var(--sidebar-background))] !text-white"
+                data-testid="rest-dialog"
+            >
+                <DialogHeader>
+                    <DialogTitle>Rest period</DialogTitle>
+                    <DialogDescription>
+                        The clock pauses by itself at the first time and goes on
+                        at the second; no questions meanwhile. During a round
+                        the other side must agree to a change.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-2">
+                    <Button
+                        size="sm"
+                        variant={rest ? "outline" : "default"}
+                        onClick={() =>
+                            setRest(
+                                rest
+                                    ? null
+                                    : {
+                                          from: "22:00",
+                                          until: "07:00",
+                                          timeZone: phoneTimeZone(),
+                                      },
+                            )
+                        }
+                    >
+                        {rest ? "No rest period" : "Add a rest period"}
+                    </Button>
+                    {rest && <RestTimes rest={rest} onChange={setRest} />}
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button onClick={() => void send()}>
+                            {rest
+                                ? `Propose ${describeRest(rest)}`
+                                : "Propose no rest"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 /**
  * Found: the hider's phone asks for minutes awarded during the round (a
@@ -154,9 +229,12 @@ export const RoundClock = () => {
             setAsking(true);
         }
     }, [$role, state, bonus, stoppedAt]);
+    const [restOpen, setRestOpen] = useState(false);
     if (!$game) return null;
 
     const act = (action: ClockAction) => void sendOp({ type: "clock", action });
+    const rest = $game.settings.rest;
+    const restRequest = $game.restRequest;
     // Pausing and resuming take both sides: one asks, the other agrees.
     const request = $game.clockRequest;
     const otherSide = $role === "hider" ? "the seekers" : "the hider";
@@ -302,7 +380,11 @@ export const RoundClock = () => {
                 <>
                     <span className="font-mono text-base">⏸ {elapsed}</span>
                     {bonusTag}
-                    <span className="text-slate-300">paused</span>
+                    <span className="text-slate-300" data-testid="clock-paused">
+                        {clock?.pausedBy === "rest" && rest
+                            ? `resting until ${rest.until}`
+                            : "paused"}
+                    </span>
                     <Button
                         size="sm"
                         variant="outline"
@@ -311,6 +393,81 @@ export const RoundClock = () => {
                         Resume
                     </Button>
                 </>
+            )}
+            {state !== "stopped" && (
+                <>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        title={
+                            rest
+                                ? `Rest period ${describeRest(rest)}: the clock pauses by itself`
+                                : "No rest period"
+                        }
+                        onClick={() => setRestOpen(true)}
+                        data-testid="rest-button"
+                    >
+                        Rest {rest ? describeRest(rest) : "…"}
+                    </Button>
+                    <RestDialog
+                        open={restOpen}
+                        onOpenChange={setRestOpen}
+                        current={rest}
+                    />
+                </>
+            )}
+            {restRequest && (
+                <p
+                    className="basis-full text-center"
+                    data-testid="rest-request"
+                >
+                    {restRequest.role === $role ? (
+                        <>
+                            Waiting for {otherSide} to agree to{" "}
+                            {restRequest.rest
+                                ? `a rest ${describeRest(restRequest.rest)}`
+                                : "no rest period"}
+                            .{" "}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                    void sendOp({ type: "cancelRest" })
+                                }
+                            >
+                                Withdraw
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <strong>{restRequest.by}</strong> asks for{" "}
+                            {restRequest.rest
+                                ? `a rest ${describeRest(restRequest.rest)}`
+                                : "no rest period"}
+                            .{" "}
+                            <Button
+                                size="sm"
+                                onClick={() =>
+                                    void sendOp({
+                                        type: "setRest",
+                                        rest: restRequest.rest,
+                                    })
+                                }
+                            >
+                                Agree
+                            </Button>{" "}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                    void sendOp({ type: "cancelRest" })
+                                }
+                            >
+                                Decline
+                            </Button>
+                        </>
+                    )}
+                </p>
             )}
             {state === "stopped" && (
                 <>

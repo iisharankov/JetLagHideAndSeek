@@ -10,12 +10,9 @@ import { PLACE_TYPES } from "@/lib/game/settings";
 import { memoizeAsync } from "@/lib/memoizeAsync";
 import { TYPES } from "@/lib/questionInfo";
 import { adminLevelLabel } from "@/maps/adminBorders";
-import {
-    findAdminBoundary,
-    findPlacesInZone,
-    nearestToQuestion,
-} from "@/maps/api";
+import { findAdminBoundary, findPlacesInZone } from "@/maps/api";
 import { DEFAULT_STATION_FILTERS } from "@/maps/hidingZones";
+import { nearestToQuestion } from "@/maps/questions/places";
 import type { PlaceQuery, Question } from "@/maps/schema";
 import { stationSignName } from "@/maps/stationNames";
 

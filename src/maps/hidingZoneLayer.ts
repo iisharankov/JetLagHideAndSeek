@@ -139,6 +139,8 @@ const applyQuestionToHidingZones = async (
     question: Question,
     { places, circles }: { places: StationPlace[]; circles: StationCircle[] },
 ): Promise<StationCircle[]> => {
+    // A null answer rules nothing out.
+    if ((question.data as { nullAnswer?: boolean }).nullAnswer) return circles;
     if (question.id === "matching") {
         const data = question.data;
         const seeker = turf.point([data.lng, data.lat]);

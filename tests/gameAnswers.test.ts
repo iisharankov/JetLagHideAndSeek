@@ -4,7 +4,9 @@ import {
     answerChoices,
     answerOf,
     describeAnswer,
+    hasNullAnswer,
     isCurrentAnswer,
+    NULL_ANSWER,
 } from "@/lib/game/answers";
 import { type Question, questionSchema } from "@/maps/schema";
 
@@ -72,6 +74,44 @@ describe("describeAnswer", () => {
                 }),
             ),
         ).toBe("Not within reach");
+    });
+});
+
+describe("the null answer", () => {
+    it("comes first for place questions, and is its own answer", () => {
+        const zoo = questionSchema.parse({
+            id: "matching",
+            data: { lat: 47, lng: 8, type: "zoo-full", same: true },
+        });
+        expect(answerChoices(zoo)[0]).toEqual(NULL_ANSWER);
+        expect(describeAnswer(zoo)).toBe("Same");
+        const nullAnswered = questionSchema.parse({
+            id: "matching",
+            data: {
+                lat: 47,
+                lng: 8,
+                type: "zoo-full",
+                same: true,
+                nullAnswer: true,
+            },
+        });
+        expect(describeAnswer(nullAnswered)).toBe(NULL_ANSWER.label);
+        const closer = questionSchema.parse({
+            id: "measuring",
+            data: { lat: 47, lng: 8, type: "sea-level", hiderCloser: true },
+        });
+        // Sea level is always there: no null answer for it.
+        expect(answerChoices(closer).map((c) => c.label)).toEqual([
+            "Lower",
+            "Higher",
+        ]);
+        expect(hasNullAnswer(zoo)).toBe(true);
+        expect(hasNullAnswer(closer)).toBe(false);
+        const lake = questionSchema.parse({
+            id: "measuring",
+            data: { lat: 47, lng: 8, type: "lake", hiderCloser: true },
+        });
+        expect(answerChoices(lake)[0]).toEqual(NULL_ANSWER);
     });
 });
 

@@ -19,14 +19,12 @@ import {
     overpassCustomHost,
     polyGeoJSON,
 } from "@/lib/context";
-import { applyPlaceRules, isRejected } from "@/lib/placeRules";
+import { applyPlaceRules, insidePlayArea } from "@/lib/placeRules";
 import { datasets } from "@/maps/datasets/load";
 import { safeUnion } from "@/maps/geo-utils";
-import { expandingSearch } from "@/maps/hidingZones";
 
 import { cacheFetch } from "./cache";
 import { LOCATION_FIRST_TAG, PUBLIC_OVERPASS_HOSTS } from "./constants";
-import { prettifyLocation } from "./geo";
 import {
     cacheStorageCache,
     createOverpassClient,
@@ -34,7 +32,6 @@ import {
 } from "./overpassClient";
 import type {
     EncompassingTentacleQuestionSchema,
-    PlaceQuery,
     QuestionSpecificLocation,
 } from "./types";
 import { CacheType } from "./types";
@@ -165,8 +162,15 @@ out center;
             turf.point([element.center.lon, element.center.lat], { name }),
         );
     });
+    // The rulebook: places outside the play area don't exist.
     return turf.featureCollection(
-        applyPlaceRules(question.locationType, response.features),
+        applyPlaceRules(
+            question.locationType,
+            response.features.filter((feature: any) => {
+                const [lon, lat] = feature.geometry.coordinates;
+                return insidePlayArea(lat, lon);
+            }),
+        ),
     );
 };
 
@@ -460,61 +464,6 @@ export const findPlacesSpecificInZone = async (
             ]),
         ),
     );
-};
-
-/** The place of the question's type nearest to the question's location. */
-export const nearestToQuestion = async (question: PlaceQuery) => {
-    const questionPoint = turf.point([question.lng, question.lat]);
-
-    const nearest = await datasets.nearestPlace(
-        question.type,
-        question.lat,
-        question.lng,
-        // Places the players rejected while setting up don't count.
-        (element) => {
-            const lon = element.center ? element.center.lon : element.lon;
-            const lat = element.center ? element.center.lat : element.lat;
-            return !isRejected(
-                question.type,
-                element.tags["name:en"] ?? element.tags.name,
-                lat!,
-                lon!,
-            );
-        },
-    );
-    if (nearest) {
-        const point = turf.point(
-            nearest.center
-                ? [nearest.center.lon, nearest.center.lat]
-                : [nearest.lon!, nearest.lat!],
-        );
-        return turf.point(point.geometry.coordinates, {
-            name: nearest.tags["name:en"] ?? nearest.tags.name,
-            distanceToPoint: turf.distance(questionPoint, point),
-        });
-    }
-
-    const { found } = await expandingSearch(
-        async (radiusKm) =>
-            (
-                await findTentacleLocations(
-                    {
-                        lat: question.lat,
-                        lng: question.lng,
-                        radius: radiusKm,
-                        unit: "kilometers",
-                        locationType: question.type,
-                    },
-                    "Finding matching locations...",
-                )
-            ).features,
-        {
-            startKm: 50,
-            maxKm: 400,
-            what: prettifyLocation(question.type, true).toLowerCase(),
-        },
-    );
-    return turf.nearestPoint(questionPoint, turf.featureCollection(found));
 };
 
 export const determineMapBoundaries = async () => {

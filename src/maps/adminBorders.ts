@@ -57,20 +57,32 @@ export const adminBorderRegion = (
     bbox: [number, number, number, number],
 ) => withinDistanceOfLines(borders, nearestBorderKm(borders, seeker), bbox);
 
-const SWISS_LEVELS: Record<number, string> = {
-    2: "country",
-    4: "canton",
-    6: "district",
-    8: "municipality",
-    9: "city district",
-    10: "quarter",
+/** What the players call each OSM admin level, by country. */
+const LEVEL_NAMES: Record<string, Record<number, string>> = {
+    CH: {
+        4: "canton",
+        6: "district",
+        8: "municipality",
+        9: "city district",
+        10: "quarter",
+    },
+    DE: {
+        4: "state",
+        5: "region",
+        6: "district",
+        8: "municipality",
+        9: "borough",
+        10: "quarter",
+    },
+    AT: { 4: "state", 6: "district", 8: "municipality", 9: "district" },
+    FR: { 4: "region", 6: "department", 7: "arrondissement", 8: "commune" },
+    IT: { 4: "region", 6: "province", 8: "municipality" },
+    LI: { 8: "municipality" },
 };
 
 /** What a player calls an admin level, e.g. "canton" in Switzerland. */
 export const adminLevelLabel = (level: number, countryCode?: string) => {
     if (level === 2) return "country";
-    if (countryCode?.toUpperCase() === "CH" && SWISS_LEVELS[level]) {
-        return SWISS_LEVELS[level];
-    }
-    return `level-${level} region`;
+    const name = LEVEL_NAMES[countryCode?.toUpperCase() ?? ""]?.[level];
+    return name ?? `level-${level} region`;
 };

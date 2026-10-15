@@ -11,6 +11,8 @@ cd "$(dirname "$0")"
 
 git pull --ff-only
 docker compose --profile tools build web api updater
-docker compose up -d web api
+# --remove-orphans drops containers of services no longer in the compose file
+# (the place-search service, since round 18).
+docker compose up -d --remove-orphans web api
 docker image prune -f >/dev/null
 echo "Deployed $(git rev-parse --short HEAD)."

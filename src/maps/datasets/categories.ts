@@ -17,7 +17,16 @@ export interface DatasetCategory {
 }
 
 export const DATASET_CATEGORIES: DatasetCategory[] = [
-    { file: "poi-zoo", key: "tourism", values: ["zoo"] },
+    {
+        file: "poi-zoo",
+        key: "tourism",
+        values: ["zoo"],
+        // Not the enclosures and aviaries mapped as zoos.
+        accept: (tags) =>
+            !["enclosure", "aviary", "falconry", "petting_zoo"].includes(
+                tags.zoo ?? "",
+            ) && !tags.animal,
+    },
     { file: "poi-aquarium", key: "tourism", values: ["aquarium"] },
     { file: "poi-theme_park", key: "tourism", values: ["theme_park"] },
     { file: "poi-museum", key: "tourism", values: ["museum"] },
@@ -26,7 +35,6 @@ export const DATASET_CATEGORIES: DatasetCategory[] = [
     { file: "poi-library", key: "amenity", values: ["library"] },
     { file: "poi-golf_course", key: "leisure", values: ["golf_course"] },
     { file: "poi-park", key: "leisure", values: ["park"] },
-    { file: "poi-peak", key: "natural", values: ["peak"] },
     { file: "poi-consulate", key: "diplomatic", values: ["consulate"] },
     {
         file: "airports",
@@ -72,45 +80,14 @@ export const KEPT_TAGS = [
     "aerialway",
     "brand",
     "brand:wikidata",
+    "zoo",
+    "animal",
+    "golf",
 ];
 
 /** A city's population as a number (0 if unknown). */
 export const populationOf = (tags: Record<string, string>) =>
     /^\d+$/.test(tags.population ?? "") ? Number(tags.population) : 0;
-
-/** Sizes of "major city" with pre-computed nearest-city maps. */
-export const MAJOR_CITY_POPULATIONS = [100_000, 1_000_000];
-
-/**
- * Sets of places with a pre-computed "which one is nearest" map, written to
- * voronoi-<name>.json. Places just outside Switzerland count too.
- */
-export interface NearestSet {
-    name: string;
-    /** The dataset file the places come from. */
-    file: string;
-    accept?: (tags: Record<string, string>) => boolean;
-    /** Places mapped twice (a node and an area) share this; one is kept. */
-    identity?: (tags: Record<string, string>) => string | undefined;
-}
-
-export const NEAREST_SETS: NearestSet[] = [
-    ...DATASET_CATEGORIES.filter((c) => c.file.startsWith("poi-")).map((c) => ({
-        name: c.file,
-        file: c.file,
-    })),
-    {
-        name: "airports",
-        file: "airports",
-        identity: (tags) => tags.iata?.split(";")[0].trim().toUpperCase(),
-    },
-    ...MAJOR_CITY_POPULATIONS.map((minimum) => ({
-        name: `cities-${minimum}`,
-        file: "cities",
-        accept: (tags: Record<string, string>) => populationOf(tags) >= minimum,
-        identity: (tags: Record<string, string>) => tags.name,
-    })),
-];
 
 /** Lakes for the lake shore question: at least this big (km²). */
 export const LAKE_MIN_AREA_KM2 = 10;
@@ -136,19 +113,8 @@ export interface DatasetManifest {
     bbox: [number, number, number, number];
     /** Number of entries per file. */
     files: Record<string, number>;
-    /** Area of the extra data on airports, cities and places around it. */
-    far?: [number, number, number, number];
     /** Elevation tiles in elevation/<z>/<x>/<y>.i16 (256 × 256 Int16 metres). */
     elevation?: { zooms: number[] };
-}
-
-/** A cell of a voronoi-<name>.json file: where that place is the nearest. */
-export interface NearestCellProperties {
-    /** "node/123", "way/456" or "relation/789". */
-    key: string;
-    name?: string;
-    lat: number;
-    lon: number;
 }
 
 /** train-lines.json: the train lines stopping at each station. */

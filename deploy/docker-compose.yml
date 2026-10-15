@@ -36,8 +36,10 @@ services:
         environment:
             # Where a tap on a push notification opens the app.
             SITE_URL: "${SITE_URL:-https://jetlag.sharankov.com}"
-            # A contact for the browsers' push services (a mailto: you read).
-            PUSH_CONTACT: "${PUSH_CONTACT:-mailto:hello@example.org}"
+            # Who runs this server, for the browsers' push services (they only
+            # use it to reach you if the server misbehaves): the site's
+            # address unless you set a mailto: here.
+            PUSH_CONTACT: "${PUSH_CONTACT:-}"
         ports:
             - "127.0.0.1:${API_PORT:-18787}:8787"
         volumes:
@@ -75,19 +77,6 @@ services:
         volumes:
             - "${DATA_DIR:-./data}/overpass:/db"
             - "${DATA_DIR:-./data}/osm:/osm:ro"
-
-    # Place search. The first start imports the Swiss data dump.
-    photon:
-        build:
-            context: ..
-            dockerfile: deploy/photon.Dockerfile
-        restart: unless-stopped
-        ports:
-            - "127.0.0.1:${PHOTON_PORT:-18782}:2322"
-        environment:
-            JAVA_OPTS: "-Xmx4g"
-        volumes:
-            - "${DATA_DIR:-./data}/photon:/photon"
 
     # Downloads map data and builds the reference datasets; run with
     # `docker compose run --rm updater`.

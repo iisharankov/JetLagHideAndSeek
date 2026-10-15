@@ -7,7 +7,7 @@ interface ImportMetaEnv {
     readonly PUBLIC_DATA_URL?: string;
     /** Basemap .pmtiles URL; defaults to the self-hosted /tiles/basemap.pmtiles. */
     readonly PUBLIC_TILES_URL?: string;
-    /** Photon place search; defaults to the self-hosted /photon/api/. */
+    /** A Photon place search, used only without reference data (development); none by default. */
     readonly PUBLIC_GEOCODER_URL?: string;
     /** API base URL; defaults to the self-hosted /api. */
     readonly PUBLIC_API_URL?: string;

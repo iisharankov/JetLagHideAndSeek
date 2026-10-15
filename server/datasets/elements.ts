@@ -79,6 +79,15 @@ export const toElement = (feature: {
     }
 
     const [minLon, minLat, maxLon, maxLat] = turf.bbox(feature.geometry);
+    // The size of an area, for rules like "parks under half a hectare
+    // don't count".
+    if (
+        feature.geometry.type === "Polygon" ||
+        feature.geometry.type === "MultiPolygon"
+    ) {
+        const area = Math.round(turf.area(feature.geometry));
+        if (area > 0) tags.area_m2 = String(area);
+    }
     return {
         type,
         id,

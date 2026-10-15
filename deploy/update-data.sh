@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Downloads fresh map data for the play region into /data:
 #   /data/osm/region.osm.bz2       OpenStreetMap data, imported by Overpass
-#   /data/osm/far-places.osm.pbf   airports, cities and places up to ~300 km away
 #   /data/elevation/               elevation tiles (downloaded once, ~100 MB)
 #   /data/datasets/                places, stations and borders, served by `web`
 #   /data/tiles/basemap.pmtiles    vector basemap tiles, served by `web`
@@ -33,39 +32,9 @@ osmium cat --overwrite -f osm.bz2 -o /data/osm/region.osm.bz2.tmp /data/osm/regi
 mv /data/osm/region.osm.bz2.tmp /data/osm/region.osm.bz2
 rm /data/osm/merged.osm.pbf
 
-# Airports, cities and other places up to ~300 km away, for "nearest X"
-# questions (Milan's airport is the nearest one in parts of Ticino). They
-# hardly change, so each big download is filtered to those places straight
-# away and deleted; only the small result is kept. It's rebuilt only when
-# missing, or with REFRESH_FAR=1.
-FAR_BBOX="${FAR_BBOX:-2.0,43.1,14.4,50.5}"
-FAR_REGIONS="${FAR_REGIONS:-europe/switzerland europe/liechtenstein europe/germany/baden-wuerttemberg europe/germany/bayern europe/germany/hessen europe/germany/rheinland-pfalz europe/germany/saarland europe/luxembourg europe/france/alsace europe/france/lorraine europe/france/champagne-ardenne europe/france/franche-comte europe/france/bourgogne europe/france/rhone-alpes europe/france/auvergne europe/france/provence-alpes-cote-d-azur europe/italy/nord-ovest europe/italy/nord-est europe/italy/centro europe/austria}"
-FAR=/data/osm/far-places.osm.pbf
-if [ ! -s "$FAR" ] || [ "${REFRESH_FAR:-0}" = 1 ]; then
-    echo "Collecting airports, cities and places within ~300 km..."
-    read -r -a filters <<< "$(node /app/build-datasets.mjs --print-far-filters)"
-    rm -rf /data/osm/far && mkdir -p /data/osm/far/parts
-    for region in $FAR_REGIONS; do
-        name=$(basename "$region")
-        source="/data/osm/downloads/${name}.osm.pbf"
-        if [ ! -s "$source" ]; then
-            source=/data/osm/far/download.osm.pbf
-            curl -fL --retry 3 -o "$source" \
-                "https://download.geofabrik.de/${region}-latest.osm.pbf"
-        fi
-        osmium tags-filter --overwrite -o "/data/osm/far/parts/${name}.osm.pbf" \
-            "$source" "${filters[@]}"
-        rm -f /data/osm/far/download.osm.pbf
-    done
-    osmium merge --overwrite -o /data/osm/far/merged.osm.pbf /data/osm/far/parts/*.osm.pbf
-    osmium extract --bbox="$FAR_BBOX" --overwrite -o "$FAR.tmp" /data/osm/far/merged.osm.pbf
-    mv "$FAR.tmp" "$FAR"
-    rm -rf /data/osm/far
-fi
-
 echo "Building reference datasets..."
 rm -rf /data/datasets.tmp
-node /app/build-datasets.mjs --input /data/osm/region.osm.pbf --far "$FAR" \
+node /app/build-datasets.mjs --input /data/osm/region.osm.pbf \
     --elevation /data/elevation --output /data/datasets.tmp
 # Replace the folder's contents, not the folder: `web` has it mounted, and a
 # new folder put in its place would stay invisible to it until a restart.
@@ -80,4 +49,4 @@ pmtiles extract "https://build.protomaps.com/${build}" /data/tiles/basemap.pmtil
     --bbox="$BBOX" --maxzoom="$MAX_ZOOM"
 mv /data/tiles/basemap.pmtiles.tmp /data/tiles/basemap.pmtiles
 
-echo "Done: $(du -h /data/osm/region.osm.bz2 | cut -f1) of map data, $(du -h "$FAR" | cut -f1) of wider-area places and $(du -h /data/tiles/basemap.pmtiles | cut -f1) of tiles (build ${build})."
+echo "Done: $(du -h /data/osm/region.osm.bz2 | cut -f1) of map data and $(du -h /data/tiles/basemap.pmtiles | cut -f1) of tiles (build ${build})."

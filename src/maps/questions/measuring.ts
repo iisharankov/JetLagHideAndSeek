@@ -1,5 +1,10 @@
 import * as turf from "@turf/turf";
-import type { Feature, MultiPolygon } from "geojson";
+import type {
+    Feature,
+    FeatureCollection,
+    MultiPolygon,
+    Polygon,
+} from "geojson";
 import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
 
@@ -255,7 +260,19 @@ const lakeShoresAround = memoizeAsync(
                 `There are no lakes of ${minimum} km² or more.`,
             );
         }
-        const shores = lakes.flatMap((lake) => boundaryLines(lake));
+        // The rulebook: lakes outside the play area don't exist.
+        const area = mapGeoJSON.get() as FeatureCollection<
+            Polygon | MultiPolygon
+        > | null;
+        const inside = area
+            ? lakes.filter((lake) => touchesArea(lake, area))
+            : lakes;
+        if (inside.length === 0) {
+            throw new NotApplicableError(
+                `No lakes of ${minimum} km² or more inside the play area: the rulebook makes this a null answer.`,
+            );
+        }
+        const shores = inside.flatMap((lake) => boundaryLines(lake));
         return { shores, seekerDistanceKm: nearestBorderKm(shores, question) };
     },
     (question) =>
@@ -263,8 +280,26 @@ const lakeShoresAround = memoizeAsync(
             lat: question.lat,
             lng: question.lng,
             minimum: minLakeArea(question),
+            area: playAreaKey(),
         }),
 );
+
+/** Whether a lake reaches into the play area. */
+const touchesArea = (
+    lake: Feature<Polygon | MultiPolygon>,
+    area: FeatureCollection<Polygon | MultiPolygon>,
+) => {
+    const box = lake.bbox ?? turf.bbox(lake);
+    return area.features.some((feature) => {
+        const other = feature.bbox ?? turf.bbox(feature);
+        const apart =
+            box[2] < other[0] ||
+            other[2] < box[0] ||
+            box[3] < other[1] ||
+            other[3] < box[1];
+        return !apart && turf.booleanIntersects(lake, feature);
+    });
+};
 
 /** Where someone is closer to a big lake's shore than the seeker. */
 const lakeShoreRegionIn = async (question: MeasuringQuestion, bbox: Bbox) => {
@@ -301,7 +336,6 @@ export const measuringPlaceKind = (
         case "aquarium-full":
         case "zoo-full":
         case "theme_park-full":
-        case "peak-full":
         case "museum-full":
         case "hospital-full":
         case "cinema-full":
@@ -398,7 +432,6 @@ export const determineMeasuringBoundary = async (
         case "aquarium-full":
         case "zoo-full":
         case "theme_park-full":
-        case "peak-full":
         case "museum-full":
         case "hospital-full":
         case "cinema-full":
@@ -408,7 +441,6 @@ export const determineMeasuringBoundary = async (
         case "park-full": {
             const places = await placesForMeasuring(
                 measuringPlaceKind(question)!,
-                question,
             );
             return [turf.combine(turf.featureCollection(places)).features[0]];
         }

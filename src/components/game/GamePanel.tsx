@@ -35,6 +35,7 @@ import {
 import { formatDuration } from "@/lib/game/clock";
 import { deckComposition } from "@/lib/game/deck";
 import { knownGames } from "@/lib/game/knownGames";
+import { describeRest } from "@/lib/game/rest";
 import { ranking, scoreRows } from "@/lib/game/scoreboard";
 import { serverNow } from "@/lib/game/serverTime";
 import {
@@ -53,7 +54,11 @@ import {
     reconnectAt,
     sendOp,
 } from "@/lib/game/session";
-import { describeStations, questionKey } from "@/lib/game/settings";
+import {
+    describeStations,
+    questionKey,
+    REGION_LABELS,
+} from "@/lib/game/settings";
 import type { GameSettings, GameState } from "@/lib/game/types";
 import { currentPlayArea, parsePlayArea, playAreaName } from "@/lib/sharedGame";
 import { shareOrFallback } from "@/lib/utils";
@@ -88,8 +93,7 @@ const SettingsSummary = ({
         <dd data-testid="play-area-name">{playArea}</dd>
         <dt>Size</dt>
         <dd>
-            {SIZE_NAMES[settings.size]},{" "}
-            {settings.region === "switzerland" ? "Swiss" : "standard"} rules
+            {SIZE_NAMES[settings.size]}, {REGION_LABELS[settings.region]} rules
         </dd>
         <dt>Hiding zones</dt>
         <dd>
@@ -119,6 +123,12 @@ const SettingsSummary = ({
             {settings.seekersSeeStations
                 ? "may show the hiding zones"
                 : "don't get the hiding zones"}
+        </dd>
+        <dt>Rest</dt>
+        <dd data-testid="rest-summary">
+            {settings.rest
+                ? `${describeRest(settings.rest)}, the clock pauses by itself`
+                : "none"}
         </dd>
     </dl>
 );

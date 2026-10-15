@@ -28,6 +28,45 @@ const start = () =>
     );
 
 describe("game store", () => {
+    it("pauses and resumes the clock for the rest period", () => {
+        const game = games.create(
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...settings,
+                    rest: {
+                        from: "22:00",
+                        until: "07:00",
+                        timeZone: "Europe/Zurich",
+                    },
+                },
+            },
+            [],
+            "Ana",
+        );
+        games.apply(
+            game.id,
+            { type: "clock", action: "start" },
+            { name: "Ana", role: "seeker" },
+        );
+        // Tonight at 22:30 UTC (23:30 or 00:30 in Zürich) and tomorrow at
+        // 06:30 UTC (07:30 or 08:30): the dates stay close to today, since
+        // only recent games are looked at.
+        const today = new Date().toISOString().slice(0, 10);
+        const tomorrow = new Date(Date.now() + 24 * 3600_000)
+            .toISOString()
+            .slice(0, 10);
+        const night = Date.parse(`${today}T22:30:00Z`);
+        const morning = Date.parse(`${tomorrow}T06:30:00Z`);
+        expect(games.tick(night)).toBe(1);
+        expect(games.get(game.id)?.clock?.pausedBy).toBe("rest");
+        expect(games.tick(night + 60_000)).toBe(0);
+        expect(games.tick(morning)).toBe(1);
+        expect(games.get(game.id)?.clock?.pausedAt).toBeNull();
+        expect(games.get(game.id)?.clock?.pausedBy).toBeUndefined();
+    });
+
     it("creates a game with a short id and finds it again", () => {
         const game = start();
         expect(game.id).toMatch(/^[A-Za-z0-9]{8}$/);

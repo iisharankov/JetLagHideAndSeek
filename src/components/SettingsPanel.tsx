@@ -29,6 +29,7 @@ import type { RegionChoice } from "@/maps/regionRules";
 
 import { PushCard } from "./game/PushCard";
 import { MenuGroup } from "./MenuGroup";
+import { PlacesSettings } from "./PlacesSettings";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -80,6 +81,7 @@ export const SettingsPanel = () => {
                             auto: "Automatic (by play area)",
                             standard: "Standard Jet Lag rules",
                             switzerland: "Switzerland",
+                            germany: "Germany",
                         }}
                         value={$regionChoice}
                         onValueChange={(v) =>
@@ -89,7 +91,8 @@ export const SettingsPanel = () => {
                     <p className="text-xs text-slate-400">
                         Swiss rules: &quot;major city&quot; means 100,000+
                         people, coastline and 7-Eleven questions are hidden and
-                        the lake shore question is added.
+                        the lake shore question is added. German rules: the same
+                        with cities of a million.
                     </p>
                     <Label>Default unit</Label>
                     <UnitSelect
@@ -149,6 +152,9 @@ export const SettingsPanel = () => {
                         value={$baseTileLayer}
                         onValueChange={(v) => baseTileLayer.set(v as any)}
                     />
+                </MenuGroup>
+                <MenuGroup title="Places">
+                    <PlacesSettings />
                 </MenuGroup>
                 <MenuGroup title="Questions">
                     <Label>Seekers&apos; drafts on the map</Label>

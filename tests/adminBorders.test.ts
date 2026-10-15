@@ -90,6 +90,13 @@ describe("adminLevelLabel", () => {
         expect(adminLevelLabel(8, "CH")).toBe("municipality");
     });
 
+    it("knows the German and Austrian names for Munich and Vienna games", () => {
+        expect(adminLevelLabel(4, "DE")).toBe("state");
+        expect(adminLevelLabel(6, "DE")).toBe("district");
+        expect(adminLevelLabel(9, "DE")).toBe("borough");
+        expect(adminLevelLabel(8, "at")).toBe("municipality");
+    });
+
     it("falls back to the OSM level elsewhere", () => {
         expect(adminLevelLabel(4, "US")).toBe("level-4 region");
         expect(adminLevelLabel(2, "US")).toBe("country");

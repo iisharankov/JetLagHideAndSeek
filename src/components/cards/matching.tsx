@@ -50,7 +50,6 @@ const PREFILLABLE = [
     "aquarium-full",
     "zoo-full",
     "theme_park-full",
-    "peak-full",
     "museum-full",
     "hospital-full",
     "cinema-full",

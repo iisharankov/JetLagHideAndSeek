@@ -24,8 +24,6 @@ export const prettifyLocation = (
             return "Aquarium";
         case "hospital":
             return "Hospital";
-        case "peak":
-            return "Mountain";
         case "museum":
             return "Museum";
         case "theme_park":
@@ -50,6 +48,11 @@ export const determineName = (feature: OpenStreetMap) => {
     if (props.osm_type === "R") {
         const parts = [props.name, props.state, props.country].filter(Boolean);
         return parts.join(", ");
+    } else if (props.name) {
+        // A station or place: its name, where it is.
+        return [props.name, props.city, props.country]
+            .filter(Boolean)
+            .join(", ");
     } else {
         const parts = [
             (props as any).housenumber

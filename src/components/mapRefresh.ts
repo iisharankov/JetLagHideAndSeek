@@ -21,7 +21,12 @@ import {
     questions,
     questionStatuses,
 } from "@/lib/context";
-import { answerOf, describeAnswer } from "@/lib/game/answers";
+import {
+    answerOf,
+    describeAnswer,
+    hasNullAnswer,
+    NULL_ANSWER,
+} from "@/lib/game/answers";
 import { draftsToApply } from "@/lib/game/drafts";
 import {
     gameState,
@@ -41,7 +46,7 @@ import {
     safeUnion,
 } from "@/maps";
 import { clearCache, determineMapBoundaries, ICON_COLORS } from "@/maps/api";
-import { errorMessage } from "@/maps/errors";
+import { errorMessage, NotApplicableError } from "@/maps/errors";
 import type { Question } from "@/maps/schema";
 
 /** Layers this module owns are tagged so they can be found again. */
@@ -156,6 +161,19 @@ const suggestAnswers = async (
                 basedOn: game.questions[String(question.key)].updatedAt,
             };
         } catch (error) {
+            if (
+                error instanceof NotApplicableError &&
+                hasNullAnswer(question)
+            ) {
+                // No such place inside the play area: the rulebook's null
+                // answer, which still counts as answered.
+                suggestions[question.key] = {
+                    answer: NULL_ANSWER.answer,
+                    label: NULL_ANSWER.label,
+                    basedOn: game.questions[String(question.key)].updatedAt,
+                };
+                continue;
+            }
             errors[question.key] = {
                 state: "error",
                 message: `Couldn't work out an answer: ${errorMessage(error)}`,

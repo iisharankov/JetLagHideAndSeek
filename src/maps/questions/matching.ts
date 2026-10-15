@@ -31,7 +31,7 @@ import {
     nearestSites,
     type PlaceKind,
     placesInPlayArea,
-    seekerNearestCell,
+    requirePlaces,
 } from "./places";
 
 const zoneLabel = (adminLevel: number) =>
@@ -64,7 +64,6 @@ export const matchingPlaceKind = (
         case "aquarium-full":
         case "zoo-full":
         case "theme_park-full":
-        case "peak-full":
         case "museum-full":
         case "hospital-full":
         case "cinema-full":
@@ -188,7 +187,6 @@ export const determineMatchingBoundary = memoizeAsync(
             case "aquarium-full":
             case "zoo-full":
             case "theme_park-full":
-            case "peak-full":
             case "museum-full":
             case "hospital-full":
             case "cinema-full":
@@ -198,22 +196,15 @@ export const determineMatchingBoundary = memoizeAsync(
             case "park-full":
             case "custom-points": {
                 const kind = matchingPlaceKind(question);
-                const cell = kind
-                    ? await seekerNearestCell(kind, question)
-                    : undefined;
-                if (cell) {
-                    boundary = cell;
-                    break;
-                }
-
-                const found = await findMatchingPlaces(question);
+                const found = kind
+                    ? await requirePlaces(kind)
+                    : await findMatchingPlaces(question);
                 const points: Feature<Point>[] = Array.isArray(found)
                     ? found
-                    : (found?.features ?? []);
+                    : ((found as any)?.features ?? []);
                 const data = turf.featureCollection(
                     nearestSites(points, question),
                 );
-
                 const voronoi = geoSpatialVoronoi(data);
                 const point = turf.point([question.lng, question.lat]);
 

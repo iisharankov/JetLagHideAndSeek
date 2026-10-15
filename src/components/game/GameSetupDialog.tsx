@@ -26,6 +26,7 @@ import {
     polyGeoJSON,
 } from "@/lib/context";
 import { deckComposition } from "@/lib/game/deck";
+import { phoneTimeZone } from "@/lib/game/rest";
 import { startGame } from "@/lib/game/session";
 import {
     hidingRadiusDefaultKm,
@@ -42,6 +43,7 @@ import { playAreaParts } from "@/lib/sharedGame";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 
+import { RestTimes } from "./RestTimes";
 import { DeckEditor } from "./setup/DeckEditor";
 import { QuestionsStep } from "./setup/QuestionsStep";
 
@@ -342,6 +344,7 @@ export const GameSetupDialog = ({
                                         value: "switzerland",
                                         label: "Switzerland",
                                     },
+                                    { value: "germany", label: "Germany" },
                                     { value: "standard", label: "Standard" },
                                 ]}
                                 value={draft.region}
@@ -350,7 +353,8 @@ export const GameSetupDialog = ({
                             <p className="text-xs text-slate-400">
                                 Switzerland: &quot;major city&quot; means
                                 100,000+ people, lake shores stand in for the
-                                coast, no 7-Eleven. Changing this resets the
+                                coast, no 7-Eleven. Germany: the same with
+                                cities of a million. Changing this resets the
                                 question list on the last screen.
                             </p>
                         </>
@@ -489,6 +493,29 @@ export const GameSetupDialog = ({
                                 Under the Swiss rules 2 and 10 km; the
                                 rulebook&apos;s 2 and 25 km otherwise.
                             </p>
+                            <Label>Rest period</Label>
+                            <ToggleCard
+                                title="Rest period"
+                                description="The clock pauses by itself at the first time and goes on at the second; no questions meanwhile. Changing it during a round takes both sides, like a pause."
+                                checked={draft.rest !== null}
+                                onCheckedChange={(on) =>
+                                    update({
+                                        rest: on
+                                            ? {
+                                                  from: "22:00",
+                                                  until: "07:00",
+                                                  timeZone: phoneTimeZone(),
+                                              }
+                                            : null,
+                                    })
+                                }
+                            />
+                            {draft.rest && (
+                                <RestTimes
+                                    rest={draft.rest}
+                                    onChange={(rest) => update({ rest })}
+                                />
+                            )}
                         </>
                     )}
 

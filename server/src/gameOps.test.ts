@@ -1162,6 +1162,95 @@ describe("the hider's station", () => {
     });
 });
 
+describe("rest periods", () => {
+    const rest = { from: "22:00", until: "07:00", timeZone: "Europe/Zurich" };
+
+    it("are set freely before the round and by agreement during it", () => {
+        let state = apply(fresh(), { type: "setRest", rest }, seeker);
+        expect(state.settings.rest).toEqual(rest);
+        expect(state.restRequest).toBeNull();
+
+        state = apply(state, { type: "clock", action: "start" }, seeker, 3000);
+        const later = { ...rest, from: "23:00" };
+        state = apply(state, { type: "setRest", rest: later }, seeker, 4000);
+        expect(state.settings.rest).toEqual(rest);
+        expect(state.restRequest).toMatchObject({ rest: later, by: "Ana" });
+        // The other side agreeing to something else replaces the request.
+        state = apply(state, { type: "setRest", rest: null }, hider, 5000);
+        expect(state.restRequest).toMatchObject({ rest: null, by: "Ben" });
+        state = apply(state, { type: "setRest", rest: null }, seeker, 6000);
+        expect(state.settings.rest).toBeNull();
+        expect(state.restRequest).toBeNull();
+
+        state = apply(state, { type: "setRest", rest }, seeker, 7000);
+        state = apply(state, { type: "cancelRest" }, hider, 8000);
+        expect(state.restRequest).toBeNull();
+        expect(() =>
+            apply(state, { type: "setRest", rest: { from: "x" } }, seeker),
+        ).toThrow(/two clock times/);
+    });
+
+    it("stop the questions while the clock rests, until it's resumed by agreement", () => {
+        let state = apply(fresh(), { type: "setRest", rest }, seeker);
+        state = apply(state, { type: "clock", action: "start" }, seeker, 3000);
+        state.clock = { ...state.clock!, pausedAt: 4000, pausedBy: "rest" };
+        state = apply(
+            state,
+            { type: "putQuestion", question: radius(1) },
+            seeker,
+            5000,
+        );
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 1 }, seeker, 6000),
+        ).toThrow(/Rest period until 07:00/);
+
+        state = apply(state, { type: "clock", action: "resume" }, seeker, 7000);
+        state = apply(state, { type: "clock", action: "resume" }, hider, 8000);
+        expect(state.clock?.pausedAt).toBeNull();
+        expect(state.clock?.pausedBy).toBeUndefined();
+        state = apply(state, { type: "sendQuestion", key: 1 }, seeker, 9000);
+        expect(state.questions["1"].state).toBe("asked");
+    });
+});
+
+describe("the null answer", () => {
+    it("is an answer, and a real answer later replaces it", () => {
+        let state = apply(
+            fresh(),
+            { type: "putQuestion", question: radius(1) },
+            seeker,
+            1000,
+        );
+        state = apply(state, { type: "sendQuestion", key: 1 }, seeker, 2000);
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { nullAnswer: true },
+                basedOn: 2000,
+            },
+            hider,
+            3000,
+        );
+        expect(state.questions["1"].state).toBe("answered");
+        expect(state.questions["1"].question.data.nullAnswer).toBe(true);
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 1,
+                answer: { within: false },
+                basedOn: 3000,
+            },
+            hider,
+            4000,
+        );
+        expect(state.questions["1"].question.data.nullAnswer).toBeUndefined();
+        expect(state.questions["1"].question.data.within).toBe(false);
+    });
+});
+
 describe("the late-answer penalty", () => {
     const asked = (state: GameState, key: number, at: number) => {
         state = apply(

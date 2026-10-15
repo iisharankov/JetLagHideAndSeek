@@ -1,25 +1,59 @@
 import { expect, test } from "./fixtures";
 
-// Place search (Photon) as the server would answer it.
-const place = (name: string, osm_id: number, lng: number, lat: number) => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [lng, lat] },
-    properties: {
-        osm_type: "R",
-        osm_id,
-        osm_key: "place",
-        osm_value: "village",
-        type: "city",
-        name,
-        country: "Switzerland",
-        countrycode: "CH",
-        extent: [lng - 0.02, lat + 0.02, lng + 0.02, lat - 0.02],
-    },
+// Reference data as the server would serve it: the country, a canton and
+// two municipalities, as squares. The picker searches these.
+const square = (
+    minLng: number,
+    minLat: number,
+    maxLng: number,
+    maxLat: number,
+) => ({
+    type: "Polygon",
+    coordinates: [
+        [
+            [minLng, minLat],
+            [maxLng, minLat],
+            [maxLng, maxLat],
+            [minLng, maxLat],
+            [minLng, minLat],
+        ],
+    ],
 });
-const PLACES = [
-    place("Kilchberg", 1683904, 8.545, 47.32),
-    place("Adliswil", 1683900, 8.525, 47.31),
-];
+const zone = (
+    id: number,
+    level: number,
+    name: string,
+    box: [number, number, number, number],
+    extra: Record<string, string> = {},
+) => ({
+    type: "Feature",
+    id,
+    bbox: box,
+    properties: { id, admin_level: level, name, ...extra },
+    geometry: square(...box),
+});
+const collection = (features: unknown[]) => ({
+    type: "FeatureCollection",
+    features,
+});
+const DATA: Record<string, unknown> = {
+    manifest: { version: 1, built: "", bbox: [5.5, 45.6, 11, 48.1], files: {} },
+    "admin-2": collection([
+        zone(51701, 2, "Schweiz", [5.9, 45.8, 10.5, 47.8], {
+            "name:en": "Switzerland",
+            "ISO3166-1:alpha2": "CH",
+        }),
+    ]),
+    "admin-4": collection([
+        zone(1682248, 4, "Zürich", [8.3, 47.2, 9.0, 47.7], {
+            "ISO3166-2": "CH-ZH",
+        }),
+    ]),
+    "admin-8": collection([
+        zone(1683904, 8, "Kilchberg", [8.53, 47.31, 8.56, 47.33]),
+        zone(1683900, 8, "Adliswil", [8.51, 47.3, 8.54, 47.32]),
+    ]),
+};
 
 test("places added to the play area show up where the game is set up", async ({
     page,
@@ -28,15 +62,15 @@ test("places added to the play area show up where the game is set up", async ({
 }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "menus open on desktop");
     void externalHosts;
-    await page.route("**/photon/api/**", (route) => {
-        const q = new URL(route.request().url()).searchParams.get("q") ?? "";
-        return route.fulfill({
-            json: {
-                features: PLACES.filter((p) =>
-                    p.properties.name.toLowerCase().startsWith(q.toLowerCase()),
-                ),
-            },
-        });
+    await page.route("**/data/**", (route) => {
+        const name = new URL(route.request().url()).pathname
+            .split("/")
+            .pop()!
+            .replace(/\.json$/, "");
+        const body = DATA[name];
+        return body
+            ? route.fulfill({ json: body })
+            : route.fulfill({ status: 404 });
     });
     await page.route("**/overpass/api/interpreter", (route) =>
         route.fulfill({ json: { elements: [] } }),
@@ -61,7 +95,7 @@ test("places added to the play area show up where the game is set up", async ({
         await search.press("Space");
         await search.press("Backspace");
         await page
-            .getByRole("option", { name: `${name}, Switzerland` })
+            .getByRole("option", { name: `${name}, Zürich, Switzerland` })
             .click();
         await expect(bar.getByRole("combobox")).toContainText(name);
         await page.keyboard.press("Escape");

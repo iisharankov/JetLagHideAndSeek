@@ -25,6 +25,7 @@ import {
     removeFromHand,
 } from "@/lib/game/deck";
 import { questionIdentity } from "@/lib/game/questionIdentity";
+import { normalizeRest } from "@/lib/game/rest";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import {
     ANSWER_FIELDS,
@@ -118,6 +119,8 @@ export const newGameState = (
     lateAnswers: 0,
     freeQuestions: 0,
     clockRequest: null,
+    restRequest: null,
+    restWindow: null,
     deleteRequests: {},
     revealedPin: null,
     hiderName: null,
@@ -249,6 +252,9 @@ export const applyOp = (
             for (const field of ANSWER_FIELDS) {
                 if (field in op.answer) {
                     entry.question.data[field] = op.answer[field];
+                } else if (field === "nullAnswer") {
+                    // A real answer replaces an earlier null one.
+                    delete entry.question.data[field];
                 }
             }
             const firstAnswer = entry.state !== "answered";
@@ -717,6 +723,8 @@ export const applyOp = (
                 ) {
                     state.clockRequest = null;
                     state.clock = applyClockAction(state.clock, op.action, now);
+                    // Resumed early by agreement: the rest is over for the game.
+                    if (op.action === "resume") delete state.clock?.pausedBy;
                 } else if (!request || request.action !== op.action) {
                     state.clockRequest = {
                         action: op.action,
@@ -729,6 +737,46 @@ export const applyOp = (
             }
             state.clockRequest = null;
             state.clock = applyClockAction(state.clock, op.action, now);
+            break;
+        }
+        case "setRest": {
+            const rest = normalizeRest(op.rest);
+            if (op.rest !== null && rest === null) {
+                throw new GameRuleError(
+                    "Give the rest period as two clock times (22:00, 07:00).",
+                    400,
+                );
+            }
+            if (JSON.stringify(rest) === JSON.stringify(state.settings.rest)) {
+                state.restRequest = null;
+                break;
+            }
+            const request = state.restRequest;
+            const roundOn =
+                state.hiderReadyAt !== null ||
+                clockState(state.clock) !== "idle";
+            // Before the round: anyone. During it: both sides, like a pause.
+            if (
+                !roundOn ||
+                (request &&
+                    request.role !== actor.role &&
+                    JSON.stringify(request.rest) === JSON.stringify(rest))
+            ) {
+                state.settings = { ...state.settings, rest };
+                state.restRequest = null;
+                state.restWindow = null;
+            } else {
+                state.restRequest = {
+                    rest,
+                    by: actor.name,
+                    role: actor.role,
+                    at: now,
+                };
+            }
+            break;
+        }
+        case "cancelRest": {
+            state.restRequest = null;
             break;
         }
         case "setBonus": {

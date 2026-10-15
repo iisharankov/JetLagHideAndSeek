@@ -43,9 +43,17 @@ describe("regionRulesFor", () => {
         expect(rules.hiddenQuestionTypes).toEqual(["lake"]);
     });
 
+    it("gives a German play area the Swiss rules with cities of a million", () => {
+        const rules = regionRulesFor("auto", "DE");
+        expect(rules.region).toBe("germany");
+        expect(majorCityPopulation(rules)).toBe(1_000_000);
+        expect(rules.hiddenQuestionTypes).toEqual(["coastline", "seven11"]);
+    });
+
     it("lets the players override the automatic choice", () => {
         expect(regionRulesFor("standard", "CH").region).toBe("standard");
         expect(regionRulesFor("switzerland", "US").region).toBe("switzerland");
+        expect(regionRulesFor("germany", "CH").region).toBe("germany");
     });
 });
 

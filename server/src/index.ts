@@ -24,10 +24,14 @@ try {
 }
 
 // Push notifications: the server's own keys, made on the first start. The
-// app's address is where a tap on a notification opens it.
+// app's address is where a tap on a notification opens it, and it's also
+// the "subject" the push services get (who runs this server: an https:
+// address or a mailto:; they only use it to reach you if the server
+// misbehaves).
 const siteUrl = (process.env.SITE_URL ?? "").replace(/\/$/, "");
 const push = createPushService(db, loadOrCreateKeys(dataDir), {
-    subject: process.env.PUSH_CONTACT ?? "mailto:hello@example.org",
+    subject:
+        process.env.PUSH_CONTACT || siteUrl || "https://jetlag.example.org",
     appUrl: (gameId) => `${siteUrl}/?game=${gameId}`,
 });
 const games = createGameStore(db, join(dataDir, "photos"), {
@@ -46,6 +50,14 @@ const cleanup = () => {
 };
 cleanup();
 setInterval(cleanup, 24 * 3600 * 1000).unref();
+// Rest periods: the clock pauses and goes on by itself at the agreed times.
+setInterval(() => {
+    try {
+        games.tick();
+    } catch (error) {
+        console.warn(`Rest period check failed: ${error}`);
+    }
+}, 20_000).unref();
 
 serve({ fetch: app.fetch, port, hostname: "0.0.0.0" }, () =>
     console.log(`Jet Lag API listening on port ${port}, data in ${dataDir}`),

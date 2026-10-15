@@ -1,21 +1,15 @@
 // Builds the reference datasets from an OpenStreetMap extract:
 //
 //   node server/dist/build-datasets.mjs --input region.osm.pbf --output data/
-//       [--far far-places.osm.pbf]
 //
 // Needs the `osmium` command (osmium-tool); set OSMIUM to use another path.
 // Writes one JSON file per place category (Overpass-style elements), one
 // GeoJSON file of boundaries per admin level, the high-speed rail lines,
-// train lines per station, big lakes, "nearest place" maps and a
-// manifest.json describing what was built.
+// train lines per station, big lakes and a manifest.json describing what
+// was built.
 //
 // --elevation <dir> adds elevation tiles for the altitude question (from the
 // free AWS Terrain Tiles; downloaded once into <dir>, see elevation.ts).
-//
-// --far adds airports, cities and other places from a wider area (about
-// 300 km around Switzerland; see deploy/update-data.sh), so that e.g. Milan's
-// airport counts as the nearest one where it is. `--print-far-filters`
-// prints the osmium tags-filter expressions that file needs.
 import { execFileSync } from "node:child_process";
 import {
     createReadStream,
@@ -38,12 +32,10 @@ import {
     type DatasetManifest,
     LAKE_MIN_AREA_KM2,
     type LakeProperties,
-    NEAREST_SETS,
 } from "@/maps/datasets/categories";
 
 import { categoriesFor, isLake, osmIdentity, toElement } from "./elements";
 import { buildElevation, ELEVATION_ZOOMS } from "./elevation";
-import { buildNearestMaps } from "./nearest";
 import { linesByStation, trainLinesFromOpl } from "./routes";
 
 const OSMIUM = process.env.OSMIUM ?? "osmium";
@@ -105,12 +97,6 @@ const filtersFor = (categories: typeof DATASET_CATEGORIES) => [
 
 const POI_FILTERS = filtersFor(DATASET_CATEGORIES);
 
-/** Categories that "nearest place" questions use, also taken from --far. */
-const FAR_CATEGORIES = DATASET_CATEGORIES.filter((category) =>
-    NEAREST_SETS.some((set) => set.file === category.file),
-);
-const FAR_FILTERS = filtersFor(FAR_CATEGORIES);
-
 const buildPlaces = async (
     input: string,
     work: string,
@@ -170,6 +156,16 @@ const buildBoundaries = async (input: string, work: string) => {
                 admin_level: level,
                 name: feature.properties.name,
                 "name:en": feature.properties["name:en"],
+                // The country of a zone, for the rules and the labels.
+                ...(feature.properties["ISO3166-1:alpha2"]
+                    ? {
+                          "ISO3166-1:alpha2":
+                              feature.properties["ISO3166-1:alpha2"],
+                      }
+                    : {}),
+                ...(feature.properties["ISO3166-2"]
+                    ? { "ISO3166-2": feature.properties["ISO3166-2"] }
+                    : {}),
             },
             geometry: simplified,
         });
@@ -277,8 +273,6 @@ const buildTrainLines = (
     );
 };
 
-type Bbox = [number, number, number, number];
-
 /** The area an extract covers, from its header (osmium fileinfo). */
 const extractBbox = (input: string, fallback: DatasetElement[]) => {
     try {
@@ -306,18 +300,12 @@ const main = async () => {
         options: {
             input: { type: "string" },
             output: { type: "string" },
-            far: { type: "string" },
             elevation: { type: "string" },
-            "print-far-filters": { type: "boolean" },
         },
     });
-    if (values["print-far-filters"]) {
-        console.log(FAR_FILTERS.join(" "));
-        return;
-    }
     if (!values.input || !values.output) {
         console.error(
-            "Usage: build-datasets --input <file.osm.pbf> --output <dir> [--far <file.osm.pbf>] [--elevation <cache dir>]",
+            "Usage: build-datasets --input <file.osm.pbf> --output <dir> [--elevation <cache dir>]",
         );
         process.exit(2);
     }
@@ -340,23 +328,6 @@ const main = async () => {
             places.get("stations-rail") ?? [],
         );
 
-        let farPlaces: Map<string, DatasetElement[]> | null = null;
-        let far: Bbox | undefined;
-        if (values.far) {
-            console.log("Places in the wider area...");
-            farPlaces = await buildPlaces(
-                values.far,
-                work,
-                "far-places",
-                FAR_FILTERS,
-            );
-            far = extractBbox(values.far, farPlaces.get("cities") ?? []);
-        }
-
-        console.log("Nearest-place maps...");
-        for (const [name, map] of buildNearestMaps(places, farPlaces, core)) {
-            write(`voronoi-${name}`, map, map.features.length);
-        }
         for (const [file, elements] of places) {
             write(file, { elements }, elements.length);
         }
@@ -418,7 +389,6 @@ const main = async () => {
             built: new Date().toISOString(),
             bbox: core,
             files: counts,
-            ...(far ? { far } : {}),
             ...(elevation ? { elevation } : {}),
         };
         writeFileSync(join(output, "manifest.json"), JSON.stringify(manifest));

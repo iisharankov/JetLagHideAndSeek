@@ -19,7 +19,6 @@ Players' phones only ever talk to `jetlag.sharankov.com`.
 | `web`      | The app, the basemap at `/tiles/` and the reference data at `/data/`         | 18780             | `tiles/`, `datasets/`                |
 | `api`      | Share links and shared games (live updates, photos)                          | 18787             | `api/` (SQLite, `photos/`)           |
 | `overpass` | OpenStreetMap queries (which canton, museums…)                               | 18781             | `overpass/`, `osm/`                  |
-| `photon`   | Place search                                                                 | 18782             | `photon/`                            |
 | `updater`  | Downloads fresh map data and builds the reference data, only when you run it | –                 | writes `osm/`, `datasets/`, `tiles/` |
 
 The map covers Switzerland plus about 30 km into each neighbour, from
@@ -33,13 +32,9 @@ served compressed). The app answers every question type from these files,
 with no live query, and only falls back to Overpass outside the covered area.
 Overpass stays as that fallback.
 
-**Places further away:** for "nearest airport / city / museum" questions,
-places up to about 300 km away count too (Milan's airports are the nearest
-ones in parts of Ticino). The first refresh downloads the neighbouring regions
-one at a time (about 6.5 GB in total), keeps only those places
-(`osm/far-places.osm.pbf`, small) and deletes each download. Later refreshes
-reuse that file; run `REFRESH_FAR=1 deploy/refresh-data.sh` to renew it, e.g.
-once a year.
+**Only the play area counts:** the rulebook says places outside it don't
+exist, so the pack holds only what's inside the box and nothing from further
+away is downloaded.
 
 **Which airports count** as commercial is a hand-made list you can edit:
 `src/maps/datasets/airports.ts`. After changing it, rebuild (`docker compose
@@ -64,11 +59,11 @@ once a year.
 5. **Start everything:**
     ```bash
     docker compose up -d
-    docker compose logs -f overpass photon   # Ctrl-C to stop watching
+    docker compose logs -f overpass   # Ctrl-C to stop watching
     ```
-    On the first start Overpass imports the map data (roughly an hour) and
-    Photon imports the place-search data (around 15 minutes). The app works
-    meanwhile, but questions and search fail until the imports finish.
+    On the first start Overpass imports the map data (roughly an hour). The
+    app works meanwhile: questions and place search come from the reference
+    data; only the Overpass fallback waits.
 6. **Check each service from the server:**
     ```bash
     curl -s localhost:18787/api/health                                   # {"ok":true}
@@ -93,8 +88,8 @@ deploy/refresh-data.sh
 ```
 
 It downloads new extracts and rebuilds the reference data and the databases.
-Questions keep working from the reference data, but place search and the
-Overpass fallback are down for about an hour: don't run it on a game day. To schedule it (04:00 on the
+Questions and place search keep working from the reference data, but the
+Overpass fallback is down for about an hour: don't run it on a game day. To schedule it (04:00 on the
 1st of each month), add this to your crontab:
 
 ```
@@ -112,8 +107,9 @@ Phones pick up the new version the next time the app is opened.
 ## Changing the region
 
 Set `BBOX` (and the Geofabrik `REGIONS` list in `update-data.sh`) to cover the
-new area, then run `refresh-data.sh`. Place search uses one Photon dump,
-set by `PHOTON_DUMP_URL` in `photon-entrypoint.sh`.
+new area, then run `refresh-data.sh`. Place search comes from the reference
+data, so it follows the box. What Bern and Munich need, step by step:
+[docs/areas.md](../docs/areas.md).
 
 ## The privacy policy and external services
 
@@ -127,8 +123,8 @@ OpenStreetMap base map). To allow one, add its host to `connect-src`
 
 - **"Map data unavailable"**: Overpass is still importing or has stopped.
   Check `docker compose logs overpass`.
-- **Search finds nothing**: Photon is still importing; check
-  `docker compose logs photon`.
+- **Search finds nothing**: the reference data isn't built yet
+  (`curl localhost:18780/data/manifest.json`); run the updater.
 - **The installed app keeps showing the login page**: the Authelia session
   expired. Log in once in the browser, then reopen the app.
 

@@ -12,7 +12,6 @@ import {
 
 // Reference data around Basel: the EuroAirport is in France, just outside a
 // play area drawn around the city; Zürich's airport is far to the east.
-// (The made-up "nearest airport" map splits the area at 7.8°E.)
 const files = vi.hoisted(() => {
     const box = (
         minLng: number,
@@ -55,33 +54,6 @@ const files = vi.hoisted(() => {
                     id: 2,
                     center: { lat: 47.458, lon: 8.555 },
                     tags: { aeroway: "aerodrome", iata: "ZRH", name: "Zürich" },
-                },
-            ],
-        },
-        "voronoi-airports": {
-            type: "FeatureCollection",
-            features: [
-                {
-                    type: "Feature",
-                    bbox: [5.5, 45.6, 7.8, 48.1],
-                    properties: {
-                        key: "way/1",
-                        name: "EuroAirport",
-                        lat: 47.59,
-                        lon: 7.529,
-                    },
-                    geometry: box(5.5, 45.6, 7.8, 48.1),
-                },
-                {
-                    type: "Feature",
-                    bbox: [7.8, 45.6, 11, 48.1],
-                    properties: {
-                        key: "way/2",
-                        name: "Zürich",
-                        lat: 47.458,
-                        lon: 8.555,
-                    },
-                    geometry: box(7.8, 45.6, 11, 48.1),
                 },
             ],
         },
@@ -141,31 +113,52 @@ const contains = (region: any, lng: number, lat: number) =>
 
 beforeEach(() => mapGeoJSON.set(playArea as any));
 
-describe("airport questions count airports outside the play area", () => {
-    it("measuring: closer to the nearest airport, which is in France", async () => {
+describe("airport questions count only airports inside the play area", () => {
+    it("measuring: no airport inside the play area is a null answer", async () => {
         const q = question<MeasuringQuestion>("measuring", {
             type: "airport",
             lat: 47.55,
-            lng: 7.75, // ~17 km from the EuroAirport
+            lng: 7.75,
             hiderCloser: true,
         });
-        const result = await adjustPerMeasuring(q, playArea);
-
-        expect(contains(result, 7.56, 47.6)).toBe(true); // ~2 km from it
-        expect(contains(result, 7.94, 47.51)).toBe(false); // ~32 km
+        await expect(adjustPerMeasuring(q, playArea)).rejects.toThrow(
+            /null answer/,
+        );
     });
 
-    it("matching: same nearest airport, from the pre-computed map", async () => {
+    it("measuring: closer to the nearest airport inside the area", async () => {
+        const area = turf.featureCollection([
+            turf.bboxPolygon([7.5, 47.3, 8.8, 47.7]),
+        ]);
+        mapGeoJSON.set(area as any);
+        // ~17 km from the EuroAirport (inside), ~60 km from Zürich's.
+        const q = question<MeasuringQuestion>("measuring", {
+            type: "airport",
+            lat: 47.55,
+            lng: 7.75,
+            hiderCloser: true,
+        });
+        const result = await adjustPerMeasuring(q, area);
+
+        expect(contains(result, 7.56, 47.6)).toBe(true); // ~2 km from it
+        expect(contains(result, 8.0, 47.55)).toBe(false); // ~36 km
+    });
+
+    it("matching: same nearest airport, from the airports inside the area", async () => {
+        const area = turf.featureCollection([
+            turf.bboxPolygon([7.5, 47.3, 8.8, 47.7]),
+        ]);
+        mapGeoJSON.set(area as any);
         const q = question<MatchingQuestion>("matching", {
             type: "airport",
             lat: 47.55,
             lng: 7.75,
             same: true,
         });
-        const result = await adjustPerMatching(q, playArea);
+        const result = await adjustPerMatching(q, area);
 
         expect(contains(result, 7.7, 47.6)).toBe(true); // EuroAirport side
-        expect(contains(result, 7.9, 47.6)).toBe(false); // Zürich side
+        expect(contains(result, 8.5, 47.5)).toBe(false); // Zürich side
     });
 });
 
@@ -182,6 +175,22 @@ describe("lake shore question", () => {
         expect(contains(result, 7.63, 47.53)).toBe(true); // ~0.8 km
         expect(contains(result, 7.61, 47.53)).toBe(true); // on the lake
         expect(contains(result, 7.75, 47.6)).toBe(false); // ~11 km
+    });
+
+    it("is a null answer when no big lake reaches into the play area", async () => {
+        const area = turf.featureCollection([
+            turf.bboxPolygon([7.7, 47.5, 7.95, 47.65]),
+        ]);
+        mapGeoJSON.set(area as any);
+        const q = question<MeasuringQuestion>("measuring", {
+            type: "lake",
+            lat: 47.53,
+            lng: 7.75,
+            hiderCloser: true,
+        });
+        await expect(adjustPerMeasuring(q, area)).rejects.toThrow(
+            /null answer/,
+        );
     });
 
     it("ignores lakes smaller than the size set for the game", async () => {

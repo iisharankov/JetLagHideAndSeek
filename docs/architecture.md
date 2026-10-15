@@ -1,6 +1,6 @@
 # Architecture
 
-How the app works **as of round 12** (2026-10-10). Status and what's left are
+How the app works **as of round 18** (2026-10-15). Status and what's left are
 in [plan.md](plan.md); the audits are [audit-2026-10.md](audit-2026-10.md)
 (current) and [audit.md](audit.md) (round 2, history).
 
@@ -11,7 +11,7 @@ Phone (installable web app)                 Your server (Docker, behind host ngi
   React islands on an Astro page   ──────►  web       the app + /tiles/basemap.pmtiles + /data/
   Leaflet map, Protomaps basemap   ──────►  api       /api/share, /api/games (SQLite, photos, live updates)
   question engine (Turf + ArcGIS)  ──────►  overpass  /overpass/api/interpreter (Swiss OSM data)
-  service worker (app shell)       ──────►  photon    /photon/api/ (place search)
+  service worker (app shell)
 ```
 
 The browser talks to no other host. The production nginx sends a
@@ -61,7 +61,7 @@ src/
     activeQuestion.ts       which question draws its reference places
     jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
     format.ts               "3 min ago", "14:05": the panels' shared formatters
-    placeRules.ts           which places count: rejections, duplicates, unnamed places
+    placeRules.ts           which places count: inside the play area, the kind rules, rejections, duplicates
     sharedGame.ts           a game's play area and zone settings: names, checks, applying
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
@@ -83,9 +83,9 @@ src/
     elevation.ts            ground height from the elevation tiles (altitude question)
     datasets/               reading the reference data; airports.ts, stations.ts (unreachable ones)
     questions/*.ts          per question type: adjust map, hider mode, planning outline
-    questions/places.ts     airports / big cities / places of a type, incl. across the border
+    questions/places.ts     airports / big cities / places of a type inside the play area; the null answer when none
     api/overpass*.ts        Overpass queries and the client (fallbacks, cache, remarks)
-    api/geocode.ts          Photon place search
+    api/geocode.ts          place search over the reference data (zones, stations, places)
   components/
     islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar, TutorialDialog
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline
@@ -153,22 +153,22 @@ Map questions are answered from pre-built files instead of live queries.
 | File                        | What                                                                                                             | Used by                                                     |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `<category>.json`           | Overpass-shaped places: POIs, airports (only those on `airports.ts`), cities, stations, brands                   | places in the play area, tentacles, hiding zones            |
-| `voronoi-<set>.json`        | for each place type, airports and cities of 100k / 1M people: the part of the covered area nearest to each place | matching ("same nearest X?"): the seeker's cell is the answer |
 | `admin-<level>.json`        | boundaries with bbox                                                                                             | zone questions, admin-border measuring                      |
 | `train-lines.json`          | train lines (OSM `route=train`) stopping at each station                                                         | "same train line"                                           |
 | `lakes.json`                | lakes of 10 km² or more, with their area                                                                         | lake shore measuring                                        |
 | `highspeed.json`            | high-speed lines                                                                                                 | high-speed measuring                                        |
 | `elevation/<z>/<x>/<y>.i16` | ground height in metres, 256 × 256 per web-map tile, zooms 9–11, from AWS Terrain Tiles                         | altitude question                                           |
-| `manifest.json`             | covered area, counts, the wider area if built with it                                                            | coverage checks                                             |
+| `manifest.json`             | covered area, counts                                                            | coverage checks                                             |
 
-**Places across the border.** With `--far far-places.osm.pbf` (airports,
-cities and POIs within ~300 km, see `deploy/update-data.sh`), the builder
-computes spherical Voronoi cells over all places, keeps the far places whose
-cell reaches into the covered area and adds them to the category files. So
-"nearest airport" can be Basel-Mulhouse or Milan, and the category files are
-complete for any nearest-place question inside the covered area. Measuring
-questions take every place within the seeker's distance of the play area
-(`datasets.placesForMeasuring`).
+**Only the play area counts.** The rulebook: places outside the play area
+don't exist. So every place question (nearest airport, city, zoo, museum…,
+the lake shore, McDonald's) works from the places inside it
+(`questions/places.ts`, `lib/placeRules.ts`), and none inside is the
+_null answer_: offered first on the hider's card, sent like any other
+answer, and it rules nothing out. The "same nearest X?" answer is a Voronoi
+diagram over those places, computed on the phone (the 400 nearest at most).
+The pack therefore holds only what's inside its box: no far places, no
+pre-computed nearest-place maps.
 
 `src/maps/datasets/` answers questions from these files. When they can't
 answer (outside the covered area, or no file for a filter) it returns
@@ -184,7 +184,6 @@ grid distance maps (`src/maps/distanceRegion.ts`) instead of buffering.
 | Places, stations, borders | reference files, else Overpass `nwr[...](area...)`, `way(r)`     | Cache Storage, and in memory per play area |
 | Admin levels at a point   | reference files, else Overpass `is_in`                           | Cache Storage                              |
 | Basemap                   | HTTP range requests into `/tiles/basemap.pmtiles`                | browser HTTP cache                         |
-| Place search              | Photon `/photon/api/?q=...`                                      | no                                         |
 | Share links               | `POST /api/share`, `GET /api/share/:id`                          | no                                         |
 | Shared games              | `/api/games/...` (see below), a server-sent-events stream        | no                                         |
 
@@ -246,11 +245,22 @@ progress, the hider's spot, and earlier rounds.
   (`hiderReady`): the seekers hear that, the clock starts. Before that the
   hider's Research tab holds `research` questions: never synced, answered
   from the tapped station or the pin, deleted on Done.
-- **Which places count** (`lib/placeRules.ts`): places rejected while
-  setting up (kept per play area on the phone, carried in the game's
-  settings) are out of every question, and duplicates (same name, within
-  300 m) are one place. Rejections bypass the pre-computed nearest-place
-  maps for that kind; the answer is then computed from the place list.
+- **Which places count** (`lib/placeRules.ts`): only places inside the
+  play area (the rulebook); of those, the named ones that fit their kind's
+  built-in rules (a "zoo" must say zoo, Tierpark, Wildpark…; no indoor golf,
+  toy libraries, visa centres, tiny parks) less the two places dropped after
+  a look by hand; the same place listed several times (same name, within
+  300 m; "West" and "Ost" parts within 1 km) is one place; and the places
+  the players rejected while setting up (kept per play area on the phone,
+  carried in the game's settings) are out of every question. Settings →
+  Places shows the counts and opens the review on the map.
+- **Rest periods** (`lib/game/rest.ts`, shared): a game setting (from,
+  until, time zone). The server's `games.tick` runs every 20 s over the
+  games touched in the last days: at the start of a rest it pauses the
+  clock (`clock.pausedBy = "rest"`, once per rest, so an early resume by
+  agreement holds) and at the end resumes it; the phones only show it.
+  While the clock rests the server refuses questions. Changing the rest
+  during a round is a `setRest` request the other side must repeat.
 - **The curses** (`curseRules.ts`, shared with the server): which curses
   stop the seekers from asking until cleared, which take questions away
   (the Drained Brain's three, the Spotty Memory's die), which end by

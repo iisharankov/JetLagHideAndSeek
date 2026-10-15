@@ -23,7 +23,6 @@ import {
     type PlaceKind,
     placesForMeasuring,
     placesToShow,
-    seekerNearestCell,
 } from "@/maps/questions/places";
 import type { Question } from "@/maps/schema";
 import { stationSignName } from "@/maps/stationNames";
@@ -69,17 +68,7 @@ const placeReference = async (
     candidates: () => Promise<Feature<Point>[]>,
 ): Promise<QuestionReference> => {
     const points = await candidates();
-    const cell = await seekerNearestCell(kind, seeker).catch(() => undefined);
-    return {
-        star: cell
-            ? {
-                  lat: cell.properties!.lat,
-                  lng: cell.properties!.lon,
-                  name: cell.properties!.name,
-              }
-            : nearestOf(seeker, points),
-        dots: points.map(toPlace),
-    };
+    return { star: nearestOf(seeker, points), dots: points.map(toPlace) };
 };
 
 const zoneReference = async (
@@ -180,7 +169,7 @@ const computeReference = async (
         const data = question.data;
         const kind = measuringPlaceKind(data);
         if (kind) {
-            const points = await placesForMeasuring(kind, data);
+            const points = await placesForMeasuring(kind);
             return { star: nearestOf(data, points), dots: points.map(toPlace) };
         }
         if (data.type === "admin-measure") {

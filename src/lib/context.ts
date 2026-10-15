@@ -265,9 +265,9 @@ export const setupDialog = atom<"solo" | "start" | null>(null);
 export const playAreaEditing = atom<"solo" | "start" | false>(false);
 /** The drawing tools for the play area are on the map. */
 export const playAreaDrawing = atom<boolean>(false);
-/** Reviewing the map's places (game setup): which kind, and which setup to come back to. */
+/** Reviewing the map's places: which kind, and where to come back to (a game setup, or Settings). */
 export const placeReview = atom<{
-    back: "solo" | "start";
+    back: "solo" | "start" | "settings";
     kind: string;
 } | null>(null);
 

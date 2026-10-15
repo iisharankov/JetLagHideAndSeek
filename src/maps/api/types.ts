@@ -20,6 +20,8 @@ export interface OpenStreetMapProperties {
     extent?: number[];
     country?: string;
     state?: string;
+    /** The municipality, for a station or place (not a zone). */
+    city?: string;
     osm_key: string;
     countrycode: string;
     osm_value: string;

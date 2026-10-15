@@ -138,7 +138,6 @@ const apiLocationSchema = z.union([
     z.literal("golf_course"),
     z.literal("consulate"),
     z.literal("park"),
-    z.literal("peak"),
     tentacleLocationsFifteen,
     tentacleLocationsOne,
 ]);
@@ -207,6 +206,8 @@ export const tentacleQuestionSchema = z.union([
 const baseMatchingQuestionSchema = ordinaryBaseQuestionSchema.extend({
     same: z.boolean().default(true),
     lengthComparison: z.enum(["shorter", "longer", "same"]).optional(),
+    /** The rulebook's null answer: no such place inside the play area. */
+    nullAnswer: z.boolean().optional(),
 });
 
 const ordinaryMatchingQuestionSchema = baseMatchingQuestionSchema.extend({
@@ -225,9 +226,6 @@ const ordinaryMatchingQuestionSchema = baseMatchingQuestionSchema.extend({
             z
                 .literal("theme_park-full")
                 .describe("Theme Park Question (Small+Medium Games)"),
-            z
-                .literal("peak-full")
-                .describe("Mountain Question (Small+Medium Games)"),
             z
                 .literal("museum-full")
                 .describe("Museum Question (Small+Medium Games)"),
@@ -310,6 +308,8 @@ export const matchingQuestionSchema = z.union([
 
 const baseMeasuringQuestionSchema = ordinaryBaseQuestionSchema.extend({
     hiderCloser: z.boolean().default(true),
+    /** The rulebook's null answer: no such place inside the play area. */
+    nullAnswer: z.boolean().optional(),
 });
 
 const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
@@ -337,9 +337,6 @@ const ordinaryMeasuringQuestionSchema = baseMeasuringQuestionSchema.extend({
             z
                 .literal("theme_park-full")
                 .describe("Theme Park Question (Small+Medium Games)"),
-            z
-                .literal("peak-full")
-                .describe("Mountain Question (Small+Medium Games)"),
             z
                 .literal("museum-full")
                 .describe("Museum Question (Small+Medium Games)"),

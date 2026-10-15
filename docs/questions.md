@@ -9,18 +9,7 @@ Decisions are listed at the end.
 
 ## Open questions
 
-**Q38.** Rest periods. The rulebook suggests agreed rest periods in long
-games. A shared "rest" switch that pauses the clock and freezes questions?
-_Recommended: later, if you play large games._
-
-**Answer:** Later, for large games; we only play over one day for now.
-
-**Q40.** Push notifications need a contact address for the browsers' push
-services (they may write to it if the server misbehaves). It's
-`PUSH_CONTACT` in `deploy/docker-compose.yml`, a `mailto:`; which address?
-_Recommended: an alias you read._
-
-**Answer:**
+None at the moment.
 
 ---
 
@@ -184,4 +173,14 @@ From your earlier answers (rounds 1–4), already built or planned:
   no discards unless over the hand limit. The hider's pin is fixed once
   the end game is on at their station and shown to the seekers after the
   round; one version of each place question; places can be reviewed and
-  rejected before a game, duplicates merged.
+  rejected before a game, duplicates merged. Later in round 17: places
+  outside the play area don't exist (the rulebook's null answer, first on
+  the hider's card for place questions); mountains are gone; built-in
+  kind rules and two hand-checked drops; Settings → Places; no far places
+  or nearest-place maps in the data build; German, Austrian, French and
+  Italian zone labels; [areas.md](areas.md) for Bern and Munich.
+- **Round 18 (Q38, Q40–Q42):** rest periods as a game setting (the clock
+  pauses and goes on by itself; changed during a round by agreement);
+  place search from the reference data instead of Photon (one service
+  fewer, any box works); a German rule set; the push "contact" is the
+  site's address, no email needed.

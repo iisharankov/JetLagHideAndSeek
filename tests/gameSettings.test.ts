@@ -75,6 +75,32 @@ describe("game settings", () => {
         expect(fixed.minLakeAreaKm2).toBe(10);
         expect(fixed.disabledQuestions).toEqual(["measuring:lake"]);
         expect(fixed.seekersCanAnswer).toBe(false);
+        expect(fixed.rest).toBeNull();
+        expect(normalizeGameSettings({ region: "germany" }).region).toBe(
+            "germany",
+        );
+        expect(
+            normalizeGameSettings({
+                rest: {
+                    from: "22:00",
+                    until: "07:00",
+                    timeZone: "Europe/Zurich",
+                },
+            }).rest,
+        ).toEqual({ from: "22:00", until: "07:00", timeZone: "Europe/Zurich" });
+        expect(
+            normalizeGameSettings({ rest: { from: "22:00" } }).rest,
+        ).toBeNull();
+    });
+
+    it("gives Germany the Swiss question list and the rulebook's tentacles", () => {
+        const german = defaultGameSettings("medium", "germany");
+        expect(german.disabledQuestions).toEqual([
+            ...ALWAYS_OFF,
+            "measuring:coastline",
+            "measuring:seven11",
+        ]);
+        expect(german.tentacleKm).toEqual([2, 25]);
     });
 
     it("keeps the deck's composition within reason", () => {

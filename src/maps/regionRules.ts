@@ -1,9 +1,9 @@
 // Local adaptations of the standard (US-centred) Jet Lag question set.
 
-export type RegionChoice = "auto" | "standard" | "switzerland";
+export type RegionChoice = "auto" | "standard" | "switzerland" | "germany";
 
 export interface RegionRules {
-    region: "standard" | "switzerland";
+    region: "standard" | "switzerland" | "germany";
     /** Question types that can't apply in the region; hidden from the menus. */
     hiddenQuestionTypes: string[];
 }
@@ -20,15 +20,27 @@ const SWITZERLAND: RegionRules = {
     hiddenQuestionTypes: ["coastline", "seven11"],
 };
 
-/** "auto" picks Swiss rules when the play area is in Switzerland. */
+/** Munich and the like: the Swiss rules, but cities of a million. */
+const GERMANY: RegionRules = {
+    region: "germany",
+    hiddenQuestionTypes: ["coastline", "seven11"],
+};
+
+const BY_COUNTRY: Record<string, RegionRules> = {
+    CH: SWITZERLAND,
+    DE: GERMANY,
+};
+
+/** "auto" picks the rules by the play area's country. */
 export const regionRulesFor = (
     choice: RegionChoice,
     countryCode?: string,
-): RegionRules =>
-    choice === "switzerland" ||
-    (choice === "auto" && countryCode?.toUpperCase() === "CH")
-        ? SWITZERLAND
-        : STANDARD;
+): RegionRules => {
+    if (choice === "switzerland") return SWITZERLAND;
+    if (choice === "germany") return GERMANY;
+    if (choice === "standard") return STANDARD;
+    return BY_COUNTRY[countryCode?.toUpperCase() ?? ""] ?? STANDARD;
+};
 
 /** No Swiss city has a million people; Switzerland has six above 100,000. */
 export const majorCityPopulation = (rules: RegionRules) =>

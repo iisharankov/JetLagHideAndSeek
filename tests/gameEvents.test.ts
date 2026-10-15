@@ -31,6 +31,8 @@ const base = (): GameState => ({
     lateAnswers: 0,
     freeQuestions: 0,
     clockRequest: null,
+    restRequest: null,
+    restWindow: null,
     deleteRequests: {},
     revealedPin: null,
     hiderName: null,

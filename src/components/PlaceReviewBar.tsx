@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { placeReview, setupDialog } from "@/lib/context";
+import { menuOpen, placeReview, setupDialog } from "@/lib/context";
 import {
     localRejections,
     rejectedPlacesByArea,
@@ -19,7 +19,7 @@ import {
 /**
  * Reviewing the map's places before a game, over the map: every zoo, park,
  * museum… the questions use, to reject the wrong ones. Opened from game
- * setup, and goes back to it.
+ * setup or from Settings → Places, and goes back there.
  */
 export const PlaceReviewBar = ({ className }: { className?: string }) => {
     const $review = useStore(placeReview);
@@ -33,7 +33,8 @@ export const PlaceReviewBar = ({ className }: { className?: string }) => {
 
     const done = () => {
         placeReview.set(null);
-        setupDialog.set($review.back);
+        if ($review.back === "settings") menuOpen.set(true);
+        else setupDialog.set($review.back);
     };
 
     return (
@@ -52,6 +53,9 @@ export const PlaceReviewBar = ({ className }: { className?: string }) => {
                 and reject what&apos;s wrong (a &quot;zoo&quot; that&apos;s a
                 pet shop). The same place listed several times is shown once.
                 Rejections are kept for this play area and go into the game.
+                Built-in rules already leave out unnamed places and the
+                mis-tagged (pet corners as zoos, indoor golf, toy libraries);
+                those aren&apos;t shown.
             </p>
             <Select
                 trigger="Kind of place"

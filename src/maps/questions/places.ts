@@ -1,13 +1,20 @@
 import * as turf from "@turf/turf";
-import type { Feature, MultiPolygon, Point, Polygon } from "geojson";
+import type {
+    Feature,
+    FeatureCollection,
+    MultiPolygon,
+    Point,
+    Polygon,
+} from "geojson";
 import _ from "lodash";
 
 import { mapGeoJSON, regionRules } from "@/lib/context";
+import type { RejectedPlace } from "@/lib/game/types";
 import {
     applyPlaceRules,
-    hasRejections,
+    fitsKind,
     mergeDuplicates,
-    named,
+    rejections,
 } from "@/lib/placeRules";
 import {
     findPlacesInZone,
@@ -22,27 +29,29 @@ import {
     majorCityPopulation,
     populationAtLeastRegex,
 } from "@/maps/regionRules";
-import type { APILocations } from "@/maps/schema";
+import type { APILocations, PlaceQuery } from "@/maps/schema";
 
 // Places that matching and measuring questions compare against ("the
-// nearest commercial airport", "the nearest museum"). Someone's nearest place
-// can be outside the play area, even in another country, so these come from
-// the reference data, which includes places around Switzerland. Without it
-// they fall back to the places inside the play area.
-//
-// An empty or unusable list is "not applicable", not an error, and the
-// reason shows on the question card.
+// nearest commercial airport", "the nearest museum"). The rulebook: places
+// outside the play area don't exist, so only those inside count: from the
+// pre-built pack when it covers the area, else from Overpass. No place of a
+// kind inside the area makes the question a null answer (the hider still
+// draws), and the reason shows on the question card.
 
-type Bbox = [number, number, number, number];
-
-const toPoint = (element: any) =>
-    turf.point(
+const toPoint = (element: any) => {
+    const tags = element.tags ?? {};
+    const area = Number(tags.area_m2);
+    return turf.point(
         [
             element.center ? element.center.lon : element.lon,
             element.center ? element.center.lat : element.lat,
         ],
-        { name: element.tags?.name ?? element.tags?.["name:en"] },
+        {
+            name: tags.name ?? tags["name:en"],
+            ...(Number.isFinite(area) && area > 0 ? { areaM2: area } : {}),
+        },
     );
+};
 
 export const commercialAirports = async () => {
     const { elements } = await findPlacesInZone(
@@ -78,7 +87,7 @@ export const majorCities = async () => {
 /** Above this, nearest-place maps get too slow to compute in the browser. */
 const MAX_PLACES = 5000;
 
-/** Every place of a type in the play area (small/medium-game questions). */
+/** Every place of a type in the play area, from Overpass. */
 export const allPlacesOfType = async (location: APILocations) => {
     const plural = prettifyLocation(location, true).toLowerCase();
     const { elements } = await findPlacesInZone(
@@ -91,7 +100,7 @@ export const allPlacesOfType = async (location: APILocations) => {
     );
     if (elements.length >= MAX_PLACES) {
         throw new NotApplicableError(
-            `Too many ${plural} (${elements.length}) for this version of the question. Turn on hiding zones and use the large-game version instead.`,
+            `Too many ${plural} (${elements.length}) for this question in so large a play area.`,
         );
     }
     if (elements.length === 0) {
@@ -106,20 +115,18 @@ export const allPlacesOfType = async (location: APILocations) => {
 export type PlaceKind = "airport" | "city" | APILocations;
 
 interface PlaceSet {
-    /** Dataset file and "nearest place" map (see NEAREST_SETS). */
-    file: string;
-    set: string;
+    /** The Overpass-style filter the pack answers (see datasets/index.ts). */
+    filters: string[];
     accept?: (tags: Record<string, string>) => boolean;
     plural: string;
-    /** The same places from the play area only (Overpass). */
+    /** The same places from the play area only, from Overpass. */
     inPlayArea: () => Promise<Feature<Point>[]>;
 }
 
 const placeSet = (kind: PlaceKind): PlaceSet => {
     if (kind === "airport") {
         return {
-            file: "airports",
-            set: "airports",
+            filters: ['["aeroway"="aerodrome"]["iata"]'],
             accept: (tags) => isCommercialAirport(tags.iata),
             plural: "commercial airports",
             inPlayArea: commercialAirports,
@@ -128,104 +135,81 @@ const placeSet = (kind: PlaceKind): PlaceSet => {
     if (kind === "city") {
         const minimum = majorCityPopulation(regionRules.get());
         return {
-            file: "cities",
-            set: `cities-${minimum}`,
+            filters: ["[place=city]"],
             accept: (tags) => populationOf(tags) >= minimum,
             plural: `cities with ${minimum.toLocaleString("en-US")}+ people`,
             inPlayArea: majorCities,
         };
     }
     return {
-        file: `poi-${kind}`,
-        set: `poi-${kind}`,
+        filters: [`[${LOCATION_FIRST_TAG[kind]}=${kind}]`],
         plural: prettifyLocation(kind, true).toLowerCase(),
         inPlayArea: () => allPlacesOfType(kind),
     };
 };
 
-const playAreaBbox = () => {
-    const area = mapGeoJSON.get();
-    return area ? (turf.bbox(area) as Bbox) : null;
+const playArea = () =>
+    mapGeoJSON.get() as FeatureCollection<Polygon | MultiPolygon> | null;
+
+/** Every place of a kind inside the play area, as the map data lists it. */
+const rawPlaces = async (kind: PlaceKind): Promise<Feature<Point>[]> => {
+    const places = placeSet(kind);
+    const area = playArea();
+    if (!area) return [];
+    const elements = await datasets.placesInZone(places.filters, area);
+    if (elements) {
+        return elements
+            .filter((element) => !places.accept || places.accept(element.tags))
+            .map(toPoint);
+    }
+    try {
+        return await places.inPlayArea();
+    } catch (error) {
+        if (error instanceof NotApplicableError) return [];
+        throw error;
+    }
 };
 
-/** Places for "closer to / further from the nearest X than me?". */
-export const placesForMeasuring = async (
+/**
+ * The places of a kind the questions count: those inside the play area,
+ * mis-tagged and unnamed ones dropped, duplicates merged, rejected places
+ * left out.
+ */
+export const placesInPlayArea = async (
     kind: PlaceKind,
-    seeker: { lat: number; lng: number },
-): Promise<Feature<Point>[]> => {
-    const places = placeSet(kind);
-    const bbox = playAreaBbox();
-    const elements = bbox
-        ? await datasets.placesForMeasuring(
-              places.file,
-              places.accept,
-              bbox,
-              seeker,
-          )
-        : null;
-    if (elements === null) {
-        return applyPlaceRules(kind, await places.inPlayArea());
-    }
-    const points = applyPlaceRules(kind, elements.map(toPoint));
+    rejected: RejectedPlace[] = rejections(),
+) => applyPlaceRules(kind, await rawPlaces(kind), rejected);
+
+/** Places to draw on the map for a question. */
+export const placesToShow = placesInPlayArea;
+
+/** The places a question needs, or the rulebook's null answer. */
+export const requirePlaces = async (kind: PlaceKind) => {
+    const points = await placesInPlayArea(kind);
     if (points.length === 0) {
         throw new NotApplicableError(
-            `There are no ${places.plural} in or near the play area.`,
+            `No ${placeSet(kind).plural} inside the play area: the rulebook makes this a null answer.`,
         );
     }
     return points;
 };
 
-/**
- * Where the seeker's nearest X is also the nearest one ("is your nearest X
- * the same as mine?"), from the pre-computed maps. Undefined when there's no
- * map for this area, so the caller computes it from `placesInPlayArea`.
- */
-export const seekerNearestCell = async (
-    kind: PlaceKind,
-    seeker: { lat: number; lng: number },
-): Promise<Feature<Polygon | MultiPolygon> | undefined> => {
-    const places = placeSet(kind);
-    const bbox = playAreaBbox();
-    // Rejected places aren't in the pre-computed maps: computed instead.
-    if (!bbox || hasRejections(kind) || !(await datasets.covers(bbox)))
-        return undefined;
-    const cell = await datasets.nearestCell(places.set, seeker.lat, seeker.lng);
-    if (cell === null) {
-        throw new NotApplicableError(
-            `There are no ${places.plural} in or near the play area.`,
-        );
-    }
-    return cell;
-};
-
-/** Every place of a kind the map data has for the play area, as listed. */
-const rawPlaces = async (kind: PlaceKind): Promise<Feature<Point>[]> => {
-    const places = placeSet(kind);
-    const bbox = playAreaBbox();
-    const cells =
-        bbox && (await datasets.covers(bbox))
-            ? await datasets.cellsIn(places.set, bbox)
-            : undefined;
-    if (cells) {
-        return cells.map((cell) =>
-            turf.point([cell.properties.lon, cell.properties.lat], {
-                name: cell.properties.name,
-            }),
-        );
-    }
-    return places.inPlayArea();
-};
+/** Places for "closer to / further from the nearest X than me?". */
+export const placesForMeasuring = (kind: PlaceKind) => requirePlaces(kind);
 
 /**
- * The places of a kind the questions count: every place whose "nearest"
- * area reaches into the play area (or else those inside it), duplicates
- * merged and rejected places left out.
+ * The place of a type nearest to a point, among those that count (with its
+ * `distanceToPoint` in km); the rulebook's null answer when there's none.
  */
-export const placesInPlayArea = async (kind: PlaceKind) =>
-    applyPlaceRules(kind, await rawPlaces(kind));
-
-/** Places to draw on the map for a question. */
-export const placesToShow = placesInPlayArea;
+export const nearestToQuestion = async (question: PlaceQuery) => {
+    const places = await requirePlaces(question.type);
+    const from = turf.point([question.lng, question.lat]);
+    const nearest = turf.nearestPoint(from, turf.featureCollection(places));
+    return turf.point(nearest.geometry.coordinates, {
+        name: nearest.properties.name as string | undefined,
+        distanceToPoint: nearest.properties.distanceToPoint as number,
+    });
+};
 
 /** The kinds of place the players can review before a game. */
 export const REVIEW_KINDS: PlaceKind[] = [
@@ -241,7 +225,6 @@ export const REVIEW_KINDS: PlaceKind[] = [
     "golf_course",
     "consulate",
     "park",
-    "peak",
 ];
 
 export const reviewKindLabel = (kind: PlaceKind) => {
@@ -249,9 +232,14 @@ export const reviewKindLabel = (kind: PlaceKind) => {
     return plural.charAt(0).toUpperCase() + plural.slice(1);
 };
 
-/** For the review: every place of a kind, duplicates merged, rejected ones included. */
+/**
+ * For the review: every place of a kind inside the play area that fits
+ * its kind, duplicates merged, rejected ones included.
+ */
 export const reviewPlaces = async (kind: PlaceKind) => {
-    const raw = (await rawPlaces(kind)).filter(named);
+    const raw = (await rawPlaces(kind)).filter((point) =>
+        fitsKind(kind, point),
+    );
     const places = mergeDuplicates(raw);
     return { places, merged: raw.length - places.length };
 };

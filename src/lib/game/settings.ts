@@ -1,5 +1,6 @@
 // The settings of a game, decided before it starts (Menu → Game) and fixed
 // while it runs. Shared with the server, which enforces the lock.
+import { normalizeRest } from "./rest";
 import type {
     CustomCard,
     GameSettings,
@@ -43,7 +44,6 @@ export const PLACE_TYPES = [
     "aquarium",
     "zoo",
     "theme_park",
-    "peak",
     "museum",
     "hospital",
     "cinema",
@@ -53,23 +53,27 @@ export const PLACE_TYPES = [
     "park",
 ];
 
-/** Mountain questions: too many unnamed peaks to know which one is meant. */
-export const ALWAYS_OFF = [
-    questionKey("matching", "peak-full"),
-    questionKey("measuring", "peak-full"),
-];
+/** Question types off for good (none at the moment; mountains are gone). */
+export const ALWAYS_OFF: string[] = [];
+
+/** The rule sets in a word: "Swiss rules", "German rules". */
+export const REGION_LABELS: Record<GameSettings["region"], string> = {
+    switzerland: "Swiss",
+    germany: "German",
+    standard: "standard",
+};
 
 /** Question types a region's rules leave out. */
 export const regionDisabledQuestions = (region: GameSettings["region"]) => [
     ...ALWAYS_OFF,
-    ...(region === "switzerland"
-        ? // Landlocked, and there are no 7-Elevens.
+    ...(region === "standard"
+        ? // Lake shores stand in for the coast only under local rules.
+          [questionKey("measuring", "lake")]
+        : // Landlocked, and there are no 7-Elevens.
           [
               questionKey("measuring", "coastline"),
               questionKey("measuring", "seven11"),
-          ]
-        : // Lake shores stand in for the coast only under the Swiss rules.
-          [questionKey("measuring", "lake")]),
+          ]),
 ];
 
 export const defaultGameSettings = (
@@ -92,6 +96,7 @@ export const defaultGameSettings = (
     latePenalty: true,
     tentacleKm: tentacleDefaults(region),
     rejectedPlaces: [],
+    rest: null,
 });
 
 const MAX_REJECTED = 2000;
@@ -216,7 +221,10 @@ const isSize = (value: unknown): value is GameSize =>
 export const normalizeGameSettings = (raw: unknown): GameSettings => {
     const input = (raw ?? {}) as Partial<Record<keyof GameSettings, unknown>>;
     const size = isSize(input.size) ? input.size : "medium";
-    const region = input.region === "standard" ? "standard" : "switzerland";
+    const region =
+        input.region === "standard" || input.region === "germany"
+            ? input.region
+            : "switzerland";
     const defaults = defaultGameSettings(size, region);
     const kinds = (input.stationKinds ?? {}) as Partial<StationKinds>;
     const radius = Number(input.hidingRadiusKm);
@@ -261,6 +269,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
         tentacleKm:
             normalizeTentacleKm(input.tentacleKm) ?? defaults.tentacleKm,
         rejectedPlaces: normalizeRejected(input.rejectedPlaces),
+        rest: normalizeRest(input.rest),
     };
 };
 

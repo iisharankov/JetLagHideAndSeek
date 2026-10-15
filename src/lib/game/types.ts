@@ -133,6 +133,8 @@ export interface RoundClock {
     stoppedAt: number | null;
     /** The hider's time bonuses at the end, once they've sent them. */
     bonusMinutes?: number;
+    /** Paused by the game itself for the rest period (see lib/game/rest.ts). */
+    pausedBy?: "rest";
 }
 export type ClockAction =
     | "start"
@@ -151,6 +153,23 @@ export interface AgreementRequest {
 }
 export interface ClockRequest extends AgreementRequest {
     action: "pause" | "resume";
+}
+
+/**
+ * A rest period (the rulebook suggests them for long games): between two
+ * clock times, in the players' time zone, the game pauses by itself.
+ */
+export interface RestPeriod {
+    /** "22:00" */
+    from: string;
+    /** "07:00"; may be past midnight. */
+    until: string;
+    /** IANA zone, e.g. "Europe/Zurich". */
+    timeZone: string;
+}
+/** A change of the rest period one side asked for (null: no rest period). */
+export interface RestRequest extends AgreementRequest {
+    rest: RestPeriod | null;
 }
 
 /**
@@ -253,7 +272,7 @@ export interface CustomCard {
 export interface GameSettings {
     size: GameSize;
     /** Local rules (which questions exist, "major city" threshold…). */
-    region: "standard" | "switzerland";
+    region: "standard" | "switzerland" | "germany";
     /** The hider may still change this during the game. */
     hidingRadiusKm: number;
     /** The radar question's distances in this game (km), by game size. */
@@ -278,6 +297,8 @@ export interface GameSettings {
     tentacleKm: [number, number];
     /** Places rejected while setting up: wrong "zoos", mis-tagged parks. */
     rejectedPlaces: RejectedPlace[];
+    /** The game pauses by itself between these times; null: no rest period. */
+    rest: RestPeriod | null;
     /**
      * Seekers may show the hiding zones (the stations still in play). Off,
      * only the hider's phone shows them; the seekers keep the shaded map.
@@ -340,6 +361,10 @@ export interface GameState {
     freeQuestions: number;
     /** A pause or resume one side asked for, waiting for the other side. */
     clockRequest: ClockRequest | null;
+    /** A change of the rest period one side asked for, waiting for the other side. */
+    restRequest: RestRequest | null;
+    /** The rest period the game last paused for ("2026-10-15T22:00"): once, even if resumed early. */
+    restWindow: string | null;
     /** Deletions one side asked for, by question key, waiting for the other side. */
     deleteRequests: Record<string, AgreementRequest>;
     /** The seekers' view once the round is over: where the hider was (their pin). */
@@ -359,6 +384,7 @@ export const ANSWER_FIELDS = [
     "same",
     "lengthComparison",
     "hiderCloser",
+    "nullAnswer",
 ] as const;
 
 /** Per-phone view fields that are never shared. */
@@ -404,6 +430,9 @@ export type GameOp =
     | { type: "startEndgame"; station: StationPick }
     | { type: "endEndgame" }
     | { type: "clock"; action: ClockAction }
+    /** Changes the rest period; during a round it takes both sides. */
+    | { type: "setRest"; rest: RestPeriod | null }
+    | { type: "cancelRest" }
     | { type: "setBonus"; minutes: number }
     | DeckOp
     | { type: "vetoQuestion"; key: number }

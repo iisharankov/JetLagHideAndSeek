@@ -28,6 +28,8 @@ export const TILES_URL: string =
 /** The app's own API (share links). */
 export const API_URL: string = env.PUBLIC_API_URL || withBase("api");
 
-/** Self-hosted Photon place search (same API as photon.komoot.io). */
-export const GEOCODER_URL: string =
-    env.PUBLIC_GEOCODER_URL || withBase("photon/api/");
+/**
+ * A Photon place search (same API as photon.komoot.io), used only where
+ * there's no reference data; none by default: the data answers searches.
+ */
+export const GEOCODER_URL: string = env.PUBLIC_GEOCODER_URL || "";

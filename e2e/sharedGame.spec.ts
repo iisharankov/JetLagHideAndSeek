@@ -782,3 +782,29 @@ test("the map's places can be reviewed before a game", async ({
     await bar.getByRole("button", { name: "Done" }).click();
     await expect(page.getByText("3 of 3: Questions")).toBeVisible();
 });
+
+test("Settings → Places counts the places and opens the review", async ({
+    page,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+    void externalHosts;
+
+    await preparePhone(page, "Ana");
+    await mockStations(page);
+    await openMenu(page, "Settings");
+    const places = page.getByTestId("places-settings");
+    await expect(places.getByTestId("places-rejected")).toContainText(
+        "0 rejected by you here",
+    );
+    await expect(places.getByTestId("places-counts")).toBeVisible({
+        timeout: 20_000,
+    });
+    await places.getByRole("button", { name: "Review on the map…" }).click();
+    const bar = page.getByTestId("place-review-bar");
+    await expect(bar).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await bar.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
+    await expect(page.getByTestId("places-settings")).toBeVisible();
+});

@@ -99,6 +99,12 @@ export async function adjustMapGeoDataForQuestion(
     question: Question,
     mapGeoData: any,
 ) {
+    // The rulebook's null answer: nothing to apply, nothing ruled out.
+    if ((question.data as { nullAnswer?: boolean }).nullAnswer) {
+        throw new NotApplicableError(
+            "Null answer: no such place inside the play area.",
+        );
+    }
     switch (question.id) {
         case "radius":
             return await adjustPerRadius(question.data, mapGeoData);

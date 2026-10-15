@@ -18,19 +18,16 @@ fastest option: a Hetzner server downloads at hundreds of MB/s, so the whole
 first setup takes **roughly 1–2 hours**, and most of that is importing, not
 downloading.
 
-| Data                                                  | Size on the server                          | Where it comes from                                             | First time                          |
-| ----------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- |
-| OpenStreetMap extracts for CH + neighbours            | ~3.7 GB (kept for faster refreshes)         | Geofabrik, downloaded by `updater`                              | ~5–10 min                           |
-| Places up to ~300 km away (`far-places.osm.pbf`)      | 22 MB (the 6.5 GB of downloads are deleted) | **copy yours from your PC** (step 3), or `updater` downloads it | copy: seconds; download: ~10–20 min |
-| Reference data (places, borders, train lines, lakes…) | ~40–50 MB                                   | built by `updater` from the above                               | ~2 min                              |
-| Elevation tiles (altitude question)                   | ~100 MB                                     | free AWS Terrain Tiles, downloaded once by `updater`            | ~1–2 min                            |
-| Basemap tiles                                         | ~1.5 GB                                     | Protomaps, extracted by `updater`                               | ~5–15 min                           |
-| Overpass database (fallback map queries)              | ~10–20 GB                                   | imported by the `overpass` container on first start             | ~1 hour                             |
-| Place search (Photon)                                 | ~1–2 GB                                     | downloaded and imported by `photon` on first start              | ~15–30 min                          |
+| Data                                                  | Size on the server                  | Where it comes from                                  | First time |
+| ----------------------------------------------------- | ----------------------------------- | ---------------------------------------------------- | ---------- |
+| OpenStreetMap extracts for CH + neighbours            | ~3.7 GB (kept for faster refreshes) | Geofabrik, downloaded by `updater`                   | ~5–10 min  |
+| Reference data (places, borders, train lines, lakes…) | ~40–50 MB                           | built by `updater` from the above                    | ~2 min     |
+| Elevation tiles (altitude question)                   | ~100 MB                             | free AWS Terrain Tiles, downloaded once by `updater` | ~1–2 min   |
+| Basemap tiles                                         | ~1.5 GB                             | Protomaps, extracted by `updater`                    | ~5–15 min  |
+| Overpass database (fallback map queries)              | ~10–20 GB                           | imported by the `overpass` container on first start  | ~1 hour    |
 
-The only file worth copying from your PC is `data/osm/far-places.osm.pbf`:
-it saves 6.5 GB of downloads. Your Swiss extract and `public/data/` are not
-used by the server (it builds a wider area itself).
+Nothing needs copying from your PC: your Swiss extract and `public/data/`
+are not used by the server (it builds a wider area itself).
 
 ## 0. On your PC: commit and push
 
@@ -67,17 +64,11 @@ cp .env.example .env    # the defaults are fine
 If ports 18780–18787 are already used on the server, change them in `.env`
 and in the nginx site file (step 7).
 
-## 3. Optional shortcut: copy the far-places file from your PC
+## 3. Nothing to copy from your PC
 
-On **your PC**, from the repository folder (use your SSH host alias):
-
-```bash
-ssh <server> mkdir -p jetlag/deploy/data/osm
-scp data/osm/far-places.osm.pbf <server>:jetlag/deploy/data/osm/
-```
-
-The server's updater sees the file and skips collecting it. Skip this step
-and it just downloads the neighbouring regions instead (slower, same result).
+Earlier versions copied a file of far-away places here. Places outside the
+play area don't count any more (the rulebook), so there's nothing to copy;
+go on to step 4.
 
 ## 4. Build the images (~5–10 min)
 
@@ -100,12 +91,12 @@ reused.
 
 ```bash
 docker compose up -d
-docker compose logs -f overpass photon   # Ctrl-C to stop watching
+docker compose logs -f overpass   # Ctrl-C to stop watching
 ```
 
-Overpass imports the map data (~1 hour) and Photon the place search (~15–30
-min). The app already works meanwhile: questions are answered from the
-reference data; only place search and the Overpass fallback wait.
+Overpass imports the map data (~1 hour). The app already works meanwhile:
+questions and place search come from the reference data; only the Overpass
+fallback waits.
 
 Check from the server:
 
@@ -115,7 +106,6 @@ curl -sI localhost:18780/ | grep -iE "^HTTP|content-type"    # 200, text/html
 curl -s localhost:18780/data/manifest.json | head -c 200     # reference data
 curl -sI localhost:18780/tiles/basemap.pmtiles | head -1     # 200 OK
 curl -s localhost:18787/api/health                           # {"ok":true}
-curl -s 'localhost:18782/api?q=Zurich&limit=1' | head -c 200 # after Photon's import
 curl -s 'localhost:18781/api/interpreter?data=[out:json];node(1);out;' | head -c 200  # after Overpass's import
 ```
 
@@ -247,13 +237,13 @@ docker compose up -d web`.
   restarting. Before the fix above it couldn't write to `deploy/data/api/`;
   `docker compose logs api` says what's wrong now.
 - **The updater fails on a download**: run it again; Geofabrik sometimes
-  hiccups. If one region's address changed, edit `REGIONS` / `FAR_REGIONS` in
+  hiccups. If one region's address changed, edit `REGIONS` in
   `update-data.sh`.
 - **`nginx -t` complains about the certificate**: the two `ssl_certificate`
   lines must point at an existing one (`ls /etc/letsencrypt/live/`).
 - **"Map data unavailable" on a question**: Overpass is still importing
   (`docker compose logs overpass`). Most questions don't need it.
-- **Search finds nothing**: Photon is still importing (`docker compose logs
-photon`).
+- **Search finds nothing**: the reference data isn't built yet (`curl
+localhost:18780/data/manifest.json`); run the updater.
 - **A panel shows "ran into a problem"**: press "Reset its settings"; if it
   comes back, send me the message shown.
