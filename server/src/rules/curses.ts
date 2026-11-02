@@ -11,6 +11,7 @@ import { type GameState } from "@/lib/game/types";
 
 import { CHALICE, CHALICE_QUESTIONS, GameRuleError, shortId } from "./shared";
 
+/** The hider casts a curse; the Overflowing Chalice also starts counting. */
 export const castCurse = (state: GameState, name: string, now: number) => {
     const rule = curseRule(name);
     if (rule.notInEndgame && state.endgame) {
@@ -29,7 +30,6 @@ export const castCurse = (state: GameState, name: string, now: number) => {
 };
 
 /** Timed curses end by themselves; a Move's period runs out by itself. */
-
 export const passTime = (state: GameState, now: number) => {
     for (const entry of state.curses) {
         if (entry.clearedAt) continue;
@@ -46,7 +46,6 @@ export const passTime = (state: GameState, now: number) => {
 };
 
 /** The curses on the seekers may stop them from asking, or from asking a kind. */
-
 export const assertMayAsk = (state: GameState, kind: string, now: number) => {
     const rest = restRefusal(state);
     if (rest) throw new GameRuleError(rest, 409);
@@ -62,7 +61,6 @@ export const assertMayAsk = (state: GameState, kind: string, now: number) => {
 };
 
 /** Spotty Memory: after a question is asked, the seekers roll again. */
-
 export const rollAgain = (state: GameState) => {
     for (const entry of state.curses) {
         if (!entry.clearedAt && curseRule(entry.name).takes === "category") {
@@ -72,7 +70,6 @@ export const rollAgain = (state: GameState) => {
 };
 
 /** A curse entry still in force, or a refusal. */
-
 export const activeCurse = (state: GameState, id: string, now: number) => {
     const entry = state.curses.find((c) => c.id === id);
     if (!entry || entry.clearedAt) {
@@ -86,8 +83,5 @@ export const activeCurse = (state: GameState, id: string, now: number) => {
 };
 
 /** The hider's bonus at the end: the hand (or what they typed) plus the awards. */
-
 export const awardedMinutes = (state: GameState) =>
     state.awards.reduce((sum, award) => sum + award.minutes, 0);
-
-/** A variant of a question: what makes it a different question. */

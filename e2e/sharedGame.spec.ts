@@ -59,12 +59,22 @@ const openMenu = async (page: Page, section: "Game" | "Settings") => {
     await page.getByRole("radio", { name: section }).click();
 };
 
-/** Closes the menu; a dialog that is still closing may swallow an Escape. */
+/**
+ * Closes the menu. The Escape goes to the drawer itself (a keypress with the
+ * focus elsewhere on the page is ignored), and a drawer still closing may
+ * swallow one, so it is pressed again until the drawer is gone.
+ */
 const closeMenu = async (page: Page) => {
+    // Joining ends when the join dialog closes, which can be after the game
+    // shows "Live" (the team is sent first). Until then the Menu is hidden
+    // behind it (aria-hidden), and the loop below would skip it.
+    await expect(page.getByTestId("join-dialog")).toHaveCount(0);
     const menu = page.getByRole("dialog", { name: "Menu" });
     for (let tries = 0; tries < 10 && (await menu.isVisible()); tries++) {
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(300);
+        await menu.press("Escape");
+        await menu
+            .waitFor({ state: "hidden", timeout: 1000 })
+            .catch(() => undefined);
     }
     await expect(menu).toBeHidden();
 };

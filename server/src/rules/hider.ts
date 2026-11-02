@@ -10,6 +10,7 @@ import {
 
 import { type Actor, GameRuleError, shortId } from "./shared";
 
+/** A station as a phone sent it, checked; null when there is none. */
 export const stationOf = (raw: unknown): StationPick | null => {
     const station = raw as Partial<StationPick> | null | undefined;
     if (
@@ -28,6 +29,7 @@ export const stationOf = (raw: unknown): StationPick | null => {
     };
 };
 
+/** The hider's spot with some of it changed. */
 export const hiderWith = (
     state: GameState,
     patch: Partial<HiderSpot>,
@@ -37,8 +39,6 @@ export const hiderWith = (
     ...state.hider,
     ...patch,
 });
-
-/** A station as a phone sent it, checked; null when there is none. */
 
 /**
  * The Move card: the hider leaves for a new station. The seekers are told
@@ -84,5 +84,3 @@ export const startMove = (
         by: actor.name,
     });
 };
-
-/** Applies one change, returning the new state (the old one is untouched). */

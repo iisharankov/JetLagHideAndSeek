@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
-# Downloads fresh map data for the play region into /data:
+# Downloads fresh map data for the play region and rebuilds the reference
+# data. The app keeps working throughout (the files are swapped in at the
+# end), so any day will do; monthly is plenty.
+#
+#   deploy/update-data.sh
+#
+# Cron (04:00 on the 1st of each month):
+#   0 4 1 * * /path/to/repo/deploy/update-data.sh >> /var/log/jetlag-refresh.log 2>&1
+#
+# On the server this runs itself inside the `updater` container (built by
+# deploy.sh), where it writes to /data:
 #   /data/osm/region.osm.pbf       the OpenStreetMap extract the data is built from
 #   /data/elevation/               elevation tiles (downloaded once, ~100 MB)
 #   /data/datasets/                places, stations and borders, served by `web`
 #   /data/tiles/basemap.pmtiles    vector basemap tiles, served by `web`
-# Runs inside the `updater` container; see refresh-data.sh.
 set -euo pipefail
+
+# Outside the container: run this script inside it.
+if [ ! -f /app/build-datasets.mjs ]; then
+    cd "$(dirname "$0")"
+    exec docker compose run --rm updater
+fi
 
 # Switzerland plus about 30 km into each neighbouring country.
 BBOX="${BBOX:-5.5,45.6,11.0,48.1}" # min lon, min lat, max lon, max lat

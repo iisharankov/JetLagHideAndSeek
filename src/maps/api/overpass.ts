@@ -65,6 +65,8 @@ export const getOverpassData = async (
     } catch (error) {
         if (error instanceof OverpassError) {
             toast.error(error.message, { toastId: "overpass-error" });
+            // What each server said, for whoever looks at the console.
+            console.warn("Map data:", error.attempts.join("; "));
         }
         throw error;
     }

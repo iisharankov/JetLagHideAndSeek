@@ -1,6 +1,6 @@
 import type { APILocations } from "@/maps/schema";
 
-/** Public Overpass servers, only used when the player opts in. */
+/** The colours a question pin can have. */
 export const ICON_COLORS = {
     black: "#3D3D3D",
     blue: "#2A81CB",

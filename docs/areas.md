@@ -41,7 +41,7 @@ Munich (11.58 E, 48.14 N) is east of the box. Steps, all on the server:
    add `europe/germany/bayern/oberbayern` (Munich; about 400 MB). The
    north-east corner of that box is Niederbayern; add
    `europe/germany/bayern/niederbayern` too or accept a thin empty corner.
-   Then `deploy/refresh-data.sh` (the app keeps working meanwhile). Count
+   Then `deploy/update-data.sh` (the app keeps working meanwhile). Count
    on a bigger tile file.
 3. **Place search** follows the pack: the picker searches the pack's own
    zones (every state, district and municipality in the box, with their

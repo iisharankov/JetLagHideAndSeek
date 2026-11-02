@@ -10,7 +10,7 @@ Decisions are listed at the end.
 ## Open questions
 
 Your answers to Q43–Q46 (round 19) are answered below; what is still
-yours to decide is Q47–Q49.
+yours to decide is Q47–Q50.
 
 **Q43, answered.** Overpass is gone from the deploy (round 19): the data
 downloaded for an area is all a game there needs, and nothing falls back.
@@ -76,6 +76,15 @@ revisit if more than friends of friends turn up._
 
 **Answer:**
 
+**Q50.** The hider password is at least 4 characters, and new players
+next week may well pick "1234". Anyone with the game's link could then
+guess it (nginx allows 5 tries a second) and read the hider's station.
+Raising the minimum only affects passwords chosen from then on; the join
+dialog says how long. _Recommended: 6 characters; 10 is safer, but it is
+typed on a phone at the start of every round._
+
+**Answer:**
+
 ---
 
 ## Decisions already made
@@ -114,7 +123,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   only inside hiding zones when those are on; halts count as stations; trams
   and boats as separate switches; 100k+ cities everywhere; lake shore
   question (10 km², adjustable); updates by hand; upstream extras removed.
-- **Tutorial:** shortened to 15 steps. Upstream credit: one line, no table.
+- **Tutorial:** shortened to 15 steps (replaced by the tours in round 21).
+  Upstream credit: one line, no table.
 - **Round 4:**
   - **Airports:** the ones people call airports count, so Lugano and Sion are
     in (Lugano has had no scheduled flights since 2020 as far as I know, but
@@ -253,3 +263,8 @@ From your earlier answers (rounds 1–4), already built or planned:
   needs, a play area outside it isn't possible; the site stays public, so
   every change is checked for shape and size; no addresses in the
   coordinate picker; a "Download this game" file, and a backup script.
+- **Round 21 (the tutorial):** offered, not forced: a **Show Tutorial**
+  note the first time on a phone as a seeker, as the hider and on the plain
+  address; from zero (the game, with examples on the map in Zürich canton)
+  to the app; the station decides until the end game, then the pin; notes
+  of at most 20 words; one-time tips the first time something happens.

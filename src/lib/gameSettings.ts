@@ -50,11 +50,11 @@ export const hiddenTypesFor = (
         .filter((key) => key.startsWith(`${category}:`))
         .map((key) => key.slice(category.length + 1));
 
-/** A new radar question at a point, with the radius for the game size. */
 /** The tentacle distance (km) for a kind of place, in this game. */
 export const tentacleKmFor = (locationType: string) =>
     tentacleRadiusKm(locationType, gameSettings.get().tentacleKm);
 
+/** A new radar question at a point, with the radius for the game size. */
 export const newRadiusQuestion = (lat: number, lng: number) => ({
     id: "radius" as const,
     data: {

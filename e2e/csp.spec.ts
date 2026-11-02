@@ -34,8 +34,18 @@ test("the app works under the production Content-Security-Policy", async ({
     });
 
     await page.goto("/");
-    await expect(page.getByText(/^\d+ of \d+$/)).toBeVisible();
-    // Let islands hydrate, the map draw and the service worker register.
+    // The first visit's tutorial offer: the islands are up.
+    const mark = page.getByTestId("coach-mark");
+    await mark.getByRole("button", { name: "No thanks" }).click();
+    // The tutorial's examples load a script of their own: under the policy
+    // too.
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await page.getByRole("button", { name: "Seeker tutorial" }).click();
+    await mark.getByRole("button", { name: "Next" }).click();
+    await expect(
+        page.locator(".leaflet-tourDemo-pane path").first(),
+    ).toBeAttached();
+    // Let the map draw and the service worker register.
     await page.waitForTimeout(3000);
 
     expect(violations).toEqual([]);

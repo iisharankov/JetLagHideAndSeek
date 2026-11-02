@@ -27,9 +27,20 @@ import {
     sendOp,
 } from "@/lib/game/session";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
+import { offerTour } from "@/lib/tour";
 import { errorMessage } from "@/maps/errors";
 
 import { currentTeamChoice, type TeamChoice, TeamPicker } from "./TeamPicker";
+
+/** No hiding spot yet: point at the Hider tab's instructions until one is picked. */
+const pointAtStationPick = () => {
+    if (chosenStation.get()) return;
+    coachMark.set({
+        target: '[data-tutorial-id="hider-pick"]',
+        title: "Pick your hiding spot",
+        text: "Tap your station on the map, or Mine in this list; the red circle around it is your hiding zone. Then tap Done.",
+    });
+};
 
 /** Opens the sidebar (the sheet, on a phone) on the Hider tab. */
 const showHiderTab = () => {
@@ -154,6 +165,8 @@ export const JoinDialog = () => {
                             if (hiderToken()) forgetHider();
                             markJoined($gameId);
                             void notifications();
+                            // The first time as a seeker on this phone.
+                            offerTour("seeker");
                             return;
                         }
                         const password = String(form.get("password") ?? "");
@@ -169,14 +182,11 @@ export const JoinDialog = () => {
                                     "You're the hider. The Hider tab is yours.",
                                     { autoClose: 6000 },
                                 );
-                            } else {
-                                // No hiding spot yet: point at the Hider tab's
-                                // instructions until a station is picked.
-                                coachMark.set({
-                                    target: '[data-tutorial-id="hider-pick"]',
-                                    title: "Pick your hiding spot",
-                                    text: "Tap your station on the map or in this list; the red circle around it is your hiding zone. Then tap Done.",
-                                });
+                            }
+                            // The first time as the hider on this phone: the
+                            // tour first, the pointer after it.
+                            if (!offerTour("hider", pointAtStationPick)) {
+                                pointAtStationPick();
                             }
                         } catch (error) {
                             toast.error(errorMessage(error));

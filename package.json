@@ -20,7 +20,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:e2e": "playwright test",
-        "check": "pnpm lint:check && pnpm typecheck && pnpm test"
+        "check": "npm run lint:check && npm run typecheck && npm run test"
     },
     "dependencies": {
         "@arcgis/core": "^4.32.10",

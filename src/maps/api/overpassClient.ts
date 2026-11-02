@@ -95,10 +95,12 @@ export const createOverpassClient = ({
         }
 
         // The usual reason: a play area outside the map data on the server.
+        // What each server said stays in `attempts`: a player can't act on
+        // "HTTP 405" (nothing answers this path since round 19).
         throw new OverpassError(
             attempts.length > 0
-                ? `No map data for this area on the server: pick a play area inside the downloaded map data (${attempts.join("; ")})`
-                : "No map server configured: pick a play area inside the downloaded map data",
+                ? "No map data for this area on the server: pick a play area inside the downloaded map data."
+                : "No map server configured: pick a play area inside the downloaded map data.",
             attempts,
         );
     };

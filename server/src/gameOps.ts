@@ -82,8 +82,7 @@ const CLOCK_ACTIONS = new Set([
     "cancel",
 ]);
 
-/** "Discard N, draw M": the cards discarded, then drawn and kept. */
-
+/** A game as it starts: nothing asked, no hider yet, the deck shuffled if digital. */
 export const newGameState = (
     id: string,
     {
@@ -153,6 +152,7 @@ export const viewFor = (state: GameState, role: Role): GameState =>
                       : null,
           };
 
+/** Applies one change, returning the new state (the old one is untouched). */
 export const applyOp = (
     current: GameState,
     op: GameOp,

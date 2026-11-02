@@ -158,11 +158,6 @@ export const isRejected = (
         (entry) => km(lat, lng, entry.lat, entry.lng) <= REJECT_KM,
     );
 
-export const hasRejections = (
-    kind: string,
-    list: RejectedPlace[] = rejections(),
-) => list.some((entry) => entry.kind === kind);
-
 /** Toggles a place's rejection in a list. */
 export const toggleRejection = (
     list: RejectedPlace[],

@@ -254,13 +254,15 @@ export const QuestionSidebar = () => {
                 </p>
             )}
             <div className="px-2 pt-2">
-                <SegmentedControl
-                    label="Sidebar section"
-                    options={tabOptions}
-                    value={tab}
-                    onValueChange={sidebarTab.set}
-                    disabled={overLimit}
-                />
+                <div data-tutorial-id="sidebar-tabs">
+                    <SegmentedControl
+                        label="Sidebar section"
+                        options={tabOptions}
+                        value={tab}
+                        onValueChange={sidebarTab.set}
+                        disabled={overLimit}
+                    />
+                </div>
                 {noStationYet && (
                     <p className="mt-1 text-xs text-amber-400">
                         Questions, Photos and Cards come once your station is

@@ -69,8 +69,7 @@ export const oweDraws = (
     state.deck = advanceDeck(state.deck, now);
 };
 
-/** The hider casts a curse; the Overflowing Chalice also starts counting. */
-
+/** A variant of a question: what makes it a different question. */
 export interface Variant {
     identity: string;
     label: string;
@@ -78,7 +77,6 @@ export interface Variant {
 }
 
 /** Every question of a category this game allows (custom ones aside). */
-
 export const variantsOf = (
     settings: GameSettings,
     question: SharedQuestion,
@@ -129,7 +127,6 @@ export const variantsOf = (
 };
 
 /** What the question is now, in the words of the setup screens. */
-
 export const variantLabel = (
     settings: GameSettings,
     question: SharedQuestion,
@@ -164,8 +161,6 @@ export const randomVariant = (state: GameState, question: SharedQuestion) => {
     }
     return candidates[randomInt(candidates.length)];
 };
-
-/** The team a player is in, by name. */
 
 /**
  * The late-answer penalty: an answer over the five minutes is a warning,
@@ -215,7 +210,6 @@ export const randomPhotoName = (state: GameState) => {
 };
 
 /** Randomize Question costs the card, with the digital deck. */
-
 export const payRandomize = (state: GameState) => {
     if (!state.deck) return;
     const index = cardOrCopy(state.deck.hand, RANDOMIZE);

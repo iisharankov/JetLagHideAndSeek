@@ -86,8 +86,8 @@ src/
     api/overpass*.ts        the queries that read the reference data (placesInZone…); the Overpass client behind them has no server any more
     api/geocode.ts          place search over the reference data (zones, stations, places)
   components/
-    islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar, TutorialDialog
-    Map.tsx, mapRefresh.ts  the map and its refresh pipeline
+    islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar
+    Map.tsx, mapRefresh.ts  the map and its refresh pipeline (the play area's shape: maps/playArea.ts)
     DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
     QuestionSidebar.tsx     the sidebar: Questions, Stations (Hider on the hider's phone), Photos, Cards
     cards/                  base.tsx (the card frame: fold, lock, hide, delete) + one card per type
@@ -103,8 +103,10 @@ src/
                             CardTiles, ActiveCurses, CardHistory, CardFace; RoundClock, GamePopups
                             (alerts), PushCard, NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
-    TutorialDialog.tsx + tutorialSteps.tsx (15 named steps; ids in lib/tutorial.ts)
-    CoachMark.tsx           a one-off pointer in the tutorial's style (lib/coachMark.ts), e.g. "pick your hiding spot"
+    CoachMark.tsx           the tutorial's ring and note (dims nothing): runs the tours (lib/tour.ts:
+                            state and what was seen; lib/tourSteps.ts: the texts, the tips),
+                            single pointers ("pick your hiding spot", lib/coachMark.ts) and tips;
+                            the examples in Zürich: lib/tourDemo.ts (shapes), maps/tourDemoLayer.ts
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
                             gameOps.ts (the rules: applyOp, viewFor) with its helpers in
                             rules/ (shared checks, questions, curses, hider, teams), push.ts

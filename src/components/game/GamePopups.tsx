@@ -14,6 +14,8 @@ import { type CardInfo, CARDS, customCardInfo } from "@/lib/game/deck";
 import { gameEvents, needsAttention } from "@/lib/game/events";
 import { gameRole, gameState } from "@/lib/game/session";
 import type { GameState } from "@/lib/game/types";
+import { showTip } from "@/lib/tour";
+import { tipForEvent } from "@/lib/tourSteps";
 
 import { CardFace } from "./CardFace";
 
@@ -53,7 +55,12 @@ export const GamePopups = () => {
         if (!$game) return;
         const events = gameEvents(before, $game, $role);
         const popups: Popup[] = [];
+        // The first time something happens: a tip pointing at what to do.
+        // One per update; another waits for the next time its news comes.
+        let tipped = false;
         for (const event of events) {
+            const tip = tipForEvent(event, $role);
+            if (tip && !tipped) tipped = showTip(tip);
             if (
                 event.kind === "powerup" &&
                 $game.settings.cardPopups !== "all" &&

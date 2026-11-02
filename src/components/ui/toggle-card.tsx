@@ -88,6 +88,7 @@ export const SegmentedControl = <T extends string>({
                     type="button"
                     role="radio"
                     aria-checked={active}
+                    data-value={option.value}
                     disabled={disabled || option.disabled}
                     onClick={() => onValueChange(option.value)}
                     className={cn(

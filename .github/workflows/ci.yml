@@ -29,11 +29,12 @@ jobs:
               run: |
                   sudo apt-get update && sudo apt-get install -y --no-install-recommends osmium-tool
                   curl -fsSL -o /tmp/li.osm.pbf https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
-                  node server/dist/build-datasets.mjs --input /tmp/li.osm.pbf --far /tmp/li.osm.pbf --output /tmp/li-data
+                  node server/dist/build-datasets.mjs --input /tmp/li.osm.pbf --output /tmp/li-data
                   test -s /tmp/li-data/manifest.json
-                  test -s /tmp/li-data/voronoi-poi-museum.json
+                  test -s /tmp/li-data/stations-rail.json
                   test -s /tmp/li-data/train-lines.json
                   test -s /tmp/li-data/lakes.json
+                  test -s /tmp/li-data/admin-8.json
             - name: Check the nginx configs with a real nginx (no install, no service)
               run: |
                   mkdir -p /tmp/nginx && cd /tmp/nginx

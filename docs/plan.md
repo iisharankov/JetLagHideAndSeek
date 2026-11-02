@@ -3,7 +3,7 @@
 Goal: **self-hosted, private, reliable on game day, with team sync.**
 Switzerland first, nothing that stops other regions working.
 
-Updated 2026-10-10 (round 12 and the housekeeping after it). Status: ✅ done
+Updated 2026-10-17 (round 20). Status: ✅ done
 and tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or dropped.
 
 ## What changed in the plan
@@ -782,24 +782,155 @@ From your answers to Q38, Q40, Q41 and Q42.
    the database (consistently, through the api container) and the photos
    nightly when scheduled (Q48).
 
+## Round 20: the audit after the re-clone, the deploy scripts ✅ (2026-10-17)
+
+The checkout was re-cloned from GitHub after a Nextcloud sync deleted
+files. Everything committed is there (round 19 is the last commit, 15
+October); only ignored files were gone (`node_modules`, `dist`,
+`server/dist`, `public/data`, `data/osm`), all rebuilt. See
+[audit.md](audit.md) for what was checked and what came out of it.
+
+1. **CI was broken:** its dataset step still passed `--far` and looked for
+   `voronoi-poi-museum.json`, both gone since round 17 (item 35). It now
+   checks the files the builder writes today.
+2. **The deploy scripts** are four, by job: `deploy/deploy.sh` (was
+   `update-app.sh`: pull, rebuild, restart, and it says when the data
+   builder changed), `deploy/check.sh` (new: the containers, the app, the
+   reference data and its age, the basemap's range requests, the API, the
+   public site's policy header, the backups' age, free disk), `deploy/backup.sh`
+   (reads `.env`, clears a copy an interrupted run left, saves the push
+   keys too) and `deploy/update-data.sh` (runs itself inside the updater
+   container when called on the host; `refresh-data.sh` is gone). The two
+   cron lines are in `deploy/README.md`, which was rewritten; the stale
+   parts of `FIRST-DEPLOY.md` (the round-1 and round-4 instructions, the
+   Overpass and Photon checks, `REFRESH_FAR`) are gone.
+3. **Small cleanups:** the comments the round-21 split left on the wrong
+   functions in `server/src/rules/` and `gameOps.ts`; two exports nothing
+   called (`placeRules.hasRejections`, `curseRules.curseAward`); `npm run
+   check` works under npm and pnpm; the README's dev notes no longer
+   mention Overpass or Photon.
+4. **A flaky browser test:** `closeMenu` in `e2e/sharedGame.spec.ts`
+   pressed Escape with the focus outside the drawer and waited a fixed
+   300 ms, so "the hider picks a station…" failed one run in two. It now
+   presses Escape on the drawer and waits for it to be hidden.
+
+Not done, by choice of time: removing the dead Overpass client (audit item
+1), which two browser tests still mock.
+
+## Round 21: the tutorial, by role, with examples in Zürich ✅ (2026-10-31)
+
+For the game with new players next week in Zürich canton. The plan was
+[tutorial-revamp.md](tutorial-revamp.md); your answers: a "Show Tutorial"
+button on every first time; from zero to hero, with questions applied in
+Zürich canton; the hider's station as the truth until the end game, then
+the pin.
+
+1. **Offered, not forced.** The first time on a phone as a seeker (after
+   "I'm a seeker"), as the hider (after "Become the hider") and on the
+   plain address (setting up), a note asks "New here?": **Show Tutorial**
+   or No thanks. Each role is a first time of its own; once seen (Skip and
+   No thanks count), never again. The hider who declines gets the old
+   "Pick your hiding spot" pointer, as before. Menu → Game → Help →
+   Tutorial: **Seeker · Hider · Setting up**, any time; **Tips for new
+   players** switches the offers and tips off (on again: they all come
+   back).
+2. **Tours on the coach mark, not the modal.** The ring and note dim
+   nothing and block nothing (the game goes on underneath); Back, Next,
+   "3 of 16", Skip tutorial. A step can open the sidebar on a tab (so on a
+   phone it points inside the sheet: the tabs, Add Question, the clock),
+   close it to leave the map to an example, go on when its target is
+   tapped (the Questions button), or drop out when its target isn't there
+   (Research and the station pick, once the station is set). The note
+   waits until what it points at stops moving (the sheet slides in for a
+   quarter of a second), so a quick tap on Next isn't lost halfway; on a
+   phone a note without a target sits above the Questions button, in reach
+   of a thumb and clear of the toasts at the top. An offer nobody answered
+   gives way to a newer one (ignored on the first visit, offered again on
+   joining a game).
+3. **From zero.** The seeker and hider tours start with nine steps on the
+   game: how to play, hiding zones, Radar, Thermometer, the other three
+   kinds, the station decides, the end game, the pin, cards and time. Five
+   draw an example in Zürich canton: 16 stations from HB to Winterthur
+   with their zones; a 10 km radar from Zürich HB answered Yes; the ride on
+   to Oerlikon answered Colder (the half nearer Oerlikon shaded);
+   Wipkingen, whose zone crosses that line while its station is on the
+   open side, so the whole zone stays; the end game at Wipkingen with the
+   hider's pin. Only drawings: no question is made, and the map goes back
+   to where it was after the tour. Then seven steps on the app: seekers
+   get Questions, Add Question, Send to the hider (five minutes), Stations
+   and Found it, curses and Cleared, the clock, the Menu; the hider gets
+   the station, Research, answering, the cards, the time bonuses, "station
+   until the end game, then the pin", the Menu. Setting up: five steps.
+4. **Text budget.** Titles of at most 4 words, notes of at most 20, the
+   on-screen labels in bold as the app spells them; a unit test checks
+   every step, offer and tip. The game's rules are the rulebook's
+   quick-start guide (5 minutes to answer, cards after each answer, the
+   end game, longest hide wins).
+5. **One-time tips**, once per phone: the hider's first question and
+   first cards after answering, the end game on the hider's phone; for
+   seekers the hider being ready ("Start the clock"), the first answer
+   (not a veto), the first curse, a Move. One that comes during a tour
+   waits for its end; a tip never covers the "Pick your hiding spot"
+   pointer, and one game update brings at most one tip.
+6. **Removed:** the modal walkthrough (`TutorialDialog`, `tutorialSteps`
+   with its example cards, `useTutorialStep`, `lib/tutorial.ts`, the
+   sidebar's overrides that kept the phone's sheet shut during it) and its
+   CSS. The old pulse also dimmed the whole screen behind the "Pick your
+   hiding spot" pointer; the new ring doesn't.
+7. **Tidy-up:** the "no map data" message no longer ends in "(…: HTTP
+   405)"; what each server said goes to the browser console instead.
+8. **A bug found on the way: the wrong play area on a fresh phone.** A
+   phone opening a game's link starts loading its own saved area
+   (Switzerland, on a new phone). If the game's area arrived before that
+   finished, the old boundary was stored over it when it came in, and the
+   phone kept the wrong play area until a reload: in the tests, the hider
+   saw "No stations yet"; in a game, the wrong area shaded and the wrong
+   stations listed. Exactly what new players do next week. Now a boundary
+   for an area that changed while it loaded is dropped and the current one
+   loaded (`src/maps/playArea.ts`, out of `mapRefresh.ts`).
+
+Tests: `tests/tour.test.ts` (the budget; every bold label checked against
+the components' source, so a renamed button fails the test; offers, steps
+and tips; the examples' geometry, such as Wipkingen nearer HB than Oerlikon
+with its zone crossing the line, and the examples using a medium game's
+10 km radar and 500 m zones); `tests/playArea.test.ts` (the race above;
+both cases fail on the old code); `e2e/tutorial.spec.ts` rewritten: a first
+visit; a seeker through a link, with the examples drawn, the Questions
+button tapped and no question made; the hider declining, the pointer, the
+Menu's hider tour (all on the desktop and the phone); and the tips across
+two phones (the hider ready, the first question, the cards after
+answering, the first answer). The seeker tour failed 2 runs in 24 under
+load before the note waited for the sheet; 56 of 56 after. The shared-game
+test's `closeMenu` raced the join dialog (the game shows "Live" before the
+team is sent and the dialog closes; until then the Menu is hidden behind
+it, so the helper skipped it): it failed twice in a row in the full suite
+and now waits for the join dialog first. The CSP test now
+drives a tour, so the examples' own script loads under the production
+policy. Not checked on a real phone: touch, the sheet's swipe, how the
+examples look over the real map tiles (the tests block them).
+
 ## What's left ⏭️
 
-From [the audit](audit.md) (consolidated; the decisions are Q47–Q49 in
+From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **A shakedown game** with the rest period, the null answers, the
+1. **Before game night:** commit and deploy rounds 20 and 21, then
+   `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
+   `access` tag and the country codes); Settings → Places → Review on the
+   map for Zürich canton; the backups (Q48); the hider password (Q50).
+2. **A shakedown game** with the rest period, the null answers, the
    cleaned-up places and the offline search; the rest-period notes
    (audit 4) checked the morning after.
-2. **Several areas on one server** (Q43: Switzerland, Zürich, Munich, and
+3. **Several areas on one server** (Q43: Switzerland, Zürich, Munich, and
    cities further away): one pack, tile file and elevation set per area,
    picked by the play area.
-3. **The public site's gates** (Q47): an invite code to create games and a
+4. **The public site's gates** (Q47): an invite code to create games and a
    per-address cap; the backup schedule (Q48).
-4. **Cleanups** (audit 13, 14, 7, 6): duplicates, exports, lazy Places
-   counts, a name index for the search.
-5. **Tests** (audit 18–20): the zone layer, the answer suggestions, a
+5. **Cleanups** (audit 1, 13, 14, 7, 6): the Overpass layer out,
+   duplicates, exports, lazy Places counts, a name index for the search.
+6. **Tests** (audit 18–20): the zone layer, the answer suggestions, a
    pack smoke test, the shared-game flows on the phone project.
-6. **Live view without the archive**; the bundle; the worker, only if a
+7. **Live view without the archive**; the bundle; the worker, only if a
    real game stutters; the offline map.
 
 ## Later / dropped 💤

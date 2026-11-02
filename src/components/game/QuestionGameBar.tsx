@@ -38,6 +38,7 @@ import {
     suggestedAnswers,
 } from "@/lib/game/session";
 import type { QuestionEntry, SharedQuestion } from "@/lib/game/types";
+import { showTip } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
 import { errorMessage } from "@/maps/errors";
@@ -191,6 +192,7 @@ const AnswerPanel = ({
         onSent();
         const draw = DRAWS[question.id];
         if ($role === "hider" && draw) {
+            showTip("hider-draw");
             toast.info(
                 $game.settings.deck === "virtual"
                     ? `Draw ${draw.draw}, keep ${draw.keep}: select your new cards in Cards.`
@@ -394,6 +396,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     disabled={refusal !== null}
                     size="sm"
                     className="mt-1 w-full"
+                    data-tutorial-id="send-question"
                     onClick={() =>
                         void sendOp({ type: "sendQuestion", key: questionKey })
                     }

@@ -15,9 +15,10 @@ import {
     placeReview,
     playAreaEditing,
     setupDialog,
-    showTutorial,
 } from "@/lib/context";
 import { resumeGame } from "@/lib/game/session";
+import { showTutorial, startTour, tutorialsSeen } from "@/lib/tour";
+import { TOUR_LABELS, type TourId } from "@/lib/tourSteps";
 import { cn } from "@/lib/utils";
 
 import { CoachMark } from "./CoachMark";
@@ -29,7 +30,7 @@ import { NextHiderDialog } from "./game/NextHiderDialog";
 import { MenuGroup } from "./MenuGroup";
 import { SettingsPanel } from "./SettingsPanel";
 import { Button } from "./ui/button";
-import { SegmentedControl } from "./ui/toggle-card";
+import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 
 export const OptionDrawers = ({ className }: { className?: string }) => {
     const isOptionsOpen = useStore(menuOpen);
@@ -45,6 +46,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     // Choosing the play area, or reviewing its places, happens on the map,
     // under the menu.
     const $placeReview = useStore(placeReview);
+    const $showTutorial = useStore(showTutorial);
     useEffect(() => {
         if ($playAreaEditing || $placeReview) setOptionsOpen(false);
     }, [$playAreaEditing, $placeReview]);
@@ -126,17 +128,35 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                     Questions &amp; cards
                                                 </a>
                                             </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="col-span-2"
-                                                onClick={() => {
-                                                    setOptionsOpen(false);
-                                                    showTutorial.set(true);
-                                                }}
-                                            >
-                                                Tutorial
-                                            </Button>
                                         </div>
+                                        <p className="text-xs text-slate-300">
+                                            Tutorial
+                                        </p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {TOURS_IN_MENU.map((id) => (
+                                                <Button
+                                                    key={id}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    aria-label={`${TOUR_LABELS[id]} tutorial`}
+                                                    onClick={() => {
+                                                        setOptionsOpen(false);
+                                                        startTour(id);
+                                                    }}
+                                                >
+                                                    {TOUR_LABELS[id]}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        <ToggleCard
+                                            title="Tips for new players"
+                                            description="Offer the tutorial the first time on this phone, and a short tip the first time something happens in a game. Switching on shows them all again."
+                                            checked={$showTutorial}
+                                            onCheckedChange={(on) => {
+                                                if (on) tutorialsSeen.set({});
+                                                showTutorial.set(on);
+                                            }}
+                                        />
                                         <details className="text-xs text-slate-400">
                                             <summary className="cursor-pointer text-slate-200">
                                                 Install on your phone
@@ -166,3 +186,5 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
 };
 
 type MenuTab = "game" | "settings";
+
+const TOURS_IN_MENU: TourId[] = ["seeker", "hider", "organiser"];

@@ -4,14 +4,11 @@ A step-by-step for getting `https://jetlag.sharankov.com` running on your
 Hetzner server, open to anyone with the link (Authelia comes later). The
 general reference is [README.md](README.md).
 
-> **Not run on your server yet.** Times and sizes below are estimates. Keep
-> the output of any step that fails.
-
 ## How code and data travel
 
 **Code goes through git; map data never does.** Everything large is
 gitignored (`data/`, `public/data/`, `deploy/data/`), so GitHub only ever sees
-the code (the new files from rounds 1–3 add about 1.5 MB).
+the code.
 
 The server **downloads and builds its own map data**. That's the simplest and
 fastest option: a Hetzner server downloads at hundreds of MB/s, so the whole
@@ -27,17 +24,6 @@ downloading.
 
 Nothing needs copying from your PC: your Swiss extract and `public/data/`
 are not used by the server (it builds a wider area itself).
-
-## 0. On your PC: commit and push
-
-Nothing from rounds 1–3 is committed yet. Check `git status` shows no large
-files (it shouldn't: the data folders are ignored), then:
-
-```bash
-git add -A
-git commit -m "Self-hosted Jet Lag Hide and Seek: rounds 1–3"
-git push
-```
 
 ## 1. On the server: check the basics
 
@@ -79,12 +65,11 @@ docker compose --profile tools build
 ## 5. Download and build the map data (~20–40 min)
 
 ```bash
-docker compose run --rm updater
+./update-data.sh
 ```
 
-It ends with a line like "Done: … of map data, … of wider-area places and …
-of tiles". It's safe to run again if it stops halfway: finished downloads are
-reused.
+It ends with a line like "Done: … of map data and … of tiles". It's safe to
+run again if it stops halfway: finished downloads are reused.
 
 ## 6. Start everything
 
@@ -95,18 +80,14 @@ docker compose up -d
 The app works as soon as `web` and `api` are up: questions and place search
 come from the reference data.
 
-Check from the server:
+Check from the server (the public-site checks fail until step 7):
 
 ```bash
-docker compose ps                                            # web, api "healthy"; nothing "Restarting"
-curl -sI localhost:18780/ | grep -iE "^HTTP|content-type"    # 200, text/html
-curl -s localhost:18780/data/manifest.json | head -c 200     # reference data
-curl -sI localhost:18780/tiles/basemap.pmtiles | head -1     # 200 OK
-curl -s localhost:18787/api/health                           # {"ok":true}
+./check.sh
 ```
 
-A `curl` that prints nothing means nothing is listening on that port yet:
-look at `docker compose logs --tail=50 <service>`.
+A failing container check means it isn't up yet: look at
+`docker compose logs --tail=50 <service>`.
 
 ## 7. HTTPS and nginx (no Authelia)
 
@@ -149,14 +130,15 @@ your Authelia snippets.
 the server:
 
 ```bash
-~/jetlag/deploy/update-app.sh
+~/jetlag/deploy/deploy.sh    # then, a minute later:
+~/jetlag/deploy/check.sh
 ```
 
-It pulls, rebuilds the app images and restarts the app; map data and share
-links are kept. Phones get the new version the next time the app is opened.
+It pulls, rebuilds the images and restarts the app; map data, games and
+photos are kept. Phones get the new version the next time the app is opened.
 If a change touched the reference data builder (`server/datasets/` or
-`src/maps/datasets/`, e.g. the airport list), also run
-`docker compose run --rm updater`.
+`src/maps/datasets/`, e.g. the airport list), `deploy.sh` says so: also run
+`~/jetlag/deploy/update-data.sh`.
 
 **Developing on the server.** Work in the same `~/jetlag` checkout or a
 second clone, commit and push from there as usual. Don't leave `pnpm dev`
@@ -165,59 +147,13 @@ running on a public port.
 **Refreshing the map data** (monthly is plenty; not on a game day):
 
 ```bash
-~/jetlag/deploy/refresh-data.sh                 # extracts, tiles, reference data, re-imports
-REFRESH_FAR=1 ~/jetlag/deploy/refresh-data.sh   # also renew the 300 km places (yearly)
+~/jetlag/deploy/update-data.sh    # extracts, tiles, reference data
 ```
 
-**Storage:** expect 20–30 GB in `deploy/data/` in total.
+**Backups** (nightly) and the refresh (monthly) belong in the crontab; the
+two lines are in [README.md](README.md#first-time-setup).
 
-## Already deployed? Do this now
-
-The first version on the server had two bugs found on your first run:
-
-- the `web` container labelled every file as a download
-  (`application/octet-stream`), so the browser saved the page instead of
-  showing it;
-- the API couldn't write to `deploy/data/api/` (Docker creates that folder
-  owned by root), so it restarted for ever, and `/api/…` answered 502.
-
-Both are fixed in the code. The server gets fixes only through GitHub, so
-**first, on your PC**, commit and push (nothing happens on the server
-otherwise: `git pull` finds nothing and rebuilds the same images):
-
-```bash
-git add -A && git commit -m "Shared games, altitude question, server fixes" && git push
-```
-
-Then, on the server:
-
-```bash
-cd ~/jetlag && git pull
-# 1. Host nginx. The file in the repo points at your shared certificate
-#    (main_cert), so copying it over is safe. What changed: photos up to
-#    5 MB need the bigger upload limit; everything else works either way.
-sudo cp deploy/nginx/jetlag.sharankov.com.noauth.conf /etc/nginx/sites-available/jetlag.sharankov.com
-sudo nginx -t && sudo systemctl reload nginx
-# 2. New images, restart the app.
-cd deploy
-docker compose --profile tools build
-docker compose up -d
-# 3. Check (web and api say "healthy" after a minute).
-docker compose ps
-curl -sI localhost:18780/ | grep -i content-type   # text/html
-curl -s localhost:18787/api/health                 # {"ok":true}
-# 4. Elevation data and the airport list (20–40 min; the app works meanwhile).
-docker compose run --rm updater
-```
-
-Until the new image runs, this one line makes the old API start (it only
-lacked permission to write its folder):
-
-```bash
-chown -R 1000:1000 ~/jetlag/deploy/data/api && docker compose restart api
-```
-
-Photos are stored with the games in `deploy/data/api/photos/`.
+**Storage:** expect about 6 GB in `deploy/data/` in total.
 
 ## If something goes wrong
 
@@ -225,12 +161,9 @@ Photos are stored with the games in `deploy/data/api/photos/`.
   isn't answering. `docker compose ps` shows which one (look for
   "Restarting" or "unhealthy"), `docker compose logs --tail=50 api` (or
   `web`) shows why.
-- **The browser downloads a file instead of showing the app**: the `web`
-  image is from before the fix above; `docker compose build web &&
-docker compose up -d web`.
-- **`curl localhost:18787/api/health` prints nothing**: the API container is
-  restarting. Before the fix above it couldn't write to `deploy/data/api/`;
-  `docker compose logs api` says what's wrong now.
+- **`check.sh` says the API isn't answering**: the container is restarting;
+  `docker compose logs api` says why (once it was the data folder's
+  permissions, which `api-entrypoint.sh` now fixes on start).
 - **The updater fails on a download**: run it again; Geofabrik sometimes
   hiccups. If one region's address changed, edit `REGIONS` in
   `update-data.sh`.
@@ -238,7 +171,7 @@ docker compose up -d web`.
   lines must point at an existing one (`ls /etc/letsencrypt/live/`).
 - **"No map data for this area" on a question**: the play area is outside
   the box the data was built for (`BBOX`), or the data isn't built yet.
-- **Search finds nothing**: the reference data isn't built yet (`curl
-localhost:18780/data/manifest.json`); run the updater.
+- **Search finds nothing**: the reference data isn't built yet (`check.sh`
+  says so); run `update-data.sh`.
 - **A panel shows "ran into a problem"**: press "Reset its settings"; if it
   comes back, send me the message shown.

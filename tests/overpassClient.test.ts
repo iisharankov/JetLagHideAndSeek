@@ -123,6 +123,10 @@ describe("createOverpassClient", () => {
         const error = await query("q").catch((e) => e);
         expect(error).toBeInstanceOf(OverpassError);
         expect(error.attempts).toEqual(["a: HTTP 504", "b: NetworkError"]);
+        // The player reads what to do; the server's status codes are for us.
+        expect(error.message).toBe(
+            "No map data for this area on the server: pick a play area inside the downloaded map data.",
+        );
     });
 
     it("gives up on an endpoint that doesn't answer in time", async () => {

@@ -18,7 +18,8 @@ games; reference data built from OpenStreetMap and served from their box.
    (`tests/` and `server/` with Vitest, `e2e/` with Playwright).
 2. **Never commit or push.** Changes go straight to master, but the owner
    runs git. End your hand-over with the exact `git` lines and the deploy
-   step (`~/jetlag/deploy/update-app.sh` on the server).
+   step (`~/jetlag/deploy/deploy.sh` on the server, then `deploy/check.sh`
+   a minute later).
 3. **Free services only.** No API keys, no tracking, no third-party services;
    anything the app needs lives on their server.
 4. **No dev server in the checkout.** For checks use the production build

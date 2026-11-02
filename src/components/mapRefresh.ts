@@ -14,9 +14,7 @@ import {
     hidingRadiusUnits,
     leafletMapContext,
     mapBottomInset,
-    mapGeoJSON,
     planningModeEnabled,
-    polyGeoJSON,
     questionFinishedMapData,
     questions,
     questionStatuses,
@@ -45,8 +43,9 @@ import {
     type QuestionStatus,
     safeUnion,
 } from "@/maps";
-import { clearCache, determineMapBoundaries, ICON_COLORS } from "@/maps/api";
+import { clearCache, ICON_COLORS } from "@/maps/api";
 import { errorMessage, NotApplicableError } from "@/maps/errors";
+import { loadPlayArea } from "@/maps/playArea";
 import type { Question } from "@/maps/schema";
 
 /** Layers this module owns are tagged so they can be found again. */
@@ -236,23 +235,6 @@ const removeLayers = (map: L.Map, matches: (layer: TaggedLayer) => boolean) => {
     map.eachLayer((layer) => {
         if (matches(layer as TaggedLayer)) map.removeLayer(layer);
     });
-};
-
-const loadPlayArea = async () => {
-    const loaded = mapGeoJSON.get();
-    if (loaded) return loaded;
-
-    const drawn = polyGeoJSON.get();
-    if (drawn) {
-        mapGeoJSON.set(drawn);
-        return drawn;
-    }
-
-    const boundaries = await toast.promise(determineMapBoundaries(), {
-        pending: "Loading the play area...",
-    });
-    mapGeoJSON.set(boundaries);
-    return boundaries;
 };
 
 let focusNextRun = false;

@@ -10,6 +10,7 @@ import {
     type SharedQuestion,
 } from "@/lib/game/types";
 
+/** A change the rules don't allow; the API answers with `status`. */
 export class GameRuleError extends Error {
     constructor(
         message: string,
@@ -26,13 +27,13 @@ export interface Actor {
 
 export const shortId = () => randomBytes(6).toString("base64url");
 
+/** "Discard N, draw M": the cards discarded, then drawn and kept. */
 export const DISCARD_DRAW: Record<string, { discard: number; draw: number }> = {
     powerup_discard_1_draw_2: { discard: 1, draw: 2 },
     powerup_discard_2_draw_3: { discard: 2, draw: 3 },
 };
 
 /** "For the next three questions, you may draw an additional card." */
-
 export const CHALICE = "Curse of the Overflowing Chalice";
 
 export const CHALICE_QUESTIONS = 3;
@@ -43,8 +44,7 @@ export const VETO = "powerup_veto_question";
 
 export const DUPLICATE = "powerup_duplicate_another_card";
 
-/** A change the rules don't allow; the API answers with `status`. */
-
+/** A question as shared: without this phone's own view fields. */
 export const withoutLocalFields = (
     question: SharedQuestion,
 ): SharedQuestion => {
@@ -62,7 +62,6 @@ export const visibleEntry = (state: GameState, key: number, actor: Actor) => {
 };
 
 /** Answered (or vetoed) questions are the hider's, unless the game lets seekers answer. */
-
 export const assertMayChangeAnswered = (
     state: GameState,
     entry: QuestionEntry,
@@ -86,7 +85,6 @@ export const assertHider = (actor: Actor, what: string) => {
 };
 
 /** While the hider moves, the seekers are frozen: no asking. */
-
 export const assertNotMoving = (state: GameState) => {
     if (state.move) {
         throw new GameRuleError(
@@ -103,19 +101,15 @@ export const ruleError = (error: unknown) =>
     );
 
 /** Where a card is in the hand, or a Duplicate Another Card standing in for it. */
-
 export const cardOrCopy = (hand: string[], id: string) => {
     const own = hand.indexOf(id);
     return own !== -1 ? own : hand.indexOf(DUPLICATE);
 };
 
 /** The deck, in a game that has one. */
-
 export const deckOf = (state: GameState) => {
     if (!state.deck) {
         throw new GameRuleError("This game uses the real deck of cards.", 409);
     }
     return state.deck;
 };
-
-/** The hider's spot with some of it changed. */

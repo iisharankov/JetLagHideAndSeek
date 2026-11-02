@@ -109,10 +109,6 @@ export const curseEndsAt = (entry: CurseEntry, size: GameSize) => {
     return minutes ? entry.castAt + minutes[SIZE_INDEX[size]] * 60_000 : null;
 };
 
-/** The minutes a curse awards in this game size, if it awards any. */
-export const curseAward = (name: string, size: GameSize) =>
-    curseRule(name).award?.[SIZE_INDEX[size]];
-
 /** The curses on the seekers right now: not cleared, not timed out. */
 export const activeCurses = (
     state: Pick<GameState, "curses" | "settings">,
