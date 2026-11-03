@@ -15,6 +15,7 @@ import {
 import { toast } from "react-toastify";
 
 import { addNotePin } from "@/components/game/NotePins";
+import { SeekerMarkers } from "@/components/game/SeekerMarkers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { TILES_URL } from "@/lib/config";
@@ -37,12 +38,9 @@ import {
 } from "@/lib/context";
 import { gameRole, gameState, previewAnswers } from "@/lib/game/session";
 import { newRadiusQuestion, tentacleKmFor } from "@/lib/gameSettings";
-import {
-    currentPosition,
-    describeGeoError,
-    watchPosition,
-} from "@/lib/geolocation";
+import { currentPosition } from "@/lib/geolocation";
 import { questionsMapKey } from "@/lib/questionKey";
+import { startTracking } from "@/lib/tracking";
 import { cn } from "@/lib/utils";
 import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 
@@ -111,12 +109,9 @@ export const Map = ({ className }: { className?: string }) => {
     const touch = useMediaQuery("(pointer: coarse)");
     const showZoom = !isMobile && !touch;
 
+    const $here = useStore(currentPosition);
     const followMeMarkerRef = useMemo(
         () => ({ current: null as L.Marker | null }),
-        [],
-    );
-    const stopWatchRef = useMemo(
-        () => ({ current: null as (() => void) | null }),
         [],
     );
 
@@ -262,6 +257,7 @@ export const Map = ({ className }: { className?: string }) => {
             >
                 {getTileLayer($baseTileLayer)}
                 <DraggableMarkers />
+                <SeekerMarkers />
                 <ReferenceMarkers />
                 <PlaceReviewMarkers />
                 <PolygonDraw />
@@ -324,56 +320,36 @@ export const Map = ({ className }: { className?: string }) => {
     // The hiding zones follow the answers whichever panels are open.
     useEffect(startHidingZoneLayer, []);
 
+    // The phone's position (lib/tracking.ts follows it) as a blue dot,
+    // while Follow me is on.
+    useEffect(startTracking, []);
     useEffect(() => {
         if (!map) return;
-        if (!$followMe) {
-            if (followMeMarkerRef.current) {
-                map.removeLayer(followMeMarkerRef.current);
-                followMeMarkerRef.current = null;
-            }
-            stopWatchRef.current?.();
-            stopWatchRef.current = null;
-            currentPosition.set(null);
+        if (!$followMe || !$here) {
+            followMeMarkerRef.current?.remove();
+            followMeMarkerRef.current = null;
             return;
         }
-
-        stopWatchRef.current = watchPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                currentPosition.set({
-                    latitude: lat,
-                    longitude: lng,
-                    at: Date.now(),
-                });
-                if (followMeMarkerRef.current) {
-                    followMeMarkerRef.current.setLatLng([lat, lng]);
-                } else {
-                    const marker = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            html: `<div class="text-blue-700 bg-white rounded-full border-2 border-blue-700 shadow w-5 h-5 flex items-center justify-center"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#2A81CB" opacity="0.5"/><circle cx="8" cy="8" r="3" fill="#2A81CB"/></svg></div>`,
-                            className: "",
-                        }),
-                        zIndexOffset: 1000,
-                    });
-                    marker.addTo(map);
-                    followMeMarkerRef.current = marker;
-                }
-            },
-            (error) => {
-                toast.error(describeGeoError(error), { autoClose: 12000 });
-                followMe.set(false);
-            },
-        );
-        return () => {
-            if (followMeMarkerRef.current) {
-                map.removeLayer(followMeMarkerRef.current);
-                followMeMarkerRef.current = null;
-            }
-            stopWatchRef.current?.();
-            stopWatchRef.current = null;
-        };
-    }, [$followMe, map]);
+        const at: L.LatLngExpression = [$here.latitude, $here.longitude];
+        if (followMeMarkerRef.current) {
+            followMeMarkerRef.current.setLatLng(at);
+            return;
+        }
+        followMeMarkerRef.current = L.marker(at, {
+            icon: L.divIcon({
+                html: `<div class="text-blue-700 bg-white rounded-full border-2 border-blue-700 shadow w-5 h-5 flex items-center justify-center"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#2A81CB" opacity="0.5"/><circle cx="8" cy="8" r="3" fill="#2A81CB"/></svg></div>`,
+                className: "follow-me-marker",
+            }),
+            zIndexOffset: 1000,
+        }).addTo(map);
+    }, [$followMe, $here, map]);
+    useEffect(
+        () => () => {
+            followMeMarkerRef.current?.remove();
+            followMeMarkerRef.current = null;
+        },
+        [map],
+    );
 
     return displayMap;
 };

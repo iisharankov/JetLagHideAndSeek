@@ -2,7 +2,7 @@
 // around it is their hiding zone) and the pin where they really are. Shared
 // between the hider's phones through the game, never with the seekers.
 import * as turf from "@turf/turf";
-import { atom } from "nanostores";
+import { atom, computed } from "nanostores";
 
 import {
     endgame,
@@ -33,6 +33,11 @@ export const chosenStation = persistentAtom<StationPick | null>(
 export const pendingStation = atom<StationPick | null>(null);
 /** The hider is picking (or changing) their station on the map. */
 export const hiderChoosing = atom<boolean>(false);
+/** The hider's station is set: not being picked or changed. */
+export const hiderPlaced = computed(
+    [chosenStation, hiderChoosing],
+    (chosen, choosing) => !!chosen && !choosing,
+);
 /**
  * The end game is on at the hider's station: the pin is fixed, and the
  * seekers must find the hider exactly there (from the game's state).
@@ -96,6 +101,58 @@ export const setHiderPin = (
     }
     hiderMode.set({ latitude, longitude });
     return result;
+};
+
+/** The hider's pin follows their GPS (Hider tab), inside their zone. */
+export const pinFollowsGps = persistentAtom<boolean>(
+    "pinFollowsGps",
+    false,
+    json,
+);
+/** Each move of the pin goes to the game: at most this often… */
+const FOLLOW_EVERY_MS = 15_000;
+/** …and only for a real move, not the GPS's jitter. */
+const FOLLOW_METRES = 10;
+let followedAt = -Infinity;
+/** Following, and outside the zone: the pin waits at its edge. */
+export const pinAtEdge = atom<boolean>(false);
+pinFollowsGps.listen(() => {
+    followedAt = -Infinity;
+    pinAtEdge.set(false);
+});
+
+/**
+ * A GPS fix for the hider's pin: moved there (or to the zone's edge, from
+ * outside it), or left alone for now ("waiting") or altogether ("off":
+ * picking the station, the pin fixed, or the setting off).
+ */
+export const followPin = (here: {
+    latitude: number;
+    longitude: number;
+    at: number;
+}): "moved" | "clamped" | "waiting" | "off" => {
+    const pin = hiderMode.get();
+    if (
+        !pinFollowsGps.get() ||
+        !hiderPlaced.get() ||
+        pinLocked.get() ||
+        pin === false
+    ) {
+        return "off";
+    }
+    const metres =
+        turf.distance(
+            [pin.longitude, pin.latitude],
+            [here.longitude, here.latitude],
+            { units: "kilometers" },
+        ) * 1000;
+    if (here.at - followedAt < FOLLOW_EVERY_MS || metres < FOLLOW_METRES) {
+        return "waiting";
+    }
+    followedAt = here.at;
+    const clamped = setHiderPin(here.latitude, here.longitude) === "clamped";
+    pinAtEdge.set(clamped);
+    return clamped ? "clamped" : "moved";
 };
 
 /** Done: the tapped station is the hider's for the round; the research questions go. */

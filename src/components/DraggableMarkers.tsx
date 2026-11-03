@@ -14,7 +14,12 @@ import {
     updateQuestion,
 } from "@/lib/context";
 import { gameState, hiderPhone } from "@/lib/game/session";
-import { pinLocked, setHiderPin, showHiderPin } from "@/lib/hiderSpot";
+import {
+    hiderPlaced,
+    pinLocked,
+    setHiderPin,
+    showHiderPin,
+} from "@/lib/hiderSpot";
 import type { ICON_COLORS } from "@/maps/api";
 import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
@@ -195,6 +200,7 @@ export const DraggableMarkers = () => {
     const $hiderMode = useStore(hiderMode);
     const $hider = useStore(hiderPhone);
     const $showHiderPin = useStore(showHiderPin);
+    const $placed = useStore(hiderPlaced);
     const $notes = useStore(notePins);
 
     return (
@@ -202,7 +208,10 @@ export const DraggableMarkers = () => {
             {$notes.map((note) => (
                 <NotePinMarker key={note.id} note={note} />
             ))}
-            {$hiderMode !== false && $hider && $showHiderPin && (
+            {/* Not while picking the station: until the end game the
+                answers come from the station, and the pin only matters
+                then. */}
+            {$hiderMode !== false && $hider && $showHiderPin && $placed && (
                 <ColoredMarker
                     color="green"
                     key="hider"

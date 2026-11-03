@@ -371,3 +371,114 @@ describe("push notifications", () => {
         ]);
     });
 });
+
+describe("the seekers' positions", () => {
+    const share = (id: string, body: unknown, token?: string) =>
+        app.request(
+            `/api/games/${id}/position`,
+            json(body, token ? { "X-Hider-Token": token } : {}),
+        );
+    /** A phone's live stream, read one event at a time. */
+    const stream = async (id: string, token?: string) => {
+        const events = await app.request(`/api/games/${id}/events`, {
+            headers: token ? { "X-Hider-Token": token } : {},
+        });
+        const reader = events.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const next = async () => {
+            while (!buffer.includes("\n\n")) {
+                const { value } = await reader.read();
+                buffer += decoder.decode(value);
+            }
+            const end = buffer.indexOf("\n\n");
+            const event = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            return {
+                event: /^event: (.*)$/m.exec(event)?.[1],
+                data: JSON.parse(/^data: (.*)$/m.exec(event)?.[1] ?? "null"),
+            };
+        };
+        return { next, close: () => reader.cancel() };
+    };
+
+    it("reach every phone's stream, the hider's too, and later phones at once", async () => {
+        const id = await newGame();
+        const { token } = await claim(id);
+        const hider = await stream(id, token);
+        expect((await hider.next()).event).toBe("state");
+
+        const sent = await share(id, {
+            by: "Ana",
+            latitude: 47.38,
+            longitude: 8.54,
+            accuracy: 12.4,
+        });
+        expect(sent.status).toBe(200);
+        const { event, data } = await hider.next();
+        expect(event).toBe("positions");
+        expect(data.positions).toEqual([
+            {
+                name: "Ana",
+                latitude: 47.38,
+                longitude: 8.54,
+                accuracy: 12,
+                at: expect.any(Number),
+            },
+        ]);
+        expect(typeof data.now).toBe("number");
+
+        // A phone opening the game now gets them right after the game.
+        const seeker = await stream(id);
+        expect((await seeker.next()).event).toBe("state");
+        const known = await seeker.next();
+        expect(known.event).toBe("positions");
+        expect(known.data.positions).toHaveLength(1);
+        await hider.close();
+        await seeker.close();
+    });
+
+    it("keep each seeker's newest", async () => {
+        const id = await newGame();
+        const phone = await stream(id);
+        await phone.next();
+        await share(id, { by: "Ana", latitude: 47.38, longitude: 8.54 });
+        await share(id, { by: "Ben", latitude: 47.4, longitude: 8.5 });
+        await share(id, { by: "Ana", latitude: 47.39, longitude: 8.55 });
+        await phone.next();
+        await phone.next();
+        const { data } = await phone.next();
+        expect(
+            data.positions.map((p: { name: string; latitude: number }) => [
+                p.name,
+                p.latitude,
+            ]),
+        ).toEqual([
+            ["Ben", 47.4],
+            ["Ana", 47.39],
+        ]);
+        expect(data.positions[0].accuracy).toBeNull();
+        await phone.close();
+    });
+
+    it("are the seekers' only: the hider's stays on their phone; nonsense is refused", async () => {
+        const id = await newGame();
+        const { token } = await claim(id);
+        const hider = await share(
+            id,
+            { by: "Ben", latitude: 47.38, longitude: 8.54 },
+            token,
+        );
+        expect(hider.status).toBe(403);
+        for (const body of [
+            { by: "Ana", latitude: 91, longitude: 8.54 },
+            { by: "Ana", latitude: 47.38 },
+            { by: "Ana", latitude: "47", longitude: 8.54 },
+        ]) {
+            expect((await share(id, body)).status).toBe(400);
+        }
+        expect(
+            (await share("nope", { latitude: 47, longitude: 8 })).status,
+        ).toBe(404);
+    });
+});

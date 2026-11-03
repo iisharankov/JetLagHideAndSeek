@@ -368,16 +368,21 @@ const draw = () => {
         const disabled = disabledStations.get();
         const stations = trainStations
             .get()
-            .filter(
-                (station) =>
-                    !disabled.includes(stationId(station)) &&
-                    stationId(station) !== mine?.id,
-            );
+            .filter((station) => !disabled.includes(stationId(station)));
         const byId = new Map(stations.map((s) => [stationId(s), s]));
-        // The hider sees zones and station icons together.
-        const style = hider ? "both" : displayHidingZonesStyle.get();
+        // The hider choosing sees the stations alone (every circle at once
+        // is a blur, with trams on a small map), and the tapped one's red
+        // circle; afterwards zones and icons together.
+        const style = hider
+            ? choosing
+                ? "stations"
+                : "both"
+            : displayHidingZonesStyle.get();
         const features: Feature[] = [
-            ...(style === "stations" ? [] : stations),
+            // The hider's own zone is drawn in red, below.
+            ...(style === "stations"
+                ? []
+                : stations.filter((s) => stationId(s) !== mine?.id)),
             ...(style === "zones" ? [] : stations.map((s) => s.properties)),
         ];
         const onStation = (id: string) => {

@@ -1047,12 +1047,52 @@ screen with its target in view and closes them after, no game started
 on the old code); skipping while the Menu is open closes it, and the Menu
 is modal again after. Checked by eye on the desktop and phone.
 
+## Round 25: stations alone while picking, positions on the map ✅ (2026-11-03)
+
+1. **Picking a station:** the hider sees the stations' icons only (every
+   circle at once was a blur, with trams on a small map); the tapped
+   station shows its red circle, alone.
+2. **No pin until the station is set:** answers come from the station
+   until the end game, so the pin appears (and can be dragged) after Done.
+3. **The hider's pin follows their GPS** (Hider tab → **Move my pin with
+   GPS**): inside the zone (outside, it waits at the edge and says so), at
+   most every 15 s and not for GPS jitter (each move goes to every phone),
+   never once fixed. A fix held back still arrives when the phone stands
+   still (the last one is offered again every 5 s). One GPS watch for the
+   app (`lib/tracking.ts`), no longer inside the map component.
+4. **The seekers on the hider's map**, always: the rulebook has the seekers
+   keep a tracker on so the hider can follow them. A seeker with Follow me
+   on sends their position after a 25 m move (at most every 10 s) and once
+   a minute; the server keeps the newest per seeker in memory and streams
+   it as its own `positions` event, not in the game (a moving seeker would
+   otherwise resend the whole game to every phone). Name and "3 min ago" on
+   the marker, faded after 5 quiet minutes; seekers see each other too.
+   Only while the app is open: a web page can't follow a phone in the
+   background.
+5. **Up front for seekers:** the join dialog says the hider sees them; in
+   the game, a banner asks them to **Turn on location** until it's on; the
+   Follow me setting and the seeker tour say why.
+6. **Asked from where you are:** at **Send to the hider**, with a recent
+   position and the question's pin more than 50 m away (or twice the fix's
+   accuracy), the card asks: **Send from where I am** (the pin moves,
+   a thermometer's end pin) or **Send from the pin**, the map framing both with a
+   dashed line; **Not yet** leaves it. Sending now flushes the draft's last
+   changes first: a pin dragged just before Send could arrive after it.
+
+Tests: `tests/pinFollow.test.ts`, `tests/seekerPositions.test.ts`,
+`tests/askFrom.test.ts`, the positions endpoint and stream in
+`server/src/app.test.ts`; `e2e/location.spec.ts` with the browser's
+location faked (the seekers' markers on the hider's map, the send check,
+the pin following and waiting at the edge; the last caught the held-back
+fix); the station pick in `e2e/sharedGame.spec.ts` (icons only, one red
+circle, no pin until Done; fails on the old code).
+
 ## What's left ⏭️
 
 From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **Before game night:** commit and deploy rounds 22–24, then
+1. **Before game night:** commit and deploy rounds 22–25, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
    `access` tag and the country codes); Settings → Places → Review on the
    map for Zürich canton; the backups (Q48); the hider password (Q50).

@@ -121,7 +121,7 @@ export const SettingsPanel = () => {
                     </p>
                     <ToggleCard
                         title="Follow me (GPS)"
-                        description="Show your own position on the map."
+                        description="Your position on the map, while this app is open; new questions start there. A seeker's also shows on the hider's map, as the rules ask."
                         tutorialId="follow-me"
                         checked={$followMe}
                         onCheckedChange={followMe.set}

@@ -21,6 +21,8 @@ import {
     hiderChoosing,
     hiderShowAll,
     pendingStation,
+    pinAtEdge,
+    pinFollowsGps,
     pinLocked,
     setHiderPin,
     showHiderPin,
@@ -52,6 +54,8 @@ export const HiderPanel = () => {
     const $showPin = useStore(showHiderPin);
     const $pin = useStore(hiderMode);
     const $pinLocked = useStore(pinLocked);
+    const $pinFollows = useStore(pinFollowsGps);
+    const $atEdge = useStore(pinAtEdge);
     const $endgame = useStore(endgame);
     const $game = useStore(gameState);
     useTick(!!$game?.move);
@@ -76,8 +80,8 @@ export const HiderPanel = () => {
                     data-tutorial-id="hider-pick"
                 >
                     <strong>Pick your station.</strong> Every station is on the
-                    map with its hiding zone ({radius} around it). Tap yours on
-                    the map or in the list; it turns red.
+                    map. Tap yours, on the map or in the list: its hiding zone (
+                    {radius} around it) shows in red.
                 </p>
                 {$pending && (
                     <p data-testid="hider-station">
@@ -330,6 +334,20 @@ export const HiderPanel = () => {
                         Use my GPS
                     </Button>
                 </div>
+            )}
+            {$showPin && !$pinLocked && (
+                <ToggleCard
+                    title="Move my pin with GPS"
+                    description="The pin follows you while this app is open, inside your zone. It matters from the end game on: keep it on, and your pin is where you are when it starts."
+                    checked={$pinFollows}
+                    onCheckedChange={pinFollowsGps.set}
+                    tutorialId="pin-follows-gps"
+                />
+            )}
+            {$pinFollows && $atEdge && !$pinLocked && (
+                <p className="text-xs text-amber-300" data-testid="pin-at-edge">
+                    You&apos;re outside your zone: the pin waits at its edge.
+                </p>
             )}
             {!$game && (
                 <p className="text-xs text-slate-400">

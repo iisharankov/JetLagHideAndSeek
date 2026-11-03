@@ -18,6 +18,7 @@ import {
 } from "@/lib/context";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import { applyGameSettings } from "@/lib/gameSettings";
+import { currentPosition } from "@/lib/geolocation";
 import {
     chosenStation,
     hiderChoosing,
@@ -44,8 +45,10 @@ import {
     postHiderPassword,
     postOp,
     postPhoto,
+    postPosition,
 } from "./api";
 import { forgetGame, rememberGame, unmarkJoined } from "./knownGames";
+import { positionDue, seekerPositions } from "./positions";
 import { noteServerTime } from "./serverTime";
 import { diffLocal, mergeRemoteQuestions, syncedJson, toShared } from "./sync";
 import type { GameOp, GameState, Role } from "./types";
@@ -322,31 +325,30 @@ export const sendOp = async (op: GameOp) => {
 };
 
 let syncTimer: ReturnType<typeof setTimeout> | undefined;
-let sending = false;
-let sendAgain = false;
+/** The questions' changes go one flush after another. */
+let flushing: Promise<void> = Promise.resolve();
 
-const flushQuestions = async () => {
-    if (sending) {
-        sendAgain = true;
-        return;
-    }
-    sending = true;
-    try {
-        for (const op of diffLocal(questions.get(), synced)) {
-            if (op.type === "putQuestion") {
-                synced.set(op.question.key, JSON.stringify(op.question));
-            } else if (op.type === "deleteQuestion") {
-                synced.delete(op.key);
+const flushQuestions = () => {
+    flushing = flushing
+        .then(async () => {
+            for (const op of diffLocal(questions.get(), synced)) {
+                if (op.type === "putQuestion") {
+                    synced.set(op.question.key, JSON.stringify(op.question));
+                } else if (op.type === "deleteQuestion") {
+                    synced.delete(op.key);
+                }
+                await sendOp(op);
             }
-            await sendOp(op);
-        }
-    } finally {
-        sending = false;
-        if (sendAgain) {
-            sendAgain = false;
-            scheduleSync();
-        }
-    }
+        })
+        .catch(() => undefined);
+    return flushing;
+};
+
+/** A draft to the hider, with its last changes first (a pin just moved). */
+export const sendQuestion = async (key: number) => {
+    clearTimeout(syncTimer);
+    await flushQuestions();
+    await sendOp({ type: "sendQuestion", key });
 };
 
 const scheduleSync = () => {
@@ -406,6 +408,27 @@ const listenForLocalChanges = () => {
             300,
         );
     });
+    // A seeker's position, for the hider's map (the rulebook: seekers keep
+    // a tracker on): when it moves, and once a minute while it's followed.
+    let sent: { latitude: number; longitude: number; at: number } | null = null;
+    const sharePosition = () => {
+        const here = currentPosition.get();
+        if (!here || !inGame() || gameRole.get() !== "seeker") return;
+        const fix = { ...here, at: Date.now() };
+        if (!positionDue(sent, fix)) return;
+        sent = fix;
+        const { latitude, longitude, accuracy } = here;
+        postPosition(
+            activeGameId.get(),
+            { latitude, longitude, accuracy },
+            me(),
+        ).catch(() => {
+            // The next fix, or the next minute, tries again.
+            sent = null;
+        });
+    };
+    currentPosition.listen(sharePosition);
+    setInterval(sharePosition, 15_000);
 };
 
 const disconnect = () => {
@@ -459,6 +482,10 @@ const connect = async () => {
                 const { state, now } = JSON.parse(message.data);
                 noteServerTime(now);
                 receive(state);
+            } else if (message.event === "positions") {
+                const { positions, now } = JSON.parse(message.data);
+                noteServerTime(now);
+                seekerPositions.set(positions);
             } else if (message.event === "deleted") {
                 toast.info("This game was deleted.");
                 forgetGame(id);
@@ -525,6 +552,7 @@ export const leaveGame = () => {
     pendingStation.set(null);
     pinLocked.set(false);
     previewAnswers.set({});
+    seekerPositions.set([]);
     currentGameId.set("");
     activeGameId.set("");
     gameState.set(null);

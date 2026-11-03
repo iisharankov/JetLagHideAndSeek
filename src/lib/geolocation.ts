@@ -3,10 +3,12 @@
 // location turned on for the phone and the browser app itself.
 import { atom } from "nanostores";
 
-/** Where the phone is, while "Follow me" is on (and when it last knew). */
+/** Where the phone is, while it's followed (lib/tracking.ts), and when it last knew. */
 export const currentPosition = atom<{
     latitude: number;
     longitude: number;
+    /** Metres, as the phone reckons it. */
+    accuracy?: number;
     at: number;
 } | null>(null);
 

@@ -54,6 +54,7 @@ import type { Question } from "@/maps/schema";
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import { CardsPanel } from "./game/CardsPanel";
 import { CurseBanner } from "./game/CurseBanner";
+import { LocationPrompt } from "./game/LocationPrompt";
 import { NotePinList } from "./game/NotePins";
 import { PhotosPanel } from "./game/PhotosPanel";
 import { RoundClock } from "./game/RoundClock";
@@ -270,6 +271,7 @@ export const QuestionSidebar = () => {
                     answers wait until it&apos;s back.
                 </p>
             )}
+            {$game && $role === "seeker" && <LocationPrompt />}
             <div className="px-2 pt-2">
                 <div data-tutorial-id="sidebar-tabs">
                     <SegmentedControl

@@ -212,6 +212,20 @@ export interface StationPick {
 }
 
 /**
+ * Where a seeker is, for the hider's map (server/src/positions.ts): the
+ * rulebook has the seekers keep a tracker on. Not part of the game's state.
+ */
+export interface SeekerPosition {
+    name: string;
+    latitude: number;
+    longitude: number;
+    /** Metres, as the seeker's phone reckons it. */
+    accuracy: number | null;
+    /** When the server heard it (its clock). */
+    at: number;
+}
+
+/**
  * The end game: the seekers have picked the hider's station. Only its zone
  * is left on the map, and the questions asked before no longer apply.
  */

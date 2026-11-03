@@ -233,6 +233,14 @@ export const JoinDialog = () => {
                             >
                                 I&apos;m the hider
                             </Button>
+                            <p
+                                className="col-span-2 text-xs text-slate-400"
+                                data-testid="seekers-tracked"
+                            >
+                                Seekers: the hider sees where you are on their
+                                map, as the rules ask. You&apos;ll be asked to
+                                turn your location on.
+                            </p>
                         </div>
                     ) : (
                         <>

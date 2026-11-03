@@ -45,6 +45,8 @@ import { errorMessage } from "@/maps/errors";
 import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import type { Question } from "@/maps/schema";
 
+import { SendQuestion } from "./SendQuestion";
+
 const STATE_TEXT = {
     draft: "Draft: only seekers see this",
     asked: "Asked: waiting for the hider",
@@ -392,17 +394,11 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                 </p>
             )}
             {entry.state === "draft" && $role === "seeker" && (
-                <Button
-                    disabled={refusal !== null}
-                    size="sm"
-                    className="mt-1 w-full"
-                    data-tutorial-id="send-question"
-                    onClick={() =>
-                        void sendOp({ type: "sendQuestion", key: questionKey })
-                    }
-                >
-                    Send to the hider
-                </Button>
+                <SendQuestion
+                    question={question}
+                    questionKey={questionKey}
+                    refused={refusal !== null}
+                />
             )}
             {showChoices && (
                 <AnswerPanel

@@ -65,6 +65,17 @@ export const postOp = (id: string, op: GameOp, by: string, token?: string) =>
         token,
     );
 
+/** A seeker's position, for the hider's map (not part of the game's state). */
+export const postPosition = (
+    id: string,
+    position: { latitude: number; longitude: number; accuracy?: number },
+    by: string,
+) =>
+    post<{ ok: true }>(`/games/${encodeURIComponent(id)}/position`, {
+        ...position,
+        by,
+    });
+
 export const deleteGameRequest = (
     id: string,
     token?: string,

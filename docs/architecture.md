@@ -42,7 +42,8 @@ src/
     config.ts               where the self-hosted services live (PUBLIC_* overrides)
     context.ts              the stores (questions, play area, hider pin, zone settings, UI state)
                             and the question helpers: addQuestion, updateQuestion, deleteQuestion
-    hiderSpot.ts            the hider's station and pin: picking, clamping, where answers come from
+    hiderSpot.ts            the hider's station and pin: picking, clamping, where answers come
+                            from, the pin following the hider's GPS (at most every 15 s)
     persist.ts              persistentAtom without cross-tab listening
     questionKey.ts          a question's identity for the map (its shared fields, cached per object)
     gameSettings.ts         applying a game's settings to the stores; newRadiusQuestion
@@ -56,7 +57,9 @@ src/
                             deck), clock.ts, endgame.ts, events.ts + alerts.ts (what to tell
                             whom; push opt-in), drafts.ts, photos.ts, answerTimer.ts,
                             questionIdentity.ts (asked again, randomize), scoreboard.ts,
-                            curseRules.ts (what each curse does to the game)
+                            curseRules.ts (what each curse does to the game), positions.ts
+                            (the seekers' positions: when to send, who's shown), askFrom.ts
+                            (a question's seekers' point, checked against the phone's)
     activeQuestion.ts       which question draws its reference places
     jobs.ts                 busy tracker, "latest runner" (no overlapping refreshes), yieldToUi
     format.ts               "3 min ago", "14:05": the panels' shared formatters
@@ -64,7 +67,8 @@ src/
     sharedGame.ts           a game's play area and zone settings: names, checks, applying
     storage.ts              safe decoding of saved questions
     memoizeAsync.ts         cache that forgets failures
-    geolocation.ts          GPS with readable errors; the phone's position while Follow me is on
+    geolocation.ts          GPS with readable errors; the phone's position (currentPosition)
+    tracking.ts             one GPS watch, while Follow me is on or the hider's pin follows them
   maps/
     schema.ts               zod schemas for the 5 question types
     index.ts                question engine: applies questions, remembers each step, reports status
@@ -112,6 +116,7 @@ src/
                             a step opens the sidebar on a tab, the Menu on a tab or a new game's
                             setup on a screen (non-modal during a tour, the note above them)
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
+                            positions.ts (the seekers' positions, in memory),
                             gameOps.ts (the rules: applyOp, viewFor) with its helpers in
                             rules/ (shared checks, questions, curses, hider, teams), push.ts
                             (push notifications, VAPID keys)
@@ -223,6 +228,15 @@ progress, the hider's spot, and earlier rounds.
   runs the same diff for push notifications. "Download this game" in Menu
   → Game saves the game this phone sees as a JSON file (`download.ts`).
   Lost connections are retried with a growing wait (5 s to a minute).
+- **Where the seekers are** (the rulebook has them keep a tracker on so the
+  hider can follow them): a seeker's phone with Follow me on sends its
+  position (`POST /api/games/<id>/position`) after a 25 m move (at most
+  every 10 s) and once a minute. The server keeps each seeker's newest in
+  memory only (not in the game, not in SQLite: a restart forgets them, the
+  phones resend within a minute) and passes them on in the same stream as a
+  `positions` event, so a moving seeker doesn't resend the whole game.
+  Every seeker on the hider's map, the others on a seeker's
+  (`SeekerMarkers.tsx`). The hider's position is never sent this way (403).
 - **On the phone**, `session.ts` mirrors the game into the usual stores
   (questions, play area, zone settings, end game, the hider's spot). Local
   edits are compared with what the server last sent and the differences go

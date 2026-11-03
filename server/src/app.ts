@@ -8,6 +8,11 @@ import type { GameState } from "@/lib/game/types";
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
 import type { GameStore } from "./games";
 import { opProblem, parseOp, parseQuestions } from "./opSchema";
+import {
+    createPositionStore,
+    type PositionStore,
+    type SeekerPosition,
+} from "./positions";
 import { parseSubscription, type PushService } from "./push";
 
 const MAX_GAME_BYTES = 2 * 1024 * 1024;
@@ -50,10 +55,13 @@ const playerName = (value: unknown) => {
 export const createApp = ({
     games,
     push,
+    positions = createPositionStore(),
 }: {
     games: GameStore;
     /** Push notifications; without it the phones get none. */
     push?: PushService;
+    /** Where the seekers are (in memory). */
+    positions?: PositionStore;
 }) => {
     const app = new Hono().basePath("/api");
 
@@ -172,6 +180,7 @@ export const createApp = ({
             );
         }
         games.delete(id);
+        positions.forget(id);
         return c.json({ ok: true });
     });
 
@@ -203,12 +212,26 @@ export const createApp = ({
                           }),
                       })
                     : stream.writeSSE({ event: "deleted", data: "" });
+            const sendPositions = (list: SeekerPosition[]) =>
+                stream.writeSSE({
+                    event: "positions",
+                    data: JSON.stringify({ positions: list, now: Date.now() }),
+                });
             const unsubscribe = games.subscribe(
                 id,
                 (state) => void send(state),
             );
-            stream.onAbort(unsubscribe);
+            const unsubscribePositions = positions.subscribe(
+                id,
+                (list) => void sendPositions(list),
+            );
+            stream.onAbort(() => {
+                unsubscribe();
+                unsubscribePositions();
+            });
             await send(first);
+            const known = positions.list(id);
+            if (known.length > 0) await sendPositions(known);
             while (!stream.aborted) {
                 await stream.sleep(KEEPALIVE_MS);
                 if (!stream.aborted) {
@@ -216,8 +239,44 @@ export const createApp = ({
                 }
             }
             unsubscribe();
+            unsubscribePositions();
         });
     });
+
+    // A seeker's position, for the hider's map (the rulebook: the seekers
+    // keep a tracker on). The hider's own position stays with the hider.
+    app.post(
+        "/games/:id/position",
+        bodyLimit({ maxSize: 2000, onError: tooLarge("position") }),
+        async (c) => {
+            const id = c.req.param("id");
+            found(id);
+            if (roleOf(c, id) === "hider") {
+                throw new GameRuleError(
+                    "Only the seekers' positions are shared, not the hider's.",
+                );
+            }
+            const body = await c.req.json().catch(() => null);
+            const { latitude, longitude, accuracy } = body ?? {};
+            const number = (value: unknown, limit: number) =>
+                typeof value === "number" &&
+                Number.isFinite(value) &&
+                Math.abs(value) <= limit;
+            if (!number(latitude, 90) || !number(longitude, 180)) {
+                throw new GameRuleError("That isn't a position.", 400);
+            }
+            positions.set(id, {
+                name: playerName(body.by),
+                latitude,
+                longitude,
+                accuracy:
+                    number(accuracy, 1e6) && accuracy >= 0
+                        ? Math.round(accuracy)
+                        : null,
+            });
+            return c.json({ ok: true });
+        },
+    );
 
     app.post(
         "/games/:id/photos",

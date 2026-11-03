@@ -151,7 +151,7 @@ const HIDING: TourStep[] = [
     {
         id: "pin",
         title: "Your pin",
-        text: "Keep your pin where you really are. Once the end game starts it's fixed, and the seekers must find you right there. When they spot you, your time stops and your bonuses count.",
+        text: "Keep your pin where you really are: **Move my pin with GPS** does it for you. Once the end game starts it's fixed, and the seekers must find you right there. When they spot you, your time stops.",
         sidebar: "closed",
         demo: "endgame",
     },
@@ -230,7 +230,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "follow-me",
             title: "Follow me",
-            text: "In the **Menu**, under **Settings**: **Follow me (GPS)** shows where you are on the map, and new questions start there.",
+            text: "In the **Menu**, under **Settings**: turn on **Follow me (GPS)**. The rules have the seekers keep a tracker on: the hider sees you on their map, and your questions are asked from where you are.",
             target: [id("follow-me")],
             menu: "settings",
         },
