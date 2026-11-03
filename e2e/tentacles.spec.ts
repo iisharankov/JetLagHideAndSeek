@@ -80,6 +80,10 @@ test("a saved tentacles answer survives reloading the page", async ({
     if (testInfo.project.name !== "desktop") {
         await page.getByTestId("sidebar-trigger").click();
     }
+    await page
+        .getByTestId("question-list")
+        .getByRole("button", { name: /^Question 1 · Tentacles/ })
+        .click();
     await expect(page.getByText("Zoo Zürich").first()).toBeVisible({
         timeout: 20_000,
     });

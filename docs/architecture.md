@@ -94,7 +94,9 @@ src/
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline (the play area's shape: maps/playArea.ts)
     DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
     QuestionSidebar.tsx     the sidebar: Questions, Stations (Hider on the hider's phone), Photos, Cards
-    cards/                  base.tsx (the card frame: fold, lock, hide, delete) + one card per type
+    QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
+                            the order); a row (or the pin) opens the card in its place
+    cards/                  base.tsx (the open card's frame: back, lock, hide, delete) + one card per type
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
     PlayAreaBar.tsx         choosing the play area during setup: tapping cantons, districts or

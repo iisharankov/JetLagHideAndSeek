@@ -1087,12 +1087,42 @@ the pin following and waiting at the edge; the last caught the held-back
 fix); the station pick in `e2e/sharedGame.spec.ts` (icons only, one red
 circle, no pin until Done; fails on the old code).
 
+## Round 26: questions as a list, the hand's picking at the bottom ✅ (2026-11-03)
+
+1. **Questions as a list.** The Questions tab is one row per question,
+   "Question 3 · Radar", with its pin's colour and where it stands (Draft,
+   Waiting, or Answer it on the hider's phone, Answered, Vetoed), in the
+   order they were asked, drafts last in the order they were made. A row
+   opens the whole card in the tab's place, with a back arrow; on a phone
+   the map stays in view above the sheet. A new question opens at once; on
+   the hider's phone a question that arrives opens by itself unless another
+   is open; a question's pin on the map opens its card (instead of its own
+   dialog). Folding is gone (the map never used it: only the active
+   question counts). The Research tab works the same. The seekers' location
+   banner is one line now.
+2. **The hand's picking.** One way for everything: the cards get **Select**
+   (and **✓ Selected**), and a bar pinned to the bottom of the Cards tab
+   says what for and does it, in reach wherever the hand is scrolled: keep
+   the drawn cards (**Keep 1/1**), pay a card's cost (the card shows
+   **Casting**, the cards that can't pay are dimmed, **Cast it (1/2)** or
+   Cancel), or get down to the hand limit (**Discard 2 selected**, or play
+   cards). Before, over the limit each card had **Discard** (at once) while a
+   cost had **Discard this** (to pick), and its Cast button was back at the
+   top. Several cards discarded together go one after the other, highest
+   place first. On a phone the hand is three cards a row.
+
+Tests: `tests/questionList.test.ts` (order, numbering),
+`tests/discardCards.test.ts`; `e2e/questionList.spec.ts` (rows, opening,
+back, a pin opening its card), `e2e/hand.spec.ts` (over the limit and a
+curse's cost, from the bar, on a desktop and a phone); the older browser
+tests open a question from its row where they used to find its card.
+
 ## What's left ⏭️
 
 From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **Before game night:** commit and deploy rounds 22–25, then
+1. **Before game night:** commit and deploy rounds 22–26, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
    `access` tag and the country codes); Settings → Places → Review on the
    map for Zürich canton; the backups (Q48); the hider password (Q50).

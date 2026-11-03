@@ -1,6 +1,13 @@
 import { useStore } from "@nanostores/react";
-import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from "lucide-react";
-import { VscChevronDown, VscTrash } from "react-icons/vsc";
+import {
+    ChevronLeft,
+    EyeIcon,
+    EyeOffIcon,
+    LockIcon,
+    UnlockIcon,
+} from "lucide-react";
+import { createContext, useContext } from "react";
+import { VscTrash } from "react-icons/vsc";
 
 import { QuestionGameBar } from "@/components/game/QuestionGameBar";
 import {
@@ -26,12 +33,10 @@ import { showUndoToast } from "@/components/undoToast";
 import {
     activeQuestionKey,
     deleteQuestion,
-    draftsOnMap,
     isLoading,
     questions,
     questionStatuses,
     updateQuestion,
-    updateQuestions,
 } from "@/lib/context";
 import { DRAWS } from "@/lib/game/deck";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
@@ -58,10 +63,19 @@ export const useFrozen = (questionKey: number) => {
 };
 
 /**
- * The frame of a question card: the title row with hide, delete and ⓘ,
- * folding, and (playing alone) the lock. Folded, locked and hidden are the
- * question's own fields, so every card follows the saved question. In a
- * shared game an answered question is locked for everyone.
+ * The open question's heading ("Question 3 · Radar", QuestionList.tsx) and
+ * the way back to the list.
+ */
+export const QuestionHeading = createContext<{
+    title: string;
+    back: () => void;
+} | null>(null);
+
+/**
+ * The frame of a question's open card: back to the list, the title with
+ * hide, delete and ⓘ, and (playing alone) the lock. Locked and hidden are
+ * the question's own fields, so every card follows the saved question. In
+ * a shared game an answered question is locked for everyone.
  */
 export const QuestionCard = ({
     children,
@@ -81,6 +95,7 @@ export const QuestionCard = ({
     const status = useStore(questionStatuses)[questionKey];
     const question = $questions.find((q) => q.key === questionKey);
     const isActive = useStore(activeQuestionKey) === questionKey;
+    const heading = useContext(QuestionHeading);
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const entry = $game?.questions[String(questionKey)];
@@ -88,41 +103,11 @@ export const QuestionCard = ({
     const byAgreement = !!entry && entry.state !== "draft";
     const deleteRequest = $game?.deleteRequests?.[String(questionKey)];
 
-    const isCollapsed = question?.data.collapsed ?? false;
     const locked = question ? !question.data.drag : false;
     const hidden = question?.data.hidden ?? false;
     const draw = question ? DRAWS[question.id] : undefined;
     // The hider's research questions never join the game.
     const research = !!question?.data.research;
-    const isDraft =
-        !!$game &&
-        !research &&
-        ($game.questions[String(questionKey)]?.state ?? "draft") === "draft";
-
-    /** "Only the open card" drafts: this one opens, the other drafts fold. */
-    const focusDraft = () => {
-        if (!isDraft || draftsOnMap.get() !== "active") return;
-        const otherDrafts = questions
-            .get()
-            .filter(
-                (other) =>
-                    other.key !== questionKey &&
-                    ($game?.questions[String(other.key)]?.state ?? "draft") ===
-                        "draft",
-            )
-            .map((other) => other.key);
-        updateQuestions(otherDrafts, { collapsed: true });
-        updateQuestion(questionKey, { collapsed: false });
-    };
-
-    const toggleCollapse = () => {
-        if (isCollapsed) {
-            activeQuestionKey.set(questionKey);
-            focusDraft();
-        }
-        updateQuestion(questionKey, { collapsed: !isCollapsed });
-    };
-
     return (
         <>
             <SidebarGroup
@@ -132,32 +117,23 @@ export const QuestionCard = ({
                         "bg-blue-500/10 ring-1 ring-inset ring-blue-500/60",
                     className,
                 )}
-                onPointerDown={() => {
-                    if (activeQuestionKey.get() !== questionKey) {
-                        activeQuestionKey.set(questionKey);
-                        focusDraft();
-                    }
-                }}
+                onPointerDown={() => activeQuestionKey.set(questionKey)}
                 data-active={isActive || undefined}
             >
                 <div className="relative">
-                    <div className="flex items-center gap-1 pl-2 pr-1 pt-1">
-                        <button
-                            type="button"
-                            onClick={toggleCollapse}
-                            className={cn(
-                                "shrink-0 rounded-md border text-white transition-transform duration-200",
-                                isCollapsed && "-rotate-90",
-                            )}
-                            aria-label={isCollapsed ? "Open" : "Fold"}
-                        >
-                            <VscChevronDown />
-                        </button>
-                        <SidebarGroupLabel
-                            className="min-w-0 flex-1 cursor-pointer truncate"
-                            onClick={toggleCollapse}
-                        >
-                            {label} {sub && `(${sub})`}
+                    <div className="flex items-center gap-1 pl-1 pr-1 pt-1">
+                        {heading && (
+                            <button
+                                type="button"
+                                onClick={heading.back}
+                                className="inline-flex h-9 shrink-0 items-center rounded-md pr-1 text-sm text-blue-300 hover:bg-white/10"
+                                aria-label="All questions"
+                            >
+                                <ChevronLeft className="h-5 w-5" />
+                            </button>
+                        )}
+                        <SidebarGroupLabel className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                            {heading?.title ?? label} {sub && `(${sub})`}
                         </SidebarGroupLabel>
                         <button
                             type="button"
@@ -248,7 +224,7 @@ export const QuestionCard = ({
                     </div>
                     {draw && (
                         <p
-                            className="pl-9 pr-2 text-[11px] text-slate-400"
+                            className="px-3 text-[11px] text-slate-400"
                             title="What the hider draws from the deck for answering"
                             data-testid="question-draw"
                         >
@@ -362,12 +338,7 @@ export const QuestionCard = ({
                             {status.message}
                         </p>
                     )}
-                    <SidebarGroupContent
-                        className={cn(
-                            "overflow-hidden transition-[max-height] duration-200 max-h-[100rem]", // 100rem is arbitrary
-                            isCollapsed && "max-h-0 duration-150",
-                        )}
-                    >
+                    <SidebarGroupContent>
                         <SidebarMenu>{children}</SidebarMenu>
                         {!$game && (
                             <div className="flex justify-end px-2 pb-1">

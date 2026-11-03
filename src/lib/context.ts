@@ -104,6 +104,8 @@ export const addQuestion = (question: DeepPartial<Question>) => {
     const parsed = questionSchema.parse(question);
     activeQuestionKey.set(parsed.key);
     questions.set([...questions.get(), parsed]);
+    // A new question is to be set up: it opens.
+    openQuestion.set(parsed.key);
 };
 
 /** A change to a question's data (any of its fields). */
@@ -387,6 +389,20 @@ export const referencePlacesMode = persistentAtom<ReferenceMode>(
 );
 /** The question being worked on: its card was last opened, tapped or added. */
 export const activeQuestionKey = atom<number | null>(null);
+/**
+ * The question open in its tab, its whole card in place of the list
+ * (QuestionList.tsx); null: the list.
+ */
+export const openQuestion = atom<number | null>(null);
+
+/** Opens a question's card, from its row or its pin: the active one too. */
+export const showQuestion = (key: number) => {
+    const question = questions.get().find((q) => q.key === key);
+    if (!question) return;
+    activeQuestionKey.set(key);
+    openQuestion.set(key);
+    sidebarTab.set(question.data.research ? "research" : "questions");
+};
 /**
  * Zoom to what's left after every change. Off (the default), the map only
  * zooms when the play area itself changes, so it stays where you put it.

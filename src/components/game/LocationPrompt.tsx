@@ -13,21 +13,20 @@ export const LocationPrompt = () => {
     if ($followMe) return null;
     return (
         <div
-            className="mx-2 mt-2 flex flex-col gap-1 rounded-md border border-sky-500/60 bg-sky-950/40 p-2 text-xs"
+            className="mx-2 mt-2 flex items-center gap-2 rounded-md border border-sky-500/60 bg-sky-950/40 px-2 py-1.5 text-xs"
             data-testid="location-prompt"
         >
-            <p>
-                <strong>Turn on your location.</strong> The rules have the
-                seekers keep a tracker on: the hider sees where you are on their
-                map, and your questions are asked from there. It works while
-                this app is open.
+            <p className="min-w-0 flex-1">
+                <strong>Location off.</strong> The rules have seekers keep a
+                tracker on: the hider follows you on their map.
             </p>
             <Button
                 size="sm"
-                className="self-start"
+                className="shrink-0"
                 onClick={() => followMe.set(true)}
+                aria-label="Turn on location"
             >
-                Turn on location
+                Turn on
             </Button>
         </div>
     );

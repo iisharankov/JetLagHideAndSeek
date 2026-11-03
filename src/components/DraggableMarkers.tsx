@@ -11,6 +11,7 @@ import {
     hiderMode,
     notePins,
     questions,
+    showQuestion,
     updateQuestion,
 } from "@/lib/context";
 import { gameState, hiderPhone } from "@/lib/game/session";
@@ -25,14 +26,15 @@ import { hiderIcon, markerIcon } from "@/maps/markerIcon";
 
 import { NotePinMarker } from "./game/NotePins";
 import { LatitudeLongitude } from "./LatLngPicker";
-import {
-    MatchingQuestionComponent,
-    MeasuringQuestionComponent,
-    RadiusQuestionComponent,
-    TentacleQuestionComponent,
-    ThermometerQuestionComponent,
-} from "./QuestionCards";
-import { SidebarMenu } from "./ui/sidebar-l";
+import { SidebarContext, SidebarMenu } from "./ui/sidebar-l";
+
+/** A question's pin tapped: its card opens in the sidebar. */
+const openCard = (questionKey: number) => {
+    showQuestion(questionKey);
+    const sidebar = SidebarContext.get();
+    if (sidebar.isMobile) sidebar.setOpenMobile(true);
+    else sidebar.setOpen(true);
+};
 
 let isDragging = false;
 
@@ -54,7 +56,6 @@ const ColoredMarker = ({
     /** Locked questions keep their pin, but it can't be moved. */
     draggable?: boolean;
 }) => {
-    const $questions = useStore(questions);
     const $hiderMode = useStore(hiderMode);
     const [open, setOpen] = useState(false);
 
@@ -88,12 +89,9 @@ const ColoredMarker = ({
                         }, 100);
                     },
                     click: () => {
-                        if (questionKey !== -1) {
-                            activeQuestionKey.set(questionKey);
-                        }
-                        if (!isDragging) {
-                            setOpen(true);
-                        }
+                        if (isDragging) return;
+                        if (questionKey === -1) setOpen(true);
+                        else openCard(questionKey);
                     },
                 }}
             />
@@ -119,59 +117,6 @@ const ColoredMarker = ({
                         </SidebarMenu>
                     </>
                 )}
-                {$questions
-                    .filter((q) => q.key === questionKey)
-                    .map((q) => {
-                        switch (q.id) {
-                            case "radius":
-                                return (
-                                    <RadiusQuestionComponent
-                                        key={q.key}
-                                        data={q.data}
-                                        questionKey={q.key}
-                                        sub={sub}
-                                    />
-                                );
-                            case "tentacles":
-                                return (
-                                    <TentacleQuestionComponent
-                                        key={q.key}
-                                        data={q.data}
-                                        questionKey={q.key}
-                                        sub={sub}
-                                    />
-                                );
-                            case "thermometer":
-                                return (
-                                    <ThermometerQuestionComponent
-                                        key={q.key}
-                                        data={q.data}
-                                        questionKey={q.key}
-                                        sub={sub}
-                                    />
-                                );
-                            case "matching":
-                                return (
-                                    <MatchingQuestionComponent
-                                        key={q.key}
-                                        data={q.data}
-                                        questionKey={q.key}
-                                        sub={sub}
-                                    />
-                                );
-                            case "measuring":
-                                return (
-                                    <MeasuringQuestionComponent
-                                        key={q.key}
-                                        data={q.data}
-                                        questionKey={q.key}
-                                        sub={sub}
-                                    />
-                                );
-                            default:
-                                return null;
-                        }
-                    })}
             </DialogContent>
         </Dialog>
     );

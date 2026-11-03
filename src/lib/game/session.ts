@@ -13,6 +13,7 @@ import {
     hiderMode,
     leafletMapContext,
     mapGeoLocation,
+    openQuestion,
     polyGeoJSON,
     questions,
 } from "@/lib/context";
@@ -190,7 +191,14 @@ const receive = (received: GameState, force = false) => {
                 current?.questions[String(entry.question.key)]?.state !==
                     "asked",
         );
-        if (fresh) activeQuestionKey.set(fresh.question.key);
+        if (fresh) {
+            activeQuestionKey.set(fresh.question.key);
+            // Straight to it, unless the hider has another one open.
+            const open = openQuestion.get();
+            if (!questions.get().some((q) => q.key === open)) {
+                openQuestion.set(fresh.question.key);
+            }
+        }
     }
     gameState.set(state);
     lastUpdateAt.set(Date.now());

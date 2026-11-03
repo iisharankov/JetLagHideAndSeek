@@ -33,7 +33,12 @@ import {
     CURSE_COSTS,
     CUSTOM_PREFIX,
 } from "@/lib/game/deck";
-import { deckAct, localDeck, newLocalDeck } from "@/lib/game/deckSession";
+import {
+    deckAct,
+    discardCards,
+    localDeck,
+    newLocalDeck,
+} from "@/lib/game/deckSession";
 import {
     discardCard,
     discardHand as discardRealHand,
@@ -54,7 +59,13 @@ import { chosenStation } from "@/lib/hiderSpot";
 
 import { ActiveCurses } from "./ActiveCurses";
 import { CardHistory } from "./CardHistory";
-import { CardDialog, CardPicture, DrawButtons, HandTile } from "./CardTiles";
+import {
+    CardDialog,
+    CardPicture,
+    DrawButtons,
+    HandBar,
+    HandTile,
+} from "./CardTiles";
 import { DrainedBrainChooser } from "./DrainedBrainChooser";
 
 const SIZE_INDEX: Record<GameSize, number> = { small: 0, medium: 1, large: 2 };
@@ -128,6 +139,10 @@ export const CardsPanel = () => {
     const [copying, setCopying] = useState<number | null>(null);
     // Randomize Question: which asked question it is played on.
     const [randomizing, setRandomizing] = useState(false);
+    // Over the hand limit: the cards picked to discard (places in the
+    // digital deck's hand; the physical hand's ids).
+    const [overPicks, setOverPicks] = useState<number[]>([]);
+    const [realPicks, setRealPicks] = useState<string[]>([]);
 
     const settings = $game?.settings ?? $settings;
     const size = settings.size;
@@ -141,6 +156,13 @@ export const CardsPanel = () => {
     }, [$game, digital, hider, $localDeck]);
 
     const info = (id: string) => cardInfo(id, custom);
+
+    // A hand that changed (a card played, drawn, discarded): pick afresh.
+    const handKey = JSON.stringify([deck?.hand, $hand.map((card) => card.id)]);
+    useEffect(() => {
+        setOverPicks([]);
+        setRealPicks([]);
+    }, [handKey]);
 
     const askedQuestions = Object.values($game?.questions ?? {}).filter(
         (entry) => entry.state === "asked",
@@ -333,19 +355,119 @@ export const CardsPanel = () => {
     const limit = digital ? (deck?.limit ?? 6) : $limit;
     const over = hider && handSize > limit;
 
+    const discardPicked = () => {
+        if (digital) {
+            const picked = overPicks;
+            setOverPicks([]);
+            void discardCards(picked);
+        } else {
+            realPicks.forEach(discardCard);
+            setRealPicks([]);
+        }
+    };
+    const plural = (count: number, noun: string) =>
+        count === 1
+            ? noun
+            : noun === "time bonus"
+              ? "time bonuses"
+              : `${noun}s`;
+    /** What the cards being picked are for, and the button that does it. */
+    const handBar = (() => {
+        if (!hider) return null;
+        if (digital && deck && deck.pending.length > 0) {
+            return (
+                <HandBar
+                    actions={
+                        <Button
+                            size="sm"
+                            disabled={picks.length !== deck.pendingKeep}
+                            onClick={() => {
+                                deckAct({ type: "keepCards", picks });
+                                setPicks([]);
+                            }}
+                        >
+                            Keep {picks.length}/{deck.pendingKeep}
+                        </Button>
+                    }
+                >
+                    <strong>Draw cards:</strong> pick the{" "}
+                    {deck.pendingKeep === 1
+                        ? "card"
+                        : `${deck.pendingKeep} cards`}{" "}
+                    you keep, above.
+                </HandBar>
+            );
+        }
+        if (swap && deck) {
+            const noun =
+                swap.kind === "time"
+                    ? "time bonus"
+                    : swap.kind === "powerup"
+                      ? "powerup"
+                      : "card";
+            return (
+                <HandBar
+                    actions={
+                        <>
+                            <Button
+                                size="sm"
+                                disabled={swap.picked.length !== swap.need}
+                                onClick={() => {
+                                    deckAct({
+                                        type: "playCard",
+                                        index: swap.index,
+                                        discards: swap.picked,
+                                        copyOf: swap.copyOf,
+                                    });
+                                    setSwap(null);
+                                }}
+                            >
+                                {swap.verb} it ({swap.picked.length}/{swap.need}
+                                )
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSwap(null)}
+                            >
+                                Cancel
+                            </Button>
+                        </>
+                    }
+                >
+                    <strong>{info(deck.hand[swap.index]).name}</strong> costs{" "}
+                    {swap.need} {plural(swap.need, noun)}: select{" "}
+                    {swap.need === 1 ? "it" : "them"} in your hand. They&apos;re
+                    discarded as you {swap.verb.toLowerCase()} it.
+                </HandBar>
+            );
+        }
+        if (over) {
+            const chosen = digital ? overPicks.length : realPicks.length;
+            return (
+                <HandBar
+                    tone="amber"
+                    actions={
+                        <Button
+                            size="sm"
+                            disabled={chosen === 0}
+                            onClick={discardPicked}
+                        >
+                            Discard {chosen} selected
+                        </Button>
+                    }
+                >
+                    <strong>Too many cards:</strong> {handSize} in your hand,
+                    the limit is {limit}. Select {handSize - limit} to discard,
+                    or play cards.
+                </HandBar>
+            );
+        }
+        return null;
+    })();
+
     return (
         <div className="flex flex-col gap-3 p-3 text-sm">
-            {over && (
-                <p
-                    className="rounded-md border border-amber-500/60 bg-amber-950/40 p-2 text-xs text-amber-200"
-                    data-testid="over-limit"
-                >
-                    <strong>Too many cards:</strong> {handSize} in hand, the
-                    limit is {limit}. Play or discard {handSize - limit} before
-                    you go on.
-                </p>
-            )}
-
             {hider && digital && deck && (
                 <section
                     className="flex flex-col gap-2 rounded-md border border-yellow-500/50 p-2"
@@ -385,9 +507,9 @@ export const CardsPanel = () => {
                             <p className="text-xs">
                                 <strong>Draw cards:</strong> keep{" "}
                                 {deck.pendingKeep} of these{" "}
-                                {deck.pending.length}. Tap to pick.
+                                {deck.pending.length}.
                             </p>
-                            <ul className="grid grid-cols-2 gap-2">
+                            <ul className="grid grid-cols-2 gap-2 max-md:grid-cols-3">
                                 {deck.pending.map((id, index) => {
                                     const picked = picks.includes(index);
                                     return (
@@ -424,72 +546,25 @@ export const CardsPanel = () => {
                                                     )
                                                 }
                                             >
-                                                {picked ? "Keep ✓" : "Keep"}
+                                                {picked ? "✓ Keep" : "Keep"}
                                             </Button>
                                         </li>
                                     );
                                 })}
                             </ul>
-                            <Button
-                                disabled={picks.length !== deck.pendingKeep}
-                                onClick={() => {
-                                    deckAct({ type: "keepCards", picks });
-                                    setPicks([]);
-                                }}
-                            >
-                                Keep {picks.length}/{deck.pendingKeep}
-                            </Button>
-                        </div>
-                    )}
-                    {swap && (
-                        <div className="flex flex-col gap-2 rounded-md bg-slate-900 p-2">
-                            <p className="text-xs">
-                                <strong>
-                                    {info(deck.hand[swap.index]).name}:
-                                </strong>{" "}
-                                tap {swap.need}{" "}
-                                {swap.kind === "time"
-                                    ? "time bonus"
-                                    : swap.kind === "powerup"
-                                      ? "powerup"
-                                      : "other card"}
-                                {swap.need === 1 ? "" : "s"} to discard, then{" "}
-                                {swap.verb.toLowerCase()} it.
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                    size="sm"
-                                    disabled={swap.picked.length !== swap.need}
-                                    onClick={() => {
-                                        deckAct({
-                                            type: "playCard",
-                                            index: swap.index,
-                                            discards: swap.picked,
-                                            copyOf: swap.copyOf,
-                                        });
-                                        setSwap(null);
-                                    }}
-                                >
-                                    {swap.verb} ({swap.picked.length}/
-                                    {swap.need})
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setSwap(null)}
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
                         </div>
                     )}
                     {deck.hand.length > 0 && (
-                        <ul className="grid grid-cols-2 gap-2">
+                        <ul className="grid grid-cols-2 gap-2 max-md:grid-cols-3">
                             {deck.hand.map((id, index) => {
                                 const card = info(id);
-                                const selecting = swap !== null;
-                                const selectable =
-                                    selecting &&
+                                const pick = (list: number[]) =>
+                                    list.includes(index)
+                                        ? list.filter((i) => i !== index)
+                                        : [...list, index];
+                                // Paying a card's cost: the others it may take.
+                                const payable =
+                                    swap !== null &&
                                     index !== swap.index &&
                                     index !== swap.copyOf &&
                                     (!swap.kind || card.kind === swap.kind);
@@ -501,46 +576,58 @@ export const CardsPanel = () => {
                                         size={size}
                                         onOpen={() => setOpen(card)}
                                         onPlay={
-                                            card.kind === "time"
+                                            swap || card.kind === "time"
                                                 ? undefined
                                                 : () => playDigital(index)
                                         }
-                                        onDiscard={
-                                            // Only down to the hand limit; a
-                                            // card's cost picks its own.
-                                            deck.hand.length > deck.limit
-                                                ? () =>
-                                                      deckAct({
-                                                          type: "discardCard",
-                                                          index,
-                                                      })
+                                        select={
+                                            swap
+                                                ? payable
+                                                    ? {
+                                                          selected:
+                                                              swap.picked.includes(
+                                                                  index,
+                                                              ),
+                                                          onToggle: () =>
+                                                              setSwap({
+                                                                  ...swap,
+                                                                  picked: pick(
+                                                                      swap.picked,
+                                                                  ),
+                                                              }),
+                                                          disabled:
+                                                              swap.picked
+                                                                  .length >=
+                                                              swap.need,
+                                                      }
+                                                    : undefined
+                                                : over
+                                                  ? {
+                                                        selected:
+                                                            overPicks.includes(
+                                                                index,
+                                                            ),
+                                                        onToggle: () =>
+                                                            setOverPicks(
+                                                                pick(overPicks),
+                                                            ),
+                                                        disabled:
+                                                            overPicks.length >=
+                                                            handSize - limit,
+                                                    }
+                                                  : undefined
+                                        }
+                                        tag={
+                                            swap?.index === index
+                                                ? swap.verb === "Cast"
+                                                    ? "Casting"
+                                                    : "Playing"
                                                 : undefined
                                         }
-                                        selected={
-                                            selecting &&
-                                            (index === swap.index ||
-                                                swap.picked.includes(index))
-                                        }
-                                        onSelect={
-                                            selectable
-                                                ? () => {
-                                                      setSwap({
-                                                          ...swap,
-                                                          picked: swap.picked.includes(
-                                                              index,
-                                                          )
-                                                              ? swap.picked.filter(
-                                                                    (i) =>
-                                                                        i !==
-                                                                        index,
-                                                                )
-                                                              : [
-                                                                    ...swap.picked,
-                                                                    index,
-                                                                ],
-                                                      });
-                                                  }
-                                                : undefined
+                                        dimmed={
+                                            swap !== null &&
+                                            !payable &&
+                                            swap.index !== index
                                         }
                                     />
                                 );
@@ -696,7 +783,7 @@ export const CardsPanel = () => {
                         </div>
                     )}
                     {$hand.length > 0 && (
-                        <ul className="grid grid-cols-2 gap-2">
+                        <ul className="grid grid-cols-2 gap-2 max-md:grid-cols-3">
                             {$hand.map((card) => {
                                 const shown = realCard(card);
                                 return (
@@ -711,9 +798,32 @@ export const CardsPanel = () => {
                                                 ? undefined
                                                 : () => playReal(card)
                                         }
-                                        onDiscard={
-                                            $hand.length > $limit
-                                                ? () => discardCard(card.id)
+                                        select={
+                                            over
+                                                ? {
+                                                      selected:
+                                                          realPicks.includes(
+                                                              card.id,
+                                                          ),
+                                                      onToggle: () =>
+                                                          setRealPicks(
+                                                              realPicks.includes(
+                                                                  card.id,
+                                                              )
+                                                                  ? realPicks.filter(
+                                                                        (id) =>
+                                                                            id !==
+                                                                            card.id,
+                                                                    )
+                                                                  : [
+                                                                        ...realPicks,
+                                                                        card.id,
+                                                                    ],
+                                                          ),
+                                                      disabled:
+                                                          realPicks.length >=
+                                                          handSize - limit,
+                                                  }
                                                 : undefined
                                         }
                                     />
@@ -865,6 +975,7 @@ export const CardsPanel = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            {handBar}
         </div>
     );
 };

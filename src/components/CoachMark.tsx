@@ -16,6 +16,7 @@ import {
     mapBottomInset,
     menuOpen,
     menuTab,
+    openQuestion,
     setupDialog,
     setupPage,
     type SidebarTab,
@@ -95,6 +96,8 @@ const withBold = (text: string) =>
 /** Opens the sidebar (on a tab), or closes it: the examples need the map. */
 const arrangeSidebar = ({ sidebar, tab }: TourStep) => {
     if (tab) sidebarTab.set(tab);
+    // The Questions tab's list, with Add Question, not a question's card.
+    if (tab === "questions") openQuestion.set(null);
     if (!sidebar) return;
     const context = SidebarContext.get();
     const open = sidebar === "open";

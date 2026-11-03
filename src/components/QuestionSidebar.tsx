@@ -33,12 +33,14 @@ import {
     clearQuestions,
     endgame,
     isLoading,
+    openQuestion,
     questions,
     type SidebarTab,
     sidebarTab,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
 import { hand, handLimit } from "@/lib/game/hand";
+import { questionRows } from "@/lib/game/questionList";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     gameConnection,
@@ -49,9 +51,11 @@ import {
     zonesAllowed,
 } from "@/lib/game/session";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
+import { cn } from "@/lib/utils";
 import type { Question } from "@/maps/schema";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
+import { QuestionHeading } from "./cards/base";
 import { CardsPanel } from "./game/CardsPanel";
 import { CurseBanner } from "./game/CurseBanner";
 import { LocationPrompt } from "./game/LocationPrompt";
@@ -66,6 +70,7 @@ import {
     TentacleQuestionComponent,
     ThermometerQuestionComponent,
 } from "./QuestionCards";
+import { QuestionList, questionTitle } from "./QuestionList";
 import { StationsPanel as Panel } from "./StationsPanel";
 
 // A crash in the stations panel keeps the question list working.
@@ -147,6 +152,8 @@ export const QuestionSidebar = () => {
 
     /** The hider's own probing questions, before the station is set. */
     const research = $questions.filter((q) => q.data.research);
+    const asked = $questions.filter((q) => !q.data.research);
+    const $open = useStore(openQuestion);
     const tabOptions: { value: SidebarTab; label: string }[] = noStationYet
         ? [
               { value: "stations", label: "Hider" },
@@ -228,6 +235,28 @@ export const QuestionSidebar = () => {
                     return null;
             }
         });
+    /** The open question's card, in place of the list (null: the list). */
+    const openIn = (list: Question[], ownResearch: boolean) => {
+        const question = list.find((q) => q.key === $open);
+        const row =
+            question &&
+            questionRows(list, ownResearch ? null : $game).find(
+                (r) => r.key === question.key,
+            );
+        if (!question || !row) return null;
+        return (
+            <QuestionHeading.Provider
+                value={{
+                    title: questionTitle(row.number, row.kind, ownResearch),
+                    back: () => openQuestion.set(null),
+                }}
+            >
+                {cards([question])}
+            </QuestionHeading.Provider>
+        );
+    };
+    const openAsked = openIn(asked, false);
+    const openResearch = openIn(research, true);
 
     return (
         <Sidebar>
@@ -341,7 +370,9 @@ export const QuestionSidebar = () => {
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
                 <CurseBanner />
-                {$game &&
+                {openAsked}
+                {!openAsked &&
+                    $game &&
                     $role === "seeker" &&
                     (($game.deck?.freeQuestions ?? 0) > 0 ||
                         ($game.freeQuestions ?? 0) > 0) && (
@@ -354,7 +385,7 @@ export const QuestionSidebar = () => {
                         </p>
                     )}
                 <SidebarMenu
-                    className="px-2 pt-2"
+                    className={cn("px-2 pt-2", openAsked && "hidden")}
                     data-tutorial-id="add-questions-buttons"
                 >
                     {$game && $role === "hider" ? (
@@ -375,11 +406,18 @@ export const QuestionSidebar = () => {
                         </SidebarMenuItem>
                     )}
                 </SidebarMenu>
-                <NotePinList />
-                {cards($questions.filter((q) => !q.data.research))}
+                {!openAsked && (
+                    <>
+                        <NotePinList />
+                        <QuestionList list={asked} />
+                    </>
+                )}
             </SidebarContent>
             <SidebarContent className={tab === "research" ? "" : "hidden"}>
-                <SidebarMenu className="px-2 pt-2">
+                {openResearch}
+                <SidebarMenu
+                    className={cn("px-2 pt-2", openResearch && "hidden")}
+                >
                     <p
                         className="px-2 py-1 text-xs text-slate-400"
                         data-testid="research-note"
@@ -401,7 +439,7 @@ export const QuestionSidebar = () => {
                         </AddQuestionDialog>
                     </SidebarMenuItem>
                 </SidebarMenu>
-                {cards(research)}
+                {!openResearch && <QuestionList list={research} research />}
             </SidebarContent>
             <SidebarGroup>
                 {$game && <RoundClock />}
@@ -409,7 +447,7 @@ export const QuestionSidebar = () => {
                     className={tab === "questions" ? "" : "hidden"}
                 >
                     <SidebarMenu>
-                        {$questions.length > 0 && !$game && (
+                        {$questions.length > 0 && !$game && !openAsked && (
                             <SidebarMenuItem>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>

@@ -75,26 +75,22 @@ test("every question type can be hidden and shown again", async ({
             ),
         );
 
-    const hideButtons = page.getByRole("button", { name: "Hide question" });
-    await expect(hideButtons).toHaveCount(questions.length, {
-        timeout: 20_000,
-    });
+    // Each from its open card: one row after the other.
+    const rows = page.getByTestId("question-list").getByRole("button");
+    await expect(rows).toHaveCount(questions.length, { timeout: 20_000 });
+    const back = page.getByRole("button", { name: "All questions" });
+    const toggleEach = async (name: string) => {
+        for (let i = 0; i < questions.length; i++) {
+            await rows.nth(i).click();
+            const button = page.getByRole("button", { name });
+            await expect(button).toBeEnabled({ timeout: 20_000 });
+            await button.click();
+            await back.click();
+        }
+    };
 
-    for (let i = 0; i < questions.length; i++) {
-        const button = page
-            .getByRole("button", { name: "Hide question" })
-            .first();
-        await expect(button).toBeEnabled({ timeout: 20_000 });
-        await button.click();
-    }
+    await toggleEach("Hide question");
     await expect.poll(hidden).toEqual(questions.map(() => true));
-
-    for (let i = 0; i < questions.length; i++) {
-        const button = page
-            .getByRole("button", { name: "Show question" })
-            .first();
-        await expect(button).toBeEnabled({ timeout: 20_000 });
-        await button.click();
-    }
+    await toggleEach("Show question");
     await expect.poll(hidden).toEqual(questions.map(() => false));
 });

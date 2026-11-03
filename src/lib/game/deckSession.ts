@@ -101,3 +101,30 @@ export const deckAct = (op: DeckOp) => {
         toast.error(errorMessage(error));
     }
 };
+
+/**
+ * Several cards discarded at once (down to the hand limit), by their place
+ * in the hand: the highest first, so the others keep theirs, one after the
+ * other.
+ */
+export const discardCards = async (indices: number[]) => {
+    const highestFirst = [...indices].sort((a, b) => b - a);
+    if (activeGameId.get()) {
+        for (const index of highestFirst) {
+            await sendOp({ type: "discardCard", index });
+        }
+        return;
+    }
+    const deck = localDeck.get();
+    if (!deck) return;
+    try {
+        localDeck.set(
+            highestFirst.reduce(
+                (next, index) => removeFromHand(next, index),
+                deck,
+            ),
+        );
+    } catch (error) {
+        toast.error(errorMessage(error));
+    }
+};

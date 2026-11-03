@@ -562,21 +562,28 @@ test("with the virtual deck the game deals the hider's cards", async ({
     await expect(ben.getByTestId("hider-panel")).toBeVisible();
     await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /^Questions/ }).click();
+    // Asked before he joined: waiting in the list for him.
+    await ben
+        .getByTestId("question-list")
+        .getByRole("button", { name: /^Question 1 · Radar\s*Answer it/ })
+        .click();
     await ben.getByRole("button", { name: "No", exact: true }).click();
     await ben.getByRole("button", { name: /^Send answer/ }).click();
 
     // Answering earned a draw, dealt at once: 2 cards, Ben keeps 1.
     await ben.getByRole("radio", { name: /Cards/ }).click();
     const pending = ben.getByTestId("pending-cards");
+    // Picked on the cards, kept from the bar at the bottom.
+    const bar = ben.getByTestId("hand-bar");
     await expect(
-        pending.getByRole("button", { name: /^Keep \d+\/\d+/ }),
+        bar.getByRole("button", { name: /^Keep \d+\/\d+/ }),
     ).toBeDisabled();
     await pending
         .getByRole("listitem")
         .first()
         .getByRole("button", { name: "Keep", exact: true })
         .click();
-    await pending.getByRole("button", { name: "Keep 1/1" }).click();
+    await bar.getByRole("button", { name: "Keep 1/1" }).click();
     await expect(ben.getByTestId("hand")).toContainText("Your hand (1/6)");
     // The clock runs since Ben confirmed his station.
     await expect(ben.getByTestId("round-clock")).toHaveAttribute(
@@ -707,6 +714,14 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     await expect(
         page.getByRole("button", { name: "500 m", exact: true }),
     ).toBeDisabled();
+    // Adding is on the list, back from her open question.
+    const allQuestions = page.getByRole("button", { name: "All questions" });
+    const reopen = () =>
+        page
+            .getByTestId("question-list")
+            .getByRole("button", { name: /^Question 1/ })
+            .click();
+    await allQuestions.click();
     await page.getByRole("button", { name: "Add Question" }).click();
     await expect(
         page.getByRole("button", { name: "Add Thermometer" }),
@@ -715,6 +730,7 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
         page.getByRole("button", { name: "Add Matching" }),
     ).toBeEnabled();
     await page.keyboard.press("Escape");
+    await reopen();
 
     // The Spotty Memory: Ana's die names a category she loses until her
     // next question.
@@ -724,11 +740,13 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     await banner.getByRole("button", { name: "4: Matching" }).click();
     await expect(banner).toContainText("Matching questions are disabled");
     await expect(send).toBeEnabled();
+    await allQuestions.click();
     await page.getByRole("button", { name: "Add Question" }).click();
     await expect(
         page.getByRole("button", { name: "Add Matching" }),
     ).toBeDisabled();
     await page.keyboard.press("Escape");
+    await reopen();
     // Her next question makes her roll again.
     await send.click();
     await expect(page.getByTestId("question-game-state")).toHaveAttribute(

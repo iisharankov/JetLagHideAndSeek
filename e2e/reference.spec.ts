@@ -26,6 +26,10 @@ test("ⓘ shows a question's rules and links into the in-app rulebook", async ({
     });
     await page.reload();
 
+    await page
+        .getByTestId("question-list")
+        .getByRole("button", { name: /^Question 1 · Measuring/ })
+        .click();
     await page.getByRole("button", { name: "About this question" }).click();
     await expect(page.getByText("Measuring: Lake shore")).toBeVisible();
     // The rulebook's text for the question, not a link elsewhere.
