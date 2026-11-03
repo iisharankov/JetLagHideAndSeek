@@ -1,7 +1,10 @@
+import { namedFlavor } from "@protomaps/basemaps";
 import type { Layer } from "leaflet";
-import { leafletLayer } from "protomaps-leaflet";
+import { labelRules, leafletLayer } from "protomaps-leaflet";
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
+
+import { basemapPaintRules } from "@/maps/basemapStyle";
 
 // protomaps-leaflet labels with `name:<lang>`, falling back to `name`. No
 // feature has a `name:local` tag, so labels always show the local name, the
@@ -19,9 +22,12 @@ export const PMTilesLayer = ({
     const map = useMap();
 
     useEffect(() => {
+        const theme = namedFlavor(flavor);
         const layer = leafletLayer({
             url,
-            flavor,
+            paintRules: basemapPaintRules(theme),
+            labelRules: labelRules(theme, LOCAL_NAMES),
+            backgroundColor: theme.background,
             lang: LOCAL_NAMES,
             noWrap: true,
             maxDataZoom: 15,

@@ -987,12 +987,36 @@ end game with seekers who can't see stations, and Delete versus Forget
 real Swiss data (the tests use squares); the boundary gaps were reproduced
 with test shapes, not with the real Dübendorf border.
 
+## Round 23: a calmer basemap ✅ (2026-11-03)
+
+Zoomed out to a few villages, the map was a white web of footpaths and
+farm tracks, and the forests barely showed: it looked like a city
+anywhere. Two slips in protomaps-leaflet's drawing (5.1.0), both worked
+around in `src/maps/basemapStyle.ts`, which builds the map's rules from the
+library's own:
+
+1. **Lines 0 wide drawn at 1 px.** Paths, tracks and village streets are 0
+   wide when zoomed out, but a canvas ignores a width of 0 and keeps 1 px.
+   Now they're left out: footpaths and tracks from zoom 15 (thin until 17),
+   village streets from 14; main roads as before.
+2. **Forests stuck pale.** Their colour should turn green as you zoom in,
+   but stayed at the pale end, close to open land. Now they're the theme's
+   green (`#a0d9a0`). The dark map's theme has forests the colour of the
+   ground on purpose; unchanged.
+
+`@protomaps/basemaps` (the themes, already installed under
+protomaps-leaflet) is now a direct dependency. Tests:
+`tests/basemapStyle.test.ts` draws on a canvas that ignores a width of 0,
+as browsers do (fails on the old rules), and a last test fails once the
+library fixes both, so the workaround can go. Checked by eye on the real
+tiles around Otelfingen at zooms 13, 15 and 17.
+
 ## What's left ⏭️
 
 From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **Before game night:** commit and deploy round 22, then
+1. **Before game night:** commit and deploy rounds 22–23, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
    `access` tag and the country codes); Settings → Places → Review on the
    map for Zürich canton; the backups (Q48); the hider password (Q50).

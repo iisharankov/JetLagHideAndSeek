@@ -24,7 +24,7 @@ at public services instead.
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Page      | Astro 5 (static), one page `src/pages/index.astro` plus the reference and rulebook pages; each panel is a React 19 island behind an error boundary (`src/components/islands/`) |
 | UI        | Tailwind 3, shadcn/ui (Radix), react-toastify                                                                                             |
-| Map       | Leaflet 1.9 via react-leaflet; basemap drawn from a Protomaps `.pmtiles` file by `protomaps-leaflet`                                      |
+| Map       | Leaflet 1.9 via react-leaflet; basemap drawn from a Protomaps `.pmtiles` file by `protomaps-leaflet`, with its rules adjusted in `src/maps/basemapStyle.ts` |
 | State     | nanostores (`src/lib/context.ts`, `src/lib/game/session.ts`), saved to localStorage per tab through `src/lib/persist.ts` (no cross-tab sync) |
 | Geo maths | Turf; ArcGIS geodesic distance/buffer (its engine served from `/arcgis/`, copied there by `scripts/copy-arcgis-assets.mjs`)               |
 | Map data  | Reference files under `/data/`, built on the server for one box; a play area outside it isn't possible (the old Overpass client in `src/maps/api/` only ever answers "no map data for this area" now) |
