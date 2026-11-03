@@ -43,6 +43,7 @@ import {
     activeGameId,
     currentGameId,
     deleteGame,
+    forgetGameHere,
     forgetLastGame,
     gameConnection,
     gameLink,
@@ -51,6 +52,7 @@ import {
     joinGame,
     lastUpdateAt,
     leaveGame,
+    organiserTokens,
     playerName,
     reconnectAt,
     sendOp,
@@ -369,6 +371,8 @@ const when = (time: number) =>
 const GamesList = () => {
     const $known = useStore(knownGames);
     const $gameId = useStore(activeGameId);
+    // Only the phone that started a game deletes it, for everyone.
+    const $mine = useStore(organiserTokens);
     const [open, setOpen] = useState(false);
     const games = Object.values($known).sort((a, b) => b.lastSeen - a.lastSeen);
     if (games.length === 0) return null;
@@ -409,6 +413,7 @@ const GamesList = () => {
                                         {game.area || "Unknown area"}
                                     </strong>
                                     {game.id === $gameId && " · you're in it"}
+                                    {$mine[game.id] && " · you started it"}
                                 </p>
                                 <p className="text-slate-400">
                                     Joined {when(game.joinedAt)} · last seen{" "}
@@ -424,52 +429,66 @@ const GamesList = () => {
                                     >
                                         Rejoin
                                     </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                size="sm"
-                                                variant="destructive"
-                                            >
-                                                Delete
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>
-                                                    Delete this game for
-                                                    everyone?
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Its questions, photos and
-                                                    curses are removed from the
-                                                    server; phones still in it
-                                                    are dropped out. This
-                                                    can&apos;t be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>
-                                                    Keep it
-                                                </AlertDialogCancel>
-                                                <AlertDialogAction
-                                                    onClick={() =>
-                                                        void remove(game.id)
-                                                    }
+                                    {!$mine[game.id] ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            title="Drop it from this phone; the game goes on for the others"
+                                            onClick={() =>
+                                                forgetGameHere(game.id)
+                                            }
+                                        >
+                                            Forget
+                                        </Button>
+                                    ) : (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
                                                 >
                                                     Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>
+                                                        Delete this game for
+                                                        everyone?
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Its questions, photos
+                                                        and curses are removed
+                                                        from the server; phones
+                                                        still in it are dropped
+                                                        out. This can&apos;t be
+                                                        undone.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>
+                                                        Keep it
+                                                    </AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={() =>
+                                                            void remove(game.id)
+                                                        }
+                                                    >
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
                                 </div>
                             </li>
                         ))}
                     </ul>
                     <p className="text-xs text-slate-400">
-                        The server keeps a game until someone deletes it or a
-                        year passes without changes; it doesn&apos;t know who
-                        still has it open. Leaving only forgets it on this
-                        phone.
+                        Only the phone that started a game can delete it, for
+                        everyone (anyone can once it has been left alone for 30
+                        days); the server drops it after a year without changes.
+                        Forget only drops it from this phone.
                     </p>
                 </>
             )}

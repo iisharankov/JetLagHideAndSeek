@@ -682,11 +682,24 @@ export const applyOp = (
             if (!station) {
                 throw new GameRuleError("Pick a station on the map.", 400);
             }
+            // The hider says the seekers are in their zone (off transport):
+            // when the seekers can't see the stations, that's how it starts.
+            const byHider = actor.role === "hider";
+            if (
+                byHider &&
+                state.hider?.station &&
+                state.hider.station.id !== station.id
+            ) {
+                throw new GameRuleError(
+                    "Start the end game at your own station.",
+                );
+            }
             state.endgame = {
                 station,
                 startedAt: now,
                 by: actor.name,
                 before: Object.keys(state.questions).map(Number),
+                ...(byHider ? { byHider: true } : {}),
             };
             // The right station: the hider's pin is where they must be found.
             if (state.hider?.station && state.hider.station.id === station.id) {

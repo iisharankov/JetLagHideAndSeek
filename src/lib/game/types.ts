@@ -219,6 +219,8 @@ export interface Endgame {
     station: StationPick;
     startedAt: number;
     by?: string;
+    /** The hider started it: the seekers are in their zone. */
+    byHider?: boolean;
     /** Keys of the questions from before: they no longer apply. */
     before: number[];
 }

@@ -253,3 +253,32 @@ describe("game events", () => {
         expect(gameEvents(before, after, "hider")).toEqual([]);
     });
 });
+
+describe("the end game", () => {
+    const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
+    const started = (byHider?: boolean): GameState => ({
+        ...base(),
+        endgame: {
+            station,
+            startedAt: 5,
+            by: byHider ? "Ben" : "Ana",
+            before: [],
+            ...(byHider ? { byHider } : {}),
+        },
+    });
+
+    it("the seekers hear when the hider says they're in the zone", () => {
+        const events = gameEvents(base(), started(true), "seeker");
+        expect(events.map((e) => e.kind)).toEqual(["endgame"]);
+        expect(events[0].body).toMatch(/in their zone/);
+        // The hider started it: no news for them.
+        expect(gameEvents(base(), started(true), "hider")).toEqual([]);
+    });
+
+    it("the hider hears when the seekers pick a station; the seekers don't hear their own", () => {
+        const events = gameEvents(base(), started(false), "hider");
+        expect(events.map((e) => e.kind)).toEqual(["endgame"]);
+        expect(events[0].body).toMatch(/picked Uster/);
+        expect(gameEvents(base(), started(false), "seeker")).toEqual([]);
+    });
+});

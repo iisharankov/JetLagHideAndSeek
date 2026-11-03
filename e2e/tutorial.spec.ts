@@ -86,7 +86,10 @@ const clickThrough = async (
             .getByRole("button", { name: last ? "Finish" : "Next" })
             .click();
         if (last) break;
-        await expect(counter).toHaveText(`${step + 1} of ${total}`);
+        // On, or further: a step whose target isn't there is left out.
+        await expect
+            .poll(async () => (await position())[0])
+            .toBeGreaterThan(step);
     }
     await expect(mark(page)).toHaveCount(0);
     return total;
@@ -145,12 +148,20 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
         if (step === "how-to-play") {
             await expect(mark(page)).toContainText("longest hide wins");
         }
+        if (step === "example") {
+            await expect(mark(page)).toContainText("start at Zürich HB");
+        }
         if (step === "radar") {
-            // The example is drawn: shading and zones in its own layer.
+            // The example is drawn: shading and zones in its own layer, and
+            // the game's own layers wait meanwhile.
             await expect(demo(page).first()).toBeAttached();
             await expect(page.locator(".tour-demo-label")).toContainText([
                 "Seekers",
             ]);
+            await expect(page.locator(".leaflet-overlay-pane")).toHaveCSS(
+                "visibility",
+                "hidden",
+            );
         }
         if (step === "station-decides") {
             await expect(
@@ -182,7 +193,7 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
     expect(seen).toEqual(
         expect.arrayContaining([
             "how-to-play",
-            "zones",
+            "example",
             "radar",
             "thermometer",
             "station-decides",
@@ -197,12 +208,44 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
             "menu",
         ]),
     );
-    expect(total).toBeLessThanOrEqual(16);
+    expect(total).toBeLessThanOrEqual(18);
+    // The game's layers are back.
+    await expect(page.locator(".leaflet-overlay-pane")).toHaveCSS(
+        "visibility",
+        "visible",
+    );
     // The examples are gone with the tour, names and all.
     await expect(demo(page)).toHaveCount(0);
     await expect(page.locator(".tour-demo-label")).toHaveCount(0);
     // The game is as it was: no question was made.
     await expect(page.getByTestId("question-game-state")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+});
+
+test("skipping a tour halfway leaves the sidebar as it was", async ({
+    page,
+    request,
+    externalHosts,
+    pageErrors,
+}, testInfo) => {
+    void externalHosts;
+    const id = await newGame(request);
+    await openLink(page, id, "Ana");
+    await page.getByRole("button", { name: "I'm a seeker" }).click();
+    const open = testInfo.project.name === "desktop";
+    // The desktop's sidebar starts open, the phone's sheet closed.
+    const addQuestion = page.getByRole("button", { name: "Add Question" });
+    // (The desktop's closed sidebar slides off the screen.)
+    if (open) await expect(addQuestion).toBeInViewport();
+    await mark(page).getByRole("button", { name: "Show Tutorial" }).click();
+    await mark(page).getByRole("button", { name: "Next" }).click();
+    // An example: the sidebar makes way for the map.
+    await expect(mark(page)).toHaveAttribute("data-tour-step", "example");
+    if (open) await expect(addQuestion).not.toBeInViewport();
+    await mark(page).getByRole("button", { name: "Skip tutorial" }).click();
+    await expect(mark(page)).toHaveCount(0);
+    if (open) await expect(addQuestion).toBeInViewport();
+    else await expect(addQuestion).toBeHidden();
     expect(pageErrors).toEqual([]);
 });
 
@@ -220,7 +263,7 @@ test("the hider may decline the tour: then the pointer to the station; the Menu 
     await page.getByRole("button", { name: "Become the hider" }).click();
     await expect(page.getByTestId("join-dialog")).toBeHidden();
 
-    await expect(mark(page)).toContainText("hide and answer");
+    await expect(mark(page)).toContainText("How hiding works");
     await mark(page).getByRole("button", { name: "No thanks" }).click();
     await expect(mark(page)).toContainText("Pick your hiding spot");
     await mark(page).getByRole("button", { name: "Got it" }).click();
@@ -238,13 +281,42 @@ test("the hider may decline the tour: then the pointer to the station; the Menu 
                 "Pick your station",
             );
         }
-        if (step === "station-then-pin") {
-            await expect(mark(page)).toContainText("from your pin");
+        if (step === "zone") {
+            // The hider's own zone in the example, and none of the real
+            // stations they're choosing from drawn over it.
+            await expect(
+                page.locator(".tour-demo-label", {
+                    hasText: "Your zone: Wipkingen",
+                }),
+            ).toBeVisible();
+            await expect(page.locator(".leaflet-overlay-pane")).toHaveCSS(
+                "visibility",
+                "hidden",
+            );
+            await expect(page.locator(".leaflet-marker-pane")).toHaveCSS(
+                "visibility",
+                "hidden",
+            );
+        }
+        if (step === "endgame") {
+            await expect(mark(page)).toContainText("Start the end game");
         }
     });
     // Before the station is set, the Research tab is there to point at.
     expect(seen).toEqual(
-        expect.arrayContaining(["pick", "research", "answer", "hand", "menu"]),
+        expect.arrayContaining([
+            "how-to-play",
+            "zone",
+            "answering",
+            "station-decides",
+            "endgame",
+            "pin",
+            "pick",
+            "research",
+            "answer",
+            "hand",
+            "menu",
+        ]),
     );
     expect(pageErrors).toEqual([]);
 });

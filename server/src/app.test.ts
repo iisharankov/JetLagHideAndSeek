@@ -5,7 +5,9 @@ import { DatabaseSync } from "node:sqlite";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createApp } from "./app";
+import { createApp, mayDelete } from "./app";
+
+const DAY = 24 * 3600 * 1000;
 import { createGameStore } from "./games";
 import { createPushService, type PushMessage, type PushService } from "./push";
 
@@ -58,8 +60,12 @@ const newGame = async () => {
         }),
     );
     expect(response.status).toBe(201);
-    return (await response.json()).state.id as string;
+    const { state, organiserToken } = await response.json();
+    organiserKeys.set(state.id, organiserToken);
+    return state.id as string;
 };
+/** The key each game's creator got, to delete it. */
+const organiserKeys = new Map<string, string>();
 
 const op = (id: string, body: unknown, token?: string) =>
     app.request(
@@ -91,20 +97,63 @@ describe("shared games", () => {
         expect((await app.request("/api/games/nope")).status).toBe(404);
     });
 
-    it("a game being played is the hider's to delete", async () => {
-        const id = await newGame();
-        const { token } = await claim(id);
-        const asSeeker = await app.request(`/api/games/${id}`, {
+    it("a game is for whoever started it to delete", async () => {
+        const response = await app.request(
+            "/api/games",
+            json({ playArea: { kind: "place" }, zone: {}, by: "Ana" }),
+        );
+        const { state, organiserToken } = await response.json();
+        expect(organiserToken).toMatch(/^[\w-]{20,}$/);
+        // The key is Ana's alone: the game's state doesn't carry it.
+        expect(JSON.stringify(state)).not.toContain(organiserToken);
+        const { token } = await claim(state.id);
+        const asSeeker = await app.request(`/api/games/${state.id}`, {
             method: "DELETE",
         });
         expect(asSeeker.status).toBe(403);
-        expect((await asSeeker.json()).error).toMatch(/Only the hider/);
-        const asHider = await app.request(`/api/games/${id}`, {
+        expect((await asSeeker.json()).error).toMatch(/started the game/);
+        const asHider = await app.request(`/api/games/${state.id}`, {
             method: "DELETE",
             headers: { "X-Hider-Token": token },
         });
-        expect(asHider.status).toBe(200);
-        expect((await app.request(`/api/games/${id}`)).status).toBe(404);
+        expect(asHider.status).toBe(403);
+        const wrongKey = await app.request(`/api/games/${state.id}`, {
+            method: "DELETE",
+            headers: { "X-Organiser-Token": `${organiserToken}x` },
+        });
+        expect(wrongKey.status).toBe(403);
+        const asOrganiser = await app.request(`/api/games/${state.id}`, {
+            method: "DELETE",
+            headers: { "X-Organiser-Token": organiserToken },
+        });
+        expect(asOrganiser.status).toBe(200);
+        expect((await app.request(`/api/games/${state.id}`)).status).toBe(404);
+    });
+
+    it("who may delete: the organiser; anyone once a game is abandoned; older games as before", () => {
+        const now = 100 * DAY;
+        const game = (quietDays: number, hasHider = true) => ({
+            hasHider,
+            updatedAt: now - quietDays * DAY,
+        });
+        const nobody = { hider: false, organiser: false };
+        // A game with an organiser.
+        expect(mayDelete(game(0), nobody, now, true)).toBe(false);
+        expect(
+            mayDelete(game(0), { hider: true, organiser: false }, now, true),
+        ).toBe(false);
+        expect(
+            mayDelete(game(0), { hider: false, organiser: true }, now, true),
+        ).toBe(true);
+        expect(mayDelete(game(29), nobody, now, true)).toBe(false);
+        expect(mayDelete(game(31), nobody, now, true)).toBe(true);
+        // A game from before organisers: the hider's, or anyone's once quiet.
+        expect(mayDelete(game(0), nobody, now, false)).toBe(false);
+        expect(
+            mayDelete(game(0), { hider: true, organiser: false }, now, false),
+        ).toBe(true);
+        expect(mayDelete(game(0, false), nobody, now, false)).toBe(true);
+        expect(mayDelete(game(2), nobody, now, false)).toBe(true);
     });
 
     it("takes the hider's token only from the header, the live stream included", async () => {
@@ -136,14 +185,15 @@ describe("shared games", () => {
 
     it("deletes a game on request", async () => {
         const id = await newGame();
-        const gone = await app.request(`/api/games/${id}`, {
+        const asOrganiser = {
             method: "DELETE",
-        });
+            headers: { "X-Organiser-Token": organiserKeys.get(id)! },
+        };
+        const gone = await app.request(`/api/games/${id}`, asOrganiser);
         expect(gone.status).toBe(200);
         expect((await app.request(`/api/games/${id}`)).status).toBe(404);
         expect(
-            (await app.request(`/api/games/${id}`, { method: "DELETE" }))
-                .status,
+            (await app.request(`/api/games/${id}`, asOrganiser)).status,
         ).toBe(404);
     });
 

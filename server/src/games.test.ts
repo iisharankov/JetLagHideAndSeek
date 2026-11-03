@@ -292,3 +292,44 @@ describe("photo questions asked again", () => {
         expect(state.deck!.hand).toHaveLength(3);
     });
 });
+
+describe("organisers", () => {
+    it("an older database gains the column; its games have no organiser", () => {
+        const db = new DatabaseSync(":memory:");
+        // The table as it was before organisers.
+        db.exec(`
+            CREATE TABLE games (
+                id TEXT PRIMARY KEY,
+                state TEXT NOT NULL,
+                updated_at INTEGER NOT NULL,
+                hider_secret TEXT,
+                hider_token TEXT
+            )
+        `);
+        const before = createGameStore(
+            db,
+            mkdtempSync(join(tmpdir(), "jetlag-old-")),
+        );
+        void before;
+        const store = createGameStore(
+            db,
+            mkdtempSync(join(tmpdir(), "jetlag-old-")),
+        );
+        const old = store.create(
+            { playArea: null, zone: null, settings: defaultGameSettings() },
+            [],
+            "Ana",
+        );
+        expect(store.hasOrganiser(old.id)).toBe(false);
+        // A new game gets one key, once.
+        const key = store.issueOrganiser(old.id);
+        expect(key).toBeTruthy();
+        expect(store.issueOrganiser(old.id)).toBeNull();
+        expect(store.isOrganiser(old.id, key)).toBe(true);
+        expect(store.isOrganiser(old.id, "nope")).toBe(false);
+        expect(store.isOrganiser(old.id, null)).toBe(false);
+        expect(store.hasOrganiser(old.id)).toBe(true);
+        // The key never shows in the game's state.
+        expect(JSON.stringify(store.get(old.id))).not.toContain(key!);
+    });
+});

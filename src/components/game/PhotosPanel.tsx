@@ -6,6 +6,7 @@ import { RulesText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import { photoUrl } from "@/lib/game/api";
 import { blockingCurses, kindRefusal, photoKind } from "@/lib/game/curseRules";
+import { DRAWS } from "@/lib/game/deck";
 import { shrinkPhoto } from "@/lib/game/photos";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { restRefusal } from "@/lib/game/rest";
@@ -127,12 +128,17 @@ export const PhotosPanel = () => {
                 </p>
             )}
 
+            <p
+                className="rounded-md bg-slate-800/60 p-2 text-xs text-slate-300"
+                data-testid="photo-draw-note"
+            >
+                For each photo sent, the hider draws {DRAWS.photo.draw} card and
+                keeps {DRAWS.photo.keep}. They have{" "}
+                {size === "large" ? "20" : "10"} minutes to send it.
+            </p>
+
             {$game && $game.photoRequests.length > 0 && (
                 <section className="flex flex-col gap-2">
-                    <p className="text-xs text-slate-400">
-                        For each photo answered, the hider draws 1 card and
-                        keeps it.
-                    </p>
                     <h3 className="font-semibold font-poppins">Asked</h3>
                     {[...$game.photoRequests].reverse().map((request) => (
                         <div
@@ -209,9 +215,6 @@ export const PhotosPanel = () => {
             )}
 
             <section className="flex flex-col gap-1">
-                <h3 className="font-semibold font-poppins">
-                    Photo questions ({size} game)
-                </h3>
                 {available.map((question) => (
                     <details
                         key={question.name}

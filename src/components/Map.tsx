@@ -89,7 +89,12 @@ const getTileLayer = (tileLayer: BaseTileLayer) => {
 };
 
 export const Map = ({ className }: { className?: string }) => {
-    useStore(additionalMapGeoLocations);
+    // The places added to (or cut out of) the play area, by what they are:
+    // the picker flips "added" on the same objects.
+    const $additional = useStore(additionalMapGeoLocations);
+    const additionalKey = $additional
+        .map((place) => `${place.location.properties.osm_id}:${place.added}`)
+        .join(",");
     const $mapGeoLocation = useStore(mapGeoLocation);
     const $questions = useStore(questions);
     const $baseTileLayer = useStore(baseTileLayer);
@@ -311,6 +316,7 @@ export const Map = ({ className }: { className?: string }) => {
         questionStates,
         $role,
         $mapGeoLocation,
+        additionalKey,
         $polyGeoJSON,
         $endgame,
     ]);

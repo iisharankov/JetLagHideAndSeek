@@ -12,6 +12,8 @@ export const DEMOS = [
     "thermometer",
     "station",
     "endgame",
+    "hider-zone",
+    "hider-radar",
 ] as const;
 export type DemoId = (typeof DEMOS)[number];
 
@@ -100,8 +102,8 @@ const minus = (area: Area, cut: Area): Area =>
 
 export interface DemoZone {
     station: DemoStation;
-    /** "zone" as the app draws one, "kept" one to look at, "endgame" the picked one. */
-    style: "zone" | "kept" | "endgame";
+    /** "zone" as the app draws one, "kept" one to look at, "mine" the hider's own (red), "endgame" the picked one. */
+    style: "zone" | "kept" | "mine" | "endgame";
 }
 
 export interface DemoScene {
@@ -146,11 +148,22 @@ const labels = (list: DemoStation[]) =>
             kind: "station" as const,
             left: s.left,
         }));
-const zones = (list: DemoStation[], kept?: DemoStation) =>
+const zones = (
+    list: DemoStation[],
+    kept?: DemoStation,
+    style: DemoZone["style"] = "kept",
+) =>
     list.map((s) => ({
         station: s,
-        style: s === kept ? ("kept" as const) : ("zone" as const),
+        style: s === kept ? style : ("zone" as const),
     }));
+/** The hider's own zone, named on the map. */
+const mine = {
+    lat: WIPKINGEN.lat,
+    lng: WIPKINGEN.lng,
+    label: "Your zone: Wipkingen",
+    kind: "station" as const,
+};
 
 const radar = circle(HB, DEMO_RADAR_KM);
 const afterThermometer = minus(radar, nearerHalf(HB, OERLIKON));
@@ -201,6 +214,23 @@ export const demoScene = (id: DemoId): DemoScene => {
                 open: afterThermometer,
                 zones: zones(city, WIPKINGEN),
                 points: labels([WIPKINGEN]),
+            };
+        case "hider-zone":
+            return {
+                bounds: boundsOf(city, DEMO_ZONE_KM),
+                open: null,
+                zones: zones(city, WIPKINGEN, "mine"),
+                points: [mine],
+            };
+        case "hider-radar":
+            return {
+                bounds: boundsOf([HB, WIPKINGEN], 11),
+                open: radar,
+                zones: zones(STATIONS, WIPKINGEN, "mine"),
+                points: [
+                    seekers(HB, "Seekers: Zürich HB"),
+                    { ...mine, left: true },
+                ],
             };
         case "endgame":
             return {

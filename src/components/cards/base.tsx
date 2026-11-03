@@ -158,14 +158,6 @@ export const QuestionCard = ({
                             onClick={toggleCollapse}
                         >
                             {label} {sub && `(${sub})`}
-                            {draw && (
-                                <span
-                                    className="ml-2 text-[10px] font-normal text-slate-400"
-                                    title="What the hider draws from the deck for answering"
-                                >
-                                    hider draws {draw.draw}, keeps {draw.keep}
-                                </span>
-                            )}
                         </SidebarGroupLabel>
                         <button
                             type="button"
@@ -254,6 +246,15 @@ export const QuestionCard = ({
                             />
                         )}
                     </div>
+                    {draw && (
+                        <p
+                            className="pl-9 pr-2 text-[11px] text-slate-400"
+                            title="What the hider draws from the deck for answering"
+                            data-testid="question-draw"
+                        >
+                            Hider draws {draw.draw}, keeps {draw.keep}
+                        </p>
+                    )}
                     {!research && <QuestionGameBar questionKey={questionKey} />}
                     {deleteRequest && (
                         <div

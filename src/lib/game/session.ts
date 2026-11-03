@@ -63,6 +63,12 @@ const hiderTokens = persistentAtom<Record<string, string>>(
     {},
     { encode: JSON.stringify, decode: JSON.parse },
 );
+/** The keys of the games this phone started: only they delete a game. */
+export const organiserTokens = persistentAtom<Record<string, string>>(
+    "organiserTokens",
+    {},
+    { encode: JSON.stringify, decode: JSON.parse },
+);
 // Read once per tab (an unused store re-reads storage on every get): another
 // tab of the same browser becoming the hider must not make this one the
 // hider too.
@@ -534,7 +540,7 @@ export const leaveGame = () => {
 
 /** Starts a shared game from this phone's play area, settings and questions. */
 export const startGame = async () => {
-    const { state } = await createGame({
+    const { state, organiserToken } = await createGame({
         playArea: currentPlayArea(),
         zone: currentZoneSettings(),
         settings: gameSettings.get(),
@@ -544,6 +550,12 @@ export const startGame = async () => {
             .map(toShared),
         by: me(),
     });
+    if (organiserToken) {
+        organiserTokens.set({
+            ...organiserTokens.get(),
+            [state.id]: organiserToken,
+        });
+    }
     syncedPlayArea = JSON.stringify(state.playArea);
     syncedZone = JSON.stringify(state.zone);
     // Not marked as joined: whoever starts the game says who they are
@@ -573,10 +585,21 @@ export const forgetHider = () => {
 /** Deletes a game on the server, for everyone; this phone forgets it. */
 export const deleteGame = async (id: string) => {
     try {
-        await deleteGameRequest(id, hiderTokens.get()[id]);
+        await deleteGameRequest(
+            id,
+            hiderTokens.get()[id],
+            organiserTokens.get()[id],
+        );
     } catch (error) {
         if ((error as { status?: number }).status !== 404) throw error;
     }
+    forgetGame(id);
+    if (activeGameId.get() === id) leaveGame();
+    if (currentGameId.get() === id) currentGameId.set("");
+};
+
+/** Drops a game from this phone only (it goes on for the others). */
+export const forgetGameHere = (id: string) => {
     forgetGame(id);
     if (activeGameId.get() === id) leaveGame();
     if (currentGameId.get() === id) currentGameId.set("");

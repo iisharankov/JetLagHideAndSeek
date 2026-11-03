@@ -261,7 +261,8 @@ export const gameEvents = (
                 body: `${request.name}, from ${request.askedBy}`,
             });
         }
-        if (after.endgame && !before.endgame) {
+        // The seekers' pick; the hider knows when they started it themselves.
+        if (after.endgame && !before.endgame && !after.endgame.byHider) {
             events.push({
                 key: `e${after.endgame.startedAt}`,
                 kind: "endgame",
@@ -270,6 +271,16 @@ export const gameEvents = (
             });
         }
         return events;
+    }
+
+    // The hider says the seekers are in their zone (and off transport).
+    if (after.endgame && !before.endgame && after.endgame.byHider) {
+        events.push({
+            key: `e${after.endgame.startedAt}`,
+            kind: "endgame",
+            title: "End game",
+            body: "The hider says you're in their zone: they stay put now. Only that zone is left on the map.",
+        });
     }
 
     // The hider has their station: the seekers hear that, not where.

@@ -909,12 +909,90 @@ drives a tour, so the examples' own script loads under the production
 policy. Not checked on a real phone: touch, the sheet's swipe, how the
 examples look over the real map tiles (the tests block them).
 
+## Round 22: picking the play area on the map, the hider's end game, the hider's tour ✅ (2026-11-03)
+
+Your ten points after trying round 21:
+
+1. **Gaps between neighbouring areas.** The reference data simplifies
+   each boundary on its own, so two municipalities' shared border no longer
+   lines up: joined, they left slivers up to ~20 m wide, and a station or
+   place in one counted as in neither. Areas are now joined with a closing
+   (grown by 30 m, joined, shrunk back by 30 m): gaps under 60 m close, a
+   municipality left out in the middle stays out
+   (`src/maps/mergeAreas.ts`, used by `determineMapBoundaries`).
+2. **Picking the play area on the map.** The play area bar has
+   **Cantons · Districts · Municipalities · Off**: the map outlines that
+   level's areas in view, and a tap adds one (green) or, with **Tap cuts
+   out**, cuts it out (red); a second tap undoes it. An area tapped inside
+   one you have replaces it (tap Zürich after the whole country: just
+   Zürich). The list of chosen areas (in or cut out, with Cut out, Put
+   back, ×) folds open; search and drawing are still there under "Search or
+   draw instead". The map stays where it is while you tap (no zooming to
+   the new area after each one); too many areas in view says "Zoom in".
+   The play area can't be emptied. (`src/lib/playAreaPick.ts`,
+   `src/maps/playAreaPickLayer.ts`, `src/components/PlayAreaBar.tsx`.)
+3. **The map didn't follow a change of places until a reload.** The map's
+   refresh watched the main place but not the added ones (the picker's old
+   trick of re-setting the questions stopped working when the map began to
+   compare questions by content). It now watches the added places too.
+4. **The hider's own tour**, and no double drawing: see 9 and 10. The
+   hider's tour is about hiding: the head start, your zone (red, at
+   Wipkingen in the example), answering from your station (the 10 km radar
+   from Zürich HB, answered Yes), your cards, starting the end game, your
+   pin; then picking the station, Research, answering, your hand, your time
+   and the end game button.
+5. **The end game when the seekers can't see the stations.** The hider
+   starts it: once the seekers are in the zone and off transport (the
+   rulebook's trigger), **Start the end game** on the Hider tab (after a
+   "sure?"), and the hider stays put; the pin is fixed. The seekers hear it
+   ("The hider says you're in their zone") and get a tip; only that zone is
+   left on their map. A start by mistake: **Started by mistake? Undo** on
+   the hider's phone (the seekers can't undo the hider's call). The
+   seekers' **Stations** tab is gone when the game keeps the stations to
+   the hider; it comes back for the end game, to show it. Where the
+   seekers do see the stations, **Found it** works as before. The server
+   only lets the hider start it at their own station.
+6. **Deleting a game.** Whoever starts a game gets a key on that phone
+   (like the hider's token; the server keeps it apart from the game's
+   state). Only that phone sees **Delete** in Menu → Game → Your games,
+   marked "you started it"; everyone else has **Forget** (drops it from
+   their phone). Anyone may delete a game left alone for 30 days. Games
+   from before this keep the old rule (the hider, or anyone after a quiet
+   day).
+7. **Photos:** the "Photo questions (medium game)" title is gone; in its
+   place, "For each photo sent, the hider draws 1 card and keeps 1. They
+   have 10 minutes to send it" (20 in a large game).
+8. **"hider draws …" cut off:** it's on its own line under the question's
+   title now ("Hider draws 2, keeps 1").
+9. **The tutorial drawn over the real map.** While an example shows, the
+   game's own layers (shading, zones, stations, pins) are hidden, so the
+   hider choosing a station no longer sees every station twice; they come
+   back when the example goes. Skipping a tour halfway now leaves the
+   sidebar as it was (it stayed shut on the desktop).
+10. **Longer explanations.** Each step may now say up to 45 words (tips
+    25): what a Radar and a Thermometer are, the other kinds and photos,
+    with the scene set at the start: "Picture a medium game in Zürich
+    canton: you start at Zürich HB." On a desktop the note sits on the
+    left and the example is framed beside it.
+
+Tests: `tests/mergeAreas.test.ts` (fails with a plain union),
+`tests/playAreaPick.test.ts`, the organiser key and the delete rule in
+`server/src/app.test.ts` and `games.test.ts` (an old database gains the
+column), the hider's start in `gameOps.test.ts`, the news in
+`gameEvents.test.ts`, the new texts in `tests/tour.test.ts`; browser tests
+for picking on the map (the map following without a reload fails on the
+old code), skipping a tour halfway (fails on the old code), the hider's
+end game with seekers who can't see stations, and Delete versus Forget
+(`e2e/roles.spec.ts`). Not checked: real phones, and the picker over the
+real Swiss data (the tests use squares); the boundary gaps were reproduced
+with test shapes, not with the real Dübendorf border.
+
 ## What's left ⏭️
 
 From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **Before game night:** commit and deploy rounds 20 and 21, then
+1. **Before game night:** commit and deploy round 22, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
    `access` tag and the country codes); Settings → Places → Review on the
    map for Zürich canton; the backups (Q48); the hider password (Q50).

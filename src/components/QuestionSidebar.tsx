@@ -31,6 +31,7 @@ import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
 import {
     clearQuestions,
+    endgame,
     isLoading,
     questions,
     type SidebarTab,
@@ -45,6 +46,7 @@ import {
     gameState,
     hiderPhone,
     sendOp,
+    zonesAllowed,
 } from "@/lib/game/session";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 import type { Question } from "@/maps/schema";
@@ -131,6 +133,14 @@ export const QuestionSidebar = () => {
                   (entry) => entry.state === "asked",
               ).length
             : 0;
+    // Seekers in a game that keeps the stations to the hider have nothing
+    // in that tab, until the end game (the hider starts it) shows its zone.
+    const $allowed = useStore(zonesAllowed);
+    const $endgame = useStore(endgame);
+    const stationsTab = hider || $allowed || !!$endgame || !!$game?.revealedPin;
+    useEffect(() => {
+        if (!stationsTab && tab === "stations") sidebarTab.set("questions");
+    }, [stationsTab, tab]);
     const waitingPhotos =
         $game?.photoRequests.filter((request) => !request.photoId).length ?? 0;
 
@@ -153,7 +163,14 @@ export const QuestionSidebar = () => {
                       ? `Questions (${waitingQuestions})`
                       : "Questions",
               },
-              { value: "stations", label: hider ? "Hider" : "Stations" },
+              ...(stationsTab
+                  ? [
+                        {
+                            value: "stations" as const,
+                            label: hider ? "Hider" : "Stations",
+                        },
+                    ]
+                  : []),
               {
                   value: "photos",
                   label: waitingPhotos ? `Photos (${waitingPhotos})` : "Photos",

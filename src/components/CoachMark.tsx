@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { useTick } from "@/hooks/useTick";
 import { coachMark } from "@/lib/coachMark";
-import { mapBottomInset, setupDialog, sidebarTab } from "@/lib/context";
+import {
+    mapBottomInset,
+    setupDialog,
+    type SidebarTab,
+    sidebarTab,
+} from "@/lib/context";
 import { activeGameId, GAME_URL_PARAM } from "@/lib/game/session";
 import {
     backStep,
@@ -111,6 +116,12 @@ export const CoachMark = () => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 300, height: 120 });
     const demoShown = useRef(false);
+    /** The sidebar as it was before the tour, to leave it so afterwards. */
+    const sidebarBefore = useRef<{
+        open: boolean;
+        openMobile: boolean;
+        tab: SidebarTab;
+    } | null>(null);
     // Each note (a tour's step, or a single note) has its own clock: how
     // long its target has been awaited, and whether it was ever there.
     const showing = $tour ? `${$tour.id}:${$tour.step}` : $mark;
@@ -142,6 +153,20 @@ export const CoachMark = () => {
     // Each step puts the sidebar and the map in place; the examples go
     // when the tour ends, and the map goes back to where it was.
     useEffect(() => {
+        if (step && !sidebarBefore.current) {
+            const { open, openMobile } = SidebarContext.get();
+            sidebarBefore.current = { open, openMobile, tab: sidebarTab.get() };
+        }
+        if (!step && sidebarBefore.current) {
+            // However the tour ended (finished, skipped), the sidebar goes
+            // back to how the player had it.
+            const { open, openMobile, tab } = sidebarBefore.current;
+            sidebarBefore.current = null;
+            const context = SidebarContext.get();
+            sidebarTab.set(tab);
+            if (context.isMobile) context.setOpenMobile(openMobile);
+            else context.setOpen(open);
+        }
         if (step) {
             arrangeSidebar(step);
             if (step.demo) {
@@ -218,9 +243,15 @@ export const CoachMark = () => {
     const width = Math.min(size.width, vw - 2 * GAP);
     let left: number;
     let top: number;
-    if (!rect) {
+    if (!rect && vw < PHONE) {
         left = (vw - width) / 2;
-        top = vw < PHONE && $sheet === 0 ? vh - size.height - BOTTOM : TOP;
+        top = $sheet === 0 ? vh - size.height - BOTTOM : TOP;
+    } else if (!rect) {
+        // On the left of the map (beside the sidebar when it's open): the
+        // examples are framed to the right of it (maps/tourDemoLayer.ts).
+        const sidebar = SidebarContext.get();
+        left = sidebar.open ? 256 + GAP : GAP;
+        top = TOP;
     } else if (rect.right + GAP + width <= vw - GAP) {
         // Next to the sidebar, over the map.
         left = rect.right + GAP;

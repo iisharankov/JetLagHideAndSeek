@@ -268,3 +268,9 @@ From your earlier answers (rounds 1–4), already built or planned:
   address; from zero (the game, with examples on the map in Zürich canton)
   to the app; the station decides until the end game, then the pin; notes
   of at most 20 words; one-time tips the first time something happens.
+- **Round 22:** the play area picked by tapping cantons, districts or
+  municipalities on the map; when the seekers can't see the stations, the
+  hider starts the end game (the seekers in the zone and off transport) and
+  the seekers have no Stations tab until then; whoever starts a game is the
+  only one who deletes it (anyone after 30 quiet days); the hider has a
+  tour of their own; tutorial steps up to 45 words.

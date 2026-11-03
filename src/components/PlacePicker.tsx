@@ -110,20 +110,8 @@ export const PlacePicker = ({
                     )}
                     data-tutorial-id="place-picker"
                 >
-                    {$polyGeoJSON
-                        ? "Polygon selected"
-                        : $mapGeoLocation &&
-                            $mapGeoLocation.properties &&
-                            $mapGeoLocation.properties.name
-                          ? [
-                                $mapGeoLocation,
-                                ...$additionalMapGeoLocations.map(
-                                    (x) => x.location,
-                                ),
-                            ]
-                                .map((location) => determineName(location))
-                                .join("; ")
-                          : "Hiding bounds"}
+                    {/* The areas themselves are listed in the play area bar. */}
+                    Search for a place…
                     <ChevronsUpDown className="opacity-50" />
                 </Button>
             </PopoverTrigger>

@@ -158,18 +158,22 @@ export const StationsPanel = () => {
                     <p>
                         <strong>End game</strong> at{" "}
                         <strong>{$endgame.station.name}</strong>
-                        {$endgame.by && ` (picked by ${$endgame.by})`}: only its
-                        zone is left on the map. Questions asked before
-                        don&apos;t count any more; new ones do.
+                        {$endgame.byHider
+                            ? " (the hider says you're in their zone; they stay put)"
+                            : $endgame.by && ` (picked by ${$endgame.by})`}
+                        : only its zone is left on the map. Questions asked
+                        before don&apos;t count any more; new ones do.
                     </p>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="self-start"
-                        onClick={endEndgame}
-                    >
-                        Wrong station? Undo
-                    </Button>
+                    {!$endgame.byHider && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="self-start"
+                            onClick={endEndgame}
+                        >
+                            Wrong station? Undo
+                        </Button>
+                    )}
                 </section>
             )}
             {$allowed ? (
@@ -186,8 +190,8 @@ export const StationsPanel = () => {
                     data-testid="zones-off"
                 >
                     This game keeps the hiding zones to the hider&apos;s phone
-                    (a setting chosen when it started). The map still shows
-                    where the hider can&apos;t be.
+                    (a setting chosen when it started). The end game starts when
+                    the hider says you&apos;re in their zone.
                 </p>
             )}
             {$displayHidingZones && $allowed && (

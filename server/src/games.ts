@@ -58,6 +58,14 @@ export interface GameStore {
     delete(id: string): boolean;
     claimHider(id: string, password: string, by?: string): string;
     isHider(id: string, token: string | undefined | null): boolean;
+    /**
+     * The key of whoever started the game (to delete it), handed out once,
+     * right after `create`; null if the game already has one.
+     */
+    issueOrganiser(id: string): string | null;
+    isOrganiser(id: string, token: string | undefined | null): boolean;
+    /** Games from before organisers have none: the old rules apply to them. */
+    hasOrganiser(id: string): boolean;
     addPhoto(
         id: string,
         bytes: Uint8Array,
@@ -108,17 +116,27 @@ export const createGameStore = (
             hider_token TEXT
         )
     `);
+    // Added with organisers (round 22): older databases get the column.
+    const columns = db.prepare("PRAGMA table_info(games)").all() as {
+        name: string;
+    }[];
+    if (!columns.some((column) => column.name === "organiser_token")) {
+        db.exec("ALTER TABLE games ADD COLUMN organiser_token TEXT");
+    }
     const insert = db.prepare(
         "INSERT INTO games (id, state, updated_at) VALUES (?, ?, ?)",
     );
     const select = db.prepare(
-        "SELECT state, hider_secret, hider_token FROM games WHERE id = ?",
+        "SELECT state, hider_secret, hider_token, organiser_token FROM games WHERE id = ?",
     );
     const save = db.prepare(
         "UPDATE games SET state = ?, updated_at = ? WHERE id = ?",
     );
     const setHider = db.prepare(
         "UPDATE games SET hider_secret = ?, hider_token = ? WHERE id = ?",
+    );
+    const setOrganiser = db.prepare(
+        "UPDATE games SET organiser_token = ? WHERE id = ? AND organiser_token IS NULL",
     );
     const stale = db.prepare("SELECT id FROM games WHERE updated_at < ?");
     const recent = db.prepare("SELECT id FROM games WHERE updated_at >= ?");
@@ -130,6 +148,7 @@ export const createGameStore = (
         state: string;
         hider_secret: string | null;
         hider_token: string | null;
+        organiser_token: string | null;
     };
     const row = (id: string) => select.get(id) as Row | undefined;
     const load = (id: string) => {
@@ -277,6 +296,26 @@ export const createGameStore = (
                 return false;
             }
             return timingSafeEqual(Buffer.from(stored), Buffer.from(token));
+        },
+
+        issueOrganiser(id) {
+            const found = row(id);
+            if (!found || found.organiser_token) return null;
+            const token = randomBytes(24).toString("base64url");
+            setOrganiser.run(token, id);
+            return token;
+        },
+
+        isOrganiser(id, token) {
+            const stored = token ? row(id)?.organiser_token : null;
+            if (!token || !stored || stored.length !== token.length) {
+                return false;
+            }
+            return timingSafeEqual(Buffer.from(stored), Buffer.from(token));
+        },
+
+        hasOrganiser(id) {
+            return !!row(id)?.organiser_token;
         },
 
         addPhoto(id, bytes, type, actor, options = {}) {

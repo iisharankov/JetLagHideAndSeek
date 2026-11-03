@@ -93,7 +93,9 @@ src/
     cards/                  base.tsx (the card frame: fold, lock, hide, delete) + one card per type
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
-    PlayAreaBar.tsx         choosing the play area (search, draw) during setup
+    PlayAreaBar.tsx         choosing the play area during setup: tapping cantons, districts or
+                            municipalities on the map (lib/playAreaPick.ts, maps/playAreaPickLayer.ts),
+                            search, drawing; the areas are joined without slivers (maps/mergeAreas.ts)
     OptionDrawers.tsx       the Menu panel: Game (GamePanel) and Settings (SettingsPanel) tabs,
                             MenuGroup
     game/                   GameSetupDialog (+ setup/DeckEditor, setup/QuestionsStep), GamePanel

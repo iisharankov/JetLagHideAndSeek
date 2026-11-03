@@ -472,6 +472,39 @@ describe("the hider's pin", () => {
         expect(undone.hider?.pinLocked).toBe(false);
     });
 
+    it("the hider may start the end game at their own station: the seekers are in the zone", () => {
+        let state = apply(
+            fresh(),
+            { type: "hiderReady", station: mine },
+            hider,
+            1000,
+        );
+        expect(() =>
+            apply(state, { type: "startEndgame", station: other }, hider),
+        ).toThrow(/your own station/);
+        state = apply(
+            state,
+            { type: "startEndgame", station: mine },
+            hider,
+            3000,
+        );
+        expect(state.endgame).toMatchObject({
+            station: { id: "node/1" },
+            by: "Ben",
+            byHider: true,
+        });
+        // The hider stays put from now on.
+        expect(state.hider?.pinLocked).toBe(true);
+        // The seekers' pick isn't marked as the hider's.
+        const picked = apply(
+            apply(fresh(), { type: "hiderReady", station: mine }, hider, 1000),
+            { type: "startEndgame", station: mine },
+            seeker,
+            3000,
+        );
+        expect(picked.endgame?.byHider).toBeUndefined();
+    });
+
     it("stays free when the seekers pick the wrong station", () => {
         let state = apply(
             fresh(),

@@ -8,6 +8,10 @@ import { leafletMapContext, mapBottomInset } from "@/lib/context";
 import { DEMO_ZONE_KM, type DemoId, demoScene } from "@/lib/tourDemo";
 
 const PANE = "tourDemo";
+/** The example's names: the game's own tooltips are hidden meanwhile. */
+const LABEL_PANE = "tourDemoLabels";
+/** On the map's container while an example shows: the game's layers hide (globals.css). */
+const ACTIVE = "tour-demo-active";
 /** Everything outside the open area, as the game's own shading does it. */
 const WORLD = turf.bboxPolygon([-179, -85, 179, 85]);
 
@@ -22,6 +26,8 @@ const ZONE = {
     weight: 2,
 };
 const KEPT = { ...ZONE, weight: 4, fillOpacity: 0.35 };
+/** The hider's own zone, as the app draws it on their phone. */
+const MINE = { color: "red", fillColor: "red", weight: 3, fillOpacity: 0.15 };
 const ENDGAME = {
     color: "#ef4444",
     weight: 3,
@@ -35,6 +41,7 @@ const label = (marker: L.CircleMarker, text: string, left?: boolean) =>
         direction: left ? "left" : "right",
         offset: [left ? -8 : 8, 0],
         className: "tour-demo-label",
+        pane: LABEL_PANE,
     });
 
 export const showDemo = (id: DemoId) => {
@@ -43,7 +50,11 @@ export const showDemo = (id: DemoId) => {
     if (!map.getPane(PANE)) {
         // Above the shading and the zones (400), under markers (600).
         map.createPane(PANE).style.zIndex = "450";
+        map.createPane(LABEL_PANE).style.zIndex = "650";
     }
+    // Only the example on the map: the game's own shading, zones, stations
+    // and pins (the hider choosing a station sees them all) wait.
+    map.getContainer().classList.add(ACTIVE);
     before ??= { center: map.getCenter(), zoom: map.getZoom() };
     layer?.remove();
     const scene = demoScene(id);
@@ -66,7 +77,9 @@ export const showDemo = (id: DemoId) => {
                 ? ENDGAME
                 : zone.style === "kept"
                   ? KEPT
-                  : ZONE),
+                  : zone.style === "mine"
+                    ? MINE
+                    : ZONE),
         }).addTo(group);
         L.circleMarker([zone.station.lat, zone.station.lng], {
             pane: PANE,
@@ -106,11 +119,11 @@ export const showDemo = (id: DemoId) => {
     group.addTo(map);
     layer = group;
     // Clear of the tutorial's note: at the bottom on a phone (above the
-    // sidebar button), at the top on a bigger screen.
+    // sidebar button), on the left on a bigger screen.
     const phone = window.innerWidth < 768;
     map.fitBounds(scene.bounds, {
-        paddingTopLeft: [16, phone ? 16 : 60],
-        paddingBottomRight: [16, (phone ? 240 : 16) + mapBottomInset.get()],
+        paddingTopLeft: [phone ? 16 : 360, phone ? 16 : 40],
+        paddingBottomRight: [16, (phone ? 300 : 16) + mapBottomInset.get()],
     });
 };
 
@@ -119,6 +132,7 @@ export const clearDemo = (restoreView: boolean) => {
     layer?.remove();
     layer = null;
     const map = leafletMapContext.get();
+    map?.getContainer().classList.remove(ACTIVE);
     if (restoreView && before && map) {
         map.setView(before.center, before.zoom);
     }

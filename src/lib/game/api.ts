@@ -46,7 +46,8 @@ export const createGame = (start: {
     settings: GameSettings;
     questions: SharedQuestion[];
     by: string;
-}) => post<{ state: GameState }>("/games", start);
+}) =>
+    post<{ state: GameState; organiserToken: string | null }>("/games", start);
 
 /** Every answer carries the server's clock, for the clocks on the phones. */
 type Timed<T> = T & { now: number };
@@ -64,10 +65,17 @@ export const postOp = (id: string, op: GameOp, by: string, token?: string) =>
         token,
     );
 
-export const deleteGameRequest = (id: string, token?: string) =>
+export const deleteGameRequest = (
+    id: string,
+    token?: string,
+    organiserToken?: string,
+) =>
     call<{ ok: true }>(`/games/${encodeURIComponent(id)}`, {
         method: "DELETE",
-        headers: headers(token),
+        headers: headers(
+            token,
+            organiserToken ? { "X-Organiser-Token": organiserToken } : {},
+        ),
     });
 
 export const postHiderPassword = (id: string, password: string, by: string) =>

@@ -139,6 +139,15 @@ body {
     animation: coachRingPulse 2s infinite ease-in-out;
 }
 
+/* While the tutorial shows an example, the game's own layers wait. */
+.tour-demo-active .leaflet-overlay-pane,
+.tour-demo-active .leaflet-shadow-pane,
+.tour-demo-active .leaflet-marker-pane,
+.tour-demo-active .leaflet-tooltip-pane,
+.tour-demo-active .leaflet-popup-pane {
+    visibility: hidden;
+}
+
 /* The tutorial's examples on the map: names next to the points. */
 .leaflet-tooltip.tour-demo-label {
     font-weight: 600;

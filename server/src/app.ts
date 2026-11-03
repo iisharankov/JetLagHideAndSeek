@@ -16,18 +16,27 @@ const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 const KEEPALIVE_MS = 25_000;
 /** A play area or zone description can't be bigger than this. */
 const MAX_PART_BYTES = 300_000;
-/** A game with a hider is theirs to delete, until it has been quiet this long. */
+/** An older game with a hider is theirs to delete, until it has been quiet this long. */
 export const DELETE_AFTER_MS = 24 * 3600 * 1000;
+/** A game nobody has changed for this long is abandoned: anyone may delete it. */
+export const ABANDONED_MS = 30 * 24 * 3600 * 1000;
 
-/** Anyone may delete a game without a hider, or one nobody has touched for a day. */
+/**
+ * Whoever started a game deletes it; anyone may once it has been abandoned.
+ * Games from before organisers (`organised` false) keep the old rule: the
+ * hider's, anyone's without a hider or after a quiet day.
+ */
 export const mayDelete = (
     state: Pick<GameState, "hasHider" | "updatedAt">,
-    role: "hider" | "seeker",
+    who: { hider: boolean; organiser: boolean },
     now: number,
+    organised: boolean,
 ) =>
-    role === "hider" ||
-    !state.hasHider ||
-    now - state.updatedAt > DELETE_AFTER_MS;
+    organised
+        ? who.organiser || now - state.updatedAt > ABANDONED_MS
+        : who.hider ||
+          !state.hasHider ||
+          now - state.updatedAt > DELETE_AFTER_MS;
 
 const tooLarge = (what: string) => (c: Context) =>
     c.json({ error: `The ${what} is too large.` }, 413);
@@ -102,7 +111,9 @@ export const createApp = ({
                 questions,
                 playerName(body?.by),
             );
-            return c.json({ state }, 201);
+            // Only the phone that started the game gets its key.
+            const organiserToken = games.issueOrganiser(state.id);
+            return c.json({ state, organiserToken }, 201);
         },
     );
 
@@ -141,13 +152,23 @@ export const createApp = ({
         },
     );
 
-    // The phones confirm first; a game being played is the hider's to delete.
+    // The phones confirm first; a game is its organiser's to delete.
     app.delete("/games/:id", (c) => {
         const id = c.req.param("id");
         const state = found(id);
-        if (!mayDelete(state, roleOf(c, id), Date.now())) {
+        const organised = games.hasOrganiser(id);
+        const who = {
+            hider: roleOf(c, id) === "hider",
+            organiser: games.isOrganiser(
+                id,
+                c.req.header("X-Organiser-Token") ?? null,
+            ),
+        };
+        if (!mayDelete(state, who, Date.now(), organised)) {
             throw new GameRuleError(
-                "Only the hider can delete a game that's being played. After a day without changes anyone can.",
+                organised
+                    ? "Only whoever started the game can delete it. After 30 days without changes anyone can."
+                    : "Only the hider can delete a game that's being played. After a day without changes anyone can.",
             );
         }
         games.delete(id);

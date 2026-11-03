@@ -35,6 +35,7 @@ import {
 import { roleOnMap } from "@/lib/game/sync";
 import type { Endgame } from "@/lib/game/types";
 import { createLatestRunner } from "@/lib/jobs";
+import { holdMapView } from "@/lib/playAreaPick";
 import {
     applyQuestionsToMapGeoData,
     hiderifyQuestion,
@@ -501,7 +502,10 @@ const refresh = async () => {
 
     // Auto-zoom follows every change; otherwise only a new play area (or the
     // end game's zone) moves the map.
-    if (focus && (autoZoom.get() || areaChanged)) {
+    // A tap while picking the play area on the map keeps the view.
+    const hold = holdMapView.get();
+    holdMapView.set(false);
+    if (focus && !hold && (autoZoom.get() || areaChanged)) {
         const [minLng, minLat, maxLng, maxLat] = turf.bbox(mapGeoData);
         const bounds: L.LatLngBoundsExpression = [
             [minLat, minLng],

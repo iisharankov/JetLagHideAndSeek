@@ -40,25 +40,34 @@ const words = (text: string) =>
         .split(/\s+/)
         .filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
 
+/** Every text, with the most words it may have (a tour step explains; a tip or an offer is a glance). */
 const everyText = () => [
     ...Object.entries(TOURS).flatMap(([tourId, steps]) =>
-        steps.map((step) => ({ where: `${tourId}/${step.id}`, ...step })),
+        steps.map((step) => ({
+            where: `${tourId}/${step.id}`,
+            most: 45,
+            ...step,
+        })),
     ),
     ...Object.entries(TIPS).map(([id, tip]) => ({
         where: `tip/${id}`,
+        most: 25,
         ...tip,
     })),
     ...Object.entries(OFFERS).map(([id, offer]) => ({
         where: `offer/${id}`,
+        most: 25,
         ...offer,
     })),
 ];
 
 describe("the tutorial's text", () => {
-    it("keeps every title to 4 words and every note to 20", () => {
-        for (const { where, title, text } of everyText()) {
-            expect(words(title), `${where}: "${title}"`).toBeLessThanOrEqual(4);
-            expect(words(text), `${where}: "${text}"`).toBeLessThanOrEqual(20);
+    it("keeps every title to 5 words, a step to 45 and a tip to 25", () => {
+        for (const { where, title, text, most } of everyText()) {
+            expect(words(title), `${where}: "${title}"`).toBeLessThanOrEqual(5);
+            expect(words(text), `${where}: "${text}"`).toBeLessThanOrEqual(
+                most,
+            );
         }
     });
 
@@ -89,6 +98,24 @@ describe("the tutorial's text", () => {
             // The app's own steps come after the game's.
             expect(ids.indexOf("menu")).toBe(ids.length - 1);
         }
+    });
+
+    it("gives the hider a tour of their own", () => {
+        const seeker = new Set(TOURS.seeker.map((step) => step.text));
+        const shared = TOURS.hider.filter((step) => seeker.has(step.text));
+        // Only the Menu step is the same.
+        expect(shared.map((step) => step.id)).toEqual(["menu"]);
+        const ids = TOURS.hider.map((step) => step.id);
+        expect(ids).toContain("start-endgame");
+        expect(ids).not.toContain("radar");
+        expect(TOURS.hider.find((step) => step.id === "zone")?.demo).toBe(
+            "hider-zone",
+        );
+    });
+
+    it("sets the scene: a medium game in Zürich, the seekers at Zürich HB", () => {
+        expect(TOURS.seeker[1].text).toMatch(/medium game in Zürich canton/);
+        expect(TOURS.seeker[1].text).toMatch(/start at Zürich HB/);
     });
 
     it("only shows examples that exist", () => {
@@ -279,6 +306,8 @@ describe("tours and tips", () => {
         expect(tipForEvent(news("hider"), "seeker")).toBe("seeker-hider-ready");
         expect(tipForEvent(news("move"), "seeker")).toBe("seeker-move");
         expect(tipForEvent(news("rest"), "seeker")).toBeNull();
+        // The hider started the end game.
+        expect(tipForEvent(news("endgame"), "seeker")).toBe("seeker-endgame");
     });
 
     it("a tip that comes during a tour shows when the tour ends", () => {
@@ -344,7 +373,7 @@ describe("the labels the tutorial names", () => {
         for (const label of labels) {
             // As JSX text (on its own line or between tags) or a string.
             const shown = new RegExp(
-                `(^\\s*|[>"'\`])${escape(label)}(?=\\s*$|[<"'\`…])`,
+                `(^\\s*|[>"'\`])${escape(label)}(?=\\s*$|[<"'\`…{])`,
                 "m",
             );
             expect(source, `**${label}**`).toMatch(shown);

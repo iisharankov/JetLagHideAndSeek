@@ -62,7 +62,8 @@ const countryAt = async (lat: number, lng: number, zone?: Zone) => {
     return { code, country: country ? zoneName(country) : undefined };
 };
 
-const fromZone = async (zone: Zone): Promise<OpenStreetMap> => {
+/** An admin zone of the reference data as a place (search, the map picker). */
+export const zoneToPlace = async (zone: Zone): Promise<OpenStreetMap> => {
     const [lng, lat] = turf.pointOnFeature(zone).geometry.coordinates;
     const level = Number(zone.properties.admin_level);
     const { code, country } = await countryAt(lat, lng, zone);
@@ -145,7 +146,7 @@ export const geocode = async (
 ): Promise<OpenStreetMap[]> => {
     const zones = await datasets.searchZones(address);
     if (zones) {
-        const results = await Promise.all(zones.map(fromZone));
+        const results = await Promise.all(zones.map(zoneToPlace));
         if (!filter) {
             const places = (await datasets.searchPlaces(address)) ?? [];
             results.push(...(await Promise.all(places.map(fromPlace))));

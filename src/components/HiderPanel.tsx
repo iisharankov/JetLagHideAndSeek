@@ -11,6 +11,7 @@ import {
     trainStations,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
+import { endEndgame, startEndgame } from "@/lib/game/endgame";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameState, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
@@ -199,20 +200,66 @@ export const HiderPanel = () => {
                     data-testid="hider-endgame"
                 >
                     <p>
-                        <strong>End game.</strong> The seekers picked{" "}
-                        <strong>{$endgame.station.name}</strong>
-                        {$endgame.station.id === $chosen.id
-                            ? ": your station"
-                            : " (not your station)"}
-                        . Your answers now come from your pin: put it exactly
-                        where you are.
+                        <strong>End game.</strong>{" "}
+                        {$endgame.byHider ? (
+                            <>
+                                You started it: the seekers are in your zone.
+                                Stay where you are; your answers now come from
+                                your pin.
+                            </>
+                        ) : (
+                            <>
+                                The seekers picked{" "}
+                                <strong>{$endgame.station.name}</strong>
+                                {$endgame.station.id === $chosen.id
+                                    ? ": your station"
+                                    : " (not your station)"}
+                                . Your answers now come from your pin: put it
+                                exactly where you are.
+                            </>
+                        )}
                     </p>
+                    {$endgame.byHider && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-1"
+                            onClick={endEndgame}
+                        >
+                            Started by mistake? Undo
+                        </Button>
+                    )}
                 </section>
             ) : (
-                <p className="text-xs text-slate-400">
-                    Answers are worked out from your station until the seekers
-                    pick it (the end game); then from your pin.
-                </p>
+                <section
+                    className="flex flex-col gap-1 rounded-md border border-slate-600 p-2 text-xs"
+                    data-testid="hider-start-endgame"
+                >
+                    <p className="text-slate-300">
+                        Answers come from your station until the end game, then
+                        from your pin. The end game starts when the seekers are
+                        in your zone and off transport: tell them, and tap
+                        below.
+                    </p>
+                    {$game && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="self-start"
+                            onClick={() => {
+                                if (
+                                    window.confirm(
+                                        "Start the end game? The seekers are in your zone and off transport: you stay where you are, and your pin is fixed.",
+                                    )
+                                ) {
+                                    startEndgame($chosen);
+                                }
+                            }}
+                        >
+                            Start the end game
+                        </Button>
+                    )}
+                </section>
             )}
             <ToggleCard
                 title="Show all stations left"

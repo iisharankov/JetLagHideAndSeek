@@ -1,8 +1,9 @@
-// What the tutorial says. Short on purpose: a title of at most four words, a
-// note of at most twenty, the on-screen labels in **bold** exactly as the
-// app shows them (tests/tour.test.ts checks the budget). Game rules come
+// What the tutorial says. A title of at most five words and a note of at
+// most 45 (a tip or an offer: 25), the on-screen labels in **bold** exactly
+// as the app shows them (tests/tour.test.ts checks both). Game rules come
 // from the rulebook (src/content/rules/quick-start-guide/); the examples
-// are drawn on the map in Zürich canton (lib/tourDemo.ts).
+// are drawn on the map in Zürich canton (lib/tourDemo.ts). The seekers and
+// the hider each get their own tour: the game from their side, then the app.
 import type { SidebarTab } from "@/lib/context";
 import type { GameEvent } from "@/lib/game/events";
 import type { Role } from "@/lib/game/types";
@@ -37,68 +38,119 @@ const MENU = id("menu-button");
 const SIDEBAR_BUTTON = id("left-sidebar-trigger");
 const CLOCK = '[data-testid="round-clock"]';
 
-/** The game itself, with examples on the map: both roles start here. */
-const BASICS: TourStep[] = [
+/** The game from the seekers' side, with examples on the map. */
+const SEEKING: TourStep[] = [
     {
         id: "how-to-play",
         title: "How to play",
-        text: "One player (or team) hides near a station. The others ask questions to find them; the longest hide wins.",
+        text: "One player (or team) hides; everyone else seeks. The hider gets a head start, the hiding period, to reach a train station and hide near it. Then you travel and ask questions until you find them. The longest hide wins.",
         sidebar: "closed",
     },
     {
-        id: "zones",
-        title: "Hiding zones",
-        text: "After the hiding period, the hider must stay in one station's circle: their hiding zone.",
+        id: "example",
+        title: "Our example",
+        text: "Picture a medium game in Zürich canton: you start at Zürich HB. Every station has a hiding zone, a 500 m circle. The hider is somewhere in one of them; you don't know which.",
         sidebar: "closed",
         demo: "zones",
     },
     {
         id: "radar",
         title: "Radar",
-        text: "Seekers at Zürich HB: within 10 km of us? Yes. Everything farther is shaded: the hider isn't there.",
+        text: "A Radar asks: are you within this distance of us? At Zürich HB you choose 10 km. The hider answers Yes, so everything farther than 10 km is shaded: they can't be there.",
         sidebar: "closed",
         demo: "radar",
     },
     {
         id: "thermometer",
         title: "Thermometer",
-        text: "They ride on to Oerlikon: hotter or colder? Colder. The half nearer Oerlikon is shaded.",
+        text: "A Thermometer: you travel at least a set distance, then ask whether you got hotter or colder. You ride from Zürich HB to Oerlikon. Colder: the hider is nearer HB, so the half nearer Oerlikon is shaded.",
         sidebar: "closed",
         demo: "thermometer",
     },
     {
         id: "more-kinds",
-        title: "Three more kinds",
-        text: "Matching, Measuring and Tentacles compare places: the same nearest airport? Closer to a museum?",
+        title: "Three more kinds, and photos",
+        text: "Matching: is your nearest airport the same as ours? Measuring: are you closer to a museum than we are? Tentacles: of the museums near us, which is nearest you? Photos: send us a picture of… Each answer shades more.",
         sidebar: "closed",
         demo: "thermometer",
     },
     {
         id: "station-decides",
-        title: "The station decides",
-        text: "Answers come from the hider's station, not their spot. Wipkingen is on the open side, so its whole zone stays.",
+        title: "Zones stay whole",
+        text: "Answers are worked out from the hider's station, not where they stand. Wipkingen's station is on the open side of the line, so its whole zone stays, though part of it lies in the shade.",
         sidebar: "closed",
         demo: "station",
     },
     {
         id: "endgame",
         title: "The end game",
-        text: "In their zone? Tap **Found it** on that station. From then on, answers come from the hider's pin.",
+        text: "Inside the hider's zone and off transport? The end game starts: the hider tells you, stays put, and taps **Start the end game**. If your game shows the stations, you can tap **Found it** yourself.",
         sidebar: "closed",
         demo: "endgame",
     },
     {
         id: "pin",
-        title: "The pin",
-        text: "The pin is where the hider really is. Once the end game starts there, it can't move.",
+        title: "The hider's pin",
+        text: "From then on, answers come from the hider's pin, where they really stand, and it can't move. Search the zone; once you spot them, they're found and their time stops.",
         sidebar: "closed",
         demo: "endgame",
     },
     {
         id: "cards",
-        title: "Cards and time",
-        text: "Each answer earns the hider cards: curses for the seekers, and time bonuses added when they're found.",
+        title: "Cards and curses",
+        text: "Every answer earns the hider cards. Curses are played on you: do what they say. Time bonuses add to their score. Powerups can veto a question, swap it for a random one, or let them move.",
         sidebar: "closed",
+    },
+];
+
+/** The game from the hider's side, with their own zone in the examples. */
+const HIDING: TourStep[] = [
+    {
+        id: "how-to-play",
+        title: "You're the hider",
+        text: "You get a head start, the hiding period, to travel to a train station and settle into its hiding zone. Then the seekers ask questions and you answer truthfully. The longer they take to find you, the better.",
+        sidebar: "closed",
+    },
+    {
+        id: "zone",
+        title: "Your hiding zone",
+        text: "Every station has a 500 m circle around it (in a medium game). Pick yours: it turns red, and after the hiding period you stay inside it. Say you hide at Wipkingen, in Zürich.",
+        sidebar: "closed",
+        demo: "hider-zone",
+    },
+    {
+        id: "answering",
+        title: "Answering",
+        text: "The seekers at Zürich HB ask: are you within 10 km of us? The app works it out from your station: Wipkingen is about 2 km away, so it suggests Yes. You check it and send it.",
+        sidebar: "closed",
+        demo: "hider-radar",
+    },
+    {
+        id: "station-decides",
+        title: "Your station decides",
+        text: "Answers come from your station, not the spot you stand on, so you may move anywhere in your circle until the end game. You have five minutes to answer each question.",
+        sidebar: "closed",
+        demo: "hider-zone",
+    },
+    {
+        id: "cards",
+        title: "Your cards",
+        text: "Each answer lets you draw cards and keep some: the question says how many. Time bonuses add to your score, curses slow the seekers down, and powerups help: veto a question, randomize it, or move.",
+        sidebar: "closed",
+    },
+    {
+        id: "endgame",
+        title: "The end game",
+        text: "When the seekers are inside your zone and off transport, the end game starts: tell them, tap **Start the end game**, and stay where you are. From then on your answers come from your pin.",
+        sidebar: "closed",
+        demo: "endgame",
+    },
+    {
+        id: "pin",
+        title: "Your pin",
+        text: "Keep your pin where you really are. Once the end game starts it's fixed, and the seekers must find you right there. When they spot you, your time stops and your bonuses count.",
+        sidebar: "closed",
+        demo: "endgame",
     },
 ];
 
@@ -111,11 +163,11 @@ const MENU_STEP: TourStep = {
 
 export const TOURS: Record<TourId, TourStep[]> = {
     seeker: [
-        ...BASICS,
+        ...SEEKING,
         {
             id: "sidebar",
             title: "Your sidebar",
-            text: "Tap **Questions** to open your questions, the stations left and your cards.",
+            text: "Tap **Questions** to open your questions, cards and photos. On a phone, swipe it up for more room.",
             target: [SIDEBAR_BUTTON],
             sidebar: "closed",
             tab: "questions",
@@ -124,7 +176,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "ask",
             title: "Ask a question",
-            text: "Tap **Add Question**, pick a kind, then drag its pin on the map to where you are.",
+            text: "Tap **Add Question** and pick a kind. It starts where you are if Follow me is on (Menu → Settings); otherwise drag its pin there.",
             target: [id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
@@ -132,7 +184,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "send",
             title: "Send it",
-            text: "It's a draft until you tap **Send to the hider**. They have five minutes; the answer shades the map.",
+            text: "A new question is a draft only the seekers see; the map shows what each answer would mean. Tap **Send to the hider** when ready: they have five minutes to answer.",
             target: [id("send-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
@@ -140,23 +192,33 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "stations",
             title: "Stations left",
-            text: "Turn on **Show hiding zones**: green circles are where the hider may be. **Found it** starts the end game.",
-            target: [tab("stations"), TABS],
+            text: "If your game shows the stations: turn on **Show hiding zones** to see where the hider may be, and tap **Found it** on their station to start the end game.",
+            target: [tab("stations")],
             sidebar: "open",
             tab: "stations",
+            // Not there when the game keeps the stations to the hider.
+            optional: true,
         },
         {
             id: "curses",
             title: "Curses",
-            text: "Curses on you show under **Cards**. Do what they say, then tap **Cleared**.",
+            text: "Curses on you appear under **Cards**, with what they stop you doing. Do what they say, then tap **Cleared**.",
             target: [tab("curses"), TABS],
             sidebar: "open",
             tab: "curses",
         },
         {
+            id: "photos",
+            title: "Photos",
+            text: "Ask for a photo under **Photos**. The hider has ten minutes to send it (twenty in a large game).",
+            target: [tab("photos"), TABS],
+            sidebar: "open",
+            tab: "photos",
+        },
+        {
             id: "clock",
             title: "The clock",
-            text: "The hider's time, running until they're found. A pause or a rest needs both sides to agree.",
+            text: "The hider's time, running until they're found. A pause, or a rest overnight, needs both sides to agree.",
             target: [CLOCK],
             sidebar: "open",
             tab: "questions",
@@ -164,11 +226,11 @@ export const TOURS: Record<TourId, TourStep[]> = {
         MENU_STEP,
     ],
     hider: [
-        ...BASICS,
+        ...HIDING,
         {
             id: "pick",
-            title: "Your station",
-            text: "Tap your station on the map, or **Mine** in the list; it turns red. Then tap **Done**.",
+            title: "Pick your station",
+            text: "Tap your station on the map, or **Mine** in the list; it turns red. Then tap **Done**: the seekers hear you're ready, not where.",
             target: [id("hider-pick")],
             sidebar: "open",
             tab: "stations",
@@ -178,39 +240,41 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "research",
             title: "Try it first",
-            text: "Before **Done**, **Research** questions are yours alone: see what a station would answer.",
+            text: "Before **Done**, **Research** questions are yours alone: see what a station would answer before you commit.",
             target: [tab("research")],
             sidebar: "open",
             optional: true,
         },
         {
             id: "answer",
-            title: "Answering",
-            text: "A beep means a question: answer under **Questions** within five minutes. The app suggests the answer.",
+            title: "Answering here",
+            text: "A beep means a question: it's under **Questions**. The app suggests the answer and the map shows what it rules out. Pick it, then send it.",
             target: [tab("questions"), TABS],
             sidebar: "open",
         },
         {
             id: "hand",
-            title: "Your cards",
-            text: "After each answer you draw cards; keep them in **Cards**. Play curses and powerups from there.",
+            title: "Your hand",
+            text: "Under **Cards**, keep the cards you draw and play curses and powerups. Over the hand limit, you discard first.",
             target: [tab("curses"), TABS],
             sidebar: "open",
         },
         {
             id: "time",
             title: "Your time",
-            text: "Your hiding time. Time bonuses in your hand are added when you're found: longest hide wins.",
+            text: "Your hiding time. The time bonuses in your hand are added when you're found: longest hide wins.",
             target: [CLOCK],
             sidebar: "open",
         },
         {
-            id: "station-then-pin",
-            title: "Station, then pin",
-            text: "Answers come from your station until the end game, then from your pin: keep it where you are.",
-            target: ['[data-testid="hider-panel"]'],
+            id: "start-endgame",
+            title: "Start the end game",
+            text: "Seekers in your zone and off transport? Tap **Start the end game** here, tell them, and stay put.",
+            target: ['[data-testid="hider-start-endgame"]'],
             sidebar: "open",
             tab: "stations",
+            // Only once your station is set.
+            optional: true,
         },
         MENU_STEP,
     ],
@@ -218,12 +282,18 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "welcome",
             title: "Hide and Seek",
-            text: "A map for Jet Lag's Hide and Seek. Set up a game here, then send everyone the link.",
+            text: "A map for Jet Lag's Hide and Seek. Set up a game here, then send everyone the link: each player joins on their own phone.",
         },
         {
             id: "setup",
             title: "Start a game",
-            text: "**Menu** → **Start a shared game**: play area, size, deck and questions, then **Start the game**.",
+            text: "**Menu** → **Start a shared game**: the play area (tap municipalities or cantons on the map), the size, the deck and the questions. Then **Start the game**.",
+            target: [MENU],
+        },
+        {
+            id: "stations",
+            title: "Seekers and stations",
+            text: "In setup you choose whether the seekers may see the stations. If not, the hider starts the end game when the seekers reach their zone.",
             target: [MENU],
         },
         {
@@ -258,11 +328,11 @@ export const TOUR_LABELS: Record<TourId, string> = {
 export const OFFERS: Record<TourId, { title: string; text: string }> = {
     seeker: {
         title: "New here?",
-        text: "How the game works, with examples on the map, then how to ask questions here.",
+        text: "How seeking works, with examples in Zürich on the map, then how to ask questions here.",
     },
     hider: {
         title: "New here?",
-        text: "How the game works, with examples on the map, then how to hide and answer here.",
+        text: "How hiding works, with examples in Zürich on the map, then how to answer and play your cards here.",
     },
     organiser: {
         title: "New here?",
@@ -277,7 +347,8 @@ export type TipId =
     | "seeker-hider-ready"
     | "seeker-answer"
     | "seeker-curse"
-    | "seeker-move";
+    | "seeker-move"
+    | "seeker-endgame";
 
 export interface Tip {
     title: string;
@@ -317,6 +388,11 @@ export const TIPS: Record<TipId, Tip> = {
         text: "It's in **Cards**: do what it says, then tap **Cleared**.",
         target: [tab("curses"), SIDEBAR_BUTTON],
     },
+    "seeker-endgame": {
+        title: "End game",
+        text: "The hider says you're in their zone and stays put. Only that zone is left on the map: search it.",
+        target: [tab("stations"), SIDEBAR_BUTTON],
+    },
     "seeker-move": {
         title: "The hider moves",
         text: "No questions until they continue. Their old station is on the map.",
@@ -344,6 +420,8 @@ export const tipForEvent = (
             return "seeker-curse";
         case "move":
             return "seeker-move";
+        case "endgame":
+            return "seeker-endgame";
         default:
             return null;
     }

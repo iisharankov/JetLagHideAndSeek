@@ -19,7 +19,7 @@ import {
 } from "@/lib/context";
 import { applyPlaceRules, insidePlayArea } from "@/lib/placeRules";
 import { datasets } from "@/maps/datasets/load";
-import { safeUnion } from "@/maps/geo-utils";
+import { mergeAreas } from "@/maps/mergeAreas";
 
 import { cacheFetch } from "./cache";
 import { LOCATION_FIRST_TAG } from "./constants";
@@ -478,13 +478,10 @@ export const determineMapBoundaries = async () => {
         })),
     );
 
+    // Neighbours joined without the slivers their simplified borders leave.
     let mapGeoData = turf.featureCollection([
-        safeUnion(
-            turf.featureCollection(
-                mapGeoDatum
-                    .filter((x) => x.added)
-                    .flatMap((x) => x.data.features),
-            ) as any,
+        mergeAreas(
+            mapGeoDatum.filter((x) => x.added).flatMap((x) => x.data.features),
         ),
     ]);
 
