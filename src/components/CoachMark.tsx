@@ -6,6 +6,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { SidebarContext } from "@/components/ui/sidebar-l";
@@ -13,7 +14,10 @@ import { useTick } from "@/hooks/useTick";
 import { coachMark } from "@/lib/coachMark";
 import {
     mapBottomInset,
+    menuOpen,
+    menuTab,
     setupDialog,
+    setupPage,
     type SidebarTab,
     sidebarTab,
 } from "@/lib/context";
@@ -27,6 +31,7 @@ import {
     tour,
 } from "@/lib/tour";
 import { OFFERS, TOURS, type TourStep } from "@/lib/tourSteps";
+import { cn } from "@/lib/utils";
 
 const PAD = 8;
 const GAP = 16;
@@ -97,6 +102,42 @@ const arrangeSidebar = ({ sidebar, tab }: TourStep) => {
     else context.setOpen(open);
 };
 
+/** What a tour opened itself, to close again. */
+type Opened = { menu: boolean; setup: boolean };
+
+/**
+ * Opens the Menu (on a tab) or a new game's setup (on a screen) to show
+ * what's in them, and closes what an earlier step opened.
+ */
+const arrangeMenu = ({ menu, setup }: TourStep, opened: Opened) => {
+    if (menu) {
+        menuTab.set(menu);
+        if (!menuOpen.get()) {
+            menuOpen.set(true);
+            opened.menu = true;
+        }
+    } else if (opened.menu) {
+        menuOpen.set(false);
+        opened.menu = false;
+    }
+    // Only while there's no game: the tour mustn't lead to a second one.
+    if (setup !== undefined && activeGameId.get() === "") {
+        setupPage.set(setup);
+        if (setupDialog.get() === null) {
+            setupDialog.set("start");
+            opened.setup = true;
+        }
+    } else if (opened.setup) {
+        closeSetup(opened);
+    }
+};
+
+const closeSetup = (opened: Opened) => {
+    setupDialog.set(null);
+    setupPage.set(0);
+    opened.setup = false;
+};
+
 /**
  * The tutorial's ring and note. It runs the tours (lib/tour.ts) and shows
  * single notes: one thing to do right now ("pick your hiding spot") or a
@@ -116,6 +157,9 @@ export const CoachMark = () => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 300, height: 120 });
     const demoShown = useRef(false);
+    const opened = useRef<Opened>({ menu: false, setup: false });
+    const $menuOpen = useStore(menuOpen);
+    const $setup = useStore(setupDialog);
     /** The sidebar as it was before the tour, to leave it so afterwards. */
     const sidebarBefore = useRef<{
         open: boolean;
@@ -169,6 +213,7 @@ export const CoachMark = () => {
         }
         if (step) {
             arrangeSidebar(step);
+            arrangeMenu(step, opened.current);
             if (step.demo) {
                 demoShown.current = true;
                 const demo = step.demo;
@@ -181,6 +226,19 @@ export const CoachMark = () => {
             void demoLayer().then((layer) => layer.clearDemo(true));
         }
     }, [$tour?.id, $tour?.step]);
+
+    // What the tour opened closes as it ends, in the same update: the Menu
+    // is never left open as it turns modal again (OptionDrawers.tsx).
+    useEffect(
+        () =>
+            tour.listen((next) => {
+                if (next) return;
+                if (opened.current.menu) menuOpen.set(false);
+                if (opened.current.setup) closeSetup(opened.current);
+                opened.current.menu = false;
+            }),
+        [],
+    );
 
     const found = findTarget(
         step ? step.target : offer ? undefined : $mark?.target,
@@ -208,6 +266,23 @@ export const CoachMark = () => {
             return;
         }
         if (clock.current.seen || waited > GIVE_UP_MS) coachMark.set(null);
+    });
+
+    // A step's target down a panel that scrolls (the Menu, the setup):
+    // brought into view, once, as the panel opens.
+    const scrolledFor = useRef<unknown>(null);
+    useEffect(() => {
+        if (!step?.target || (!step.menu && step.setup === undefined)) return;
+        if (scrolledFor.current === showing) return;
+        const element = step.target
+            .map((selector) => document.querySelector(selector))
+            .find(Boolean);
+        if (!element) return;
+        scrolledFor.current = showing;
+        const { top, bottom } = element.getBoundingClientRect();
+        if (top < 0 || bottom > window.innerHeight) {
+            element.scrollIntoView({ block: "center" });
+        }
     });
 
     // "Tap the highlighted thing to go on."
@@ -255,6 +330,10 @@ export const CoachMark = () => {
     } else if (rect.right + GAP + width <= vw - GAP) {
         // Next to the sidebar, over the map.
         left = rect.right + GAP;
+        top = rect.top;
+    } else if (rect.left - GAP - width >= GAP) {
+        // Next to the Menu, on the right.
+        left = rect.left - GAP - width;
         top = rect.top;
     } else if (rect.top - GAP - size.height >= GAP) {
         // Above the phone's sheet, over the map.
@@ -326,8 +405,18 @@ export const CoachMark = () => {
         );
     }
 
-    return (
-        <div className="pointer-events-none fixed inset-0 z-[1038]">
+    // Over the sidebar's sheet and under dialogs, but over the Menu or the
+    // setup a tour shows (it makes them let the note be tapped).
+    const raised = !!step && ($menuOpen || $setup !== null);
+    // On the page itself: inside the Menu's corner it could never rise
+    // above the Menu.
+    return createPortal(
+        <div
+            className={cn(
+                "pointer-events-none fixed inset-0",
+                raised ? "z-[1045]" : "z-[1038]",
+            )}
+        >
             {rect && (
                 <div
                     className="coach-ring-pulse absolute rounded-xl border-[3px] border-blue-500"
@@ -351,6 +440,7 @@ export const CoachMark = () => {
                 <p className="text-xs text-slate-200">{withBold(text)}</p>
                 {footer}
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 };

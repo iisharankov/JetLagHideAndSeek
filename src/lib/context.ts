@@ -248,8 +248,11 @@ export type SidebarTab =
     | "research";
 export const sidebarTab = atom<SidebarTab>("questions");
 
-/** The Menu drawer is open. */
+/** The Menu drawer is open… */
 export const menuOpen = atom<boolean>(false);
+export type MenuTab = "game" | "settings";
+/** …on this tab. */
+export const menuTab = atom<MenuTab>("game");
 /** On a phone, the bottom sheet covers this much of the map (px): zooming keeps clear of it. */
 export const mapBottomInset = atom<number>(0);
 /** Seekers' drafts on the map: all of them, or only the active card's. */
@@ -261,6 +264,8 @@ export const draftsOnMap = persistentAtom<"all" | "active">(
 export const alertsEnabled = persistentAtom<boolean>("alerts", true, json);
 /** Game setup (Menu → Game): this phone's settings, or a new shared game. */
 export const setupDialog = atom<"solo" | "start" | null>(null);
+/** Its screen (0 to 2); kept while the play area or the places are chosen on the map. */
+export const setupPage = atom<number>(0);
 /** Choosing the play area on the map, and which setup to come back to. */
 export const playAreaEditing = atom<"solo" | "start" | false>(false);
 /** The drawing tools for the play area are on the map. */

@@ -1011,12 +1011,48 @@ as browsers do (fails on the old rules), and a last test fails once the
 library fixes both, so the workaround can go. Checked by eye on the real
 tiles around Otelfingen at zooms 13, 15 and 17.
 
+## Round 24: the tours open what they talk about ✅ (2026-11-03)
+
+The tours pointed at the closed Menu button for everything inside it ("Menu
+→ Start a shared game", "Review places on the map", "Share the game link",
+Follow me in Settings): nothing opened, nothing moved. The sidebar part
+worked (it opens, closes and changes tabs per step); the Menu and the setup
+never did. Now a step can open the Menu on a tab, or a new game's setup on
+one of its three screens, and point at the button itself, scrolled into
+view:
+
+- **Setting up** (first visit; Menu → Help → Setting up): the Menu at
+  **Start a shared game**; the setup at the play area's **Change**, the
+  game size, **Seekers can show the hiding zones** and **Review places on
+  the map**; back in the Menu, **Share the game link** (or Play together,
+  before a game); Help. The setup opens only while there's no game, so the
+  tour can't lead to a second one; the setup steps are left out in a game.
+- **Seekers:** Follow me (GPS) in Settings, then Help. **Hider:** Buzz and
+  beep in Settings, then Help. Every tour ends at the Menu's Help.
+- During a tour the Menu and the setup aren't modal: nothing dimmed, the
+  note (now on the page itself, `z-[1045]` over them) can be tapped without
+  closing them. What the tour opened closes as it ends, however it ends.
+  vaul can't switch an open drawer between modal and not (its overlay's
+  hooks change: React error 310, which crashed the Menu), so the Menu starts
+  afresh when that changes. The setup's screen is a store (`setupPage`) the
+  tour sets; it's kept while the play area or the places are chosen on the
+  map, as before.
+
+Tests: `tests/tour.test.ts` (no step points at the closed Menu button; a
+step that opens something points into it; the setup's three screens in
+order; every tour ends at Help; every selector a step uses is in the app);
+`e2e/tutorial.spec.ts`: the setting-up tour opens the Menu and each setup
+screen with its target in view and closes them after, no game started
+(fails on the old code); the seeker tour shows Follow me and Help (fails
+on the old code); skipping while the Menu is open closes it, and the Menu
+is modal again after. Checked by eye on the desktop and phone.
+
 ## What's left ⏭️
 
 From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
 [questions.md](questions.md)), in order of value:
 
-1. **Before game night:** commit and deploy rounds 22–23, then
+1. **Before game night:** commit and deploy rounds 22–24, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the
    `access` tag and the country codes); Settings → Places → Review on the
    map for Zürich canton; the backups (Q48); the hider password (Q50).

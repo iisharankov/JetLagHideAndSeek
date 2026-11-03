@@ -99,7 +99,7 @@ const clickThrough = async (
 const demo = (page: Page): Locator =>
     page.locator(".leaflet-tourDemo-pane path");
 
-test("a first visit offers the setting-up tour, once", async ({
+test("a first visit offers the setting-up tour, once, and it opens the Menu and the setup to show them", async ({
     page,
     externalHosts,
     pageErrors,
@@ -116,8 +116,68 @@ test("a first visit offers the setting-up tour, once", async ({
     await expect(menu).toBeVisible();
     await menu.press("Escape");
     await expect(menu).toBeHidden();
-    const total = await clickThrough(page);
-    expect(total).toBeLessThanOrEqual(6);
+
+    // Each step opens what it's about and points at it; the note stays
+    // usable over them (clickThrough taps its Next).
+    const setup = page.getByRole("dialog", { name: /New shared game/ });
+    const seen: string[] = [];
+    const total = await clickThrough(page, async (step) => {
+        seen.push(step);
+        if (step === "start") {
+            await expect(menu).toBeVisible();
+            await expect(
+                menu.getByRole("button", { name: "Start a shared game" }),
+            ).toBeInViewport();
+        }
+        if (step === "play-area") {
+            await expect(menu).toBeHidden();
+            await expect(setup).toContainText("1 of 3");
+            await expect(
+                setup.getByTestId("change-play-area"),
+            ).toBeInViewport();
+        }
+        if (step === "stations") {
+            await expect(setup).toContainText("2 of 3");
+            await expect(
+                setup.getByRole("switch", {
+                    name: /Seekers can show the hiding zones/,
+                }),
+            ).toBeInViewport();
+        }
+        if (step === "places") {
+            await expect(setup).toContainText("3 of 3");
+            await expect(
+                setup.getByRole("button", {
+                    name: "Review places on the map…",
+                }),
+            ).toBeInViewport();
+        }
+        if (step === "menu") {
+            await expect(setup).toBeHidden();
+            await expect(
+                menu.getByRole("heading", { name: "Help" }),
+            ).toBeInViewport();
+        }
+    });
+    expect(seen).toEqual([
+        "welcome",
+        "start",
+        "play-area",
+        "size",
+        "stations",
+        "places",
+        "invite",
+        "menu",
+    ]);
+    expect(total).toBe(8);
+    // What the tour opened is closed again, and no game was started.
+    await expect(menu).toBeHidden();
+    await expect(setup).toBeHidden();
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await expect(
+        menu.getByRole("button", { name: "Start a shared game" }),
+    ).toBeVisible();
+    await menu.press("Escape");
 
     // Seen: not offered again on this phone.
     await page.reload();
@@ -189,6 +249,21 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
         if (step === "clock") {
             await expect(page.getByTestId("round-clock")).toBeVisible();
         }
+        if (step === "follow-me") {
+            // The Menu opens on Settings, at the switch.
+            await expect(
+                page
+                    .getByRole("dialog", { name: "Menu" })
+                    .getByRole("switch", { name: /Follow me \(GPS\)/ }),
+            ).toBeInViewport();
+        }
+        if (step === "menu") {
+            await expect(
+                page
+                    .getByRole("dialog", { name: "Menu" })
+                    .getByRole("heading", { name: "Help" }),
+            ).toBeInViewport();
+        }
     });
     expect(seen).toEqual(
         expect.arrayContaining([
@@ -205,10 +280,13 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
             "stations",
             "curses",
             "clock",
+            "follow-me",
             "menu",
         ]),
     );
     expect(total).toBeLessThanOrEqual(18);
+    // The Menu the tour opened is closed again.
+    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
     // The game's layers are back.
     await expect(page.locator(".leaflet-overlay-pane")).toHaveCSS(
         "visibility",
@@ -219,6 +297,33 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
     await expect(page.locator(".tour-demo-label")).toHaveCount(0);
     // The game is as it was: no question was made.
     await expect(page.getByTestId("question-game-state")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+});
+
+test("skipping a tour while it shows the Menu closes it, and the Menu works as before", async ({
+    page,
+    externalHosts,
+    pageErrors,
+}) => {
+    void externalHosts;
+    await page.goto("/");
+    await mark(page).getByRole("button", { name: "Show Tutorial" }).click();
+    await mark(page).getByRole("button", { name: "Next" }).click();
+    const menu = page.getByRole("dialog", { name: "Menu" });
+    const dimmed = page.locator("[data-vaul-overlay]");
+    await expect(mark(page)).toHaveAttribute("data-tour-step", "start");
+    await expect(menu).toBeVisible();
+    // Shown by the tour: nothing dimmed, the note on top.
+    await expect(dimmed).toHaveCount(0);
+    await mark(page).getByRole("button", { name: "Skip tutorial" }).click();
+    await expect(mark(page)).toHaveCount(0);
+    await expect(menu).toBeHidden();
+    // The Menu as always: over a dimmed page.
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await expect(menu).toBeVisible();
+    await expect(dimmed).toBeVisible();
+    await menu.press("Escape");
+    await expect(menu).toBeHidden();
     expect(pageErrors).toEqual([]);
 });
 

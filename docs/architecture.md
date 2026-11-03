@@ -108,7 +108,9 @@ src/
     CoachMark.tsx           the tutorial's ring and note (dims nothing): runs the tours (lib/tour.ts:
                             state and what was seen; lib/tourSteps.ts: the texts, the tips),
                             single pointers ("pick your hiding spot", lib/coachMark.ts) and tips;
-                            the examples in Zürich: lib/tourDemo.ts (shapes), maps/tourDemoLayer.ts
+                            the examples in Zürich: lib/tourDemo.ts (shapes), maps/tourDemoLayer.ts;
+                            a step opens the sidebar on a tab, the Menu on a tab or a new game's
+                            setup on a screen (non-modal during a tour, the note above them)
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
                             gameOps.ts (the rules: applyOp, viewFor) with its helpers in
                             rules/ (shared checks, questions, curses, hider, teams), push.ts

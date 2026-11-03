@@ -127,6 +127,57 @@ describe("the tutorial's text", () => {
     });
 });
 
+describe("what the tutorial opens", () => {
+    const everyStep = () =>
+        Object.entries(TOURS).flatMap(([tourId, steps]) =>
+            steps.map((step) => ({ where: `${tourId}/${step.id}`, step })),
+        );
+
+    it("opens the Menu or the setup to show what's in them, not just their button", () => {
+        for (const { where, step } of everyStep()) {
+            // The closed Menu's button shows nothing of what's inside.
+            expect(step.target ?? [], where).not.toContain(
+                '[data-tutorial-id="menu-button"]',
+            );
+            if (step.menu || step.setup !== undefined) {
+                expect(step.target?.length, where).toBeGreaterThan(0);
+            }
+            // Whatever names the Menu opens it.
+            if (/\*\*Menu\*\*|Menu →/.test(step.text)) {
+                expect(step.menu, where).toBeDefined();
+            }
+        }
+    });
+
+    it("walks the organiser through the setup's three screens", () => {
+        const screens = TOURS.organiser
+            .map((step) => step.setup)
+            .filter((screen) => screen !== undefined);
+        expect(new Set(screens)).toEqual(new Set([0, 1, 2]));
+        // In order: the setup isn't paged back and forth.
+        expect(screens).toEqual([...screens].sort());
+    });
+
+    it("ends every tour in the Menu's help", () => {
+        for (const steps of Object.values(TOURS)) {
+            const last = steps.at(-1)!;
+            expect(last.menu).toBe("game");
+            expect(last.target).toContain('[data-tutorial-id="menu-help"]');
+        }
+    });
+
+    it("shows the seekers Follow me, and the hider the alerts, in Settings", () => {
+        const settings = (id: "seeker" | "hider") =>
+            TOURS[id].filter((step) => step.menu === "settings");
+        expect(settings("seeker").map((step) => step.target)).toEqual([
+            ['[data-tutorial-id="follow-me"]'],
+        ]);
+        expect(settings("hider").map((step) => step.target)).toEqual([
+            ['[data-tutorial-id="alerts"]'],
+        ]);
+    });
+});
+
 describe("the examples in Zürich canton", () => {
     const point = (name: string) => {
         const station = STATIONS.find((s) => s.name === name)!;
@@ -362,6 +413,31 @@ describe("the labels the tutorial names", () => {
     })();
     const escape = (text: string) =>
         text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    it("point at things the app has", () => {
+        const targets = new Set(
+            Object.values(TOURS).flatMap((steps) =>
+                steps.flatMap((step) => step.target ?? []),
+            ),
+        );
+        for (const target of targets) {
+            for (const [, attribute, name] of target.matchAll(
+                /\[data-(tutorial-id|testid)="([^"]+)"\]/g,
+            )) {
+                const named =
+                    attribute === "testid"
+                        ? [`data-testid="${name}"`]
+                        : [
+                              `data-tutorial-id="${name}"`,
+                              `tutorialId="${name}"`,
+                          ];
+                expect(
+                    named.some((text) => source.includes(text)),
+                    target,
+                ).toBe(true);
+            }
+        }
+    });
 
     it("are spelled as the app shows them", () => {
         const labels = new Set(

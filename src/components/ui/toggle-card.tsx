@@ -13,6 +13,7 @@ export const ToggleCard = ({
     onCheckedChange,
     disabled,
     className,
+    tutorialId,
 }: {
     title: ReactNode;
     description?: ReactNode;
@@ -20,12 +21,15 @@ export const ToggleCard = ({
     onCheckedChange: (checked: boolean) => void;
     disabled?: boolean;
     className?: string;
+    /** For the tutorial to point at. */
+    tutorialId?: string;
 }) => (
     <button
         type="button"
         role="switch"
         aria-checked={checked}
         disabled={disabled}
+        data-tutorial-id={tutorialId}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
             "flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",

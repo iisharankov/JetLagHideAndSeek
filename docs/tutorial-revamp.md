@@ -204,7 +204,8 @@ a "Replay tips" switch in Settings.
   the "load this game?" prompt; start it after they close.
 - Coach marks sit at `z-[1038]`, under the Menu drawer (`1040`) and the
   dialogs; a step pointing into the Menu needs the Menu open or a higher
-  layer.
+  layer. (Done in round 24 of plan.md: a step opens the Menu or the setup,
+  which a tour makes non-modal, and the note rises to `1045` over them.)
 - The sheet on phones (`ui/bottom-sheet.tsx`) snaps half or full; a step
   pointing at a tab or card must open it (`sidebarTab.set(...)`, the
   sidebar context's `setOpenMobile`) and wait for the target, which

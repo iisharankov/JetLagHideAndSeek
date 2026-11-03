@@ -4,7 +4,7 @@
 // from the rulebook (src/content/rules/quick-start-guide/); the examples
 // are drawn on the map in Zürich canton (lib/tourDemo.ts). The seekers and
 // the hider each get their own tour: the game from their side, then the app.
-import type { SidebarTab } from "@/lib/context";
+import type { MenuTab, SidebarTab } from "@/lib/context";
 import type { GameEvent } from "@/lib/game/events";
 import type { Role } from "@/lib/game/types";
 
@@ -22,6 +22,10 @@ export interface TourStep {
     sidebar?: "open" | "closed";
     /** …and on this tab. */
     tab?: SidebarTab;
+    /** The Menu open on this tab (closed again for a step without). */
+    menu?: MenuTab;
+    /** A new game's setup open on this screen (0 to 2), while there's no game. */
+    setup?: number;
     /** An example drawn on the map. */
     demo?: DemoId;
     /** Left out when its target isn't on the page (a tab that comes and goes). */
@@ -34,7 +38,6 @@ const id = (name: string) => `[data-tutorial-id="${name}"]`;
 const tab = (value: SidebarTab) =>
     `[data-tutorial-id="sidebar-tabs"] [data-value="${value}"]`;
 const TABS = id("sidebar-tabs");
-const MENU = id("menu-button");
 const SIDEBAR_BUTTON = id("left-sidebar-trigger");
 const CLOCK = '[data-testid="round-clock"]';
 
@@ -157,8 +160,9 @@ const HIDING: TourStep[] = [
 const MENU_STEP: TourStep = {
     id: "menu",
     title: "Rules and help",
-    text: "The rules, every card and this tutorial are in the **Menu**.",
-    target: [MENU],
+    text: "The rules, every card and this tutorial are in the **Menu**, under **Help**. Tap the round button at the top right to open it.",
+    target: [id("menu-help")],
+    menu: "game",
 };
 
 export const TOURS: Record<TourId, TourStep[]> = {
@@ -176,7 +180,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "ask",
             title: "Ask a question",
-            text: "Tap **Add Question** and pick a kind. It starts where you are if Follow me is on (Menu → Settings); otherwise drag its pin there.",
+            text: "Tap **Add Question** and pick a kind. It starts where you are if Follow me is on; otherwise drag its pin there.",
             target: [id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
@@ -222,6 +226,13 @@ export const TOURS: Record<TourId, TourStep[]> = {
             target: [CLOCK],
             sidebar: "open",
             tab: "questions",
+        },
+        {
+            id: "follow-me",
+            title: "Follow me",
+            text: "In the **Menu**, under **Settings**: **Follow me (GPS)** shows where you are on the map, and new questions start there.",
+            target: [id("follow-me")],
+            menu: "settings",
         },
         MENU_STEP,
     ],
@@ -276,6 +287,13 @@ export const TOURS: Record<TourId, TourStep[]> = {
             // Only once your station is set.
             optional: true,
         },
+        {
+            id: "alerts",
+            title: "Don't miss a question",
+            text: "In the **Menu**, under **Settings**: keep **Buzz and beep** on, so a question can't slip by. Below it, allow notifications to hear of one while the app is in the background.",
+            target: [id("alerts")],
+            menu: "settings",
+        },
         MENU_STEP,
     ],
     organiser: [
@@ -285,34 +303,59 @@ export const TOURS: Record<TourId, TourStep[]> = {
             text: "A map for Jet Lag's Hide and Seek. Set up a game here, then send everyone the link: each player joins on their own phone.",
         },
         {
-            id: "setup",
+            id: "start",
             title: "Start a game",
-            text: "**Menu** → **Start a shared game**: the play area (tap municipalities or cantons on the map), the size, the deck and the questions. Then **Start the game**.",
-            target: [MENU],
+            text: "It starts in the **Menu**: give your name, then **Start a shared game**. The setup has three screens: the game, the hiding zones and the questions.",
+            target: [id("start-shared-game")],
+            menu: "game",
+            // Not while a game is on.
+            optional: true,
+        },
+        {
+            id: "play-area",
+            title: "The play area",
+            text: "Tap **Change** to choose it on the map: pick cantons, districts or municipalities, then tap the areas to add them or cut them out. You can also search for a place, or draw the area.",
+            target: [id("setup-play-area")],
+            setup: 0,
+            optional: true,
+        },
+        {
+            id: "size",
+            title: "Game size",
+            text: "**Small**, **Medium** or **Large**: it sets the default hiding zones and radar distances. Medium suits a canton like Zürich.",
+            target: [id("setup-size")],
+            setup: 0,
+            optional: true,
         },
         {
             id: "stations",
             title: "Seekers and stations",
-            text: "In setup you choose whether the seekers may see the stations. If not, the hider starts the end game when the seekers reach their zone.",
-            target: [MENU],
+            text: "**Seekers can show the hiding zones**: on, they see the stations still in play and tap **Found it** to start the end game. Off, only the hider sees them, and the hider starts the end game.",
+            target: [id("setup-seekers-stations")],
+            setup: 1,
+            optional: true,
         },
         {
             id: "places",
             title: "Check the places",
-            text: "In setup, **Review places on the map**: reject wrong zoos, parks or museums before you play.",
-            target: [MENU],
+            text: "**Review places on the map**: reject wrong zoos, parks or museums before you play, so the questions measure from the right ones. Then **Start the game**.",
+            target: ['[data-testid="place-review-setup"]'],
+            setup: 2,
+            optional: true,
         },
         {
             id: "invite",
             title: "Invite everyone",
-            text: "In the **Menu**, **Share the game link**. Everyone gives a name and picks seeker or hider.",
-            target: [MENU],
+            text: "Once the game has started, **Share the game link** from here. Everyone opens it, gives a name and picks seeker or hider.",
+            target: [id("share-link"), id("play-together")],
+            menu: "game",
         },
         {
             id: "menu",
             title: "Rules and help",
-            text: "The rules, every card and the seeker and hider tutorials are in the **Menu**.",
-            target: [MENU],
+            text: "The rules, every card and the seeker and hider tutorials are in the **Menu**, under **Help**.",
+            target: [id("menu-help")],
+            menu: "game",
         },
     ],
 };

@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { SettingsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import {
     Drawer,
@@ -12,12 +12,13 @@ import {
 import { withBase } from "@/lib/config";
 import {
     menuOpen,
+    menuTab as menuTabStore,
     placeReview,
     playAreaEditing,
     setupDialog,
 } from "@/lib/context";
 import { resumeGame } from "@/lib/game/session";
-import { showTutorial, startTour, tutorialsSeen } from "@/lib/tour";
+import { showTutorial, startTour, tour, tutorialsSeen } from "@/lib/tour";
 import { TOUR_LABELS, type TourId } from "@/lib/tourSteps";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,12 @@ import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 export const OptionDrawers = ({ className }: { className?: string }) => {
     const isOptionsOpen = useStore(menuOpen);
     const setOptionsOpen = menuOpen.set;
-    const [menuTab, setMenuTab] = useState<MenuTab>("game");
+    const menuTab = useStore(menuTabStore);
+    const setMenuTab = menuTabStore.set;
     const $setup = useStore(setupDialog);
+    // A tour shows what's in the Menu with its note beside it: the Menu
+    // isn't modal then, so the note can be tapped and the map seen.
+    const modal = !useStore(tour);
     const $playAreaEditing = useStore(playAreaEditing);
 
     useEffect(() => {
@@ -65,8 +70,12 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 />
             )}
             <Drawer
+                // vaul can't change an open Menu between the two (its
+                // overlay's hooks change): it starts afresh instead.
+                key={modal ? "modal" : "tour"}
                 open={isOptionsOpen}
                 onOpenChange={setOptionsOpen}
+                modal={modal}
                 direction="right"
                 shouldScaleBackground={false}
             >
@@ -106,7 +115,10 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             {menuTab === "game" && (
                                 <>
                                     <GamePanel />
-                                    <MenuGroup title="Help">
+                                    <MenuGroup
+                                        title="Help"
+                                        tutorialId="menu-help"
+                                    >
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button variant="outline" asChild>
                                                 <a
@@ -184,7 +196,5 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         </div>
     );
 };
-
-type MenuTab = "game" | "settings";
 
 const TOURS_IN_MENU: TourId[] = ["seeker", "hider", "organiser"];

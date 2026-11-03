@@ -24,6 +24,7 @@ import {
     placeReview,
     playAreaEditing,
     polyGeoJSON,
+    setupPage,
 } from "@/lib/context";
 import { deckComposition } from "@/lib/game/deck";
 import { phoneTimeZone } from "@/lib/game/rest";
@@ -40,6 +41,7 @@ import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
 import { localRejections } from "@/lib/placeRules";
 import { playAreaParts } from "@/lib/sharedGame";
+import { tour } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 
@@ -51,8 +53,6 @@ const STEPS = ["Game", "Hiding zones", "Questions"] as const;
 
 /** The draft kept while the play area is being chosen on the map. */
 let pendingDraft: GameSettings | null = null;
-/** The screen to come back to after the map (the play area, the places). */
-let pendingStep = 0;
 
 /**
  * The game's settings, a few screens at a time: deck, play area, size and
@@ -71,7 +71,11 @@ export const GameSetupDialog = ({
 }) => {
     const $settings = useStore(gameSettings);
     const [draft, setDraft] = useState<GameSettings>($settings);
-    const [step, setStep] = useState(0);
+    // Kept while the play area or the places are chosen on the map, and
+    // set by the tutorial to show a screen.
+    const step = useStore(setupPage);
+    const setStep = setupPage.set;
+    const $tour = useStore(tour);
     const [busy, setBusy] = useState(false);
     const [showDeck, setShowDeck] = useState(false);
     const [showQuestions, setShowQuestions] = useState(false);
@@ -84,12 +88,16 @@ export const GameSetupDialog = ({
                 rejectedPlaces: localRejections(),
             });
             pendingDraft = null;
-            setStep(pendingStep);
-            pendingStep = 0;
             setShowDeck(false);
             setShowQuestions(false);
         }
     }, [open]);
+
+    /** Closed for good: it opens on the first screen next time. */
+    const close = () => {
+        setupPage.set(0);
+        onOpenChange(false);
+    };
 
     const update = (changes: Partial<GameSettings>) =>
         setDraft((current) => ({ ...current, ...changes }));
@@ -136,7 +144,7 @@ export const GameSetupDialog = ({
             } else {
                 toast.success("Game settings saved.", { autoClose: 2000 });
             }
-            onOpenChange(false);
+            close();
         } catch (error) {
             toast.error(errorMessage(error));
         } finally {
@@ -161,7 +169,6 @@ export const GameSetupDialog = ({
     };
     const reviewPlacesOnMap = () => {
         pendingDraft = draft;
-        pendingStep = step;
         onOpenChange(false);
         placeReview.set({ back: mode, kind: "zoo" });
     };
@@ -171,8 +178,20 @@ export const GameSetupDialog = ({
         draft.customCards.length > 0;
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white max-h-[90vh] flex flex-col">
+        // During a tour its note sits beside the dialog, to be tapped, and
+        // only the dialog's own buttons (or the tour) close it: a tap on the
+        // note, or the focus going back to the Menu's button, is outside it.
+        <Dialog
+            open={open}
+            onOpenChange={(open) => open || close()}
+            modal={!$tour}
+        >
+            <DialogContent
+                className="!bg-[hsl(var(--sidebar-background))] !text-white max-h-[90vh] flex flex-col"
+                onInteractOutside={(event) => {
+                    if ($tour) event.preventDefault();
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle>
                         {mode === "start" ? "New shared game" : "Game settings"}
@@ -247,7 +266,10 @@ export const GameSetupDialog = ({
                                 }
                             />
                             <Label>Play area</Label>
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-600 px-3 py-2">
+                            <div
+                                className="flex items-center justify-between gap-2 rounded-lg border border-slate-600 px-3 py-2"
+                                data-tutorial-id="setup-play-area"
+                            >
                                 <div
                                     className="flex min-w-0 flex-wrap items-center gap-1"
                                     data-testid="play-area-summary"
@@ -286,16 +308,18 @@ export const GameSetupDialog = ({
                                 In a shared game everyone gets it.
                             </p>
                             <Label>Game size</Label>
-                            <SegmentedControl<GameSize>
-                                label="Game size"
-                                options={[
-                                    { value: "small", label: "Small" },
-                                    { value: "medium", label: "Medium" },
-                                    { value: "large", label: "Large" },
-                                ]}
-                                value={draft.size}
-                                onValueChange={setSize}
-                            />
+                            <div data-tutorial-id="setup-size">
+                                <SegmentedControl<GameSize>
+                                    label="Game size"
+                                    options={[
+                                        { value: "small", label: "Small" },
+                                        { value: "medium", label: "Medium" },
+                                        { value: "large", label: "Large" },
+                                    ]}
+                                    value={draft.size}
+                                    onValueChange={setSize}
+                                />
+                            </div>
                             <p className="text-xs text-slate-400">
                                 A town or part of a city, a region or canton, a
                                 country. Sets the defaults: radar questions
@@ -421,6 +445,7 @@ export const GameSetupDialog = ({
                             <Label>Seekers</Label>
                             <ToggleCard
                                 title="Seekers can show the hiding zones"
+                                tutorialId="setup-seekers-stations"
                                 description="The stations still in play, as green circles on their map. Off: only the hider's phone shows them; the seekers keep the shaded map."
                                 checked={draft.seekersSeeStations}
                                 onCheckedChange={(seekersSeeStations) =>

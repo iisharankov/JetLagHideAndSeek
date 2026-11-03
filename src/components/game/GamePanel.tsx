@@ -547,7 +547,10 @@ export const GamePanel = () => {
                         Change game settings
                     </Button>
                 </section>
-                <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
+                <section
+                    className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3"
+                    data-tutorial-id="play-together"
+                >
                     <h3 className="text-sm font-semibold font-poppins">
                         Play together
                     </h3>
@@ -557,7 +560,10 @@ export const GamePanel = () => {
                         settings are decided when the game starts.
                     </p>
                     <NameInput />
-                    <Button onClick={() => setupDialog.set("start")}>
+                    <Button
+                        onClick={() => setupDialog.set("start")}
+                        data-tutorial-id="start-shared-game"
+                    >
                         Start a shared game
                     </Button>
                 </section>
@@ -581,7 +587,9 @@ export const GamePanel = () => {
                 Shared game
                 <ConnectionStatus />
             </h3>
-            <Button onClick={shareLink}>Share the game link</Button>
+            <Button onClick={shareLink} data-tutorial-id="share-link">
+                Share the game link
+            </Button>
             <p className="break-all text-xs text-slate-400">{gameLink()}</p>
             <Button
                 variant="outline"

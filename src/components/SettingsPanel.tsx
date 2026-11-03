@@ -122,6 +122,7 @@ export const SettingsPanel = () => {
                     <ToggleCard
                         title="Follow me (GPS)"
                         description="Show your own position on the map."
+                        tutorialId="follow-me"
                         checked={$followMe}
                         onCheckedChange={followMe.set}
                     />
@@ -201,6 +202,7 @@ export const SettingsPanel = () => {
                 <MenuGroup title="Alerts">
                     <ToggleCard
                         title="Buzz and beep"
+                        tutorialId="alerts"
                         description="New questions (hider), answers and cards played (seekers). The beep works after your first tap on the page."
                         checked={$alerts}
                         onCheckedChange={alertsEnabled.set}
