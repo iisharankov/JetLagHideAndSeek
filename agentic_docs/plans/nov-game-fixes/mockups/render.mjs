@@ -1,6 +1,6 @@
 // Renders every screen in screens.html to mockups/png/<id>.png, at phone
 // size, with Playwright's Firefox (installed for the e2e tests).
-//   node agentic-ai/Nov-Game-Fixes/mockups/render.mjs
+//   node agentic_docs/plans/nov-game-fixes/mockups/render.mjs
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";

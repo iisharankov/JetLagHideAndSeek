@@ -1,8 +1,10 @@
+> This is `docs/questions.md` as it was before the standard was adopted on 2026-11-09 (round 29). Q47–Q50 are open in `../questions.md`; the decisions are in `../agents/decisions.md`. Kept for the owner's words.
+
 # Questions
 
 Open questions in one place. My recommendation is in _italics_, so "ok" is a
 valid answer. Answer after **Answer:**, then tell me to execute. Answered
-questions are gone once built; what was built is in [plan.md](plan.md).
+questions are gone once built; what was built is in [rounds-before-the-standard.md](rounds-before-the-standard.md).
 Decisions are listed at the end.
 
 ---
@@ -253,7 +255,7 @@ From your earlier answers (rounds 1–4), already built or planned:
   the hider's card for place questions); mountains are gone; built-in
   kind rules and two hand-checked drops; Settings → Places; no far places
   or nearest-place maps in the data build; German, Austrian, French and
-  Italian zone labels; [areas.md](areas.md) for Bern and Munich.
+  Italian zone labels; [areas.md](../../docs/guides/areas.md) for Bern and Munich.
 - **Round 18 (Q38, Q40–Q42):** rest periods as a game setting (the clock
   pauses and goes on by itself; changed during a round by agreement);
   place search from the reference data instead of Photon (one service

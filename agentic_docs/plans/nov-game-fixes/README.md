@@ -27,7 +27,7 @@ this folder changes the app: it's the brief for the runs that will.
 ## Regenerating the mock-ups
 
 ```
-node agentic-ai/Nov-Game-Fixes/mockups/render.mjs
+node agentic_docs/plans/nov-game-fixes/mockups/render.mjs
 ```
 
 It opens `screens.html` in Playwright's Firefox (already installed for the

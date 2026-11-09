@@ -3,7 +3,7 @@
 For an Opus-only run, in sessions a context window can hold. Each session
 ends with the full check (`npm run check`, then `npm run build`,
 `npm run build:server`, `npx playwright test`) and a round entry in
-`docs/plan.md`, as always; the owner commits.
+`agentic_docs/rounds/`, as always; the owner commits.
 
 ## Order, and why
 

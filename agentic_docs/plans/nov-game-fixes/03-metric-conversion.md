@@ -74,5 +74,5 @@ are in the table so you can judge each one. **Tick each row to confirm.**
    `/\bmiles?\b|\bfeet\b|\bft\b|sq\. mi/` outside the one card name; the
    chips in the pages equal `RADAR_KM`, the thermometer list, and the
    tentacle distances for the German rules.
-3. Apply the table; run the test; update `docs/questions.md` with the
+3. Apply the table; run the test; update `agentic_docs/questions.md` with the
    decision and this file with the final values.

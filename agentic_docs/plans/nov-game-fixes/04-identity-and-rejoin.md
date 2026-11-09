@@ -46,7 +46,7 @@ only needed in the rare phone swap.
 **B. Accounts (name + password).**
 Solves the same thing and more (history across games) but adds password
 resets, a privacy notice, and a login step at the start of every game on
-every phone. Already weighed in `docs/questions.md` Q49 and set aside.
+every phone. Already weighed in `agentic_docs/questions.md` Q49 and set aside.
 
 **C. Put the identity in the link.**
 `?game=ID&p=PLAYERTOKEN`: whoever opens the link is that player. Simple,

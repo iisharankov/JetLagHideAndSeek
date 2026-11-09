@@ -1,7 +1,7 @@
 # Architecture
 
-How the app works **as of round 19** (2026-10-15). Status and what's left are
-in [plan.md](plan.md); the audit is [audit.md](audit.md).
+How the app works, kept current each round (last checked 2026-11-09, round 29). What's left is in
+[../agentic_docs/roadmap.md](../agentic_docs/roadmap.md); known problems in [../agentic_docs/known-issues.md](../agentic_docs/known-issues.md).
 
 ## The big picture
 

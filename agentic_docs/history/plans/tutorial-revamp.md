@@ -1,6 +1,6 @@
 # Tutorial revamp (plan, 31 October 2026)
 
-> **Built in round 21** (the same day); see [plan.md](plan.md). Ivan's
+> **Built in round 21** (the same day); see [../rounds-before-the-standard.md](../rounds-before-the-standard.md). Ivan's
 > answers to section 7: Zürich canton, either deck, teams or not; a
 > **Show Tutorial** offer on every first time rather than a tour that
 > starts by itself; nothing left out: "zero to hero", with questions
@@ -14,7 +14,7 @@ A brief for the agent that builds this. Ivan plays with **new people next
 week** (around 7 November): they open a game link on their own phones, know
 little of the game and nothing of the app. The tutorial must get them
 playing in a minute, with very little text, and show the features added
-since it was last written (round 6). Read `docs/agent-brief.md` first; its
+since it was last written (round 6). Read `CLAUDE.md` first; its
 rules apply (test first, never commit, no dev server, the hand-over format).
 
 ## 1. What's there now, and why it isn't enough

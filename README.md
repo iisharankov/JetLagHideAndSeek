@@ -13,8 +13,9 @@ contacts no third party (no analytics, CDNs or public map services). It also
 has Swiss rule adaptations (canton/district/municipality zones, 100,000+
 "major cities").
 
-- **Hosting it:** [deploy/README.md](deploy/README.md)
-- **Project notes** (audit, plan, decisions): [docs/](docs/README.md)
+- **Hosting it:** [docs/deployment.md](docs/deployment.md)
+- **How it works:** [docs/](docs/README.md)
+- **Plans, questions and known issues** (for the owner and agents): [agentic_docs/](agentic_docs/README.md)
 
 ## Development
 
@@ -42,16 +43,16 @@ In dev, questions and the place search are answered from `public/data/`
 comes from OpenStreetMap's public tiles (see `.env.development`). `npm run …`
 works too if you don't have pnpm.
 
-| Command                       | What it does                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `pnpm test` / `test:watch`    | Unit tests (Vitest)                                                                                          |
-| `pnpm build && pnpm test:e2e` | Browser tests (Playwright, Firefox) against the production build                                             |
-| `pnpm typecheck`              | TypeScript                                                                                                   |
-| `pnpm lint` / `lint:check`    | ESLint and Prettier (fix / check only)                                                                       |
-| `pnpm check`                  | lint:check + typecheck + test, as CI runs them                                                               |
-| `pnpm build:server`           | Bundle the API server into `server/dist/`                                                                    |
-| `deploy/test-nginx.sh`        | Check the nginx configs with a real nginx (after `pnpm build`)                                               |
-| `deploy/*.sh`                 | On the server: `deploy.sh`, `check.sh`, `backup.sh`, `update-data.sh` ([deploy/README.md](deploy/README.md)) |
+| Command                       | What it does                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `pnpm test` / `test:watch`    | Unit tests (Vitest)                                                                                              |
+| `pnpm build && pnpm test:e2e` | Browser tests (Playwright, Firefox) against the production build                                                 |
+| `pnpm typecheck`              | TypeScript                                                                                                       |
+| `pnpm lint` / `lint:check`    | ESLint and Prettier (fix / check only)                                                                           |
+| `pnpm check`                  | lint:check + typecheck + test, as CI runs them                                                                   |
+| `pnpm build:server`           | Bundle the API server into `server/dist/`                                                                        |
+| `deploy/test-nginx.sh`        | Check the nginx configs with a real nginx (after `pnpm build`)                                                   |
+| `deploy/*.sh`                 | On the server: `deploy.sh`, `check.sh`, `backup.sh`, `update-data.sh` ([docs/deployment.md](docs/deployment.md)) |
 
 Changes are test-driven: new behaviour and bug fixes come with a test that
 fails before the change. CI (`.github/workflows/ci.yml`) runs every check on

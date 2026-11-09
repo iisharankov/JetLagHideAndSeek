@@ -1,3 +1,5 @@
+> This is `docs/plan.md` as it was before the standard was adopted on 2026-11-09 (round 29): phases 0–3 and rounds 4–26 (the commits reached Round 28; the last two entries are commits 27 and 28). Not maintained; new rounds are one file each in `../rounds/`. Links were fixed to the new paths on the move.
+
 # Plan
 
 Goal: **self-hosted, private, reliable on game day, with team sync.**
@@ -55,7 +57,7 @@ and tested · 🟡 written, not yet run for real · ⏭️ next · 💤 later or
 ## Phase 2: self-hosting ✅
 
 Running on the server since round 6 (set up with
-[deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md)); the real games since
+[deploy/FIRST-DEPLOY.md, now docs/guides/first-deploy.md](../../docs/guides/first-deploy.md)); the real games since
 were played on it. Authelia in front of the site is still to come. The table
 is as it stood before the first deploy.
 
@@ -157,7 +159,7 @@ card texts.
 
 **For the server:** this update needs the new nginx `/api/` settings (live
 updates and photos), a data refresh for the elevation tiles and airports, and
-the usual app update. See [deploy/FIRST-DEPLOY.md](../deploy/FIRST-DEPLOY.md#updating-to-round-4).
+the usual app update. See [deploy/FIRST-DEPLOY.md, now docs/guides/first-deploy.md](../../docs/guides/first-deploy.md#updating-to-round-4).
 
 ## Phase 3b: after your first real game (round 5) ✅
 
@@ -372,7 +374,7 @@ From the photos of the metric edition and the counted deck:
 
 ## Audit (2026-10-10)
 
-See [audit.md](audit.md) (the audits are merged there): what's left, the architecture's
+See [audit.md](audit-2026-10-17.md) (the audits are merged there): what's left, the architecture's
 weak points (in-place mutation, main-thread geometry, full-state
 broadcast), open risks, and why a rewrite isn't worth it.
 
@@ -707,7 +709,7 @@ stay in `rules/cards.ts`.
     leave out.
 38. **Ready for new areas:** German, Austrian, French and Italian names for
     the zone levels (state, district, municipality, borough…); the data
-    build is one box with nothing from beyond it; [areas.md](areas.md)
+    build is one box with nothing from beyond it; [areas.md](../../docs/guides/areas.md)
     says what Bern needs (nothing) and what Munich needs (a wider box,
     one more extract, and a place-search decision: Q41).
 
@@ -788,7 +790,7 @@ The checkout was re-cloned from GitHub after a Nextcloud sync deleted
 files. Everything committed is there (round 19 is the last commit, 15
 October); only ignored files were gone (`node_modules`, `dist`,
 `server/dist`, `public/data`, `data/osm`), all rebuilt. See
-[audit.md](audit.md) for what was checked and what came out of it.
+[audit.md](audit-2026-10-17.md) for what was checked and what came out of it.
 
 1. **CI was broken:** its dataset step still passed `--far` and looked for
    `voronoi-poi-museum.json`, both gone since round 17 (item 35). It now
@@ -820,7 +822,7 @@ Not done, by choice of time: removing the dead Overpass client (audit item
 ## Round 21: the tutorial, by role, with examples in Zürich ✅ (2026-10-31)
 
 For the game with new players next week in Zürich canton. The plan was
-[tutorial-revamp.md](tutorial-revamp.md); your answers: a "Show Tutorial"
+[tutorial-revamp.md](plans/tutorial-revamp.md); your answers: a "Show Tutorial"
 button on every first time; from zero to hero, with questions applied in
 Zürich canton; the hider's station as the truth until the end game, then
 the pin.
@@ -1119,8 +1121,8 @@ tests open a question from its row where they used to find its card.
 
 ## What's left ⏭️
 
-From [the audit](audit.md) (consolidated; the decisions are Q47–Q50 in
-[questions.md](questions.md)), in order of value:
+From [the audit](audit-2026-10-17.md) (consolidated; the decisions are Q47–Q50 in
+[questions.md](questions-before-the-standard.md)), in order of value:
 
 1. **Before game night:** commit and deploy rounds 22–26, then
    `deploy/check.sh`; `deploy/update-data.sh` (the pack predates the

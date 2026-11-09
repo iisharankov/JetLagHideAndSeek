@@ -2,7 +2,7 @@
 
 A step-by-step for getting `https://jetlag.sharankov.com` running on your
 Hetzner server, open to anyone with the link (Authelia comes later). The
-general reference is [README.md](README.md).
+general reference is [README.md](../deployment.md).
 
 ## How code and data travel
 
@@ -151,7 +151,7 @@ running on a public port.
 ```
 
 **Backups** (nightly) and the refresh (monthly) belong in the crontab; the
-two lines are in [README.md](README.md#first-time-setup).
+two lines are in [README.md](../deployment.md#first-time-setup).
 
 **Storage:** expect about 6 GB in `deploy/data/` in total.
 
