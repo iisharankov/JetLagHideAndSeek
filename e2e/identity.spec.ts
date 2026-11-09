@@ -197,7 +197,7 @@ test("teams: the hiding team's phones are all the hider's, and their positions s
         .click();
     // On a phone the prompt is in the questions' sheet: open it.
     if (testInfo.project.name === "phone") {
-        await cleo.getByTestId("sidebar-trigger").click();
+        await cleo.getByRole("radio", { name: /^Questions/ }).click();
     }
     const prompt = cleo.getByTestId("location-prompt");
     await expect(prompt).toBeVisible();

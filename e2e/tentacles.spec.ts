@@ -78,7 +78,7 @@ test("a saved tentacles answer survives reloading the page", async ({
 
     await page.reload();
     if (testInfo.project.name !== "desktop") {
-        await page.getByTestId("sidebar-trigger").click();
+        await page.getByRole("radio", { name: /^Questions/ }).click();
     }
     await page
         .getByTestId("question-list")

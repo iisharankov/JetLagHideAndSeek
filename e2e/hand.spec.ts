@@ -41,9 +41,7 @@ const openHand = async (
     }, hand);
     await page.goto("/");
     if (project === "phone") {
-        await page
-            .locator('[data-tutorial-id="left-sidebar-trigger"] button')
-            .click();
+        await page.getByRole("radio", { name: /^Questions/ }).click();
     }
     await page.getByRole("radio", { name: /^Cards/ }).click();
 };

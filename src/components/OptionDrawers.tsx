@@ -87,6 +87,8 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         type="button"
                         className={cn(
                             "flex h-10 w-10 items-center justify-center rounded-full border-2 border-black/30 bg-white text-black shadow-md hover:bg-[#f4f4f4]",
+                            // Phones open the Menu from the tab bar.
+                            "max-md:hidden",
                             // Out of the way of its own panel.
                             isOptionsOpen && "invisible",
                         )}

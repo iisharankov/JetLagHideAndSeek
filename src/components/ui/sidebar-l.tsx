@@ -5,7 +5,11 @@ import { atom } from "nanostores";
 import * as React from "react";
 import { TbMessage2Question } from "react-icons/tb";
 
-import { BottomSheet, type SheetSnap } from "@/components/ui/bottom-sheet";
+import {
+    BottomSheet,
+    sheetHeight,
+    sheetSnap,
+} from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +24,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { mapBottomInset } from "@/lib/context";
 import { cn } from "@/lib/utils";
 
+/** The phone's tab bar (TabBar.tsx), which the sheet and the map keep clear of. */
+const PHONE_TAB_BAR = 64;
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
@@ -186,13 +192,19 @@ const Sidebar = React.forwardRef<
             useStore(SidebarContext);
         // Half the screen, or all of it; the map zooms to what's left above
         // the half sheet.
-        const [snap, setSnap] = React.useState<SheetSnap>("half");
+        const snap = useStore(sheetSnap);
+        const setSnap = sheetSnap.set;
         React.useEffect(() => {
             if (!openMobile) setSnap("half");
         }, [openMobile]);
+        // The map keeps clear of the phone's tab bar, and of the sheet when
+        // it's up.
         React.useEffect(() => {
             mapBottomInset.set(
-                isMobile && openMobile ? Math.round(window.innerHeight / 2) : 0,
+                isMobile
+                    ? PHONE_TAB_BAR +
+                          (openMobile ? sheetHeight("half", PHONE_TAB_BAR) : 0)
+                    : 0,
             );
         }, [isMobile, openMobile]);
 
@@ -220,6 +232,7 @@ const Sidebar = React.forwardRef<
                     snap={snap}
                     onSnapChange={setSnap}
                     onClose={() => setOpenMobile(false)}
+                    bottomInset={PHONE_TAB_BAR}
                     data-sidebar="sidebar"
                     data-mobile="true"
                     data-testid="sidebar-sheet"

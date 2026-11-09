@@ -44,7 +44,7 @@ test("one Menu holds game and settings, and no hider switch", async ({
 
     // On a phone the Menu opens over the sheet too.
     if (testInfo.project.name !== "desktop") {
-        await page.getByTestId("sidebar-trigger").click();
+        await page.getByRole("radio", { name: /^Questions/ }).click();
         await expect(page.getByTestId("sidebar-sheet")).toBeVisible();
         await page.getByRole("button", { name: "Menu" }).click();
         await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();

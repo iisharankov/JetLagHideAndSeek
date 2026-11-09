@@ -6,6 +6,7 @@ import { OptionDrawers } from "@/components/islands/OptionDrawers";
 import { PlaceReviewBar } from "@/components/islands/PlaceReviewBar";
 import { PlayAreaBar } from "@/components/islands/PlayAreaBar";
 import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
+import { AskButton, TabBar } from "@/components/islands/TabBar";
 import { SidebarButton } from "@/components/SidebarButton";
 import { SidebarProvider } from "@/components/ui/sidebar-l";
 ---
@@ -13,13 +14,14 @@ import { SidebarProvider } from "@/components/ui/sidebar-l";
 <Layout className="bg-jetlag">
     <SidebarProvider client:load>
         <QuestionSidebar client:only />
+        <TabBar client:only />
         <main class="flex flex-col flex-grow">
             <div class="flex justify-center" id="map-modal-dialog-container-leaflet">
                 <div class="w-full h-full relative">
-                    <!-- Phones: at the bottom, where a swipe up opens the sheet.
-                         Desktop: top left, next to the sidebar. -->
+                    <!-- Desktop: top left, next to the sidebar. Phones have the
+                         tab bar instead. -->
                     <div
-                        class="absolute z-[1030] max-md:bottom-4 max-md:left-1/2 max-md:-translate-x-1/2 md:top-2 md:left-2"
+                        class="absolute z-[1030] max-md:hidden md:top-2 md:left-2"
                         data-tutorial-id="left-sidebar-trigger"
                     >
                         <SidebarButton client:load />
@@ -35,6 +37,7 @@ import { SidebarProvider } from "@/components/ui/sidebar-l";
                         <OptionDrawers client:load />
                     </div>
                     <Map className="w-full" client:only />
+                    <AskButton client:only />
                 </div>
             </div>
         </main>

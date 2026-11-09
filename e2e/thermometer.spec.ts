@@ -117,22 +117,20 @@ test("a thermometer starts where the seekers are, is asked once they've travelle
     const ana = await phone(browser, viewport, "Ana", id, HB);
     await ana.getByRole("button", { name: "I'm a seeker" }).click();
     await expect(ana.getByTestId("join-dialog")).toHaveCount(0);
-    if (onPhone) await ana.getByTestId("sidebar-trigger").click();
+    if (onPhone) await ana.getByRole("radio", { name: /^Questions/ }).click();
     await ana
         .getByTestId("location-prompt")
         .getByRole("button", { name: "Turn on location" })
         .click();
-    await ana.getByRole("button", { name: "Add Question" }).click();
-    await ana.getByRole("button", { name: "Add Thermometer" }).click();
-    // A shared game's thermometer: a distance, and it starts where she is.
-    await ana
-        .getByTestId("thermometer-distances")
-        .getByRole("button", { name: "1 km", exact: true })
-        .click();
-    await expect(ana.getByTestId("thermometer-start")).toContainText(
+    // Ask → Thermometer: a distance, and it starts where she is.
+    await ana.getByRole("button", { name: "Ask a question" }).click();
+    await ana.getByTestId("ask-thermometer").click();
+    const choices = ana.getByTestId("question-subtype");
+    await choices.getByRole("button", { name: "1 km", exact: true }).click();
+    await expect(choices.getByTestId("asked-from")).toContainText(
         "47.3779° N, 8.5403° E",
     );
-    await ana
+    await choices
         .getByRole("button", { name: "Start the thermometer (1 km)" })
         .click();
     const anaState = ana.getByTestId("question-game-state");

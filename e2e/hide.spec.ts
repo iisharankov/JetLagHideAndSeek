@@ -65,7 +65,7 @@ test("every question type can be hidden and shown again", async ({
     await page.reload();
     // On a phone the questions are in a sheet: open it.
     if (testInfo.project.name !== "desktop") {
-        await page.getByTestId("sidebar-trigger").click();
+        await page.getByRole("radio", { name: /^Questions/ }).click();
     }
 
     const hidden = () =>

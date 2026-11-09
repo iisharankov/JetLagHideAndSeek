@@ -2,6 +2,19 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 35: Run E part 1, the tab bar, Back and the ask flow
+
+| Decision | Why | From |
+|---|---|---|
+| **Stop at the brief's first checkpoint (E1 + E2), everything green; E3–E5 next session** | the brief: "may take two sessions; stop at a clean checkpoint" | RunE.md |
+| **Photos stays a tab for now (six items on the phone's bar)** | photo requests and photos need a home until run F puts them in the questions list; 65 px an item still fits 390 px | this round |
+| **The ask flow keeps drafts: "Add as a draft (plan first)" under the primary Ask** | drafts shade the map as speculation, a feature the game uses; principle 4 allows a secondary action under the primary | 01-mobile-design.md principle 4 |
+| **The draw badge (2/1) sits left of the title, on tiles and headers** | the owner's Q57 comment | Q57 |
+| **`openQuestion` stays an atom; the ask flow is a second atom (`askFlow`); `screenDepth` and Back are computed from both** | the brief's single stack would have rewritten Round 28's uses; two atoms give the same Back with less change | RunE.md E1, changed |
+| **The ask flow opens the phone's sheet full height** | at half height the header, the location prompt and the clock left the choices almost no room (seen in the screenshots) | this round |
+| **On phones the gear and the "Questions" button over the map go; the tab bar has Menu and the sections** | one way to each place; two "Menu" buttons would be ambiguous | RunE.md E1 |
+| **The tour's targets list the desktop tab first and the phone's tab bar item second** | the coach mark takes the first visible one | this round |
+
 ## 2026-11-09, round 34: Run D, the thermometer as the rulebook plays it
 
 | Decision | Why | From |

@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import { giveCreatorCode, routeApi } from "./api";
+import { askQuestion } from "./ask";
 import { expect, test } from "./fixtures";
 
 // Two tabs of the same browser (shared storage) are the same player: the
@@ -93,8 +94,7 @@ test("a second tab of the same browser is the same player, with nothing to type"
     await closeMenu(other);
 
     // A question from the first tab is a seeker's draft, and nothing broke.
-    await page.getByRole("button", { name: "Add Question" }).click();
-    await page.getByRole("button", { name: "Add Radius" }).click();
+    await askQuestion(page, "Radius", "draft");
     await expect(page.getByTestId("question-game-state")).toHaveAttribute(
         "data-state",
         "draft",

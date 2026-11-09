@@ -236,3 +236,11 @@ body {
 .game-size-large {
     background: #fc1403;
 }
+
+/* Phones: the map's bottom controls (zoom, scale, attribution) sit above
+   the tab bar and the "Ask a question" button (TabBar.tsx). */
+@media (max-width: 767px) {
+    .leaflet-bottom {
+        bottom: calc(136px + env(safe-area-inset-bottom));
+    }
+}

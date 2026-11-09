@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 34). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 35). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy runs A–D), then S7 (your admin code on your phone, a code per friend).
+**Only 5 minutes?** S1 (deploy rounds 32–35), then S7 (your admin code on your phone, a code per friend).
 
 ## Now
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A to D are built (rounds 32–34). Say "go E" (or "go E F") in a new Opus session; `RunE.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
+- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A to D are built (rounds 32–34), run E half (round 35: the tab bar, Back, the ask flow). Say "go E" again in a new Opus session for the rest of E (the **i**, toasts, targets, the mini-tour, the tests on the phone), then F and G; `RunE.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
 
 ## Questions
 
@@ -30,7 +30,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy runs A–D (rounds 32–34) and check.** **Where:** the server, as root, after you commit and push round 34. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy runs A–D and half of E (rounds 32–35) and check.** **Where:** the server, as root, after you commit and push round 35. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

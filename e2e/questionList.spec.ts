@@ -1,14 +1,12 @@
 import type { Page } from "@playwright/test";
 
+import { askQuestion, openQuestions } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The Questions tab: one row per question ("Question 2 · Thermometer"),
 // which opens its whole card in the tab's place; back to the list.
 
-const add = async (page: Page, kind: string) => {
-    await page.getByRole("button", { name: "Add Question" }).click();
-    await page.getByRole("button", { name: `Add ${kind}` }).click();
-};
+const add = (page: Page, kind: string) => askQuestion(page, kind);
 
 test("questions are rows; a row, or a pin, opens its card", async ({
     page,
@@ -19,11 +17,8 @@ test("questions are rows; a row, or a pin, opens its card", async ({
         localStorage.setItem("showTutorials", "false"),
     );
     await page.goto("/");
-    if (testInfo.project.name === "phone") {
-        await page
-            .locator('[data-tutorial-id="left-sidebar-trigger"] button')
-            .click();
-    }
+    await openQuestions(page);
+    void testInfo;
     const back = page.getByRole("button", { name: "All questions" });
     const list = page.getByTestId("question-list");
 
@@ -31,7 +26,7 @@ test("questions are rows; a row, or a pin, opens its card", async ({
     await add(page, "Radius");
     await expect(page.getByText("Question 1 · Radar")).toBeVisible();
     await expect(
-        page.getByRole("button", { name: "Add Question" }),
+        page.getByRole("button", { name: "Ask a question" }),
     ).toBeHidden();
     await back.click();
     for (const kind of ["Thermometer", "Matching", "Measuring", "Tentacles"]) {

@@ -41,7 +41,7 @@ test("the Stations tab holds the hiding zone controls", async ({
     await page.evaluate(() => localStorage.setItem("showTutorials", "false"));
     await page.reload();
     if (testInfo.project.name !== "desktop") {
-        await page.getByTestId("sidebar-trigger").click();
+        await page.getByRole("radio", { name: /^Questions/ }).click();
     }
 
     await page.getByRole("radio", { name: "Stations" }).click();

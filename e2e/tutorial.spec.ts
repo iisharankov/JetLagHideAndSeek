@@ -1,6 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 import { createGameOnApi, routeApi } from "./api";
+import { askQuestion, onPhone } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The tutorial on a first visit and on a game's link, on the desktop and
@@ -233,13 +234,17 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
         if (step === "sidebar") {
             // Tapping the highlighted button goes on by itself, and opens
             // the sidebar like it always does.
-            await page
-                .locator('[data-tutorial-id="left-sidebar-trigger"] button')
-                .click();
+            if (onPhone(page)) {
+                await page.getByRole("radio", { name: /^Questions/ }).click();
+            } else {
+                await page
+                    .locator('[data-tutorial-id="left-sidebar-trigger"] button')
+                    .click();
+            }
             await expect(mark(page)).toHaveAttribute("data-tour-step", "ask");
             seen.push("ask");
             await expect(
-                page.getByRole("button", { name: "Add Question" }),
+                page.getByRole("button", { name: "Ask a question" }),
             ).toBeVisible();
         }
         if (step === "clock") {
@@ -335,7 +340,9 @@ test("skipping a tour halfway leaves the sidebar as it was", async ({
     await page.getByRole("button", { name: "I'm a seeker" }).click();
     const open = testInfo.project.name === "desktop";
     // The desktop's sidebar starts open, the phone's sheet closed.
-    const addQuestion = page.getByRole("button", { name: "Add Question" });
+    const addQuestion = page
+        .locator('[data-sidebar="sidebar"]')
+        .getByRole("button", { name: "Ask a question" });
     // (The desktop's closed sidebar slides off the screen.)
     if (open) await expect(addQuestion).toBeInViewport();
     await mark(page).getByRole("button", { name: "Show Tutorial" }).click();
@@ -504,8 +511,7 @@ test("tips come the first time something happens, once, and never over the stati
     await mark(ana).getByRole("button", { name: "Got it" }).click();
 
     // Ana asks; Ben's first question gets a tip.
-    await ana.getByRole("button", { name: "Add Question" }).click();
-    await ana.getByRole("button", { name: "Add Radius" }).click();
+    await askQuestion(ana, "Radius", "draft");
     await ana.getByRole("button", { name: "Send to the hider" }).click();
     await expect(mark(ben)).toContainText("A question");
     await expect(mark(ben)).toContainText("within five minutes");

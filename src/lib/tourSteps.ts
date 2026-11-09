@@ -35,10 +35,14 @@ export interface TourStep {
 }
 
 const id = (name: string) => `[data-tutorial-id="${name}"]`;
-const tab = (value: SidebarTab) =>
-    `[data-tutorial-id="sidebar-tabs"] [data-value="${value}"]`;
-const TABS = id("sidebar-tabs");
-const SIDEBAR_BUTTON = id("left-sidebar-trigger");
+/** A sidebar section: the desktop's tab, or the phone's tab bar item. */
+const tab = (value: SidebarTab) => [
+    `[data-tutorial-id="sidebar-tabs"] [data-value="${value}"]`,
+    id(`tab-${value}`),
+];
+const TABS = [id("sidebar-tabs"), '[data-testid="tab-bar"]'];
+/** What opens the questions: the desktop's sidebar button, the phone's tab. */
+const SIDEBAR_BUTTON = [id("left-sidebar-trigger"), id("tab-questions")];
 const CLOCK = '[data-testid="round-clock"]';
 
 /** The game from the seekers' side, with examples on the map. */
@@ -172,7 +176,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "sidebar",
             title: "Your sidebar",
             text: "Tap **Questions** to open your questions, cards and photos. On a phone, swipe it up for more room.",
-            target: [SIDEBAR_BUTTON],
+            target: [...SIDEBAR_BUTTON],
             sidebar: "closed",
             tab: "questions",
             advanceOnTap: true,
@@ -180,15 +184,15 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "ask",
             title: "Ask a question",
-            text: "Tap **Add Question** and pick a kind. It starts where you are if Follow me is on; otherwise drag its pin there.",
-            target: [id("add-questions-buttons")],
+            text: "Tap **Ask a question**, pick a kind, then what to ask: **Ask** sends it from where you are. A draft lets you plan first.",
+            target: [id("ask-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
         },
         {
             id: "send",
             title: "Send it",
-            text: "A new question is a draft only the seekers see; the map shows what each answer would mean. Tap **Send to the hider** when ready: they have five minutes to answer.",
+            text: "A draft only the seekers see shows on the map what each answer would mean. Tap **Send to the hider** when ready: they have five minutes to answer.",
             target: [id("send-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
@@ -197,7 +201,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "stations",
             title: "Stations left",
             text: "If your game shows the stations: turn on **Show hiding zones** to see where the hider may be, and tap **Found it** on their station to start the end game.",
-            target: [tab("stations")],
+            target: [...tab("stations")],
             sidebar: "open",
             tab: "stations",
             // Not there when the game keeps the stations to the hider.
@@ -207,7 +211,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "curses",
             title: "Curses",
             text: "Curses on you appear under **Cards**, with what they stop you doing. Do what they say, then tap **Cleared**.",
-            target: [tab("curses"), TABS],
+            target: [...tab("curses"), ...TABS],
             sidebar: "open",
             tab: "curses",
         },
@@ -215,7 +219,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "photos",
             title: "Photos",
             text: "Ask for a photo under **Photos**. The hider has ten minutes to send it (twenty in a large game).",
-            target: [tab("photos"), TABS],
+            target: [...tab("photos"), ...TABS],
             sidebar: "open",
             tab: "photos",
         },
@@ -252,7 +256,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "research",
             title: "Try it first",
             text: "Before **Done**, **Research** questions are yours alone: see what a station would answer before you commit.",
-            target: [tab("research")],
+            target: [...tab("research")],
             sidebar: "open",
             optional: true,
         },
@@ -260,14 +264,14 @@ export const TOURS: Record<TourId, TourStep[]> = {
             id: "answer",
             title: "Answering here",
             text: "A beep means a question: it's under **Questions**. The app suggests the answer and the map shows what it rules out. Pick it, then send it.",
-            target: [tab("questions"), TABS],
+            target: [...tab("questions"), ...TABS],
             sidebar: "open",
         },
         {
             id: "hand",
             title: "Your hand",
             text: "Under **Cards**, keep the cards you draw and play curses and powerups. Over the hand limit, you discard first.",
-            target: [tab("curses"), TABS],
+            target: [...tab("curses"), ...TABS],
             sidebar: "open",
         },
         {
@@ -405,47 +409,47 @@ export const TIPS: Record<TipId, Tip> = {
     "hider-question": {
         title: "A question",
         text: "Answer it under **Questions** within five minutes. The map shows what each answer rules out.",
-        target: [tab("questions"), SIDEBAR_BUTTON],
+        target: [...tab("questions"), ...SIDEBAR_BUTTON],
     },
     "hider-thermometer": {
         title: "A thermometer is on",
         text: "The seekers travel its distance from the Start pin, then ask hotter or colder. Nothing to answer until then: your five minutes start then.",
-        target: [tab("questions"), SIDEBAR_BUTTON],
+        target: [...tab("questions"), ...SIDEBAR_BUTTON],
     },
     "hider-draw": {
         title: "Your cards",
         text: "Your answer earns cards: pick the ones you keep in **Cards**.",
-        target: [tab("curses"), SIDEBAR_BUTTON],
+        target: [...tab("curses"), ...SIDEBAR_BUTTON],
     },
     "hider-endgame": {
         title: "End game",
         text: "Stay put. Your answers now come from your pin: keep it exactly where you are.",
-        target: ['[data-testid="hider-endgame"]', SIDEBAR_BUTTON],
+        target: ['[data-testid="hider-endgame"]', ...SIDEBAR_BUTTON],
     },
     "seeker-hider-ready": {
         title: "The hider is ready",
         text: "Tap **Start** on the clock when you set off.",
-        target: [CLOCK, SIDEBAR_BUTTON],
+        target: [CLOCK, ...SIDEBAR_BUTTON],
     },
     "seeker-answer": {
         title: "Answered",
         text: "The map now shades where the hider can't be.",
-        target: [tab("questions"), SIDEBAR_BUTTON],
+        target: [...tab("questions"), ...SIDEBAR_BUTTON],
     },
     "seeker-curse": {
         title: "A curse",
         text: "It's in **Cards**: do what it says, then tap **Cleared**.",
-        target: [tab("curses"), SIDEBAR_BUTTON],
+        target: [...tab("curses"), ...SIDEBAR_BUTTON],
     },
     "seeker-endgame": {
         title: "End game",
         text: "The hider says you're in their zone and stays put. Only that zone is left on the map: search it.",
-        target: [tab("stations"), SIDEBAR_BUTTON],
+        target: [...tab("stations"), ...SIDEBAR_BUTTON],
     },
     "seeker-move": {
         title: "The hider moves",
         text: "No questions until they continue. Their old station is on the map.",
-        target: ['[data-testid="move-banner"]', SIDEBAR_BUTTON],
+        target: ['[data-testid="move-banner"]', ...SIDEBAR_BUTTON],
     },
 };
 

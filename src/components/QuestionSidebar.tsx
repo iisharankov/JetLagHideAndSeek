@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { SidebarCloseIcon } from "lucide-react";
+import { Plus, SidebarCloseIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { withErrorBoundary } from "@/components/ErrorBoundary";
@@ -14,6 +14,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { sheetSnap } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import {
     Sidebar,
@@ -31,7 +32,6 @@ import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
 import {
     clearQuestions,
-    endgame,
     isLoading,
     openQuestion,
     questions,
@@ -39,22 +39,21 @@ import {
     sidebarTab,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
-import { hand, handLimit } from "@/lib/game/hand";
 import { questionRows } from "@/lib/game/questionList";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     gameConnection,
     gameRole,
     gameState,
-    hiderPhone,
     sendOp,
-    zonesAllowed,
 } from "@/lib/game/session";
-import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
+import { sectionLabel } from "@/lib/game/tabBadges";
+import { askFlow, openAsk, wireBackButton } from "@/lib/screens";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/maps/schema";
 
-import { AddQuestionDialog } from "./AddQuestionDialog";
+import { QuestionSubtype } from "./ask/QuestionSubtype";
+import { QuestionTypes } from "./ask/QuestionTypes";
 import { QuestionHeading } from "./cards/base";
 import { CardsPanel } from "./game/CardsPanel";
 import { CurseBanner } from "./game/CurseBanner";
@@ -72,6 +71,7 @@ import {
 } from "./QuestionCards";
 import { QuestionList, questionTitle } from "./QuestionList";
 import { StationsPanel as Panel } from "./StationsPanel";
+import { useSidebarSections } from "./TabBar";
 
 // A crash in the stations panel keeps the question list working.
 const StationsPanel = withErrorBoundary(Panel, "stations panel", [
@@ -94,25 +94,23 @@ export const QuestionSidebar = () => {
     const $role = useStore(gameRole);
     const $connection = useStore(gameConnection);
     const tab = useStore(sidebarTab);
-    // The hider's phone: the Stations tab is the Hider tab.
-    const hider = useStore(hiderPhone);
-    // Too many cards in the hand: the hider stays in Cards until it's fixed.
-    const $hand = useStore(hand);
-    const $limit = useStore(handLimit);
-    const overLimit =
-        hider &&
-        ($game?.deck
-            ? $game.deck.hand.length > $game.deck.limit
-            : $hand.length > $limit);
+    const { isMobile } = useStore(SidebarContext);
+    const $ask = useStore(askFlow);
+    useEffect(() => wireBackButton(), []);
+    // The ask flow needs the room: the phone's sheet goes full height.
+    useEffect(() => {
+        if ($ask && isMobile) sheetSnap.set("full");
+    }, [$ask !== null, isMobile]);
+    // Which sections exist (the same as the phone's tab bar), and what
+    // holds the hider in one: too many cards, no station yet.
+    const { sections, overLimit, noStationYet, stationsTab, hider } =
+        useSidebarSections();
     useEffect(() => {
         if (overLimit && tab !== "curses") sidebarTab.set("curses");
     }, [overLimit, tab]);
     const move = $game?.move ?? null;
     // The hider's first job in a game is their station: the other tabs
     // wait until it's picked and confirmed.
-    const $chosen = useStore(chosenStation);
-    const $choosing = useStore(hiderChoosing);
-    const noStationYet = hider && !!$game && ($choosing || !$chosen);
     useEffect(() => {
         if (noStationYet && tab !== "stations" && tab !== "research") {
             sidebarTab.set("stations");
@@ -130,64 +128,28 @@ export const QuestionSidebar = () => {
         resumedFor.current = move.startedAt;
         void sendOp({ type: "resumeMove" });
     }, [move, moveLeft]);
-    const activeCurses =
-        $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0;
-    // The hider: questions waiting for an answer.
-    const waitingQuestions =
-        $game && $role === "hider"
-            ? Object.values($game.questions).filter(
-                  (entry) => entry.state === "asked",
-              ).length
-            : 0;
-    // Seekers in a game that keeps the stations to the hider have nothing
-    // in that tab, until the end game (the hider starts it) shows its zone.
-    const $allowed = useStore(zonesAllowed);
-    const $endgame = useStore(endgame);
-    const stationsTab = hider || $allowed || !!$endgame || !!$game?.revealedPin;
     useEffect(() => {
         if (!stationsTab && tab === "stations") sidebarTab.set("questions");
     }, [stationsTab, tab]);
-    const waitingPhotos =
-        $game?.photoRequests.filter((request) => !request.photoId).length ?? 0;
 
     /** The hider's own probing questions, before the station is set. */
     const research = $questions.filter((q) => q.data.research);
     const asked = $questions.filter((q) => !q.data.research);
     const $open = useStore(openQuestion);
-    const tabOptions: { value: SidebarTab; label: string }[] = noStationYet
-        ? [
-              { value: "stations", label: "Hider" },
-              {
-                  value: "research",
-                  label: research.length
-                      ? `Research (${research.length})`
-                      : "Research",
-              },
-          ]
-        : [
-              {
-                  value: "questions",
-                  label: waitingQuestions
-                      ? `Questions (${waitingQuestions})`
-                      : "Questions",
-              },
-              ...(stationsTab
-                  ? [
-                        {
-                            value: "stations" as const,
-                            label: hider ? "Hider" : "Stations",
-                        },
-                    ]
-                  : []),
-              {
-                  value: "photos",
-                  label: waitingPhotos ? `Photos (${waitingPhotos})` : "Photos",
-              },
-              {
-                  value: "curses",
-                  label: activeCurses ? `Cards (${activeCurses})` : "Cards",
-              },
-          ];
+    const tabOptions: { value: SidebarTab; label: string }[] = sections.map(
+        (section) => ({ value: section.value, label: sectionLabel(section) }),
+    );
+    /** The ask flow's screen, over the list (null: not asking). */
+    const askScreen = (forResearch: boolean) =>
+        $ask && $ask.research === forResearch ? (
+            $ask.kind === null ? (
+                <QuestionTypes />
+            ) : (
+                <QuestionSubtype key={$ask.kind} kind={$ask.kind} />
+            )
+        ) : null;
+    const asking = askScreen(false);
+    const askingResearch = askScreen(true);
     const cards = (list: Question[]) =>
         list.map((question) => {
             switch (question.id) {
@@ -302,15 +264,18 @@ export const QuestionSidebar = () => {
             )}
             {$game && $role === "seeker" && <LocationPrompt />}
             <div className="px-2 pt-2">
-                <div data-tutorial-id="sidebar-tabs">
-                    <SegmentedControl
-                        label="Sidebar section"
-                        options={tabOptions}
-                        value={tab}
-                        onValueChange={sidebarTab.set}
-                        disabled={overLimit}
-                    />
-                </div>
+                {/* Phones have the tab bar at the bottom instead. */}
+                {!isMobile && (
+                    <div data-tutorial-id="sidebar-tabs">
+                        <SegmentedControl
+                            label="Sidebar section"
+                            options={tabOptions}
+                            value={tab}
+                            onValueChange={sidebarTab.set}
+                            disabled={overLimit}
+                        />
+                    </div>
+                )}
                 {noStationYet && (
                     <p className="mt-1 text-xs text-amber-400">
                         Questions, Photos and Cards come once your station is
@@ -369,77 +334,83 @@ export const QuestionSidebar = () => {
                 </SidebarContent>
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
-                <CurseBanner />
-                {openAsked}
-                {!openAsked &&
-                    $game &&
-                    $role === "seeker" &&
-                    (($game.deck?.freeQuestions ?? 0) > 0 ||
-                        ($game.freeQuestions ?? 0) > 0) && (
-                        <p
-                            className="mx-2 mt-2 rounded-md border border-green-500/60 bg-green-950/40 px-2 py-1 text-xs"
-                            data-testid="free-question-note"
-                        >
-                            Your next question is free: the hider draws nothing
-                            for it.
-                        </p>
-                    )}
-                <SidebarMenu
-                    className={cn("px-2 pt-2", openAsked && "hidden")}
-                    data-tutorial-id="add-questions-buttons"
-                >
-                    {$game && $role === "hider" ? (
-                        <p className="px-2 py-1 text-xs text-slate-400">
-                            The seekers ask; you answer. Questions appear here
-                            once they send them.
-                        </p>
-                    ) : (
-                        <SidebarMenuItem>
-                            <AddQuestionDialog>
+                {asking}
+                <div className={cn("contents", asking && "hidden")}>
+                    <CurseBanner />
+                    {openAsked}
+                    {!openAsked &&
+                        $game &&
+                        $role === "seeker" &&
+                        (($game.deck?.freeQuestions ?? 0) > 0 ||
+                            ($game.freeQuestions ?? 0) > 0) && (
+                            <p
+                                className="mx-2 mt-2 rounded-md border border-green-500/60 bg-green-950/40 px-2 py-1 text-xs"
+                                data-testid="free-question-note"
+                            >
+                                Your next question is free: the hider draws
+                                nothing for it.
+                            </p>
+                        )}
+                    <SidebarMenu
+                        className={cn("px-2 pt-2", openAsked && "hidden")}
+                        data-tutorial-id="add-questions-buttons"
+                    >
+                        {$game && $role === "hider" ? (
+                            <p className="px-2 py-1 text-xs text-slate-400">
+                                The seekers ask; you answer. Questions appear
+                                here once they send them.
+                            </p>
+                        ) : (
+                            <SidebarMenuItem>
                                 <Button
-                                    className="w-full font-semibold"
+                                    className="min-h-11 w-full font-semibold"
                                     disabled={$isLoading}
+                                    data-tutorial-id="ask-question"
+                                    onClick={() => openAsk()}
                                 >
-                                    Add Question
+                                    <Plus className="h-5 w-5" aria-hidden />
+                                    Ask a question
                                 </Button>
-                            </AddQuestionDialog>
-                        </SidebarMenuItem>
+                            </SidebarMenuItem>
+                        )}
+                    </SidebarMenu>
+                    {!openAsked && (
+                        <>
+                            <NotePinList />
+                            <QuestionList list={asked} />
+                        </>
                     )}
-                </SidebarMenu>
-                {!openAsked && (
-                    <>
-                        <NotePinList />
-                        <QuestionList list={asked} />
-                    </>
-                )}
+                </div>
             </SidebarContent>
             <SidebarContent className={tab === "research" ? "" : "hidden"}>
-                {openResearch}
-                <SidebarMenu
-                    className={cn("px-2 pt-2", openResearch && "hidden")}
-                >
-                    <p
-                        className="px-2 py-1 text-xs text-slate-400"
-                        data-testid="research-note"
+                {askingResearch}
+                <div className={cn("contents", askingResearch && "hidden")}>
+                    {openResearch}
+                    <SidebarMenu
+                        className={cn("px-2 pt-2", openResearch && "hidden")}
                     >
-                        Only on your phone: probe a hiding spot before you
-                        commit. The answers follow the station you tapped (or
-                        your pin). These questions go when you confirm your
-                        station.
-                    </p>
-                    <SidebarMenuItem>
-                        <AddQuestionDialog research>
+                        <p
+                            className="px-2 py-1 text-xs text-slate-400"
+                            data-testid="research-note"
+                        >
+                            Only on your phone: probe a hiding spot before you
+                            commit. The answers follow the station you tapped
+                            (or your pin). These questions go when you confirm
+                            your station.
+                        </p>
+                        <SidebarMenuItem>
                             <Button
-                                className="w-full font-semibold"
+                                className="min-h-11 w-full font-semibold"
                                 disabled={$isLoading}
                                 data-testid="add-research"
+                                onClick={() => openAsk(true)}
                             >
                                 Add a research question
                             </Button>
-                        </AddQuestionDialog>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-                {!openResearch && <QuestionList list={research} research />}
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                    {!openResearch && <QuestionList list={research} research />}
+                </div>
             </SidebarContent>
             <SidebarGroup>
                 {$game && <RoundClock />}

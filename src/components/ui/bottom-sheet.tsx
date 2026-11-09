@@ -1,12 +1,18 @@
+import { atom } from "nanostores";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 export type SheetSnap = "half" | "full";
 
-/** How tall the sheet is at a snap, in px. */
-const heightFor = (snap: SheetSnap) =>
-    snap === "full" ? window.innerHeight : Math.round(window.innerHeight / 2);
+/** The phone's sheet: half the screen or all of it (the ask flow wants all). */
+export const sheetSnap = atom<SheetSnap>("half");
+
+/** How tall the sheet is at a snap, in px, above `inset` (the tab bar). */
+export const sheetHeight = (snap: SheetSnap, inset = 0) => {
+    const room = window.innerHeight - inset;
+    return snap === "full" ? room : Math.round(room / 2);
+};
 
 /**
  * A sheet from the bottom of a phone's screen, with nothing dimmed or
@@ -19,6 +25,7 @@ export const BottomSheet = ({
     snap,
     onSnapChange,
     onClose,
+    bottomInset = 0,
     className,
     children,
     ...props
@@ -27,6 +34,8 @@ export const BottomSheet = ({
     snap: SheetSnap;
     onSnapChange: (snap: SheetSnap) => void;
     onClose: () => void;
+    /** Room kept free under the sheet (the tab bar), in px. */
+    bottomInset?: number;
 }) => {
     const [dragHeight, setDragHeight] = React.useState<number | null>(null);
     const drag = React.useRef<{
@@ -43,7 +52,7 @@ export const BottomSheet = ({
         return () => window.removeEventListener("resize", onResize);
     }, []);
 
-    const restHeight = open ? heightFor(snap) : 0;
+    const restHeight = open ? sheetHeight(snap, bottomInset) : 0;
     const height = dragHeight ?? restHeight;
 
     const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -61,7 +70,9 @@ export const BottomSheet = ({
         if (!current || current.pointerId !== event.pointerId) return;
         const next = current.base + (current.y - event.clientY);
         if (Math.abs(current.y - event.clientY) > 4) current.moved = true;
-        setDragHeight(Math.max(0, Math.min(window.innerHeight, next)));
+        setDragHeight(
+            Math.max(0, Math.min(window.innerHeight - bottomInset, next)),
+        );
     };
     const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
         const current = drag.current;
@@ -78,7 +89,7 @@ export const BottomSheet = ({
         const travelled = final - current.base;
         const fast = Math.abs(travelled) / Math.max(1, Date.now() - current.at);
         const flick = fast > 0.4 ? Math.sign(travelled) : 0;
-        const total = window.innerHeight;
+        const total = window.innerHeight - bottomInset;
         if (flick < 0 || final < total * 0.25) {
             if (flick < 0 && current.base >= total - 1) onSnapChange("half");
             else onClose();
@@ -99,6 +110,9 @@ export const BottomSheet = ({
             )}
             style={{
                 height: `${height}px`,
+                bottom: bottomInset
+                    ? `calc(${bottomInset}px + env(safe-area-inset-bottom))`
+                    : undefined,
                 transition:
                     dragHeight === null ? "height 220ms ease-out" : "none",
             }}

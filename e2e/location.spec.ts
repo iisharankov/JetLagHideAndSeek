@@ -6,6 +6,7 @@ import type {
 } from "@playwright/test";
 
 import { API_PORT, createGameOnApi, routeApi } from "./api";
+import { askQuestion } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The phones' positions, with the browser's location faked: the seekers'
@@ -147,8 +148,7 @@ test("a question whose pin is away from the seeker asks where it's sent from", a
     const ana = await phone(browser, "Ana", id, NORTH);
     await ana.getByRole("button", { name: "I'm a seeker" }).click();
     // A draft made before her location was on starts mid-map, far off.
-    await ana.getByRole("button", { name: "Add Question" }).click();
-    await ana.getByRole("button", { name: "Add Radius" }).click();
+    await askQuestion(ana, "Radius", "draft");
     await ana
         .getByTestId("location-prompt")
         .getByRole("button", { name: "Turn on location" })

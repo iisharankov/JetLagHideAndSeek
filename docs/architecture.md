@@ -371,10 +371,26 @@ progress, the hider's spot, and earlier rounds.
   app. Questions belong to the game they were asked in: joining a game
   replaces them with the game's, and leaving it (or the game being
   deleted) drops them.
-- On phones the questions are a bottom sheet (`ui/bottom-sheet.tsx`, used
-  by `ui/sidebar-l.tsx`): half the screen or all of it, nothing dimmed or
-  blocked behind it; on desktop the left sidebar. The Menu is a panel from
-  the right behind the gear (`OptionDrawers.tsx`).
+- **The shell.** On phones a tab bar sits at the bottom (`TabBar.tsx`):
+  Map (hides the sheet; what was open stays open), the sidebar's sections
+  (Questions, Stations or Hider, Photos, Cards; Hider and Research while
+  the hider picks a station; their counts from `lib/game/tabBadges.ts`)
+  and Menu. The sections open a bottom sheet above the bar
+  (`ui/bottom-sheet.tsx` via `ui/sidebar-l.tsx`): half the screen or all
+  of it (`sheetSnap`), nothing dimmed behind it. "＋ Ask a question" floats
+  over the map. On desktop the left sidebar with the sections as tabs at
+  its top, and the Menu behind the gear (`OptionDrawers.tsx`).
+- **Screens and Back** (`lib/screens.ts`): the open question
+  (`openQuestion`) and over it the ask flow (`askFlow`: the types, then
+  one kind's choices) are pushed screens with a ‹ Back; each adds a
+  history entry, so the phone's own Back pops one screen.
+- **The ask flow** (`components/ask/`): six tiles with what the hider
+  draws (`2/1`), then the kind's choices: distances with Custom (radar,
+  thermometer), the types as tiles (matching, measuring, tentacles in two
+  groups by distance), the photo questions as rows that unfold their rule;
+  ×2 on what was answered before this round. The question is made only on
+  **Ask** (sent; a thermometer started) or **Add as a draft**; playing
+  alone, **Add the question** (`lib/game/newQuestion.ts` builds it).
 - There is no snapshot sharing (links, files, pasted games): the shared
   game on the server is the one way to play together.
 
