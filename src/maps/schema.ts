@@ -63,14 +63,21 @@ const thermometerQuestionSchema = z
             .number()
             .min(-180, "Longitude must not overlap with the antemeridian")
             .max(180, "Longitude must not overlap with the antemeridian"),
+        /** The end: where the seekers asked from (null until they ask, in a shared game). */
         latB: z
             .number()
             .min(-90, "Latitude must not overlap with the poles")
-            .max(90, "Latitude must not overlap with the poles"),
+            .max(90, "Latitude must not overlap with the poles")
+            .nullable(),
         lngB: z
             .number()
             .min(-180, "Longitude must not overlap with the antemeridian")
-            .max(180, "Longitude must not overlap with the antemeridian"),
+            .max(180, "Longitude must not overlap with the antemeridian")
+            .nullable(),
+        /** How far the seekers travel, as the crow flies, before asking. */
+        distanceKm: z.number().positive().max(1000).default(5),
+        /** When the thermometer was started (the server's clock), in a shared game. */
+        armedAt: z.number().optional(),
         warmer: z.boolean().default(true),
         colorA: iconColorSchema.default(() => randomColorExcluding(["green"])),
         colorB: iconColorSchema.default(() => randomColorExcluding(["green"])),

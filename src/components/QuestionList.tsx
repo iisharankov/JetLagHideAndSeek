@@ -18,6 +18,11 @@ const STATUS: Record<
         hider: "Draft",
         className: "bg-amber-900/70 text-amber-100",
     },
+    armed: {
+        seeker: "Travelling",
+        hider: "Started · travelling",
+        className: "bg-violet-800 text-violet-100",
+    },
     asked: {
         seeker: "Waiting",
         hider: "Answer it",

@@ -20,12 +20,13 @@ export const askedFrom = (
     const data = question.data as {
         lat?: number;
         lng?: number;
-        latB?: number;
-        lngB?: number;
+        latB?: number | null;
+        lngB?: number | null;
         type?: string;
     };
     if (question.id === "thermometer") {
-        return data.latB === undefined || data.lngB === undefined
+        // Asked from where the seekers ended up; until then, from nowhere.
+        return data.latB == null || data.lngB == null
             ? null
             : { lat: data.latB, lng: data.lngB, end: true };
     }

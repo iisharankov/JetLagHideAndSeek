@@ -25,7 +25,8 @@ export interface GameEvent {
         | "late"
         | "clock"
         | "rest"
-        | "delete";
+        | "delete"
+        | "thermometer";
     title: string;
     body?: string;
     /** The card's name, for curses and powerups. */
@@ -53,8 +54,12 @@ const label = (question: SharedQuestion) => {
         locationType?: string;
         radius?: number;
         unit?: string;
+        distanceKm?: number;
     };
     const category = LABELS[question.id] ?? question.id;
+    if (question.id === "thermometer" && typeof data.distanceKm === "number") {
+        return `${category} ${data.distanceKm} km`;
+    }
     if (question.id === "radius" && typeof data.radius === "number") {
         const unit = data.unit === "kilometers" ? "km" : (data.unit ?? "km");
         return `${category} ${data.radius} ${unit}`;
@@ -109,6 +114,17 @@ export const gameEvents = (
             }
         }
         if (role === "hider") {
+            // A thermometer started: the seekers travel before asking.
+            if (entry.state === "armed" && previous?.state !== "armed") {
+                const km = (entry.question.data as { distanceKm?: number })
+                    .distanceKm;
+                events.push({
+                    key: `t${key}${(entry.question.data as { armedAt?: number }).armedAt ?? ""}`,
+                    kind: "thermometer",
+                    title: "Thermometer started",
+                    body: `The seekers set ${km ?? "?"} km from where they are (the Start pin). Nothing to answer yet.`,
+                });
+            }
             if (
                 entry.state === "asked" &&
                 previous?.state !== "asked" &&

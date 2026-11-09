@@ -67,9 +67,11 @@ export const mergeRemoteQuestions = (
                       hidden: false,
                       drag: entry.state === "draft" && entry.createdBy === me,
                   };
+            // A started thermometer's start is fixed; an asked one's too.
             if (
                 (lockAnswered && entry.state === "answered") ||
-                entry.state === "vetoed"
+                entry.state === "vetoed" ||
+                (entry.question.id === "thermometer" && entry.state !== "draft")
             ) {
                 view.drag = false;
             }

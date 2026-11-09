@@ -212,13 +212,14 @@ rules, deck, which questions and cards), questions, photo questions, photos
 progress, the hider's spot, and earlier rounds.
 
 - **Changes** are small operations (`putQuestion`, `sendQuestion`,
-  `answerQuestion`, `vetoQuestion`, `castCurse`, `drawCards`, `playCard`,
-  `move`, `startEndgame`, `clock`…), checked for shape and size by
-  `server/src/opSchema.ts` (a bad one is a 400) and for the rules by
-  `gameOps.ts`: a seeker's new
-  question is a _draft_ the hider can't see; _asked_ questions wait for the
-  hider; _answered_ ones are locked for seekers unless the hider allows them
-  to answer. Last change wins. `viewFor` strips what a role may not see
+  `armThermometer`, `askThermometer`, `answerQuestion`, `vetoQuestion`,
+  `castCurse`, `drawCards`, `playCard`, `move`, `startEndgame`, `clock`…),
+  checked for shape and size by `server/src/opSchema.ts` (a bad one is a
+  400) and for the rules by `gameOps.ts`: a seeker's new
+  question is a _draft_ the hider can't see; a thermometer the seekers
+  started is _armed_ (the hider sees it, nothing to answer yet); _asked_
+  questions wait for the hider; _answered_ ones are locked for seekers
+  unless the hider allows them to answer. Last change wins. `viewFor` strips what a role may not see
   (drafts from the hider, the hider's spot and the deck's order from the
   seekers), every team's password, and every player code but the
   viewer's own.
@@ -249,6 +250,20 @@ progress, the hider's spot, and earlier rounds.
   settings (folded, hidden, locked) stay per phone.
 - **The map** applies answered questions as usual, then the seekers' drafts
   on top in their colours; questions waiting for the hider are outlined.
+  A thermometer under way is outlined as the dashed circle of its
+  distance around its start, and the seekers' phones draw the line from
+  the start to where they are (`ThermometerTravel.tsx`).
+- **The thermometer** (`lib/game/thermometer.ts`, shared; the server's
+  `rules/thermometer.ts`) is played as the rulebook says: in a shared game
+  a seeker picks a distance (the game's `thermometerKm`: 1, 5, 15, 75 km by
+  size, or any other) and taps Start where they are (`armThermometer`: the
+  question is `armed`, the start fixed, the hider told, nothing to answer
+  and nothing drawn); once the phone has covered the distance as the crow
+  flies, Ask sends its position as the end (`askThermometer`: refused
+  under 98 % of the distance; the question is `asked`, the hider's five
+  minutes start). Cancel while armed makes it a draft again, at no cost. A
+  thermometer can't be sent like other questions. Playing alone it keeps
+  its two pins to drag. Asked again at the same distance it costs double.
 - **Players** (`players` in the game state; `src/lib/game/players.ts`,
   `server/src/rules/players.ts`): each phone makes a random key once
   (`playerKey.ts`, localStorage) and sends it on every request as

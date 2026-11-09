@@ -439,6 +439,27 @@ export const sendQuestion = async (key: number) => {
     await sendOp({ type: "sendQuestion", key });
 };
 
+/** Starts a thermometer from here: the hider is told; nothing is asked yet. */
+export const armThermometer = async (
+    key: number,
+    distanceKm: number,
+    start: { lat: number; lng: number },
+) => {
+    clearTimeout(syncTimer);
+    await flushQuestions();
+    await sendOp({ type: "armThermometer", key, distanceKm, start });
+};
+
+/** Asks a thermometer from here, once its distance is travelled. */
+export const askThermometer = (
+    key: number,
+    end: { lat: number; lng: number },
+) => sendOp({ type: "askThermometer", key, end });
+
+/** Calls a thermometer off while travelling: a draft again, no cost. */
+export const cancelThermometer = (key: number) =>
+    sendOp({ type: "cancelThermometer", key });
+
 const scheduleSync = () => {
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => void flushQuestions(), 300);

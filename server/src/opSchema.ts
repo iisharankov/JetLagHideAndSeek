@@ -52,6 +52,18 @@ const opSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal("deleteQuestion"), key }),
     z.object({ type: z.literal("sendQuestion"), key }),
     z.object({
+        type: z.literal("armThermometer"),
+        key,
+        distanceKm: z.number().finite().positive().max(1000),
+        start: z.object({ lat: finite, lng: finite }),
+    }),
+    z.object({
+        type: z.literal("askThermometer"),
+        key,
+        end: z.object({ lat: finite, lng: finite }),
+    }),
+    z.object({ type: z.literal("cancelThermometer"), key }),
+    z.object({
         type: z.literal("answerQuestion"),
         key,
         answer: z.record(z.string(), z.unknown()).refine(sized("answer")),

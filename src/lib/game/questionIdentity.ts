@@ -5,12 +5,16 @@
 import type { GameState, SharedQuestion } from "./types";
 
 /**
- * A question's identity: its category and type, or, for radar, its radius.
+ * A question's identity: its category and type, or, for radar, its radius,
+ * for the thermometer its distance.
  */
 export const questionIdentity = (question: SharedQuestion) => {
     const data = question.data as Record<string, unknown>;
     if (question.id === "radius") {
         return `radius:${String(data.radius)}${String(data.unit ?? "")}`;
+    }
+    if (question.id === "thermometer") {
+        return `thermometer:${String(data.distanceKm ?? "")}`;
     }
     return `${question.id}:${String(data.type ?? data.locationType ?? "")}`;
 };

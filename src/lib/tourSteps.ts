@@ -385,6 +385,7 @@ export const OFFERS: Record<TourId, { title: string; text: string }> = {
 
 export type TipId =
     | "hider-question"
+    | "hider-thermometer"
     | "hider-draw"
     | "hider-endgame"
     | "seeker-hider-ready"
@@ -404,6 +405,11 @@ export const TIPS: Record<TipId, Tip> = {
     "hider-question": {
         title: "A question",
         text: "Answer it under **Questions** within five minutes. The map shows what each answer rules out.",
+        target: [tab("questions"), SIDEBAR_BUTTON],
+    },
+    "hider-thermometer": {
+        title: "A thermometer is on",
+        text: "The seekers travel its distance from the Start pin, then ask hotter or colder. Nothing to answer until then: your five minutes start then.",
         target: [tab("questions"), SIDEBAR_BUTTON],
     },
     "hider-draw": {
@@ -450,6 +456,7 @@ export const tipForEvent = (
 ): TipId | null => {
     if (role === "hider") {
         if (event.kind === "question") return "hider-question";
+        if (event.kind === "thermometer") return "hider-thermometer";
         if (event.kind === "endgame") return "hider-endgame";
         return null;
     }

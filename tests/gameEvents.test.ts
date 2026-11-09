@@ -57,6 +57,64 @@ const entry = (
     updatedAt: 2,
 });
 
+describe("a thermometer", () => {
+    const thermometer = (
+        state: QuestionEntry["state"],
+        data: Record<string, unknown> = {},
+    ): QuestionEntry => ({
+        ...entry(state),
+        question: {
+            id: "thermometer",
+            key: 1,
+            data: {
+                latA: 47.3779,
+                lngA: 8.5403,
+                latB: null,
+                lngB: null,
+                distanceKm: 5,
+                ...data,
+            },
+        },
+    });
+    const at = (e: QuestionEntry): GameState => ({
+        ...base(),
+        questions: { "1": e },
+    });
+
+    it("tells the hider when the seekers start one: nothing to answer yet", () => {
+        const events = gameEvents(
+            at(thermometer("draft")),
+            at(thermometer("armed", { armedAt: 5 })),
+            "hider",
+        );
+        expect(events).toEqual([
+            expect.objectContaining({
+                kind: "thermometer",
+                title: "Thermometer started",
+                body: "The seekers set 5 km from where they are (the Start pin). Nothing to answer yet.",
+            }),
+        ]);
+        // The seekers started it: no news for them.
+        expect(
+            gameEvents(
+                at(thermometer("draft")),
+                at(thermometer("armed")),
+                "seeker",
+            ),
+        ).toEqual([]);
+    });
+
+    it("is a new question for the hider once asked", () => {
+        const events = gameEvents(
+            at(thermometer("armed")),
+            at(thermometer("asked", { latB: 47.42, lngB: 8.54 })),
+            "hider",
+        );
+        expect(events.map((e) => e.kind)).toEqual(["question"]);
+        expect(events[0].body).toMatch(/^Thermometer 5 km/);
+    });
+});
+
 describe("what isn't news", () => {
     it("says nothing for the same state again, or one that only changed its version", () => {
         const state = base();

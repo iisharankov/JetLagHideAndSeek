@@ -3,7 +3,6 @@ import "leaflet-contextmenu/dist/leaflet.contextmenu.css";
 import "leaflet-contextmenu";
 
 import { useStore } from "@nanostores/react";
-import * as turf from "@turf/turf";
 import * as L from "leaflet";
 import { useEffect, useMemo } from "react";
 import {
@@ -16,6 +15,7 @@ import { toast } from "react-toastify";
 
 import { addNotePin } from "@/components/game/NotePins";
 import { SeekerMarkers } from "@/components/game/SeekerMarkers";
+import { ThermometerTravel } from "@/components/game/ThermometerTravel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { TILES_URL } from "@/lib/config";
@@ -37,7 +37,11 @@ import {
     questions,
 } from "@/lib/context";
 import { gameRole, gameState, previewAnswers } from "@/lib/game/session";
-import { newRadiusQuestion, tentacleKmFor } from "@/lib/gameSettings";
+import {
+    newRadiusQuestion,
+    newThermometerQuestion,
+    tentacleKmFor,
+} from "@/lib/gameSettings";
 import { currentPosition } from "@/lib/geolocation";
 import { questionsMapKey } from "@/lib/questionKey";
 import { startTracking } from "@/lib/tracking";
@@ -146,24 +150,13 @@ export const Map = ({ className }: { className?: string }) => {
                         text: "Add Thermometer",
                         callback: (e: any) => {
                             if (hiderAsking()) return;
-                            const destination = turf.destination(
-                                [e.latlng.lng, e.latlng.lat],
-                                5,
-                                90,
-                                {
-                                    units: "miles",
-                                },
+                            addQuestion(
+                                newThermometerQuestion(
+                                    e.latlng.lat,
+                                    e.latlng.lng,
+                                    gameState.get() !== null,
+                                ),
                             );
-
-                            addQuestion({
-                                id: "thermometer",
-                                data: {
-                                    latA: e.latlng.lat,
-                                    lngA: e.latlng.lng,
-                                    latB: destination.geometry.coordinates[1],
-                                    lngB: destination.geometry.coordinates[0],
-                                },
-                            });
                         },
                     },
                     {
@@ -258,6 +251,7 @@ export const Map = ({ className }: { className?: string }) => {
                 {getTileLayer($baseTileLayer)}
                 <DraggableMarkers />
                 <SeekerMarkers />
+                <ThermometerTravel />
                 <ReferenceMarkers />
                 <PlaceReviewMarkers />
                 <PolygonDraw />

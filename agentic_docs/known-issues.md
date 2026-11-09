@@ -1,13 +1,12 @@
 # Known issues
 
-Bugs and debt not fixed yet. Updated 2026-11-09 (round 33). A fixed item leaves this file in the round that fixes it.
+Bugs and debt not fixed yet. Updated 2026-11-09 (round 34). A fixed item leaves this file in the round that fixes it.
 
 ## From the game of 2026-11-08 (planned in plans/nov-game-fixes/)
 
-- **The thermometer isn't the rulebook's**: two pins placed by hand, no start at the seekers' position, no distance enforced. [02-thermometer.md](plans/nov-game-fixes/02-thermometer.md).
 - **The rules pages are in miles and feet** while the app plays in km. [03-metric-conversion.md](plans/nov-game-fixes/03-metric-conversion.md).
 - **A photo request doesn't show its rules on tap; a randomized question isn't named in Cards → History** ("Randomize Question · played 14:05", nothing more). [07-photo-questions.md](plans/nov-game-fixes/07-photo-questions.md).
-- **Phone layout**: small targets, no Back, swiping the sheet undiscovered. [01-mobile-design.md](plans/nov-game-fixes/01-mobile-design.md).
+- **Phone layout**: small targets, no Back, swiping the sheet undiscovered. [01-mobile-design.md](plans/nov-game-fixes/01-mobile-design.md). Since round 34 also: on the half-open sheet a thermometer's Start button sits above its distance chips, which are below the fold (the game bar comes before the card's fields in every card); mock-up 07 pins the button at the bottom.
 - **The hider password from before players still works** for one release (round 32; kept in round 33 because Run A's deploy wasn't confirmed, S1): `POST /api/games/<id>/hider`, the `X-Hider-Token` header and `isHider` in `server/src/app.ts` `roleOf`, `hiderTokens` in `session.ts`. It keeps phones that were the hider at deploy time the hider; since round 33 it needs 6 characters and allows 5 wrong tries a minute. Remove once S1 is done and every phone has reloaded.
 
 ## From the audit of 2026-10-17 (round 20)

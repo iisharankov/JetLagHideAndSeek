@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CARDS } from "@/lib/game/deck";
+import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
 import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
 import { photoNamesFor } from "@/lib/rules/photoQuestions";
@@ -1325,6 +1326,208 @@ describe("the hider's station", () => {
         expect(state.hider?.pinDriver).toBe("p-Dan");
         // The seekers see none of it.
         expect(viewFor(state, "seeker").hider).toBeNull();
+    });
+});
+
+describe("the thermometer", () => {
+    const HB = { lat: 47.3779, lng: 8.5403 };
+    /** `km` north of Zürich HB. */
+    const north = (km: number) => ({ lat: HB.lat + km / 111.195, lng: HB.lng });
+    const draft = (state = fresh()) =>
+        apply(state, {
+            type: "putQuestion",
+            question: {
+                id: "thermometer",
+                key: 7,
+                data: {
+                    latA: HB.lat,
+                    lngA: HB.lng,
+                    latB: null,
+                    lngB: null,
+                    distanceKm: 5,
+                },
+            },
+        });
+    const arm = (state: GameState, distanceKm = 1, now = 3000) =>
+        apply(
+            state,
+            { type: "armThermometer", key: 7, distanceKm, start: HB },
+            seeker,
+            now,
+        );
+
+    it("starts where the seekers are, is asked once they've travelled, then answered", () => {
+        let state = draft();
+        // Not sent like other questions: it's started first.
+        expect(() =>
+            apply(state, { type: "sendQuestion", key: 7 }, seeker),
+        ).toThrow(/Start the thermometer first/);
+        expect(() =>
+            apply(
+                state,
+                {
+                    type: "armThermometer",
+                    key: 7,
+                    distanceKm: 1,
+                    start: HB,
+                },
+                hider,
+            ),
+        ).toThrow();
+        state = arm(state);
+        const entry = state.questions["7"];
+        expect(entry.state).toBe("armed");
+        expect(entry.askedAt).toBeUndefined();
+        expect(entry.question.data).toMatchObject({
+            latA: HB.lat,
+            lngA: HB.lng,
+            latB: null,
+            lngB: null,
+            distanceKm: 1,
+            armedAt: 3000,
+        });
+        // Started once only.
+        expect(() => arm(state)).toThrow(/already started/);
+        // The hider sees it (not a draft), with nothing to answer yet.
+        expect(viewFor(state, "hider").questions["7"].state).toBe("armed");
+        expect(() =>
+            apply(
+                state,
+                {
+                    type: "answerQuestion",
+                    key: 7,
+                    answer: { warmer: true },
+                    basedOn: 9999,
+                },
+                hider,
+            ),
+        ).toThrow(/Nothing to answer yet/);
+        expect(() =>
+            apply(state, { type: "vetoQuestion", key: 7 }, hider),
+        ).toThrow(/waiting for an answer/);
+        // The start is fixed: a phone's late edit doesn't move it.
+        const edited = apply(state, {
+            type: "putQuestion",
+            question: {
+                id: "thermometer",
+                key: 7,
+                data: { latA: 46, lngA: 7, latB: 46, lngB: 7, distanceKm: 75 },
+            },
+        });
+        expect(edited.questions["7"].question.data).toMatchObject({
+            latA: HB.lat,
+            latB: null,
+            distanceKm: 1,
+        });
+        // Too early: 0.6 of 1 km.
+        expect(() =>
+            apply(
+                state,
+                { type: "askThermometer", key: 7, end: north(0.6) },
+                seeker,
+                4000,
+            ),
+        ).toThrow(/You've covered 0.6 of 1 km/);
+        // Far enough (GPS may be a little off: 2 % slack).
+        state = apply(
+            state,
+            { type: "askThermometer", key: 7, end: north(0.99) },
+            seeker,
+            5000,
+        );
+        expect(state.questions["7"].state).toBe("asked");
+        expect(state.questions["7"].askedAt).toBe(5000);
+        expect(state.questions["7"].question.data.latB).toBeCloseTo(
+            north(0.99).lat,
+            6,
+        );
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 7,
+                answer: { warmer: false },
+                basedOn: 9999,
+            },
+            hider,
+            6000,
+        );
+        expect(state.questions["7"].state).toBe("answered");
+        expect(state.questions["7"].question.data.warmer).toBe(false);
+    });
+
+    it("can be called off while travelling, at no cost", () => {
+        let state = newGameState(
+            "g9",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        state = arm(draft(state));
+        const owed = state.deck!.owed.length;
+        expect(() =>
+            apply(state, { type: "cancelThermometer", key: 7 }, hider),
+        ).toThrow();
+        state = apply(state, { type: "cancelThermometer", key: 7 }, seeker);
+        expect(state.questions["7"].state).toBe("draft");
+        expect(state.questions["7"].question.data.armedAt).toBeUndefined();
+        expect(state.deck!.owed.length).toBe(owed);
+        // A draft again: the hider no longer sees it.
+        expect(viewFor(state, "hider").questions["7"]).toBeUndefined();
+        expect(() =>
+            apply(state, { type: "cancelThermometer", key: 7 }, seeker),
+        ).toThrow(/isn't under way/);
+    });
+
+    it("is refused while the hider moves, like any question", () => {
+        const state: GameState = {
+            ...draft(),
+            move: {
+                station: null,
+                startedAt: 2000,
+                endsAt: 99_000_000,
+                by: "Ben",
+            },
+        };
+        expect(() => arm(state)).toThrow(/on the move/);
+    });
+
+    it("counts as asked before only once answered, per distance", () => {
+        let state = arm(draft());
+        state = apply(
+            state,
+            { type: "askThermometer", key: 7, end: north(1.1) },
+            seeker,
+        );
+        const again = {
+            id: "thermometer",
+            key: 8,
+            data: { distanceKm: 1 },
+        } as SharedQuestion;
+        expect(timesAnsweredBefore(state, again)).toBe(0);
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key: 7,
+                answer: { warmer: true },
+                basedOn: 9999,
+            },
+            hider,
+        );
+        expect(timesAnsweredBefore(state, again)).toBe(1);
+        expect(
+            timesAnsweredBefore(state, {
+                ...again,
+                data: { distanceKm: 5 },
+            }),
+        ).toBe(0);
     });
 });
 

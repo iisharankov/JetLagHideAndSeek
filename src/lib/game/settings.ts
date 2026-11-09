@@ -25,6 +25,20 @@ export const radarDefaults = (size: GameSize): number[] =>
         large: [5, 10, 15, 40, 80, 160],
     })[size];
 
+/**
+ * The thermometer's distances in km: the rulebook's ½, 3, 10 and 50 miles,
+ * rounded (the owner set 75 km for the large one, Q51).
+ */
+export const THERMOMETER_KM = [1, 5, 15, 75];
+
+/** The thermometer distances a game size uses (small: 1 and 5 km…). */
+export const thermometerDefaults = (size: GameSize): number[] =>
+    ({
+        small: [1, 5],
+        medium: [1, 5, 15],
+        large: [1, 5, 15, 75],
+    })[size];
+
 /** A new radar question's distance (km) by game size. */
 export const radarDefaultKm = (size: GameSize) =>
     ({ small: 2, medium: 10, large: 40 })[size];
@@ -84,6 +98,7 @@ export const defaultGameSettings = (
     region,
     hidingRadiusKm: hidingRadiusDefaultKm(size),
     radarKm: radarDefaults(size),
+    thermometerKm: thermometerDefaults(size),
     stationKinds: { trams: false, boats: false },
     minLakeAreaKm2: 10,
     disabledQuestions: regionDisabledQuestions(region),
@@ -238,6 +253,8 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
                 ? radius
                 : defaults.hidingRadiusKm,
         radarKm: normalizeRadii(input.radarKm) ?? defaults.radarKm,
+        thermometerKm:
+            normalizeRadii(input.thermometerKm) ?? defaults.thermometerKm,
         stationKinds: {
             trams: kinds.trams === true,
             boats: kinds.boats === true,

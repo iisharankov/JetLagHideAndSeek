@@ -111,6 +111,8 @@ const SettingsSummary = ({
         </dd>
         <dt>Radar</dt>
         <dd>{settings.radarKm.map(kmLabel).join(", ")}</dd>
+        <dt>Thermometer</dt>
+        <dd>{settings.thermometerKm.map(kmLabel).join(", ")}</dd>
         <dt>Questions</dt>
         <dd>
             {settings.disabledQuestions.length === 0

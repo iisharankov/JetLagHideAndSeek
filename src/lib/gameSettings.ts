@@ -1,6 +1,8 @@
 // The game's settings on this phone: one object (lib/game/settings.ts) that
 // drives the stores the engine and the sidebar read. Set before a game
 // starts (Menu → Game); in a shared game the server's copy wins.
+import * as turf from "@turf/turf";
+
 import {
     displayHidingZonesOptions,
     gameSettings,
@@ -53,6 +55,34 @@ export const hiddenTypesFor = (
 /** The tentacle distance (km) for a kind of place, in this game. */
 export const tentacleKmFor = (locationType: string) =>
     tentacleRadiusKm(locationType, gameSettings.get().tentacleKm);
+
+/**
+ * A new thermometer starting at a point, with the game's second distance
+ * (5 km in every size). In a shared game it has no end: the seekers start
+ * it, travel, then ask. Alone, the end is placed east of the start, to
+ * drag.
+ */
+export const newThermometerQuestion = (
+    lat: number,
+    lng: number,
+    shared: boolean,
+) => {
+    const distances = gameSettings.get().thermometerKm;
+    const distanceKm = distances[1] ?? distances[0] ?? 5;
+    if (shared) {
+        return {
+            id: "thermometer" as const,
+            data: { latA: lat, lngA: lng, latB: null, lngB: null, distanceKm },
+        };
+    }
+    const [lngB, latB] = turf.destination([lng, lat], distanceKm, 90, {
+        units: "kilometers",
+    }).geometry.coordinates;
+    return {
+        id: "thermometer" as const,
+        data: { latA: lat, lngA: lng, latB, lngB, distanceKm },
+    };
+};
 
 /** A new radar question at a point, with the radius for the game size. */
 export const newRadiusQuestion = (lat: number, lng: number) => ({

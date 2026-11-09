@@ -36,6 +36,8 @@ import {
     radarDefaults,
     regionDisabledQuestions,
     tentacleDefaults,
+    THERMOMETER_KM,
+    thermometerDefaults,
 } from "@/lib/game/settings";
 import type { GameSettings, GameSize } from "@/lib/game/types";
 import { applyGameSettings } from "@/lib/gameSettings";
@@ -107,7 +109,17 @@ export const GameSetupDialog = ({
             size,
             hidingRadiusKm: hidingRadiusDefaultKm(size),
             radarKm: radarDefaults(size),
+            thermometerKm: thermometerDefaults(size),
         });
+    const toggleThermometer = (km: number) => {
+        const on = draft.thermometerKm.includes(km);
+        if (on && draft.thermometerKm.length === 1) return;
+        update({
+            thermometerKm: on
+                ? draft.thermometerKm.filter((other) => other !== km)
+                : [...draft.thermometerKm, km].sort((a, b) => a - b),
+        });
+    };
     const toggleRadius = (km: number) => {
         const on = draft.radarKm.includes(km);
         if (on && draft.radarKm.length === 1) return;
@@ -359,6 +371,40 @@ export const GameSetupDialog = ({
                                 The radar question&apos;s distances in this
                                 game; the size picks a sensible set, tap to
                                 change it.
+                            </p>
+                            <Label>Thermometer distances</Label>
+                            <div
+                                className="flex flex-wrap gap-1"
+                                role="group"
+                                aria-label="Thermometer distances"
+                                data-testid="thermometer-choices"
+                            >
+                                {THERMOMETER_KM.map((km) => {
+                                    const on = draft.thermometerKm.includes(km);
+                                    return (
+                                        <button
+                                            key={km}
+                                            type="button"
+                                            aria-pressed={on}
+                                            className={cn(
+                                                "rounded-md px-2 py-1 text-xs font-semibold",
+                                                on
+                                                    ? "bg-blue-600 text-white"
+                                                    : "bg-slate-700",
+                                            )}
+                                            onClick={() =>
+                                                toggleThermometer(km)
+                                            }
+                                        >
+                                            {km} km
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-slate-400">
+                                How far the seekers travel, as the crow flies,
+                                before asking hotter or colder. Any other
+                                distance can be typed on the card.
                             </p>
                             <Label>Local rules</Label>
                             <SegmentedControl<GameSettings["region"]>

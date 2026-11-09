@@ -76,6 +76,12 @@ import {
     withoutLocalFields,
 } from "./rules/shared";
 import { joinTeamIn, teamById, teamOf } from "./rules/teams";
+import {
+    armThermometer,
+    askThermometer,
+    cancelThermometer,
+    keepThermometerGeometry,
+} from "./rules/thermometer";
 export { type Actor, GameRuleError } from "./rules/shared";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
@@ -213,6 +219,11 @@ export const applyOp = (
             if (existing) {
                 visibleEntry(state, op.question.key, actor);
                 assertMayChangeAnswered(state, existing, actor);
+                // A started thermometer keeps where it started.
+                question.data = keepThermometerGeometry(
+                    existing,
+                    question.data,
+                );
                 existing.question = question;
                 existing.updatedBy = actor.name;
                 existing.updatedAt = now;
@@ -235,7 +246,12 @@ export const applyOp = (
         case "deleteQuestion": {
             const entry = visibleEntry(state, op.key, actor);
             const key = String(op.key);
-            if (entry.state === "draft") {
+            // A draft, or a thermometer the seekers are still travelling:
+            // nothing was asked, so no agreement is needed.
+            if (
+                entry.state === "draft" ||
+                (entry.state === "armed" && actor.role !== "hider")
+            ) {
                 delete state.questions[key];
                 delete state.deleteRequests[key];
                 break;
@@ -261,6 +277,15 @@ export const applyOp = (
         case "sendQuestion": {
             assertNotMoving(state);
             const entry = visibleEntry(state, op.key, actor);
+            if (
+                entry.state === "draft" &&
+                entry.question.id === "thermometer"
+            ) {
+                throw new GameRuleError(
+                    "Start the thermometer first: it's asked once you've travelled its distance.",
+                    409,
+                );
+            }
             if (entry.state === "draft") {
                 assertMayAsk(state, questionKind(entry.question), now);
                 entry.state = "asked";
@@ -271,8 +296,23 @@ export const applyOp = (
             }
             break;
         }
+        case "armThermometer":
+            armThermometer(state, actor, op, now);
+            break;
+        case "askThermometer":
+            askThermometer(state, actor, op, now);
+            break;
+        case "cancelThermometer":
+            cancelThermometer(state, actor, op.key, now);
+            break;
         case "answerQuestion": {
             const entry = visibleEntry(state, op.key, actor);
+            if (entry.state === "armed") {
+                throw new GameRuleError(
+                    "Nothing to answer yet: the seekers are still travelling.",
+                    409,
+                );
+            }
             if (actor.role !== "hider" && !state.settings.seekersCanAnswer) {
                 throw new GameRuleError("Only the hider can answer questions.");
             }

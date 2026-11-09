@@ -5,11 +5,19 @@ import { safeUnion } from "@/maps/geo-utils";
 import { geoSpatialVoronoi } from "@/maps/geo-utils/voronoi";
 import type { ThermometerQuestion } from "@/maps/schema";
 
+/** Both pins placed: a thermometer in a shared game has its end only once asked. */
+const hasEnd = (
+    question: ThermometerQuestion,
+): question is ThermometerQuestion & { latB: number; lngB: number } =>
+    question.latB !== null && question.lngB !== null;
+
 export const adjustPerThermometer = (
     question: ThermometerQuestion,
     mapData: any,
 ) => {
     if (mapData === null) return;
+    // Started, not asked: nothing is known yet.
+    if (!hasEnd(question)) return mapData;
 
     const pointA = turf.point([question.lngA, question.latA]);
     const pointB = turf.point([question.lngB, question.latB]);
@@ -29,7 +37,7 @@ export const adjustPerThermometer = (
 
 export const hiderifyThermometer = (question: ThermometerQuestion) => {
     const $hiderMode = hiderAnswerPosition();
-    if ($hiderMode === false) {
+    if ($hiderMode === false || !hasEnd(question)) {
         return question;
     }
 
@@ -57,6 +65,7 @@ export const hiderifyThermometer = (question: ThermometerQuestion) => {
 
 /** The way the seekers travelled: a line from the start to the end, with an arrowhead. */
 const travelArrow = (question: ThermometerQuestion) => {
+    if (!hasEnd(question)) return [];
     const start = turf.point([question.lngA, question.latA]);
     const end = turf.point([question.lngB, question.latB]);
     const length = turf.distance(start, end, { units: "kilometers" });
@@ -79,7 +88,26 @@ const travelArrow = (question: ThermometerQuestion) => {
     ];
 };
 
+/**
+ * What a thermometer looks like on the map: the two halves' border and the
+ * way travelled; before it's asked, the circle of its distance around the
+ * start (leave it, then ask).
+ */
 export const thermometerPlanningPolygon = (question: ThermometerQuestion) => {
+    if (!hasEnd(question)) {
+        return turf.featureCollection([
+            turf.polygonToLine(
+                turf.circle(
+                    [question.lngA, question.latA],
+                    question.distanceKm,
+                    {
+                        units: "kilometers",
+                        steps: 96,
+                    },
+                ),
+            ) as GeoJSON.Feature<GeoJSON.LineString>,
+        ]);
+    }
     const pointA = turf.point([question.lngA, question.latA]);
     const pointB = turf.point([question.lngB, question.latB]);
 

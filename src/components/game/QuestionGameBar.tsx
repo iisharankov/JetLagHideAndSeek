@@ -46,9 +46,11 @@ import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import type { Question } from "@/maps/schema";
 
 import { SendQuestion } from "./SendQuestion";
+import { ThermometerBar } from "./ThermometerBar";
 
 const STATE_TEXT = {
     draft: "Draft: only seekers see this",
+    armed: "Started: the seekers are travelling",
     asked: "Asked: waiting for the hider",
     answered: "Answered",
     vetoed: "Vetoed by the hider: no answer, not applied",
@@ -310,13 +312,13 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
         (hand ? hand.includes("powerup_randomize_question") : true);
     const timeLeft = answerTimeLeft(entry, serverNow());
     const askedBefore =
-        entry.state === "draft"
+        entry.state === "draft" || entry.state === "armed"
             ? timesAnsweredBefore($game, question as unknown as SharedQuestion)
             : 0;
     // The curses on the seekers may stop this question from being sent.
     const blocking = blockingCurses($game, serverNow())[0];
     const refusal =
-        entry.state === "draft"
+        entry.state === "draft" || entry.state === "armed"
             ? (restRefusal($game) ??
               (blocking
                   ? `${blocking.name}: no questions until it's cleared.`
@@ -332,6 +334,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
             className={cn(
                 "mx-2 mb-1 rounded-md px-2 py-1 text-xs",
                 entry.state === "draft" && "bg-amber-900/40 text-amber-100",
+                entry.state === "armed" && "bg-violet-900/50 text-violet-100",
                 entry.state === "asked" && "bg-blue-900/50 text-blue-100",
                 entry.state === "answered" && "bg-green-900/40 text-green-100",
                 entry.state === "vetoed" && "bg-slate-700/60 text-slate-200",
@@ -393,12 +396,23 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     {refusal}
                 </p>
             )}
-            {entry.state === "draft" && $role === "seeker" && (
-                <SendQuestion
-                    question={question}
+            {question.id === "thermometer" &&
+            (entry.state === "draft" || entry.state === "armed") ? (
+                <ThermometerBar
+                    data={question.data}
                     questionKey={questionKey}
+                    armed={entry.state === "armed"}
                     refused={refusal !== null}
                 />
+            ) : (
+                entry.state === "draft" &&
+                $role === "seeker" && (
+                    <SendQuestion
+                        question={question}
+                        questionKey={questionKey}
+                        refused={refusal !== null}
+                    />
+                )
             )}
             {showChoices && (
                 <AnswerPanel

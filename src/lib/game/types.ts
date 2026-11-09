@@ -7,10 +7,12 @@ export type Role = "seeker" | "hider";
 
 /**
  * draft: a seeker's idea, only seekers see it (its answer is a guess);
+ * armed: a thermometer started, the seekers travelling its distance (the
+ * hider sees it, with nothing to answer yet);
  * asked: sent to the hider, waiting for the answer;
  * answered: the hider confirmed the answer.
  */
-export type QuestionState = "draft" | "asked" | "answered" | "vetoed";
+export type QuestionState = "draft" | "armed" | "asked" | "answered" | "vetoed";
 
 /** A question as the app stores it: { id, key, data }. */
 export interface SharedQuestion {
@@ -329,6 +331,8 @@ export interface GameSettings {
     hidingRadiusKm: number;
     /** The radar question's distances in this game (km), by game size. */
     radarKm: number[];
+    /** The thermometer's distances in this game (km), by game size. */
+    thermometerKm: number[];
     stationKinds: StationKinds;
     /** Lake shore question: only lakes at least this big count. */
     minLakeAreaKm2: number;
@@ -463,6 +467,21 @@ export type GameOp =
       }
     | { type: "deleteQuestion"; key: number }
     | { type: "sendQuestion"; key: number }
+    /** The seekers start a thermometer where they are (it's "armed"). */
+    | {
+          type: "armThermometer";
+          key: number;
+          distanceKm: number;
+          start: { lat: number; lng: number };
+      }
+    /** …and ask it once they've travelled its distance. */
+    | {
+          type: "askThermometer";
+          key: number;
+          end: { lat: number; lng: number };
+      }
+    /** …or call it off while travelling: a draft again, no cost. */
+    | { type: "cancelThermometer"; key: number }
     | {
           type: "answerQuestion";
           key: number;

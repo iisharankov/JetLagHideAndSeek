@@ -2,6 +2,20 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 34: Run D, the thermometer as the rulebook plays it
+
+| Decision | Why | From |
+|---|---|---|
+| **Thermometer distances 1, 5, 15, 75 km (small: 1, 5; medium: + 15; large: + 75), chosen in setup, Custom on the card** | the rulebook's ½, 3, 10, 50 miles in km; the owner set 75 | Q51 |
+| **Other questions may be asked while a thermometer is armed** | the owner's answer | Q52 |
+| **The phone lights Ask at the full distance; the server accepts 98 % of it** | GPS fixes wander between the phone's check and the server's | RunD.md D2 |
+| **A new thermometer gets the game's second distance (5 km in every size)** | the brief's "`thermometerDefaults(size)[1]`" | RunD.md D3 |
+| **A started thermometer's start and distance are fixed on the server: a phone's later edit keeps them** | a phone's edit still on its way after Start must not move the start | this round |
+| **The armed thermometer's dashed circle is its own outline (drawn with the questions waiting), not a new layer; only the line to the phone is new** | one drawing path for "waiting" questions; less code | this round |
+| **Without a position, Start uses the question's pin (drag it), with a warning** | the brief's "map's centre with a Change link"; the pin already starts at the position or the map's centre and can be dragged | RunD.md D3 |
+| **Curses and rest periods that stop asking stop Start and Ask too** | the rulebook's thermometer is one question; a block applies to it whole | this round |
+| **Playing alone, a thermometer keeps two pins to drag, now 5 km apart (it was 5 miles, with the pins swapped)** | metric only; the swap was a bug | RunD.md, CLAUDE.md rule 4 |
+
 ## 2026-11-09, round 33: Runs B and C, the hider's phones in step, who may make games
 
 | Decision | Why | From |

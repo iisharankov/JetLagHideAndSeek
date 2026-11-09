@@ -1,5 +1,4 @@
 import { useStore } from "@nanostores/react";
-import * as turf from "@turf/turf";
 import React from "react";
 import { toast } from "react-toastify";
 
@@ -21,7 +20,11 @@ import {
 import { disabledCategory, kindRefusal } from "@/lib/game/curseRules";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameState } from "@/lib/game/session";
-import { newRadiusQuestion, tentacleKmFor } from "@/lib/gameSettings";
+import {
+    newRadiusQuestion,
+    newThermometerQuestion,
+    tentacleKmFor,
+} from "@/lib/gameSettings";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
 
 /**
@@ -82,20 +85,13 @@ export const AddQuestionDialog = ({
     const runAddThermometer = () => {
         const center = startPoint();
         if (!center) return false;
-        const destination = turf.destination([center.lng, center.lat], 5, 90, {
-            units: "miles",
-        });
-
-        add({
-            id: "thermometer",
-            data: {
-                latA: center.lat,
-                lngB: center.lng,
-                latB: destination.geometry.coordinates[1],
-                lngA: destination.geometry.coordinates[0],
-            },
-        });
-
+        add(
+            newThermometerQuestion(
+                center.lat,
+                center.lng,
+                gameState.get() !== null,
+            ),
+        );
         return true;
     };
 

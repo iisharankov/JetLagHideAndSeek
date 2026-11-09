@@ -232,23 +232,28 @@ export const DraggableMarkers = () => {
                                         });
                                     }}
                                 />
-                                <ColoredMarker
-                                    color={question.data.colorB}
-                                    key={"b" + question.key.toString()}
-                                    questionKey={question.key}
-                                    draggable={draggable}
-                                    sub="End"
-                                    latitude={question.data.latB}
-                                    longitude={question.data.lngB}
-                                    onChange={(e) => {
-                                        const { lat, lng } =
-                                            e.target.getLatLng();
-                                        updateQuestion(question.key, {
-                                            latB: lat,
-                                            lngB: lng,
-                                        });
-                                    }}
-                                />
+                                {/* No end until a shared game's
+                                    thermometer is asked. */}
+                                {question.data.latB !== null &&
+                                    question.data.lngB !== null && (
+                                        <ColoredMarker
+                                            color={question.data.colorB}
+                                            key={"b" + question.key.toString()}
+                                            questionKey={question.key}
+                                            draggable={draggable}
+                                            sub="End"
+                                            latitude={question.data.latB}
+                                            longitude={question.data.lngB}
+                                            onChange={(e) => {
+                                                const { lat, lng } =
+                                                    e.target.getLatLng();
+                                                updateQuestion(question.key, {
+                                                    latB: lat,
+                                                    lngB: lng,
+                                                });
+                                            }}
+                                        />
+                                    )}
                             </Fragment>
                         );
                     default:

@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 33). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 34). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy runs A–C), then S7 (your admin code on your phone, a code per friend).
+**Only 5 minutes?** S1 (deploy runs A–D), then S7 (your admin code on your phone, a code per friend).
 
 ## Now
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A, B and C are built (rounds 32–33). Say "go D" (or "go D E") in a new Opus session; `RunD.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
+- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A to D are built (rounds 32–34). Say "go E" (or "go E F") in a new Opus session; `RunE.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
 
 ## Questions
 
@@ -30,7 +30,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy runs A–C (rounds 32–33) and check.** **Where:** the server, as root, after you commit and push round 33. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy runs A–D (rounds 32–34) and check.** **Where:** the server, as root, after you commit and push round 34. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
@@ -44,6 +44,11 @@ Nothing.
 - [ ] **S7. Your admin code on your phone, and a code per friend** (after S1). **Where:** your phone, on the site. About 5 minutes.
   1. Menu → Game → **Have a code?**: type your `ADMIN_CODE` (from your password manager), Save. Expect: "Admin code saved", and an **Admin** tab next to Settings.
   2. Menu → Admin → "Whose code": a friend's name → **New code**. Expect: a code like `JFSQ-EM3Z-TC5Q`, shown once; Copy it and send it to that friend privately. One per friend who should start games (5 games a day each); Revoke any time.
+  **Done:**
+
+- [ ] **S8. Walk one thermometer** (after S7). **Where:** outdoors, two phones, on the site. About 20 minutes. A game with you as the hider on one phone, a seeker on the other with location on.
+  1. Seeker: Add Question → Add Thermometer → **1 km** → **Start the thermometer (1 km)**. Expect: the hider's phone says "Thermometer started"; the seeker's card shows "Covered, as the crow flies: 0 of 1 km" and a greyed Ask.
+  2. Walk about 1 km in a straight line. Expect: the bar fills; at 1 km **Ask: hotter or colder?** lights up; tap it. Expect: the hider's phone has a new question and suggests Hotter or Colder.
   **Done:**
 
 - [ ] **S6. Try Run A on two phones** (after S7: your phone can start games). **Where:** two phones at one table, on the site. About 5 minutes. Everyone's phone reloads the page once.
