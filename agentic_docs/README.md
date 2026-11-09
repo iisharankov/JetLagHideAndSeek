@@ -7,7 +7,7 @@ Tidied on 2026-11-09: the standard adopted (round 29); `docs/plan.md`, `docs/que
 | [questions.md](questions.md) | **The owner's file:** Now, plans waiting, open questions, your steps |
 | [roadmap.md](roadmap.md) | Ideas and what's next, in a suggested order |
 | [known-issues.md](known-issues.md) | Bugs and debt not fixed yet (the 2026-10-17 audit's open findings, plus the November game's) |
-| [plans/nov-game-fixes/](plans/nov-game-fixes/README.md) | The November game's seven points: identity, hider sync, teams, phone-first layout (17 mock-ups), thermometer, metric, photos |
+| [plans/nov-game-fixes/](plans/nov-game-fixes/README.md) | The November game's points as seven runs A–G: identity, hider sync, admin codes, thermometer, phone-first layout (16 mock-ups), photos, metric |
 | [rounds/](rounds/) | One file per round, from round 29 on |
 | [agents/notes.md](agents/notes.md) | The owner here, the State, the traps |
 | [agents/decisions.md](agents/decisions.md) | Every decision and why, newest first |

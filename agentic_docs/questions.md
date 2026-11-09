@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 29). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 31). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** Q51, Q53, S1.
+**Only 5 minutes?** Q58 (my reading of your team answer), Q56 (admin codes: blank stops run C), S1.
 
 ## Now
 
@@ -10,15 +10,9 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/](plans/nov-game-fixes/README.md): the seven points from the 2026-11-08 game, in six sessions (A–F). Q51–Q53 below are its questions. Say "go" with the session letters you want, or "go" for A, B and E first (the ones that broke the game).
+- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Say "go A" (or "go A B C") in a new Opus session; `RunA.md`–`RunG.md` are the briefs. Q55, Q56 and Q58 below are what's left to settle.
 
 ## Questions
-
-**Q47. A public site without accounts.** Anyone with the address can make games. Two cheap gates, both or either: an invite code to create a game (one shared secret in `.env`, told to friends; joining a game by link stays open), and a cap of, say, 20 new games per day per address in nginx. (asked 2026-10-17)
-
-*Suggested:* both, before the address goes anywhere.
-
-> **Answer:** 
 
 **Q48. Nightly backups.** Schedule `deploy/backup.sh` nightly (one crontab line, in docs/deployment.md)? Players won't press a download button before a disk dies. (asked 2026-10-17)
 
@@ -26,35 +20,27 @@ Nothing.
 
 > **Answer:**
 
-**Q49. Accounts and a fee.** Accounts (name, password, reset by email, sessions) are about a round of work and a running duty (lost passwords, abuse reports, a privacy notice: Swiss and EU rules apply to a public service). Without a fee, the invite code (Q47) does the same job for friends of friends. With a fee, three things come first: the rulebook and card texts are Jet Lag: The Game's (a free fan tool is tolerated; a paid one needs their permission or their texts out); a public map must credit OpenStreetMap on the map itself; payments mean a payment service, which sees who pays. (asked 2026-10-17) See also Q53: the November plan proposes player ids and a rejoin code instead of accounts.
+**Q55. Photos from the gallery.** A game setting, "Hiders may send photos from the gallery", gives the hider two buttons, "Camera" and "Gallery". The rulebook means a photo taken when asked, so the suggestion is off by default and the organiser turns it on in setup. (asked 2026-11-09)
 
-*Suggested:* no accounts and no fee for now; revisit if more than friends of friends turn up.
+*Suggested:* add the setting, off by default.
 
-> **Answer:**
+> **Answer:** Looks good
 
-**Q50. The hider password minimum.** It is at least 4 characters, and players may pick "1234". Anyone with the game's link could then guess it (nginx allows 5 tries a second) and read the hider's station. Raising the minimum only affects passwords chosen from then on. (asked 2026-10-31) Note: with the November plan's team-based roles (06), the password is typed once per team per round, so a longer one costs less.
+**Q56. How the admin codes work.** From your Q49 answer, [plans/nov-game-fixes/08-admin-and-gates.md](plans/nov-game-fixes/08-admin-and-gates.md): one admin code in `deploy/.env` that you type once in Menu → Game; it opens an Admin section where you make named creator codes and revoke them; a friend types a creator code once and can then start games, 5 a day; everyone else only joins by link. No accounts, nothing to reset. (asked 2026-11-09)
 
-*Suggested:* 6 characters; 10 is safer, but it is typed on a phone at the start of every round.
+*Suggested:* yes, build it like that (run C).
 
-> **Answer:** 6 char min is fine, make it 5 tries per min please, 5/s is too many. I don't expect players to be trying to hack each other too much, we're all playing for fun.
+> **Answer:** I added my secret there, great, let's go
 
-**Q51. The metric values.** [plans/nov-game-fixes/03-metric-conversion.md](plans/nov-game-fixes/03-metric-conversion.md) lists every imperial value in the rules with a proposed round metric value and a tick box. The ones that matter most: thermometer 1 / 5 / 15 / 80 km, hiding zones 500 m / 1 km (as the app has them), tentacles 2 / 25 km (10 km under Swiss rules), "found within 2 m", Gambler's Feet 30 m. (asked 2026-11-09)
+**Q58. My reading of your Q54 answer.** Correct any line. (asked 2026-11-09)
+- A game setting **Teams** (on/off) in setup.
+- Teams on: every team has a password, set when the team is made and typed to join it; the team that hides is the hider team; its members are hiders; there is **no separate hider password** anywhere.
+- Teams off: whoever taps "I'm the hider" first is the hider, known by their phone's player id; a second phone becomes that hider only with the player code; no password.
+- Team passwords: at least 6 characters, 5 wrong tries a minute (your Q50 answer, now for teams).
 
-*Suggested:* the table as written; tick the rows, or write the value you want next to any row.
+*Suggested:* "yes" means all four lines are right; Run A builds exactly this.
 
-> **Answer:**
-
-**Q52. Thermometer: other questions while one is armed?** The rulebook says the seekers start a thermometer, travel, then ask; it doesn't say whether they may ask other questions in between. Allowing it keeps the game moving on a long ride; forbidding it makes the thermometer a real commitment. (asked 2026-11-09)
-
-*Suggested:* allow it.
-
-> **Answer:** Allow other questions
-
-**Q53. Who you are: player id and rejoin code, or accounts?** [plans/nov-game-fixes/04-identity-and-rejoin.md](plans/nov-game-fixes/04-identity-and-rejoin.md): each phone gets a stable player id so a reload or a closed browser never asks you to join again, and a six-character code (shown in Menu → Game) moves you to another phone. No passwords during a game. Accounts (Q49) would do the same with logins and resets. (asked 2026-11-09)
-
-*Suggested:* the player id and rejoin code.
-
-> **Answer:** player Id is nice, i don't understand it and the code? Are they the same thing? Which do oyu need to save? Which do you need to input?
+> **Answer:** yup, looks good. make it so even solo players need to make their own team in teams mode, no players outside team can join game
 
 ## Your steps
 
@@ -67,19 +53,28 @@ Nothing.
   sleep 60 && ~/jetlag/deploy/check.sh
   # expect: every line PASS or OK; the API answers /api/health
   ```
-  **Done:**
+  **Done:** Already deployed a moment ago?
 
 ### After deploying
 
-- [ ] **S2. Refresh the map data.** **Where:** the server, as root. The pack predates the `access` tag and the country codes (audit item 5). About 20–40 minutes; the app keeps working meanwhile.
+- [ ] **S2. Refresh the map data.** **Where:** the server, as root. The pack predates the `access` tag and the country codes (known issue 5). About 20–40 minutes; the app keeps working meanwhile.
   ```bash
   ~/jetlag/deploy/update-data.sh
   # expect: the last line says "Done: … of map data and … of tiles (build …)"
   ```
-  **Done:**
+  **Done:** Still updating from last time
 
-- [ ] **S3. Review the places for Zürich canton.** **Where:** a phone or the laptop's browser, on the site. Menu → Game → Change game settings → Questions → "Review places on the map…"; reject wrong zoos, parks and museums. Takes 10 minutes.
-  **Done:**
+- [ ] **S3. Review the places for Zürich canton.** **Where:** a phone or the laptop's browser, on the site. Menu → Game → Change game settings → Questions → "Review places on the map…"; reject wrong zoos, parks and museums. About 10 minutes.
+  **Done:** Will do later
+
+### Before run C is deployed
+
+- [ ] **S5. Choose the admin code.** **Where:** the server, as root. 12 characters or more from your password manager; the agent building run C will tell you the exact line and when.
+  ```bash
+  nano ~/jetlag/deploy/.env    # add: ADMIN_CODE=<your code>
+  # expect: no other line changed
+  ```
+  **Done:** Set
 
 ### When you have time
 

@@ -26,6 +26,15 @@ new player for the team list and the positions map. A player who stops
 sending positions stays on the map for 12 hours (`KEPT_MS` in
 `server/src/positions.ts`).
 
+## In plain words (your question of 2026-11-09)
+
+Two things, and you only ever touch one of them:
+
+- **The player id** is a random number your phone makes once and keeps for itself, silently. You never see it, type it or save it. It's how the server knows "this is the same phone as before", so a reload or a closed browser never asks you to join again. It is lost only if the browser's storage is wiped, or you change phones.
+- **The player code** (six letters, like `K7M-4PQ`) is the only thing you might type, and only in two cases: your storage was wiped, or you continue on another phone. It's shown in Menu → Game; type it on the new phone and it becomes you (team, role, hider rights). Nothing to save: it stays visible in the Menu of any phone that is you.
+
+So: the id does the everyday work by itself; the code is the spare key.
+
 ## Options
 
 **A. Stable player id + rejoin code (recommended).**
@@ -97,6 +106,10 @@ same player. Rejected.
   localStorage simulates a restart) and is still Ana with no dialog; Ben's
   phone enters Ana's code and becomes Ana; the first phone shows "Taken
   over on another phone".
+
+## The team password (your idea on the join mock-up, 2026-11-09)
+
+Each team has a password, chosen by whoever creates the team; joining a team means typing it. It replaces the hider password: the team that hides this round is the hider team, and its password is what protects the hider's view. This also means a stray phone can't join the hider team by picking it from the list. Details in [06-teams-and-roles.md](06-teams-and-roles.md). Open as Q54.
 
 ## Side effects to check
 

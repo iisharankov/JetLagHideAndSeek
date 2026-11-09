@@ -2,6 +2,27 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 31: the run briefs
+
+| Decision | Why | From |
+|---|---|---|
+| **Teams are a game setting; with teams, team passwords and no hider password; without teams, the hider is the first to claim, by player id, no password** | the owner: "no hider password needed, just joining any team has a password needed … solo hiders … their ID counts as one" | Q54 (restated as Q58) |
+| **The draw badge sits left of the title, the "i" on the right** | the owner's comment | Q57 |
+| **Blank questions stop their part of a run** (Q56 → RunC's codes; Q55 → RunF's gallery button) | the standard's rule 10 | — |
+
+## 2026-11-09, round 30: the November plan revised
+
+| Decision | Why | From |
+|---|---|---|
+| **Only admins and holders of a creator code make games; everyone else joins by link** | the owner: "Only admins can make games and create game codes. All others must join a game." | Q49, Q47 |
+| **No accounts, no fee** | "let's keep it free for now" | Q49 |
+| **Hider (and team) password at least 6 characters, 5 wrong tries a minute per game** | "5/s is too many" | Q50 |
+| **Thermometer chips 1 / 5 / 15 / 75 km, plus Custom; other questions allowed while one is armed** | the owner's table edit; "Allow other questions" | Q51, Q52 |
+| **A silent player id per phone plus a six-character player code as the spare key** | "player Id is nice"; the code only for a phone swap | Q53 |
+| **The draw shows as an x/y badge top-right, uniform, with the rulebook's numbers per kind** | the owner's comment on mock-up 3, read as the notation, since the rulebook's draws differ per kind | mock-up 3 |
+| **Rules text behind an "i"; Veto and Randomize separate, greyed without the card; the end game a row with confirm then 5 s undo; toasts close with a full-height ×** | the owner's comments on mock-ups 7, 10, 11, 12, 14 | mock-ups |
+| **Team passwords and photos from the gallery are proposed, not decided** | asked as Q54 and Q55 | mock-ups 12, 15 |
+
 ## 2026-11-09, round 29: adopted the standard
 
 | Decision | Why | From |

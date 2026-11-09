@@ -12,7 +12,8 @@ From `src/content/rules/seeking/thermometer-questions.md`:
 
 Distances: small games ½ mile and 3 miles; medium adds 10 miles; large adds
 50 miles. Metric values per [03-metric-conversion.md](03-metric-conversion.md):
-**1 km, 5 km, 15 km, 80 km** (proposed; the owner confirms).
+**1 km, 5 km, 15 km, 75 km** (the owner set 75, not 80, on 2026-11-09). A
+**Custom…** chip takes any distance, as the radar does.
 
 The hider draws 2, keeps 1. Asked twice: double cost, like any question.
 

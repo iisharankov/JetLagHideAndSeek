@@ -9,14 +9,14 @@ Only what differs from `../standard/profile.md`.
 - Rules come from the rulebook embedded in `src/content/rules/`. The owner has the source's permission; the project never names or links the site the texts came from.
 - The owner plays with friends who are new to the game and the app; copy and tutorials are for them, on phones, mid-game.
 
-## State on 2026-11-09 (round 29)
+## State on 2026-11-09 (round 31)
 
-- **Code:** at commit `8391484` (Round 28). Nothing changed in this round; it adopted the standard and moved the docs. Checks at the last code round: lint and types clean, 439 unit tests, Playwright 51 passed and 17 skipped (size-specific skips).
-- **Deployed:** unknown from the laptop; rounds 22–28 were handed over with deploy lines. S1 asks the owner to deploy and run `check.sh`.
-- **What the app does now:** shared games by link with a hider password; the hider's station and pin shared between hider phones and hidden from seekers; the hider's pin may follow GPS; seekers' positions on the hider's map; questions as a list of rows; cards picked on the tiles with a pinned bar; play area picked on the map; tours by role; a basemap with no footpaths when zoomed out. Reference: `../../docs/architecture.md`.
-- **Invariants a change must keep:** hiding zones decided by the station's own position; questions replaced, never mutated (`updateQuestion`); `hiderPhone` is the one "is this the hider's phone" source; `persistentAtom` from `@/lib/persist` (no cross-tab sync); rule texts are the rulebook's.
-- **Next:** the November plan (`../plans/nov-game-fixes/plan.md`): sessions A (identity, team roles), B (hider sync) and E (thermometer) before the next game night, then C–D (phone-first), F (metric, photos). Blocked on nothing except Q51 (metric values) for F and Q53 (identity approach) for A.
-- **Waiting on the owner:** Q47–Q53; S1–S4.
+- **Code:** at commit `8391484` (Round 28); rounds 29 and 30 changed docs only. Checks at the last code round: lint and types clean, 439 unit tests, Playwright 51 passed and 17 skipped.
+- **Deployed:** unknown from the laptop; S1 asks the owner to deploy and run `check.sh`.
+- **What the app does now:** shared games by link with a hider password; the hider's station and pin shared between hider phones and hidden from seekers; the pin may follow GPS; seekers' positions on the hider's map; questions as a list of rows; cards picked on the tiles with a pinned bar; play area picked on the map; tours by role. Reference: `../../docs/architecture.md`.
+- **Invariants a change must keep:** hiding zones decided by the station's own position; questions replaced, never mutated (`updateQuestion`); `hiderPhone` is the one "is this the hider's phone" source; `persistentAtom` from `@/lib/persist`; rule texts are the rulebook's; metric only.
+- **Next:** `../plans/nov-game-fixes/RunA.md`–`RunG.md` are the briefs: A (identity, Teams setting, team passwords), B (hider sync), C (admin codes; blank Q56 blocks the codes, Q50's limits can be built), D (thermometer), E, F (phone-first; F's gallery button waits on Q55), G (metric). The owner starts a run with "go A" in a new Opus session.
+- **Waiting on the owner:** Q48, Q55, Q56, Q58; S1–S5.
 
 ## Traps
 

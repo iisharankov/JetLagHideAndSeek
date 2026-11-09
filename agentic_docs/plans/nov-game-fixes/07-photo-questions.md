@@ -42,6 +42,15 @@ Question", playedAt, by }` — with no word of **which** question. So
   photo = the same late rule as questions (`late` counter) — check the
   server applies it; if not, that's a rule gap to fix in the same pass.
 
+## Photos from the gallery (your comment on mock-up 12)
+
+Today the photo input is camera-only (`capture="environment"` in
+`PhotosPanel.tsx`), so a hider can't send a picture taken a minute earlier.
+A game setting, **Hiders may send photos from the gallery** (off by
+default: the rulebook means a photo taken when asked), splits the button in
+two: **Take a photo** and **From the gallery**. The photo is still re-encoded
+and stripped of location data either way. Open as Q55 (the default).
+
 ## Tests
 
 - Unit: `photoDetail(request, size)` returns the rules text and the time

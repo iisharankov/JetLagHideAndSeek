@@ -1,7 +1,8 @@
 # November game fixes
 
 Inputs from the trial game in Zürich (zone 110, 8 November 2026), worked
-into a plan for the next agent runs. Everything about this batch lives in
+into a plan for the next agent runs; revised 2026-11-09 (round 30) from the
+owner's answers and comments on every mock-up. Everything about this batch lives in
 this folder: one file per point, the mobile mock-ups, and the run plan.
 
 | File                                                   | Point                                                               |
@@ -13,7 +14,9 @@ this folder: one file per point, the mobile mock-ups, and the run plan.
 | [04-identity-and-rejoin.md](04-identity-and-rejoin.md) | 4 · Losing your player when the page reloads; stale players on maps |
 | [05-hider-sync-audit.md](05-hider-sync-audit.md)       | 5 · A new hider phone asked to pick a station mid-game; sync audit  |
 | [06-teams-and-roles.md](06-teams-and-roles.md)         | 6 · Round 2: a hider-team member left as a seeker, position shown   |
+| [08-admin-and-gates.md](08-admin-and-gates.md)                   | Q47/Q49/Q50 · Admin and creator codes; the password limits         |
 | [07-photo-questions.md](07-photo-questions.md)         | 7 · Tap a photo request for its rules; randomize shown in history   |
+| [RunA.md](RunA.md) … [RunG.md](RunG.md)                          | The brief per run: code to change, tests first, acceptance; written from a code dive on 2026-11-09 |
 | [mockups/](mockups/)                                   | `screens.html` (the source), `render.mjs` (makes the PNGs), `png/`  |
 
 ## How this was made

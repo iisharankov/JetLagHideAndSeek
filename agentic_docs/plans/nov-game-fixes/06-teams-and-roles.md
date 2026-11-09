@@ -58,6 +58,12 @@ With teams, membership in the hider team **is** the hider role.
   changes, no "say who you are again" needed for the role (the dialog can
   still confirm the name once per round, or not at all with 04).
 
+## The team password (Q54)
+
+- Making a team asks for a password (6 characters or more, Q50's limit; 5 tries a minute per team). Joining it asks for the same. The team's members are player ids (04).
+- The hider team's password is the hider password: nothing else to type for the hider role. A team that will hide next round already has one.
+- Games without teams keep today's single hider password: a two-person game isn't made to invent teams.
+
 ## Without teams
 
 Games with no teams keep today's rule: one hider token, shared between the

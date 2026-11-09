@@ -12,6 +12,9 @@ Conversions below follow the pattern the app already set: the nearest
 ¼ mile → 500 m, 15 miles → 25 km or 10 km under Swiss rules). Exact values
 are in the table so you can judge each one. **Tick each row to confirm.**
 
+> 2026-11-09: the owner changed the large thermometer to **75 km** (not 80) and
+> left the rest; read as: the table stands as written (Q51, restated in Q57).
+
 ## Distances the game plays with
 
 | Where                                                                                         | Original                               | Exact   | Proposed metric | Note                                                                          | OK? |
@@ -29,7 +32,7 @@ are in the table so you can judge each one. **Tick each row to confirm.**
 | Thermometer (`seeking/thermometer-questions.md`), small                                       | ½ mile                                 | 0.80 km | **1 km**        |                                                                               | ☐   |
 |                                                                                               | 3 miles                                | 4.83 km | **5 km**        |                                                                               | ☐   |
 | + medium and large                                                                            | 10 miles                               | 16.1 km | **15 km**       | same rounding as the radar's 10 miles                                         | ☐   |
-| + large                                                                                       | 50 miles                               | 80.5 km | **80 km**       |                                                                               | ☐   |
+| + large                                                                                       | 50 miles                               | 80.5 km | **75 km** (not 80!) |                                                                               | ☐   |
 | Thermometer image caption                                                                     | 10 miles                               |         | 15 km           |                                                                               | ☐   |
 | Tentacles, small places (`seeking/tentacle-questions.md`)                                     | 1 mile                                 | 1.61 km | **2 km**        | app has it (museums, libraries, cinemas, hospitals)                           | ☐   |
 | Tentacles, big places                                                                         | 15 miles                               | 24.1 km | **25 km**       | app has it for German rules; **10 km** under Swiss rules (`tentacleDefaults`) | ☐   |
