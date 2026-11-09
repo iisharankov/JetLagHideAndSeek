@@ -1,0 +1,1745 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Phone-first screens</title>
+        <style>
+            :root {
+                --bg: #0f172a;
+                --panel: #1e293b;
+                --panel2: #263449;
+                --line: #334155;
+                --text: #f1f5f9;
+                --muted: #94a3b8;
+                --blue: #3b82f6;
+                --blue2: #2563eb;
+                --green: #22c55e;
+                --red: #ef4444;
+                --amber: #f59e0b;
+                --violet: #a855f7;
+                --map: #cbd5e1;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                background: #e2e8f0;
+                font-family:
+                    -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+                    sans-serif;
+                color: var(--text);
+                display: flex;
+                flex-wrap: wrap;
+                gap: 24px;
+                padding: 24px;
+            }
+            section.screen {
+                width: 390px;
+                height: 844px;
+                background: var(--bg);
+                border-radius: 36px;
+                overflow: hidden;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            }
+            .status {
+                height: 44px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0 28px;
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--text);
+                background: transparent;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 5;
+            }
+            .map {
+                position: absolute;
+                inset: 0;
+                background: var(--map);
+                background-image:
+                    linear-gradient(
+                        rgba(255, 255, 255, 0.55) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(255, 255, 255, 0.55) 1px,
+                        transparent 1px
+                    );
+                background-size: 46px 46px;
+            }
+            .map .shade {
+                position: absolute;
+                inset: 0;
+                background: rgba(239, 68, 68, 0.22);
+                clip-path: polygon(
+                    0 0,
+                    100% 0,
+                    100% 100%,
+                    0 100%,
+                    0 0,
+                    18% 30%,
+                    18% 72%,
+                    82% 72%,
+                    82% 30%,
+                    18% 30%
+                );
+            }
+            .map .water {
+                position: absolute;
+                left: 40px;
+                top: 300px;
+                width: 120px;
+                height: 160px;
+                background: #93c5fd;
+                border-radius: 60px 40px 80px 50px;
+                opacity: 0.8;
+            }
+            .map .green {
+                position: absolute;
+                right: 30px;
+                top: 150px;
+                width: 140px;
+                height: 110px;
+                background: #a7f3d0;
+                border-radius: 50px 30px 60px 70px;
+                opacity: 0.8;
+            }
+            .pin {
+                position: absolute;
+                width: 24px;
+                height: 24px;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                border: 2px solid #fff;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            }
+            .pin::after {
+                content: "";
+                position: absolute;
+                width: 8px;
+                height: 8px;
+                background: #fff;
+                border-radius: 50%;
+                left: 6px;
+                top: 6px;
+            }
+            .me {
+                position: absolute;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: #2a81cb;
+                border: 3px solid #fff;
+                box-shadow: 0 0 0 8px rgba(42, 129, 203, 0.25);
+            }
+            .ring {
+                position: absolute;
+                border: 3px dashed #0284c7;
+                border-radius: 50%;
+            }
+            .label {
+                position: absolute;
+                background: #fff;
+                color: #111;
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 6px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+                white-space: nowrap;
+            }
+            .top {
+                position: absolute;
+                top: 52px;
+                left: 12px;
+                right: 12px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                z-index: 4;
+            }
+            .chip-white {
+                background: #fff;
+                color: #111;
+                border-radius: 12px;
+                padding: 10px 14px;
+                font-weight: 600;
+                font-size: 14px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+            .round {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: #fff;
+                color: #111;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            }
+            .sheet {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg);
+                border-radius: 24px 24px 0 0;
+                padding: 0 16px 92px;
+                box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45);
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .sheet.half {
+                top: 48%;
+            }
+            .sheet.full {
+                top: 44px;
+                border-radius: 0;
+            }
+            .grab {
+                width: 44px;
+                height: 5px;
+                border-radius: 3px;
+                background: #475569;
+                margin: 10px auto 0;
+            }
+            .hdr {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-height: 48px;
+            }
+            .hdr .back {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                background: var(--panel);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 22px;
+            }
+            .hdr h1 {
+                font-size: 20px;
+                margin: 0;
+                font-weight: 700;
+                flex: 1;
+            }
+            .hdr .act {
+                color: var(--blue);
+                font-weight: 600;
+                font-size: 15px;
+            }
+            .tabbar {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 84px;
+                background: #020617;
+                border-top: 1px solid var(--line);
+                display: flex;
+                justify-content: space-around;
+                align-items: flex-start;
+                padding: 10px 6px 0;
+                z-index: 6;
+            }
+            .tab {
+                width: 70px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                color: var(--muted);
+                font-weight: 600;
+                position: relative;
+            }
+            .tab .ico {
+                width: 30px;
+                height: 30px;
+                border-radius: 9px;
+                background: var(--panel);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 17px;
+            }
+            .tab.on {
+                color: #fff;
+            }
+            .tab.on .ico {
+                background: var(--blue);
+            }
+            .tab .badge {
+                position: absolute;
+                top: -4px;
+                right: 12px;
+                background: var(--red);
+                color: #fff;
+                font-size: 10px;
+                border-radius: 10px;
+                padding: 1px 6px;
+                font-weight: 700;
+            }
+            .row {
+                min-height: 56px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 0 14px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .row .dot {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                border: 2px solid rgba(255, 255, 255, 0.5);
+                flex: none;
+            }
+            .row .grow {
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .row .tag {
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 8px;
+                border-radius: 8px;
+            }
+            .row .chev {
+                color: var(--muted);
+                font-size: 20px;
+            }
+            .tag.draft {
+                background: rgba(245, 158, 11, 0.25);
+                color: #fde68a;
+            }
+            .tag.wait {
+                background: var(--blue2);
+                color: #fff;
+            }
+            .tag.ans {
+                background: rgba(34, 197, 94, 0.25);
+                color: #bbf7d0;
+            }
+            .tag.armed {
+                background: rgba(168, 85, 247, 0.3);
+                color: #e9d5ff;
+            }
+            .tag.double {
+                background: rgba(239, 68, 68, 0.3);
+                color: #fecaca;
+            }
+            .primary {
+                height: 52px;
+                border-radius: 14px;
+                background: var(--blue);
+                color: #fff;
+                font-weight: 700;
+                font-size: 17px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .primary.off {
+                background: #334155;
+                color: #94a3b8;
+            }
+            .primary.red {
+                background: var(--red);
+            }
+            .primary.green {
+                background: #16a34a;
+            }
+            .secondary {
+                height: 48px;
+                border-radius: 14px;
+                border: 1px solid #475569;
+                color: #fff;
+                font-weight: 600;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .pinned {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 84px;
+                background: var(--bg);
+                border-top: 1px solid var(--line);
+                padding: 12px 16px 14px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.45);
+                z-index: 5;
+            }
+            .pinned p {
+                margin: 0;
+                font-size: 13px;
+                color: var(--text);
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .tile {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                min-height: 104px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                font-weight: 700;
+                font-size: 15px;
+                text-align: center;
+                padding: 10px;
+            }
+            .tile .big {
+                font-size: 34px;
+            }
+            .tile small {
+                color: var(--muted);
+                font-weight: 500;
+                font-size: 12px;
+            }
+            .chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .chip {
+                height: 44px;
+                min-width: 72px;
+                padding: 0 16px;
+                border-radius: 12px;
+                background: var(--panel2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 16px;
+                position: relative;
+            }
+            .chip.on {
+                background: var(--blue);
+            }
+            .chip .x2 {
+                position: absolute;
+                top: -8px;
+                right: -6px;
+                background: var(--red);
+                color: #fff;
+                font-size: 10px;
+                border-radius: 8px;
+                padding: 1px 5px;
+                font-weight: 800;
+            }
+            .note {
+                background: var(--panel);
+                border-radius: 12px;
+                padding: 12px 14px;
+                font-size: 14px;
+                color: #cbd5e1;
+                line-height: 1.4;
+            }
+            .note b {
+                color: #fff;
+            }
+            .warn {
+                background: rgba(245, 158, 11, 0.15);
+                border: 1px solid rgba(245, 158, 11, 0.5);
+                color: #fde68a;
+            }
+            .info {
+                background: rgba(14, 165, 233, 0.15);
+                border: 1px solid rgba(14, 165, 233, 0.5);
+                color: #bae6fd;
+            }
+            .muted {
+                color: var(--muted);
+                font-size: 13px;
+            }
+            .bar {
+                height: 10px;
+                background: #334155;
+                border-radius: 5px;
+                overflow: hidden;
+            }
+            .bar i {
+                display: block;
+                height: 100%;
+                background: var(--violet);
+            }
+            .cards {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+            .card {
+                background: #fff;
+                color: #111;
+                border-radius: 10px;
+                aspect-ratio: 5/7;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: 700;
+                text-align: center;
+                padding: 6px;
+                border: 3px solid transparent;
+                position: relative;
+            }
+            .card.curse {
+                background: #fde68a;
+            }
+            .card.time {
+                background: #bfdbfe;
+            }
+            .card.pow {
+                background: #fecaca;
+            }
+            .card.sel {
+                border-color: var(--blue);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+            }
+            .card .ctag {
+                position: absolute;
+                top: 4px;
+                left: 4px;
+                background: var(--blue);
+                color: #fff;
+                font-size: 9px;
+                padding: 1px 5px;
+                border-radius: 5px;
+            }
+            .cardbtn {
+                height: 40px;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-top: 6px;
+            }
+            .cardbtn.cast {
+                background: #b91c1c;
+                color: #fff;
+            }
+            .cardbtn.sel {
+                border: 1px solid #475569;
+            }
+            .cardbtn.on {
+                background: var(--blue);
+                color: #fff;
+            }
+            .seg {
+                display: flex;
+                gap: 8px;
+            }
+            .seg div {
+                flex: 1;
+                height: 48px;
+                border-radius: 12px;
+                background: var(--panel2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 16px;
+            }
+            .seg .on {
+                background: var(--blue);
+            }
+            .answer {
+                display: flex;
+                gap: 10px;
+            }
+            .answer div {
+                flex: 1;
+                height: 64px;
+                border-radius: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                font-size: 20px;
+                border: 2px solid #475569;
+            }
+            .answer .on {
+                background: var(--blue);
+                border-color: var(--blue);
+            }
+            .field {
+                height: 52px;
+                border-radius: 12px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                display: flex;
+                align-items: center;
+                padding: 0 14px;
+                font-size: 16px;
+                color: var(--muted);
+            }
+            .code {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 28px;
+                letter-spacing: 4px;
+                font-weight: 700;
+                text-align: center;
+                background: var(--panel);
+                border-radius: 14px;
+                padding: 14px;
+            }
+            .caption {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+            }
+            h2.title {
+                margin: 0;
+                font-size: 22px;
+            }
+            .clock {
+                position: absolute;
+                left: 12px;
+                top: 52px;
+                background: #fff;
+                color: #111;
+                border-radius: 12px;
+                padding: 8px 12px;
+                font-weight: 700;
+                font-size: 15px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+                z-index: 4;
+            }
+            .toast {
+                position: absolute;
+                left: 16px;
+                right: 16px;
+                top: 100px;
+                background: #fff;
+                color: #111;
+                border-radius: 12px;
+                padding: 12px 14px;
+                font-size: 14px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                z-index: 7;
+                border-left: 5px solid var(--violet);
+            }
+            .kv {
+                display: flex;
+                justify-content: space-between;
+                font-size: 15px;
+                padding: 10px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            .kv span:last-child {
+                color: var(--muted);
+            }
+            .listsec {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .tbl {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 6px 12px;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- 01 Map home -->
+        <section class="screen" id="01-map-home">
+            <div class="map">
+                <div class="shade"></div>
+                <div class="water"></div>
+                <div class="green"></div>
+                <div
+                    class="pin"
+                    style="left: 200px; top: 330px; background: #2a81cb"
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 260px; top: 420px; background: #cb8427"
+                ></div>
+                <div class="me" style="left: 150px; top: 470px"></div>
+                <div class="label" style="left: 176px; top: 466px">You</div>
+                <div class="label" style="left: 214px; top: 304px">
+                    Q1 · Radar 5 km
+                </div>
+            </div>
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="clock">
+                ⏱ 1:12:08
+                <span style="color: #64748b; font-weight: 500">hider</span>
+            </div>
+            <div class="top">
+                <span></span>
+                <div class="round">⚙</div>
+            </div>
+            <div class="tabbar">
+                <div class="tab on">
+                    <div class="ico">🗺</div>
+                    Map
+                </div>
+                <div class="tab">
+                    <div class="ico">❓</div>
+                    Questions<span class="badge">1</span>
+                </div>
+                <div class="tab">
+                    <div class="ico">🃏</div>
+                    Cards
+                </div>
+                <div class="tab">
+                    <div class="ico">📍</div>
+                    Stations
+                </div>
+                <div class="tab">
+                    <div class="ico">☰</div>
+                    Menu
+                </div>
+            </div>
+            <div
+                style="
+                    position: absolute;
+                    left: 16px;
+                    right: 16px;
+                    bottom: 100px;
+                    display: flex;
+                    gap: 10px;
+                "
+            >
+                <div class="primary" style="flex: 1">＋ Ask a question</div>
+                <div
+                    class="round"
+                    style="width: 52px; height: 52px; border-radius: 14px"
+                >
+                    ⌖
+                </div>
+            </div>
+        </section>
+
+        <!-- 02 Questions list -->
+        <section class="screen" id="02-questions-list">
+            <div class="map">
+                <div class="shade"></div>
+                <div class="water"></div>
+                <div
+                    class="pin"
+                    style="left: 200px; top: 200px; background: #2a81cb"
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 120px; top: 280px; background: #cb8427"
+                ></div>
+            </div>
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet half">
+                <div class="grab"></div>
+                <div class="hdr">
+                    <h1>Questions</h1>
+                    <span class="act">Edit</span>
+                </div>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="dot" style="background: #2a81cb"></span
+                        ><span class="grow">1 · Radar 5 km</span
+                        ><span class="tag ans">Yes</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="dot" style="background: #cb8427"></span
+                        ><span class="grow">2 · Matching · Zoo</span
+                        ><span class="tag ans">No</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="dot" style="background: #9c2bcb"></span
+                        ><span class="grow">3 · Thermometer 5 km</span
+                        ><span class="tag armed">Travelling</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="dot" style="background: #cb2b3e"></span
+                        ><span class="grow">4 · Photo · Tallest building</span
+                        ><span class="tag wait">Waiting</span
+                        ><span class="chev">›</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary">＋ Ask a question</div>
+            </div>
+            <div class="tabbar">
+                <div class="tab">
+                    <div class="ico">🗺</div>
+                    Map
+                </div>
+                <div class="tab on">
+                    <div class="ico">❓</div>
+                    Questions
+                </div>
+                <div class="tab">
+                    <div class="ico">🃏</div>
+                    Cards
+                </div>
+                <div class="tab">
+                    <div class="ico">📍</div>
+                    Stations
+                </div>
+                <div class="tab">
+                    <div class="ico">☰</div>
+                    Menu
+                </div>
+            </div>
+        </section>
+
+        <!-- 03 Type picker -->
+        <section class="screen" id="03-question-types">
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <div class="back">‹</div>
+                    <h1>Ask a question</h1>
+                </div>
+                <p class="muted" style="margin: 0">
+                    Pick a kind. Each one says what the hider draws.
+                </p>
+                <div class="grid">
+                    <div class="tile">
+                        <span class="big">◎</span>Radar<small
+                            >Within X km of me? · draws 2 keeps 1</small
+                        >
+                    </div>
+                    <div class="tile">
+                        <span class="big">🌡</span>Thermometer<small
+                            >Hotter or colder after X km · 2 / 1</small
+                        >
+                    </div>
+                    <div class="tile">
+                        <span class="big">⇄</span>Matching<small
+                            >Same nearest zoo? · 3 / 1</small
+                        >
+                    </div>
+                    <div class="tile">
+                        <span class="big">📏</span>Measuring<small
+                            >Closer to a museum than me? · 3 / 1</small
+                        >
+                    </div>
+                    <div class="tile">
+                        <span class="big">🐙</span>Tentacles<small
+                            >Which zoo within 10 km? · 4 / 2</small
+                        >
+                    </div>
+                    <div class="tile">
+                        <span class="big">📷</span>Photo<small
+                            >Send me a picture of… · 1 / 1</small
+                        >
+                    </div>
+                </div>
+                <div class="note info">
+                    Asked a kind and distance before? It costs double: the hider
+                    draws twice. Those show a <b style="color: #fecaca">×2</b>.
+                </div>
+            </div>
+        </section>
+
+        <!-- 04 Radar sub-types -->
+        <section class="screen" id="04-radar-subtypes">
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <div class="back">‹</div>
+                    <h1>Radar</h1>
+                    <span class="act">ⓘ Rules</span>
+                </div>
+                <div class="note">
+                    “Are you within <b>___</b> of me?” The hider answers Yes or
+                    No from their station. Draws 2, keeps 1.
+                </div>
+                <p class="muted" style="margin: 0">Distance (medium game)</p>
+                <div class="chips">
+                    <div class="chip">1 km</div>
+                    <div class="chip">2 km</div>
+                    <div class="chip">5 km<span class="x2">×2</span></div>
+                    <div class="chip on">10 km</div>
+                    <div class="chip">15 km</div>
+                    <div class="chip">40 km</div>
+                </div>
+                <p class="muted" style="margin: 0">Asked from</p>
+                <div class="row">
+                    <span style="font-size: 18px">⌖</span
+                    ><span class="grow"
+                        >Where I am now<br /><span class="muted"
+                            >47.3779° N, 8.5403° E · ±12 m</span
+                        ></span
+                    ><span class="act">Change</span>
+                </div>
+                <div class="note warn">
+                    <b>5 km was asked already</b> (Q1, answered Yes). Asking it
+                    again costs double.
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary">Ask: within 10 km of me?</div>
+            </div>
+        </section>
+
+        <!-- 05 Tentacles sub-types -->
+        <section class="screen" id="05-tentacles-subtypes">
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <div class="back">‹</div>
+                    <h1>Tentacles</h1>
+                    <span class="act">ⓘ Rules</span>
+                </div>
+                <div class="note">
+                    “Within <b>___</b> of me, which <b>___</b> are you nearest
+                    to?” The hider names one, or says they’re out of reach.
+                    Draws 4, keeps 2.
+                </div>
+                <p class="muted" style="margin: 0">Within 2 km</p>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="grow">Museums</span
+                        ><span class="muted">7 in reach</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Libraries</span
+                        ><span class="muted">3 in reach</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Cinemas</span
+                        ><span class="tag double">×2</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Hospitals</span
+                        ><span class="muted">2 in reach</span
+                        ><span class="chev">›</span>
+                    </div>
+                </div>
+                <p class="muted" style="margin: 0">
+                    Within 10 km (Swiss rules)
+                </p>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="grow">Zoos</span
+                        ><span class="muted">1 in reach</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Aquariums</span
+                        ><span class="muted">none in the play area</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Amusement parks</span
+                        ><span class="muted">1 in reach</span
+                        ><span class="chev">›</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 06 Photo sub-types -->
+        <section class="screen" id="06-photo-subtypes">
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <div class="back">‹</div>
+                    <h1>Photo</h1>
+                    <span class="act">ⓘ Rules</span>
+                </div>
+                <div class="note">
+                    “Send me a photo of <b>___</b>.” The hider has 10 minutes
+                    (20 in a large game). Draws 1, keeps 1.
+                </div>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="grow"
+                            >Tallest building<br /><span class="muted"
+                                >from where you stand, in your sightline</span
+                            ></span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow"
+                            >Widest street<br /><span class="muted"
+                                >visible from your spot</span
+                            ></span
+                        ><span class="tag double">×2</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow"
+                            >A tree<br /><span class="muted"
+                                >the whole tree, no zoom</span
+                            ></span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow"
+                            >The sky<br /><span class="muted"
+                                >straight up, phone level</span
+                            ></span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow"
+                            >Your transit station<br /><span class="muted"
+                                >the sign or platform</span
+                            ></span
+                        ><span class="chev">›</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary">Ask for: Tallest building</div>
+            </div>
+        </section>
+
+        <!-- 07 Thermometer arm -->
+        <section class="screen" id="07-thermometer-arm">
+            <div class="map">
+                <div class="water"></div>
+                <div class="green"></div>
+                <div class="me" style="left: 180px; top: 220px"></div>
+                <div class="label" style="left: 206px; top: 216px">
+                    Start: here
+                </div>
+            </div>
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet half" style="top: 40%">
+                <div class="grab"></div>
+                <div class="hdr">
+                    <div class="back">‹</div>
+                    <h1>Thermometer</h1>
+                    <span class="act">ⓘ Rules</span>
+                </div>
+                <div class="note">
+                    Starts <b>where you are</b>. Travel at least the distance as
+                    the crow flies, then ask: <b>hotter or colder?</b> The hider
+                    hears it has started, not the question yet.
+                </div>
+                <p class="muted" style="margin: 0">Distance (medium game)</p>
+                <div class="chips">
+                    <div class="chip">1 km</div>
+                    <div class="chip on">5 km</div>
+                    <div class="chip">15 km</div>
+                </div>
+                <div class="kv">
+                    <span>Start</span><span>47.3779° N, 8.5403° E · ±9 m</span>
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary" style="background: #7c3aed">
+                    Start the thermometer (5 km)
+                </div>
+            </div>
+        </section>
+
+        <!-- 08 Thermometer travelling -->
+        <section class="screen" id="08-thermometer-travel">
+            <div class="map">
+                <div class="water"></div>
+                <div class="green"></div>
+                <div
+                    class="ring"
+                    style="left: -10px; top: -20px; width: 400px; height: 400px"
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 184px; top: 168px; background: #9c2bcb"
+                ></div>
+                <div class="label" style="left: 210px; top: 146px">Start</div>
+                <div
+                    style="
+                        position: absolute;
+                        left: 196px;
+                        top: 190px;
+                        width: 3px;
+                        height: 110px;
+                        background: #0284c7;
+                        transform: rotate(-28deg);
+                        transform-origin: top;
+                    "
+                ></div>
+                <div class="me" style="left: 236px; top: 286px"></div>
+            </div>
+            <div class="status"><span>14:19</span><span>▲▲▲ 74%</span></div>
+            <div class="sheet half" style="top: 44%">
+                <div class="grab"></div>
+                <div class="hdr">
+                    <div class="back">‹</div>
+                    <h1>3 · Thermometer 5 km</h1>
+                    <span class="tag armed">Travelling</span>
+                </div>
+                <div class="kv">
+                    <span>Covered, as the crow flies</span
+                    ><span style="color: #fff; font-weight: 700"
+                        >2.3 of 5 km</span
+                    >
+                </div>
+                <div class="bar"><i style="width: 46%"></i></div>
+                <p class="muted" style="margin: 0">
+                    Leave the dashed circle, then ask. Other questions can be
+                    asked meanwhile.
+                </p>
+            </div>
+            <div class="pinned">
+                <div class="primary off">
+                    Ask: hotter or colder? · 2.7 km to go
+                </div>
+                <div class="secondary">Cancel the thermometer (no cost)</div>
+            </div>
+        </section>
+
+        <!-- 09 Thermometer ask -->
+        <section class="screen" id="09-thermometer-ask">
+            <div class="map">
+                <div class="water"></div>
+                <div class="green"></div>
+                <div
+                    class="ring"
+                    style="
+                        left: -60px;
+                        top: -110px;
+                        width: 400px;
+                        height: 400px;
+                    "
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 134px; top: 78px; background: #9c2bcb"
+                ></div>
+                <div class="label" style="left: 160px; top: 56px">Start</div>
+                <div
+                    style="
+                        position: absolute;
+                        left: 146px;
+                        top: 100px;
+                        width: 3px;
+                        height: 230px;
+                        background: #0284c7;
+                        transform: rotate(-30deg);
+                        transform-origin: top;
+                    "
+                ></div>
+                <div class="me" style="left: 250px; top: 300px"></div>
+                <div class="label" style="left: 276px; top: 296px">
+                    You · 5.4 km
+                </div>
+            </div>
+            <div class="status"><span>14:41</span><span>▲▲▲ 70%</span></div>
+            <div class="sheet half" style="top: 50%">
+                <div class="grab"></div>
+                <div class="hdr">
+                    <div class="back">‹</div>
+                    <h1>3 · Thermometer 5 km</h1>
+                    <span class="tag" style="background: #16a34a; color: #fff"
+                        >Ready</span
+                    >
+                </div>
+                <div class="kv">
+                    <span>Covered</span
+                    ><span style="color: #fff; font-weight: 700"
+                        >5.4 of 5 km ✓</span
+                    >
+                </div>
+                <div class="bar">
+                    <i style="width: 100%; background: #16a34a"></i>
+                </div>
+                <p class="muted" style="margin: 0">
+                    The end point is where you are now. The hider has five
+                    minutes to answer from their station.
+                </p>
+            </div>
+            <div class="pinned">
+                <div class="primary green">Ask: hotter or colder?</div>
+            </div>
+        </section>
+
+        <!-- 10 Hider: thermometer armed -->
+        <section class="screen" id="10-hider-thermometer-armed">
+            <div class="map">
+                <div class="water"></div>
+                <div
+                    class="ring"
+                    style="
+                        left: 60px;
+                        top: 140px;
+                        width: 260px;
+                        height: 260px;
+                        border-color: #ef4444;
+                        border-style: solid;
+                    "
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 178px; top: 258px; background: #cb2b3e"
+                ></div>
+                <div
+                    class="me"
+                    style="left: 60px; top: 80px; background: #0f172a"
+                ></div>
+                <div class="label" style="left: 86px; top: 76px">
+                    Ana (seekers) · just now
+                </div>
+                <div
+                    class="pin"
+                    style="
+                        left: 62px;
+                        top: 60px;
+                        background: #9c2bcb;
+                        width: 18px;
+                        height: 18px;
+                    "
+                ></div>
+            </div>
+            <div class="status"><span>14:19</span><span>▲▲▲ 81%</span></div>
+            <div class="toast">
+                🌡 <b>Thermometer started.</b> The seekers set 5 km from where
+                they are (the violet pin). Nothing to answer yet.
+            </div>
+            <div class="sheet half" style="top: 54%">
+                <div class="grab"></div>
+                <div class="hdr"><h1>Questions</h1></div>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="dot" style="background: #2a81cb"></span
+                        ><span class="grow">1 · Radar 5 km</span
+                        ><span class="tag ans">Yes</span
+                        ><span class="chev">›</span>
+                    </div>
+                    <div class="row">
+                        <span class="dot" style="background: #9c2bcb"></span
+                        ><span class="grow">3 · Thermometer 5 km</span
+                        ><span class="tag armed">Started · travelling</span
+                        ><span class="chev">›</span>
+                    </div>
+                </div>
+            </div>
+            <div class="tabbar">
+                <div class="tab">
+                    <div class="ico">🗺</div>
+                    Map
+                </div>
+                <div class="tab on">
+                    <div class="ico">❓</div>
+                    Questions
+                </div>
+                <div class="tab">
+                    <div class="ico">🃏</div>
+                    Cards
+                </div>
+                <div class="tab">
+                    <div class="ico">🙈</div>
+                    Hider
+                </div>
+                <div class="tab">
+                    <div class="ico">☰</div>
+                    Menu
+                </div>
+            </div>
+        </section>
+
+        <!-- 11 Hider answers -->
+        <section class="screen" id="11-hider-answer">
+            <div class="map">
+                <div class="water"></div>
+                <div class="shade"></div>
+                <div
+                    class="ring"
+                    style="
+                        left: 60px;
+                        top: 140px;
+                        width: 260px;
+                        height: 260px;
+                        border-color: #ef4444;
+                        border-style: solid;
+                    "
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 178px; top: 258px; background: #cb2b3e"
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 40px; top: 60px; background: #2a81cb"
+                ></div>
+                <div class="label" style="left: 66px; top: 56px">
+                    Q5 · asked from here
+                </div>
+            </div>
+            <div class="status"><span>14:44</span><span>▲▲▲ 80%</span></div>
+            <div class="sheet half" style="top: 36%">
+                <div class="grab"></div>
+                <div class="hdr">
+                    <div class="back">‹</div>
+                    <h1>5 · Radar 10 km</h1>
+                    <span class="tag wait">⏳ 4:12</span>
+                </div>
+                <div class="note">
+                    “Are you within <b>10 km</b> of us?” Asked by Ana · just
+                    now. Worked out from <b>your station</b>, Wipkingen:
+                    <b>2.1 km</b> away.
+                </div>
+                <p class="muted" style="margin: 0">
+                    The app suggests <b style="color: #fff">Yes</b>. The map
+                    shows what each answer rules out.
+                </p>
+                <div class="answer">
+                    <div class="on">Yes</div>
+                    <div>No</div>
+                </div>
+                <p class="muted" style="margin: 0">
+                    Hider draws 2, keeps 1 ·
+                    <span style="color: #fecaca">×2: asked before</span>
+                </p>
+            </div>
+            <div class="pinned">
+                <div class="primary">Send answer: Yes</div>
+                <div class="secondary">Veto · Randomize</div>
+            </div>
+        </section>
+
+        <!-- 12 Photo request detail -->
+        <section class="screen" id="12-photo-request-detail">
+            <div class="status"><span>14:50</span><span>▲▲▲ 79%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <div class="back">‹</div>
+                    <h1>4 · Photo</h1>
+                    <span class="tag wait">⏳ 7:40</span>
+                </div>
+                <h2 class="title">Widest street</h2>
+                <p class="muted" style="margin: 0">
+                    Asked by Ben · 2 min ago ·
+                    <span class="tag double" style="padding: 2px 6px"
+                        >Randomized</span
+                    >
+                    was <b>Tallest building</b> at 14:48
+                </p>
+                <div class="note">
+                    <b>The rule.</b> Take a photo of the widest street you can
+                    see from where you stand, across its full width. Your
+                    phone’s normal aspect ratio; no zoom, no panorama. You may
+                    step to the edge of the road to frame it, not cross it. If
+                    no street is visible from your spot, “I cannot answer” is a
+                    valid answer and you still draw.
+                </div>
+                <div class="kv">
+                    <span>Time to send</span
+                    ><span>10 minutes (medium game)</span>
+                </div>
+                <div class="kv">
+                    <span>You draw</span><span>1 card, keep 1</span>
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary">📷 Take and send the photo</div>
+                <div class="secondary">I cannot answer · Randomize</div>
+            </div>
+        </section>
+
+        <!-- 13 Cards: over the limit -->
+        <section class="screen" id="13-cards-over-limit">
+            <div class="status"><span>14:55</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px">
+                    <h1>Cards</h1>
+                    <span class="muted">86 in the deck</span>
+                </div>
+                <div class="kv" style="border: 0; padding: 0">
+                    <span style="font-weight: 700; font-size: 18px"
+                        >Your hand 8/6</span
+                    ><span style="color: #fde68a">2 over</span>
+                </div>
+                <div class="cards">
+                    <div class="card time">
+                        Time bonus<br />6 min
+                        <div
+                            class="cardbtn sel"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            Select
+                        </div>
+                    </div>
+                    <div class="card curse">
+                        Curse of the Jammed Door
+                        <div
+                            class="cardbtn cast"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            Cast
+                        </div>
+                    </div>
+                    <div class="card pow">
+                        Veto Question
+                        <div
+                            class="cardbtn sel"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            Play
+                        </div>
+                    </div>
+                </div>
+                <div style="height: 40px"></div>
+                <div class="cards">
+                    <div class="card time sel">
+                        <span class="ctag">✓</span>Time bonus<br />18 min
+                        <div
+                            class="cardbtn on"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            ✓ Selected
+                        </div>
+                    </div>
+                    <div class="card time sel">
+                        <span class="ctag">✓</span>Time bonus<br />3 min
+                        <div
+                            class="cardbtn on"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            ✓ Selected
+                        </div>
+                    </div>
+                    <div class="card pow">
+                        Randomize Question
+                        <div
+                            class="cardbtn sel"
+                            style="
+                                position: absolute;
+                                bottom: -46px;
+                                left: 0;
+                                right: 0;
+                            "
+                        >
+                            Play
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pinned">
+                <p>
+                    <b>Too many cards:</b> 8 in your hand, the limit is 6.
+                    Select 2 to discard, or play cards.
+                </p>
+                <div class="primary">Discard 2 selected</div>
+            </div>
+            <div class="tabbar">
+                <div class="tab">
+                    <div class="ico">🗺</div>
+                    Map
+                </div>
+                <div class="tab">
+                    <div class="ico">❓</div>
+                    Questions
+                </div>
+                <div class="tab on">
+                    <div class="ico">🃏</div>
+                    Cards
+                </div>
+                <div class="tab">
+                    <div class="ico">🙈</div>
+                    Hider
+                </div>
+                <div class="tab">
+                    <div class="ico">☰</div>
+                    Menu
+                </div>
+            </div>
+        </section>
+
+        <!-- 14 Hider tab -->
+        <section class="screen" id="14-hider-tab">
+            <div class="map">
+                <div class="water"></div>
+                <div
+                    class="ring"
+                    style="
+                        left: 60px;
+                        top: 120px;
+                        width: 260px;
+                        height: 260px;
+                        border-color: #ef4444;
+                        border-style: solid;
+                        background: rgba(239, 68, 68, 0.12);
+                    "
+                ></div>
+                <div
+                    class="pin"
+                    style="left: 178px; top: 238px; background: #cb2b3e"
+                ></div>
+                <div
+                    class="me"
+                    style="left: 220px; top: 300px; background: #facc15"
+                ></div>
+                <div class="label" style="left: 246px; top: 296px">
+                    Your pin · GPS
+                </div>
+            </div>
+            <div class="status"><span>14:05</span><span>▲▲▲ 81%</span></div>
+            <div class="sheet half" style="top: 50%">
+                <div class="grab"></div>
+                <div class="hdr"><h1>Hider</h1></div>
+                <div class="row">
+                    <span style="font-size: 18px">🚉</span
+                    ><span class="grow"
+                        >Your station: <b>Wipkingen</b><br /><span class="muted"
+                            >500 m zone · set for this round</span
+                        ></span
+                    >
+                </div>
+                <div class="row">
+                    <span style="font-size: 18px">📍</span
+                    ><span class="grow"
+                        >Pin follows GPS<br /><span class="muted"
+                            >inside your zone · matters from the end game</span
+                        ></span
+                    ><span
+                        class="tag"
+                        style="background: var(--blue); color: #fff"
+                        >On</span
+                    >
+                </div>
+                <div class="row">
+                    <span style="font-size: 18px">👀</span
+                    ><span class="grow"
+                        >Seekers on the map<br /><span class="muted"
+                            >Ana · just now, Ben · 3 min ago</span
+                        ></span
+                    ><span class="chev">›</span>
+                </div>
+            </div>
+            <div class="pinned">
+                <div class="primary red">Start the end game</div>
+                <p class="muted" style="text-align: center">
+                    Only when the seekers are in your zone and off transport.
+                </p>
+            </div>
+            <div class="tabbar">
+                <div class="tab">
+                    <div class="ico">🗺</div>
+                    Map
+                </div>
+                <div class="tab">
+                    <div class="ico">❓</div>
+                    Questions
+                </div>
+                <div class="tab">
+                    <div class="ico">🃏</div>
+                    Cards
+                </div>
+                <div class="tab on">
+                    <div class="ico">🙈</div>
+                    Hider
+                </div>
+                <div class="tab">
+                    <div class="ico">☰</div>
+                    Menu
+                </div>
+            </div>
+        </section>
+
+        <!-- 15 Join / identity -->
+        <section class="screen" id="15-join-identity">
+            <div class="status"><span>13:40</span><span>▲▲▲ 90%</span></div>
+            <div
+                class="sheet full"
+                style="justify-content: flex-start; gap: 14px"
+            >
+                <div class="hdr" style="margin-top: 8px">
+                    <h1>Joining the game</h1>
+                </div>
+                <p class="muted" style="margin: 0">
+                    Hide and seek in Zürich (zone 110). Round 2: team
+                    <b style="color: #fff">Foxes</b> hides.
+                </p>
+                <div class="field">Your name · Ana</div>
+                <p class="muted" style="margin: 0">Team</p>
+                <div class="seg">
+                    <div class="on">Foxes (hiding)</div>
+                    <div>Owls</div>
+                    <div>＋ New</div>
+                </div>
+                <div class="note warn">
+                    <b>Foxes hide this round.</b> Everyone in the team is a
+                    hider: you’ll see the Hider tab and your position isn’t
+                    shared with the seekers.
+                </div>
+                <div class="primary">Join as Ana · hiding with Foxes</div>
+                <div class="note" style="margin-top: 8px">
+                    <b>Already playing on another phone?</b> Enter your player
+                    code (Menu → Game on that phone) to carry on as that player.
+                </div>
+                <div class="field">Player code · e.g. K7M-4PQ</div>
+                <div class="secondary">Rejoin with the code</div>
+            </div>
+        </section>
+
+        <!-- 16 Menu: your player -->
+        <section class="screen" id="16-menu-player">
+            <div class="status"><span>14:05</span><span>▲▲▲ 78%</span></div>
+            <div class="sheet full">
+                <div class="hdr" style="margin-top: 8px"><h1>Menu</h1></div>
+                <div class="seg">
+                    <div class="on">Game</div>
+                    <div>Settings</div>
+                    <div>Help</div>
+                </div>
+                <div class="note">
+                    <b>You:</b> Ana · seeker · team Owls<br /><span
+                        class="muted"
+                        >Your player code moves you to another phone, or back
+                        after the browser lost you.</span
+                    >
+                </div>
+                <div class="code">K7M-4PQ</div>
+                <div class="secondary">Share the code</div>
+                <div class="kv">
+                    <span>Players (5)</span
+                    ><span>1 not heard from in 42 min</span>
+                </div>
+                <div class="listsec">
+                    <div class="row">
+                        <span class="grow">Ana (you) · Owls</span
+                        ><span class="muted">live</span>
+                    </div>
+                    <div class="row">
+                        <span class="grow">Ben · Owls</span
+                        ><span class="muted">2 min ago</span>
+                    </div>
+                    <div class="row" style="opacity: 0.6">
+                        <span class="grow">Ana 2 · Owls</span
+                        ><span class="muted">42 min</span
+                        ><span class="act">Remove</span>
+                    </div>
+                </div>
+                <div class="secondary">Share the game link</div>
+            </div>
+        </section>
+
+        <!-- 17 Navigation map -->
+        <section
+            class="screen"
+            id="17-navigation-map"
+            style="
+                height: 844px;
+                background: #fff;
+                color: #111;
+                padding: 24px;
+                font-size: 13px;
+                border-radius: 24px;
+            "
+        >
+            <h1 style="margin: 0 0 12px; font-size: 20px">
+                Where everything lives
+            </h1>
+            <pre
+                style="
+                    margin: 0;
+                    white-space: pre-wrap;
+                    line-height: 1.5;
+                    font-family: ui-monospace, Menlo, monospace;
+                    font-size: 12px;
+                "
+            >
+Bottom bar (always):  Map · Questions · Cards · Hider|Stations · Menu
+Back ‹ at the top-left of every pushed screen. No swipes needed.
+
+Map
+ ├ ＋ Ask a question → Type picker → Sub-type sheet → (pinned) Ask
+ ├ ⌖ Centre on me
+ └ tap a pin → that question's card
+
+Questions (list, asked order)
+ └ row → Question card (Back ‹)
+     ├ seeker: state, Send / Ask (thermometer), rules ⓘ
+     └ hider: answer buttons, Send answer, Veto · Randomize
+
+Cards
+ ├ hand (3 per row), pinned bar: Keep / Cast it / Discard N
+ ├ On the seekers (curses) · Cleared
+ └ History
+
+Hider (hider team) | Stations (seekers, when allowed)
+ ├ station, pin follows GPS, seekers on the map
+ └ pinned: Start the end game | Found it
+
+Menu
+ ├ Game: you + player code, players, share link, settings summary
+ ├ Settings: location, alerts, map
+ └ Help: rules, cards, tutorials
+
+Photos are a question kind: Type picker → Photo → list → Ask.
+A photo request on the hider's phone opens like any question.</pre
+            >
+        </section>
+    </body>
+</html>
