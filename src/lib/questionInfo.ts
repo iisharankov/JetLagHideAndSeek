@@ -195,33 +195,33 @@ export const TYPES: Record<
     tentacles: {
         museum: {
             label: "Museums",
-            rules: { page: TENTACLES, heading: "Museums Within 1 Mile" },
+            rules: { page: TENTACLES, heading: "Museums within 2 km" },
         },
         library: {
             label: "Libraries",
-            rules: { page: TENTACLES, heading: "Libraries Within 1 Mile" },
+            rules: { page: TENTACLES, heading: "Libraries within 2 km" },
         },
         cinema: {
             label: "Movie theaters",
-            rules: { page: TENTACLES, heading: "Movie Theaters Within 1 Mile" },
+            rules: { page: TENTACLES, heading: "Movie Theaters within 2 km" },
         },
         hospital: {
             label: "Hospitals",
-            rules: { page: TENTACLES, heading: "Hospitals Within 1 Mile" },
+            rules: { page: TENTACLES, heading: "Hospitals within 2 km" },
         },
         zoo: {
             label: "Zoos",
-            rules: { page: TENTACLES, heading: "Zoos Within 15 Miles" },
+            rules: { page: TENTACLES, heading: "Zoos within 25 km" },
         },
         aquarium: {
             label: "Aquariums",
-            rules: { page: TENTACLES, heading: "Aquariums Within 15 Miles" },
+            rules: { page: TENTACLES, heading: "Aquariums within 25 km" },
         },
         theme_park: {
             label: "Amusement parks",
             rules: {
                 page: TENTACLES,
-                heading: "Amusement Parks Within 15 Miles",
+                heading: "Amusement Parks within 25 km",
             },
         },
         custom: {

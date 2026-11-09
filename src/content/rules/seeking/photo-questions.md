@@ -22,7 +22,7 @@ Must include the entire tree.
 
 #### Tallest Structure in Your Current Sightline
 
-This is the tallest building from your perspective, not the objectively tallest building. If you can see the Burj Khalifa miles and miles away, but a nearby apartment building is taller from your perspective/sightline, you would send the apartment building.
+This is the tallest building from your perspective, not the objectively tallest building. If you can see the Burj Khalifa kilometres and kilometres away, but a nearby apartment building is taller from your perspective/sightline, you would send the apartment building.
 
 Must include top and both sides. The top must be in the top **⅓** of the frame.
 
@@ -38,7 +38,7 @@ Place phone on ground, shoot directly up using your phone's default lens with no
 
 #### Tallest Building Visible from Transit Station
 
-This is the tallest building from your perspective, not the objectively tallest building. If you can see the Burj Khalifa miles and miles away, but a nearby apartment building is taller from your perspective/sightline, you would send the apartment building.
+This is the tallest building from your perspective, not the objectively tallest building. If you can see the Burj Khalifa kilometres and kilometres away, but a nearby apartment building is taller from your perspective/sightline, you would send the apartment building.
 
 Must stand directly outside a station entrance. If there are multiple entrances, you may choose. Must include roof and both sides, with the top of the building in the top ⅓ of the frame.
 
@@ -84,7 +84,7 @@ As mentioned before, this can be a little tricky to do; we have a few methods. O
 
 #### Tallest Mountain Visible from Transit Station
 
-Tallest from your perspective/sightline. If you could see Mount Everest many many miles away, but another nearby mountain looks taller from your perspective, you would send the nearby mountain.
+Tallest from your perspective/sightline. If you could see Mount Everest many many kilometres away, but another nearby mountain looks taller from your perspective, you would send the nearby mountain.
 
 Max 3x zoom; top of mountain must be in top ⅓ of frame.
 

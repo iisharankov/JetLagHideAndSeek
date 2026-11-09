@@ -72,7 +72,7 @@ We urge players to be reasonable about this. There's a lot of interesting geogra
 
 Anything correctly classified as a park by your mapping app. Measure distance from the map icon.
 
-There's a possibility that measuring to the map icon can lead to strange outcomes–for example, if you are in a very large park but far from the center, you may be several miles from that park's map icon. You might be closer to the icon of a smaller, nearby park. This could mean that you are forced to say that your nearest park is the small one even though you are literally in the bigger park. Nonetheless, measuring to the map icon is the best, most objective way we've found to handle these questions, so we encourge sticking to that system even when it produces these edge case outcomes.
+There's a possibility that measuring to the map icon can lead to strange outcomes–for example, if you are in a very large park but far from the center, you may be several kilometres from that park's map icon. You might be closer to the icon of a smaller, nearby park. This could mean that you are forced to say that your nearest park is the small one even though you are literally in the bigger park. Nonetheless, measuring to the map icon is the best, most objective way we've found to handle these questions, so we encourge sticking to that system even when it produces these edge case outcomes.
 
 ### Places of Interest
 

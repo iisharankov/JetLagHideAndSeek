@@ -1,12 +1,12 @@
 # Known issues
 
-Bugs and debt not fixed yet. Updated 2026-11-09 (round 35). A fixed item leaves this file in the round that fixes it.
+Bugs and debt not fixed yet. Updated 2026-11-09 (round 38). A fixed item leaves this file in the round that fixes it.
 
-## From the game of 2026-11-08 (planned in plans/nov-game-fixes/)
+## From the game of 2026-11-08 (planned in history/plans/nov-game-fixes/)
 
-- **The rules pages are in miles and feet** while the app plays in km. [03-metric-conversion.md](plans/nov-game-fixes/03-metric-conversion.md).
-- **A photo request doesn't show its rules on tap; a randomized question isn't named in Cards → History** ("Randomize Question · played 14:05", nothing more). [07-photo-questions.md](plans/nov-game-fixes/07-photo-questions.md).
-- **Phone layout, the rest of run E** (round 35 built the tab bar, Back and the ask flow): rules behind an **i** (`RuleInfo`), toasts with a full-height ×, 44 px targets in the cards (`cards/base.tsx` icon buttons are 28 px), the **?** mini-tour on the types screen, the tours re-pointed at the tab bar's screens, and the phone project running the game flows (most still skip it). Also: an open card's game bar comes before its fields, so a thermometer draft's Start sits above its chips on a half sheet; Photos is still a tab (the bar has six items, the mock-up five) until run F puts photo requests in the questions list; the tentacle tiles don't yet dim a kind with no places in the play area; the radar's "Asked from" has no Change (the pin is dragged after). [01-mobile-design.md](plans/nov-game-fixes/01-mobile-design.md), [RunE.md](plans/nov-game-fixes/RunE.md).
+- **Phone layout, left after runs E and F** (rounds 35–37): an open card's game bar comes before its fields, so a thermometer draft's Start sits above its chips on a half sheet; the radar's "Asked from" has no Change (the pin is dragged after); a card's header on a phone truncates a long title ("Question 1 · Measuri…") beside its three 44 px buttons; tapping the tab you're on doesn't scroll its list back to the top (the brief's E1); the six two-phone browser tests (roles, location, tutorial) still run on the desktop project only. [01-mobile-design.md](history/plans/nov-game-fixes/01-mobile-design.md).
+- **`vaul` is in package.json but unused since round 37** (the Menu drawer went). Drop it with `pnpm remove vaul`, which rewrites the lockfile too (not run in round 37).
+- **The rules pictures and the printed cards show miles** (`public/rules/img/*.webp`, `public/rules/cards/`), while the texts say km since round 38. Replacing the pictures is the owner's call.
 - **The hider password from before players still works** for one release (round 32; kept in round 33 because Run A's deploy wasn't confirmed, S1): `POST /api/games/<id>/hider`, the `X-Hider-Token` header and `isHider` in `server/src/app.ts` `roleOf`, `hiderTokens` in `session.ts`. It keeps phones that were the hider at deploy time the hider; since round 33 it needs 6 characters and allows 5 wrong tries a minute. Remove once S1 is done and every phone has reloaded.
 
 ## From the audit of 2026-10-17 (round 20)
@@ -92,7 +92,7 @@ Numbering as in [history/audit-2026-10-17.md](history/audit-2026-10-17.md); stat
     `measuring.ts`; `SIZE_INDEX` in `curseRules.ts` and again in `deck.ts`
     and `CardsPanel.tsx`; the question-category labels in `events.ts`,
     `CardsPanel.tsx` and `curseRules.ts`; the "why can't the seekers ask"
-    logic in `QuestionGameBar.tsx`, `PhotosPanel.tsx` and the server's
+    logic in `QuestionGameBar.tsx`, `ask/QuestionTypes.tsx` and the server's
     `assertMayAsk`; `stationOf` (hider.ts) re-trims what `opSchema`'s
     `stationPick` already bounds. One `askRefusal(state, kind, now)` in
     `lib/game` would serve the three panels and the server.

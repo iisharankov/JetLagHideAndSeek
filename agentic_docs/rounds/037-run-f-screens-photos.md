@@ -1,0 +1,33 @@
+# Round 37, 2026-11-09: Run F, the Hider tab as rows, the hider's answer screen, photo questions, the Menu as a tab
+
+Model: Opus 5.5. Budget: "go", overnight (continues round 36).
+
+Asked: (as round 36) "…and also do all of Round F…"
+
+Answers used: Q55 "Looks good" (below). Not answered, not built: Q48.
+
+Did:
+- **F1, the Hider tab as rows** (`HiderPanel.tsx`, `ui/row.tsx`): Your station (zone, "set for this round"), Pin follows GPS (On/Off), Seekers on the map (who and when; a pushed screen whose rows fly the map to each), Show all stations left, Show my pin, and last, with a red border, **Start the end game**: a confirm ("Start the end game? The seekers see your zone…"), then "Starting the end game… Undo" for 5 s before anything is sent (`lib/game/delayed.ts`, `startEndgameSoon` in `endgame.ts`). The choosing view's Done is pinned at the bottom.
+- **F2, the hider's answer screen** (`QuestionGameBar.tsx`): no blue bar; "Asked by Ana · just now · from your station, Zürich HB, 2.1 km away"; the timer a plain pill; "The app suggests **Yes**."; the choices as big buttons two a row (tentacle places as a list, no dropdown); "You draw 2, keep 1" with ×2; **Send answer** pinned; **Veto** and **Randomize** side by side, greyed with "(no card in hand)" or "(not a thermometer)", each confirmed with the card's face (`PlayCardConfirm.tsx`) instead of the browser's confirm. A short buzz on Send.
+- **F3, photo questions** (`game/PhotoRequests.tsx`, `PhotosPanel.tsx` deleted): rows under the questions (Waiting / Send it / Sent / Can't be answered, Randomized); a row pushes the photo question's screen (`pushedScreen` in `lib/screens.ts`): the rule, "Time to send: 10 minutes (medium game)" with its countdown, what it earns, the randomized line ("was Tallest building at 14:48"), the photo; for the hider **Take a photo** (camera), **From the gallery** when the game allows (`settings.galleryPhotos`, a setup switch, off by default), **I cannot answer** (new op `photoNullAnswer`: earns the draw, tells the seekers) and **Randomize**. Server: a photo past its time is a late answer (`photoAnswered` in `rules/questions.ts`); Randomize Question writes what changed (`PowerupEntry.detail`, "Radar 5 km → Radar 15 km", "Photo: Tree → …"), shown in Cards → History and the seekers' popup. Photos without a question fold away under the photo questions ("Other photos").
+- **F4, Cards and Menu in the shell:** the tab bar is Map · Questions · Cards · Stations or Hider · Menu (the Photos tab gone; the hider's Questions count includes waiting photos). The Menu is a sidebar tab on both phone and desktop (`MenuScreen.tsx`: Game, Settings, Help, Admin; full height on a phone; Escape closes it); the vaul drawer is gone (`OptionDrawers.tsx` → `GameDialogs.tsx` with the dialogs and the desktop's Menu button; `ui/drawer.tsx` deleted). The hand bar already sat above the tab bar (no change).
+- **F5, tours and tests:** the tours' last step points at Menu → Help; the seeker's sidebar step speaks of the bar; the pin step names **Pin follows GPS**; `e2e/menu.ts` (open and close the Menu tab) replaces each spec's drawer helpers; `e2e/photos.spec.ts` (new: a row opens its rule and time, the hider sends from the camera, can't answer one, randomizes one, the seekers see the popup, the badge and the history's detail; with the gallery allowed, two inputs); `roles.spec.ts` walks the confirm, the countdown and Undo (the test seam: localStorage `endgameDelayMs`).
+- **Tests first:** server `photoNullAnswer`, late photos and the history detail (4, seen failing), `tests/delayed.test.ts` (3, seen failing), the pushed screen (2, seen failing), the tab order (2, seen failing), the gallery setting (seen failing), the "can't answer" event (seen failing); `photoTimeLeft` was written with the server change and tested right after.
+- **Docs:** `docs/architecture.md` (the Menu tab, photo questions, the answer screen, the end game's 5 s), decisions, known-issues (the photo entry gone), notes (the drawer trap replaced).
+
+Answered items:
+
+**Q55. Photos from the gallery.** A game setting, "Hiders may send photos from the gallery", gives the hider two buttons, "Camera" and "Gallery". The rulebook means a photo taken when asked, so the suggestion is off by default and the organiser turns it on in setup. (asked 2026-11-09)
+
+> **Answer:** Looks good
+
+Built: the setup switch (off by default), **Take a photo** and **From the gallery** on the photo question's screen when it's on.
+
+Changed from the brief: photo questions became rows under the questions and the Photos tab went (principle 1's five tabs; the brief kept a Photos list); the Menu button opens the Menu but doesn't close it; Veto and Randomize are shown greyed rather than hidden; "Other photos" may come from the gallery (they aren't answers).
+
+Found on the way, in the screenshots (phone 390×844 and desktop): at half height the answer screen's pinned Send covered Yes/No and the photo screen's header scrolled away (the sheet now goes full height for a question to answer and for pushed screens); the answer buttons came out 44 px, not 64 (the phones' minimum won); the hiding zone read "0.5 km" (now "500 m"); in the desktop's narrower sidebar "Questions & cards" and "Setting up" overflowed their buttons (they wrap now). Also a toast over a phone's sheet, with the test's pointer on it, never closed (pause on hover): the photo helper closes toasts first. The desktop's sidebar button read "Menu" on the Menu tab, a second button of that name (it says "Sidebar" there now).
+
+Checked (rounds 37 and 38 together, one working tree, after the last change): lint and types clean; vitest 518 passed (71 files); build and build:server; Playwright 87 passed, 7 skipped (the six two-phone tests on the phone, the tab-bar test on the desktop). An earlier full run of round 37 alone had 9 failures, all in the tests (the drawer helpers, a toast left open by hover, a card left open, a second "Menu" button), fixed before. Screenshots looked at, phone and desktop: the toast, the hider's answer screen, a photo question with Take a photo / From the gallery, the questions list with its photo rows, the Hider tab and its confirm, Cards, the Menu (Game, Help), the join screen. Not checked: a real phone, Android's own Back, a real camera or gallery picker.
+Root-run and security files: `server/src/opSchema.ts` gains one op (`photoNullAnswer`, an id), hider only in `gameOps.ts`; no change to `app.ts` or `codes.ts`.
+Decisions: decisions.md, round 37. Questions added: none.
+Commit message: Round 37: Run F, the Hider tab as rows with the end game's 5 s undo, the hider's answer screen, photo questions in the list with I cannot answer and the gallery setting, the Menu as a tab

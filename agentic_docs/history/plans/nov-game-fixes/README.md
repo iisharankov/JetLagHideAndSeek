@@ -1,5 +1,7 @@
 # November game fixes
 
+> **Built** in rounds 32–38 (runs A–G), 2026-11-09; moved here from `plans/` in round 38. What's left is in `../../../known-issues.md` ("Phone layout, left after runs E and F").
+
 Inputs from the trial game in Zürich (zone 110, 8 November 2026), worked
 into a plan for the next agent runs; revised 2026-11-09 (round 30) from the
 owner's answers and comments on every mock-up. Everything about this batch lives in

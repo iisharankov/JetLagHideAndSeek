@@ -34,7 +34,7 @@ export const CardHistory = ({
         (hiderReadyAt ? 1 : 0);
     return (
         <details className="rounded-md border border-slate-700 p-2">
-            <summary className="cursor-pointer font-semibold font-poppins">
+            <summary className="flex min-h-11 cursor-pointer items-center font-semibold font-poppins">
                 History ({history})
             </summary>
             <div className="mt-2 flex flex-col gap-2 text-xs">
@@ -68,6 +68,11 @@ export const CardHistory = ({
                                 {clockTime(entry.playedAt)}
                                 {entry.by && ` by ${entry.by}`}
                             </p>
+                            {entry.detail && (
+                                <p data-testid="powerup-detail">
+                                    {entry.detail}
+                                </p>
+                            )}
                             {powerup && (
                                 <p className="text-slate-300">
                                     <CardText

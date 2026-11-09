@@ -513,6 +513,14 @@ export const GameSetupDialog = ({
                                     update({ latePenalty })
                                 }
                             />
+                            <ToggleCard
+                                title="Hiders may send photos from the gallery"
+                                description="Off: a photo question is answered with the camera, a photo taken when asked. On: the hider may also pick one from the phone's gallery."
+                                checked={draft.galleryPhotos}
+                                onCheckedChange={(galleryPhotos) =>
+                                    update({ galleryPhotos })
+                                }
+                            />
                             <Label>Tentacle distances (km)</Label>
                             <div className="grid grid-cols-2 gap-2">
                                 <label className="flex flex-col gap-1 text-xs">

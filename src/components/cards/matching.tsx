@@ -121,8 +121,7 @@ export const MatchingQuestionComponent = ({
                     {data.type === "letter-zone" && (
                         <span className="px-2 text-center text-orange-500">
                             Warning: The zone data has been simplified by
-                            &plusmn;360 feet (100 meters) in order for the
-                            browser to not crash.
+                            &plusmn;100 m in order for the browser to not crash.
                         </span>
                     )}
                 </>

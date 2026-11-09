@@ -133,9 +133,27 @@ test("seekers who can't see the stations: the hider starts the end game", async 
         .click({ timeout: 30_000 });
     await ben.getByTestId("hider-done").click();
 
-    // The seekers reach the zone: Ben says so.
-    ben.once("dialog", (dialog) => void dialog.accept());
-    await ben.getByRole("button", { name: "Start the end game" }).click();
+    // The seekers reach the zone: Ben says so. It asks first, then waits
+    // (the test seam makes it 1.5 s instead of 5) with an Undo.
+    await ben.evaluate(() => localStorage.setItem("endgameDelayMs", "1500"));
+    await ben.getByTestId("hider-start-endgame").click();
+    await ben.getByRole("button", { name: "Cancel" }).click();
+    await expect(ben.getByTestId("endgame-countdown")).toHaveCount(0);
+    await ben.getByTestId("hider-start-endgame").click();
+    await ben.getByRole("button", { name: "Start it" }).click();
+    const countdown = ben.getByTestId("endgame-countdown");
+    await expect(countdown).toContainText("Starting the end game");
+    // Undo: nothing is sent.
+    await countdown.getByRole("button", { name: "Undo" }).click();
+    await expect(countdown).toHaveCount(0);
+    await ben.waitForTimeout(2000);
+    await expect(ben.getByTestId("hider-endgame")).toHaveCount(0);
+    await expect(
+        ana.getByText(/The hider says you're in their zone/),
+    ).toHaveCount(0);
+    // For real this time.
+    await ben.getByTestId("hider-start-endgame").click();
+    await ben.getByRole("button", { name: "Start it" }).click();
     await expect(ben.getByTestId("hider-endgame")).toContainText(
         "You started it",
     );
@@ -260,10 +278,10 @@ test("a second phone of the hiding team gets the station, not the pick; only one
     await expect(dan.getByTestId("station-locked")).toBeVisible();
     expect(await readyAt()).toBe(placedAt);
 
-    // Both turn on "Move my pin with GPS": the one turned on last drives
+    // Both turn on "Pin follows GPS": the one turned on last drives
     // the pin, the other gives way within half a minute.
     const follow = (page: Page) =>
-        page.getByRole("switch", { name: /^Move my pin with GPS/ });
+        page.getByRole("switch", { name: /^Pin follows GPS/ });
     await follow(ben).click();
     await expect(ben.getByTestId("pin-driver")).toHaveText(
         "The pin follows this phone.",

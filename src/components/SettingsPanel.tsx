@@ -9,7 +9,6 @@ import {
     baseTileLayer,
     customInitPreference,
     defaultCustomQuestions,
-    defaultUnit,
     draftsOnMap,
     followMe,
     leafletMapContext,
@@ -32,12 +31,10 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
 import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
-import { UnitSelect } from "./UnitSelect";
 
 /** Menu → Settings: how this phone shows the game. */
 export const SettingsPanel = () => {
     const $defaultCustomQuestions = useStore(defaultCustomQuestions);
-    const $defaultUnit = useStore(defaultUnit);
     const $regionChoice = useStore(regionChoice);
     const $animateMapMovements = useStore(animateMapMovements);
     const $autoZoom = useStore(autoZoom);
@@ -89,11 +86,6 @@ export const SettingsPanel = () => {
                         the lake shore question is added. German rules: the same
                         with cities of a million.
                     </p>
-                    <Label>Default unit</Label>
-                    <UnitSelect
-                        unit={$defaultUnit}
-                        onChange={defaultUnit.set}
-                    />
                 </MenuGroup>
                 <MenuGroup title="Map">
                     <Label>Reference places</Label>

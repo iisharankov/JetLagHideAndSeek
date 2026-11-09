@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { coachMark } from "@/lib/coachMark";
-import { menuOpen, sidebarTab } from "@/lib/context";
+import { sidebarTab } from "@/lib/context";
 import { enablePush, pushSupported } from "@/lib/game/alerts";
 import { knownGames } from "@/lib/game/knownGames";
 import { activePlayers, parseCode } from "@/lib/game/players";
@@ -47,7 +47,6 @@ const pointAtStationPick = () => {
 
 /** Opens the sidebar (the sheet, on a phone) on the Hider tab. */
 const showHiderTab = () => {
-    menuOpen.set(false);
     sidebarTab.set("stations");
     const sidebar = SidebarContext.get();
     if (sidebar.isMobile) sidebar.setOpenMobile(true);

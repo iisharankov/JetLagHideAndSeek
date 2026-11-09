@@ -13,7 +13,7 @@ const base = {
 };
 
 describe("the tab bar's sections", () => {
-    it("are Questions, Stations, Photos and Cards for a seeker, with counts", () => {
+    it("are Questions, Cards and Stations for a seeker, with counts (photos are questions)", () => {
         const sections = sidebarSections({
             ...base,
             waitingPhotos: 1,
@@ -21,9 +21,8 @@ describe("the tab bar's sections", () => {
         });
         expect(sections.map(sectionLabel)).toEqual([
             "Questions",
-            "Stations",
-            "Photos (1)",
             "Cards (2)",
+            "Stations",
         ]);
         // No Stations when the game keeps them to the hider.
         expect(
@@ -40,10 +39,15 @@ describe("the tab bar's sections", () => {
                 research: 2,
             }).map(sectionLabel),
         ).toEqual(["Hider", "Research (2)"]);
+        // The hider's Questions count what waits for an answer: questions
+        // and photos.
         expect(
-            sidebarSections({ ...base, hider: true, waitingQuestions: 3 }).map(
-                sectionLabel,
-            ),
-        ).toEqual(["Questions (3)", "Hider", "Photos", "Cards"]);
+            sidebarSections({
+                ...base,
+                hider: true,
+                waitingQuestions: 3,
+                waitingPhotos: 1,
+            }).map(sectionLabel),
+        ).toEqual(["Questions (4)", "Cards", "Hider"]);
     });
 });

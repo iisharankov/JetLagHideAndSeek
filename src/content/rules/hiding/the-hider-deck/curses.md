@@ -6,7 +6,7 @@ section: hiding
 
 Curse cards are played against the seekers as a means to slow them down, prevent them from asking questions, or just to annoy them. Every curse is unique, and has some kind of one-time effect on the seekers that lasts for a certain duration; much like powerups, once a curse has been used, it is then discarded and removed from your hand.
 
-Curses cannot necessarily be played at any time; each curse has a **casting cost** that must be met before it can be played. In some cases, these casting costs are resources that must be paid by the hider, such as discarding other cards in your hand. In other cases, these casting costs reference certain conditions of the game, such as requiring that seekers are at least 10 miles away (You may notice that, on the cards, these casting costs are sometimes different for different game sizes, which will be indicated by the game size icons next to each cost.)
+Curses cannot necessarily be played at any time; each curse has a **casting cost** that must be met before it can be played. In some cases, these casting costs are resources that must be paid by the hider, such as discarding other cards in your hand. In other cases, these casting costs reference certain conditions of the game, such as requiring that seekers are at least 15 km away (You may notice that, on the cards, these casting costs are sometimes different for different game sizes, which will be indicated by the game size icons next to each cost.)
 
 You may play multiple curses at once, **but there cannot be more than one active curse preventing the seekers from asking questions or taking transit**. If a curse is actively preventing the seekers from asking questions or taking transit, you must wait for the curse to be cleared before you can play another curse. In these cases, the seekers must inform you once they have cleared a curse.
 
@@ -26,7 +26,7 @@ This curse may be used (and its price paid) during the time interval between a q
 
 ### Curse of the Water Weight
 
-Any liquid already traveling with the seekers at the time that this card is played (e.g. water bottles) does not count. The liquid can be in any number of containers, and can be passed back and forth between the seekers at any time. The liquid can be sat down when the seekers are stationary or on transit, but it is considered "abandoned" once it is no longer within 10 feet of any seeker. The hider must be informed of their bonus immediately. "Body of water" within this context does not necessarily mean natural, but it cannot be a pool and must be large enough to be marked on the map.
+Any liquid already traveling with the seekers at the time that this card is played (e.g. water bottles) does not count. The liquid can be in any number of containers, and can be passed back and forth between the seekers at any time. The liquid can be sat down when the seekers are stationary or on transit, but it is considered "abandoned" once it is no longer within 3 m of any seeker. The hider must be informed of their bonus immediately. "Body of water" within this context does not necessarily mean natural, but it cannot be a pool and must be large enough to be marked on the map.
 
 ### Curse of the Zoologist
 
@@ -54,7 +54,7 @@ The human-built structure in question cannot be any part of a road, including cu
 
 ### Curse of the Ransom Note
 
-You cannot begin fulfilling the casting cost of this curse if you would be otherwise unable to play a curse; once the cost is fulfilled, this curse must be cast immediately. The printed material cannot be printed by the seekers; the letters should be gathered from magazines, newspapers, or any other material that the seekers encounter in the wild. "Coherence" in this context does not necessarily mean complete sentences, but the hider should be able to discern the meaning of the question without further clarification. You may use easy-to-understand abbreviations for certain words (such as "2" instead of "to.") If the question requires additional context outside of the basic sentence itself, this context does NOT need to be provided in the form of a ransom note. For example, if you are asking a thermometer question, you can simply ask something along the lines of, "Went 5 miles. Hotter/colder?" Any information about where you started and ended the thermometer can be provided as normal, in the form of a location pin or text.
+You cannot begin fulfilling the casting cost of this curse if you would be otherwise unable to play a curse; once the cost is fulfilled, this curse must be cast immediately. The printed material cannot be printed by the seekers; the letters should be gathered from magazines, newspapers, or any other material that the seekers encounter in the wild. "Coherence" in this context does not necessarily mean complete sentences, but the hider should be able to discern the meaning of the question without further clarification. You may use easy-to-understand abbreviations for certain words (such as "2" instead of "to.") If the question requires additional context outside of the basic sentence itself, this context does NOT need to be provided in the form of a ransom note. For example, if you are asking a thermometer question, you can simply ask something along the lines of, "Went 10 km. Hotter/colder?" Any information about where you started and ended the thermometer can be provided as normal, in the form of a location pin or text.
 
 ### Curse of the Mediocre Travel Agent
 
@@ -90,7 +90,7 @@ The chosen five-letter word must be a real word, found in a dictionary, in the l
 
 ### Curse of the Endless Tumble
 
-100 feet is measured parallel to the ground. The die can, and likely should, be rolled on an inclined surface. If the die is lost or does not land cleanly on one side, it cannot be counted. Any bonuses awarded to the hider should be delivered immediately.
+30 meters is measured parallel to the ground. The die can, and likely should, be rolled on an inclined surface. If the die is lost or does not land cleanly on one side, it cannot be counted. Any bonuses awarded to the hider should be delivered immediately.
 
 ### Curse of the Right Turn
 

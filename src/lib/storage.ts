@@ -1,3 +1,4 @@
+import { metricQuestion } from "@/lib/metric";
 import { type Questions, questionsSchema } from "@/maps/schema";
 
 export const UNREADABLE_QUESTIONS_KEY = "questions-unreadable-backup";
@@ -20,7 +21,10 @@ export const decodeStoredQuestions = (
     backup: (raw: string) => void = backupToLocalStorage,
 ): Questions => {
     try {
-        const result = questionsSchema.safeParse(JSON.parse(raw));
+        const saved = JSON.parse(raw);
+        const result = questionsSchema.safeParse(
+            Array.isArray(saved) ? saved.map(metricQuestion) : saved,
+        );
         if (result.success) return result.data;
     } catch {
         // Not JSON; fall through to the backup.

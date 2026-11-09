@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { menuOpen, placeReview, setupDialog } from "@/lib/context";
+import { placeReview, setupDialog } from "@/lib/context";
 import {
     localRejections,
     rejectedPlacesByArea,
@@ -15,6 +15,8 @@ import {
     REVIEW_KINDS,
     reviewKindLabel,
 } from "@/maps/questions/places";
+
+import { openMenu } from "./MenuScreen";
 
 /**
  * Reviewing the map's places before a game, over the map: every zoo, park,
@@ -33,7 +35,7 @@ export const PlaceReviewBar = ({ className }: { className?: string }) => {
 
     const done = () => {
         placeReview.set(null);
-        if ($review.back === "settings") menuOpen.set(true);
+        if ($review.back === "settings") openMenu("settings");
         else setupDialog.set($review.back);
     };
 

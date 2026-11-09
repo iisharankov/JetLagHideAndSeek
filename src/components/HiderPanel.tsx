@@ -1,6 +1,20 @@
 import { useStore } from "@nanostores/react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 
+import { ScreenHeader } from "@/components/ask/QuestionTypes";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Row, SwitchRow } from "@/components/ui/row";
+import { SidebarContext } from "@/components/ui/sidebar-l";
 import { useTick } from "@/hooks/useTick";
 import {
     endgame,
@@ -8,10 +22,18 @@ import {
     hidingRadius,
     hidingRadiusUnits,
     isLoading,
+    leafletMapContext,
     trainStations,
 } from "@/lib/context";
+import { ago } from "@/lib/format";
 import { formatDuration } from "@/lib/game/clock";
-import { endEndgame, startEndgame } from "@/lib/game/endgame";
+import {
+    endEndgame,
+    pendingEndgame,
+    startEndgameSoon,
+    undoEndgameSoon,
+} from "@/lib/game/endgame";
+import { seekerPositions } from "@/lib/game/positions";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameState, myPlayerId, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
@@ -27,6 +49,7 @@ import {
     setHiderPin,
     showHiderPin,
 } from "@/lib/hiderSpot";
+import { pushedScreen, pushScreen } from "@/lib/screens";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
 import {
@@ -37,7 +60,6 @@ import {
 } from "@/maps/hidingZoneLayer";
 
 import { Button } from "./ui/button";
-import { ToggleCard } from "./ui/toggle-card";
 
 const label = (station: StationCircle) =>
     extractStationLabel(station.properties) as string;
@@ -61,12 +83,17 @@ export const HiderPanel = () => {
     const $me = useStore(myPlayerId);
     useTick(!!$game?.move);
     const $isLoading = useStore(isLoading);
+    const $screen = useStore(pushedScreen);
+    const $positions = useStore(seekerPositions);
+    const $pendingEndgame = useStore(pendingEndgame);
+    const [confirmEndgame, setConfirmEndgame] = useState(false);
     const $hidingRadius = useStore(hidingRadius);
     const $hidingRadiusUnits = useStore(hidingRadiusUnits);
     const stations = useStore(trainStations);
-    const radius = `${$hidingRadius} ${
-        $hidingRadiusUnits === "kilometers" ? "km" : $hidingRadiusUnits
-    }`;
+    const radiusKm =
+        $hidingRadiusUnits === "meters" ? $hidingRadius / 1000 : $hidingRadius;
+    const radius =
+        radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
 
     // Picking: with no station yet, or changing it alone or during a Move.
     // In a shared game the station is set for the round once the clock
@@ -98,26 +125,6 @@ export const HiderPanel = () => {
                         make it yours)
                     </p>
                 )}
-                <Button
-                    disabled={!$pending}
-                    onClick={() => {
-                        // Confirmed: the seekers hear that the hider is in
-                        // place (not where), and the clock starts.
-                        const station = confirmHiderStation();
-                        if (!station) return;
-                        hiderChoosing.set(false);
-                        goToPick(station);
-                        if ($game) {
-                            void sendOp({ type: "hiderReady", station });
-                        }
-                        toast.success(
-                            `Your station is ${station.name}. The red circle is your hiding zone.`,
-                        );
-                    }}
-                    data-testid="hider-done"
-                >
-                    Done
-                </Button>
                 {stations.length === 0 && (
                     <p className="text-xs text-slate-400">
                         {$isLoading
@@ -152,9 +159,42 @@ export const HiderPanel = () => {
                         </li>
                     ))}
                 </ul>
+                <div className="sticky bottom-0 bg-sidebar py-2">
+                    <Button
+                        className="h-12 w-full text-base font-semibold"
+                        disabled={!$pending}
+                        onClick={() => {
+                            // Confirmed: the seekers hear that the hider is in
+                            // place (not where), and the clock starts.
+                            const station = confirmHiderStation();
+                            if (!station) return;
+                            hiderChoosing.set(false);
+                            goToPick(station);
+                            if ($game) {
+                                void sendOp({ type: "hiderReady", station });
+                            }
+                            toast.success(
+                                `Your station is ${station.name}. The red circle is your hiding zone.`,
+                            );
+                        }}
+                        data-testid="hider-done"
+                    >
+                        Done
+                    </Button>
+                </div>
             </div>
         );
     }
+
+    if ($screen?.kind === "seekers") return <SeekersScreen />;
+
+    const seekers = $positions.filter((p) => p.name);
+    const seekersLine =
+        seekers.length === 0
+            ? "None sharing their location yet"
+            : seekers
+                  .map((p) => `${p.name} · ${ago(p.at, serverNow())}`)
+                  .join(", ");
 
     return (
         <div
@@ -184,30 +224,17 @@ export const HiderPanel = () => {
                     </Button>
                 </section>
             )}
-            <section className="rounded-md border border-red-500/60 p-2">
-                <p data-testid="hider-station">
-                    Your station: <strong>{$chosen.name}</strong>. The red
-                    circle ({radius}) is your hiding zone.
+            {$pinLocked && (
+                <p
+                    className="rounded-md border border-amber-500/60 bg-amber-950/30 p-2 text-xs"
+                    data-testid="pin-locked"
+                >
+                    <strong>Your pin is fixed.</strong> The end game is on at
+                    your station: the seekers must find you exactly where the
+                    pin is.
                 </p>
-                {!$game || $game.move ? (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-1"
-                        onClick={() => hiderChoosing.set(true)}
-                    >
-                        Change station
-                    </Button>
-                ) : (
-                    <p
-                        className="mt-1 text-xs text-slate-400"
-                        data-testid="station-locked"
-                    >
-                        Set for this round: only playing Move changes it.
-                    </p>
-                )}
-            </section>
-            {$endgame ? (
+            )}
+            {$endgame && (
                 <section
                     className="rounded-md border border-amber-500/60 bg-amber-950/30 p-2"
                     data-testid="hider-endgame"
@@ -243,59 +270,101 @@ export const HiderPanel = () => {
                         </Button>
                     )}
                 </section>
-            ) : (
-                <section
-                    className="flex flex-col gap-1 rounded-md border border-slate-600 p-2 text-xs"
-                    data-testid="hider-start-endgame"
-                >
-                    <p className="text-slate-300">
-                        Answers come from your station until the end game, then
-                        from your pin. The end game starts when the seekers are
-                        in your zone and off transport: tell them, and tap
-                        below.
-                    </p>
-                    {$game && (
+            )}
+            <Row
+                icon="🚉"
+                title={
+                    <span data-testid="hider-station">
+                        Your station: <strong>{$chosen.name}</strong>
+                    </span>
+                }
+                sub={
+                    !$game || $game.move ? (
+                        `${radius} zone`
+                    ) : (
+                        <span data-testid="station-locked">
+                            {radius} zone · set for this round (only Move
+                            changes it)
+                        </span>
+                    )
+                }
+                right={
+                    !$game || $game.move ? (
                         <Button
                             size="sm"
                             variant="outline"
-                            className="self-start"
-                            onClick={() => {
-                                if (
-                                    window.confirm(
-                                        "Start the end game? The seekers are in your zone and off transport: you stay where you are, and your pin is fixed.",
-                                    )
-                                ) {
-                                    startEndgame($chosen);
-                                }
-                            }}
+                            onClick={() => hiderChoosing.set(true)}
                         >
-                            Start the end game
+                            Change
                         </Button>
-                    )}
-                </section>
+                    ) : undefined
+                }
+            />
+            {!$pinLocked && (
+                <SwitchRow
+                    icon="📍"
+                    title="Pin follows GPS"
+                    sub="Inside your zone, while this app is open. It matters from the end game on: keep it on."
+                    checked={$pinFollows}
+                    onCheckedChange={(on) => {
+                        if (on) showHiderPin.set(true);
+                        pinFollowsGps.set(on);
+                    }}
+                    tutorialId="pin-follows-gps"
+                />
             )}
-            <ToggleCard
+            {$game && driver && !$pinLocked && (
+                <p
+                    className={
+                        driverName && $pinFollows
+                            ? "px-1 text-xs text-amber-300"
+                            : "px-1 text-xs text-slate-400"
+                    }
+                    data-testid="pin-driver"
+                >
+                    {driverName
+                        ? $pinFollows
+                            ? `${driverName}'s phone is moving the pin: this one stops following in half a minute.`
+                            : `${driverName}'s phone moved the pin last.`
+                        : $pinFollows
+                          ? "The pin follows this phone."
+                          : "This phone moved the pin last."}
+                </p>
+            )}
+            {$pinFollows && $atEdge && !$pinLocked && (
+                <p
+                    className="px-1 text-xs text-amber-300"
+                    data-testid="pin-at-edge"
+                >
+                    You&apos;re outside your zone: the pin waits at its edge.
+                </p>
+            )}
+            {$game && (
+                <Row
+                    icon="👀"
+                    title="Seekers on the map"
+                    sub={seekersLine}
+                    chevron
+                    onClick={() =>
+                        pushScreen({ tab: "stations", kind: "seekers" })
+                    }
+                    data-testid="hider-seekers"
+                />
+            )}
+            <SwitchRow
+                icon="🗺️"
                 title="Show all stations left"
-                description="What the seekers see: every station the answers haven't ruled out."
+                sub="What the seekers see: every station the answers haven't ruled out."
                 checked={$showAll}
                 onCheckedChange={hiderShowAll.set}
             />
-            {$pinLocked && (
-                <p
-                    className="rounded-md border border-amber-500/60 bg-amber-950/30 p-2 text-xs"
-                    data-testid="pin-locked"
-                >
-                    <strong>Your pin is fixed.</strong> The end game is on at
-                    your station: the seekers must find you exactly where the
-                    pin is.
-                </p>
-            )}
-            <ToggleCard
+            <SwitchRow
+                icon="📌"
                 title="Show my pin"
-                description={
+                sub={
                     $pinLocked
                         ? "Where you must be found."
-                        : "Where you really are. It stays inside your zone; drag it, or use GPS below. Keep it right as the seekers close in: once they start the end game at your station it can't move."
+                        : "Where you really are, inside your zone. Drag it, or use GPS."
                 }
                 checked={$showPin}
                 onCheckedChange={showHiderPin.set}
@@ -344,44 +413,113 @@ export const HiderPanel = () => {
                     </Button>
                 </div>
             )}
-            {$showPin && !$pinLocked && (
-                <ToggleCard
-                    title="Move my pin with GPS"
-                    description="The pin follows you while this app is open, inside your zone. It matters from the end game on: keep it on, and your pin is where you are when it starts."
-                    checked={$pinFollows}
-                    onCheckedChange={pinFollowsGps.set}
-                    tutorialId="pin-follows-gps"
+            <p className="px-1 text-xs text-slate-400">
+                Answers come from your station until the end game, then from
+                your pin.
+            </p>
+            {!$endgame && $game && (
+                <Row
+                    icon="🏁"
+                    title="Start the end game"
+                    sub="Seekers in your zone, off transport · confirm, then 5 s to undo"
+                    chevron
+                    className="border-red-500/70"
+                    onClick={() => setConfirmEndgame(true)}
+                    data-testid="hider-start-endgame"
                 />
             )}
-            {$game && driver && !$pinLocked && (
-                <p
-                    className={
-                        driverName && $pinFollows
-                            ? "text-xs text-amber-300"
-                            : "text-xs text-slate-400"
-                    }
-                    data-testid="pin-driver"
-                >
-                    {driverName
-                        ? $pinFollows
-                            ? `${driverName}'s phone is moving the pin: this one stops following in half a minute.`
-                            : `${driverName}'s phone moved the pin last.`
-                        : $pinFollows
-                          ? "The pin follows this phone."
-                          : "This phone moved the pin last."}
-                </p>
-            )}
-            {$pinFollows && $atEdge && !$pinLocked && (
-                <p className="text-xs text-amber-300" data-testid="pin-at-edge">
-                    You&apos;re outside your zone: the pin waits at its edge.
-                </p>
-            )}
             {!$game && (
-                <p className="text-xs text-slate-400">
+                <p className="px-1 text-xs text-slate-400">
                     Playing alone: the seekers&apos; pick (Stations tab on their
                     phones) starts the end game in a shared game.
                 </p>
             )}
+            <AlertDialog open={confirmEndgame} onOpenChange={setConfirmEndgame}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Start the end game?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            The seekers see your zone. Only when they are in it
+                            and off transport: you stay where you are, and your
+                            pin is fixed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => startEndgameSoon($chosen)}
+                        >
+                            Start it
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            {$pendingEndgame && <EndgameCountdown />}
+        </div>
+    );
+};
+
+/** "Starting the end game… 4 · Undo": the 5 s before it's sent. */
+const EndgameCountdown = () => {
+    const pending = useStore(pendingEndgame);
+    useTick(!!pending, 250);
+    if (!pending) return null;
+    const left = Math.max(0, Math.ceil((pending.endsAt - Date.now()) / 1000));
+    return (
+        <div
+            className="sticky bottom-0 flex items-center gap-2 rounded-xl border border-amber-500 bg-amber-950 p-3 text-amber-100"
+            role="status"
+            data-testid="endgame-countdown"
+        >
+            <span className="flex-1">
+                Starting the end game… <strong>{left}</strong>
+            </span>
+            <Button variant="outline" onClick={undoEndgameSoon}>
+                Undo
+            </Button>
+        </div>
+    );
+};
+
+/** Hider → Seekers on the map: who, when last heard, and where. */
+const SeekersScreen = () => {
+    const positions = useStore(seekerPositions);
+    const { isMobile, setOpenMobile } = useStore(SidebarContext);
+    useTick(true, 15_000);
+    return (
+        <div className="flex flex-col gap-2 pb-3" data-testid="seekers-screen">
+            <ScreenHeader title="Seekers on the map" />
+            {positions.length === 0 && (
+                <p className="px-3 text-sm text-slate-400">
+                    No seeker shares their location yet. They turn on Follow me
+                    (GPS) in the Menu, under Settings.
+                </p>
+            )}
+            <ul className="flex flex-col gap-2 px-2">
+                {positions.map((position) => (
+                    <li key={position.playerId}>
+                        <Row
+                            icon="🧭"
+                            title={position.name}
+                            sub={`${ago(position.at, serverNow())}${
+                                position.accuracy
+                                    ? ` · ±${Math.round(position.accuracy)} m`
+                                    : ""
+                            }`}
+                            chevron
+                            onClick={() => {
+                                leafletMapContext
+                                    .get()
+                                    ?.flyTo(
+                                        [position.latitude, position.longitude],
+                                        15,
+                                    );
+                                if (isMobile) setOpenMobile(false);
+                            }}
+                        />
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 };

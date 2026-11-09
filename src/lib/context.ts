@@ -9,6 +9,7 @@ import {
 } from "@/lib/game/settings";
 import type { Endgame, GameSettings } from "@/lib/game/types";
 import { createBusyTracker } from "@/lib/jobs";
+import { metricQuestion } from "@/lib/metric";
 import { persistentAtom } from "@/lib/persist";
 import { decodeStoredQuestions } from "@/lib/storage";
 import type {
@@ -101,7 +102,7 @@ export const questions = persistentAtom<Questions>("questions", [], {
     decode: decodeStoredQuestions,
 });
 export const addQuestion = (question: DeepPartial<Question>) => {
-    const parsed = questionSchema.parse(question);
+    const parsed = questionSchema.parse(metricQuestion(question));
     activeQuestionKey.set(parsed.key);
     questions.set([...questions.get(), parsed]);
     // A new question is to be set up: it opens.
@@ -167,7 +168,6 @@ export const clearQuestions = () => {
 
 export const leafletMapContext = atom<Map | null>(null);
 
-export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
 export const hiderMode = persistentAtom<
     | false
     | {
@@ -244,16 +244,15 @@ export const highlightedStation = atom<string>("");
 export type SidebarTab =
     | "questions"
     | "stations"
-    | "photos"
     | "curses"
     /** The hider's own probing questions, before the station is set. */
-    | "research";
+    | "research"
+    /** The Menu (MenuScreen.tsx): opened from the tab bar or the desktop's button. */
+    | "menu";
 export const sidebarTab = atom<SidebarTab>("questions");
 
-/** The Menu drawer is open… */
-export const menuOpen = atom<boolean>(false);
-export type MenuTab = "game" | "settings" | "admin";
-/** …on this tab. */
+export type MenuTab = "game" | "settings" | "help" | "admin";
+/** The Menu's section. */
 export const menuTab = atom<MenuTab>("game");
 /** On a phone, the bottom sheet covers this much of the map (px): zooming keeps clear of it. */
 export const mapBottomInset = atom<number>(0);
@@ -311,6 +310,12 @@ export const hidingRadiusUnits = persistentAtom<Units>(
         decode: JSON.parse,
     },
 );
+// Metric only since round 38: a radius this phone saved in miles is the
+// same distance in km now.
+if ((hidingRadiusUnits.get() as string) === "miles") {
+    hidingRadius.set(Math.round(hidingRadius.get() * 1.609344 * 1000) / 1000);
+    hidingRadiusUnits.set("kilometers");
+}
 export const disabledStations = persistentAtom<string[]>(
     "disabledStations",
     [],

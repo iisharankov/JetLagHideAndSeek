@@ -3,6 +3,7 @@ import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { createGameOnApi, routeApi } from "./api";
 import { askQuestion, onPhone } from "./ask";
 import { expect, test } from "./fixtures";
+import { menuScreen, openMenu } from "./menu";
 
 // The tutorial on a first visit and on a game's link, on the desktop and
 // the phone: offered once ("Show Tutorial"), short tours by role on the
@@ -108,10 +109,10 @@ test("a first visit offers the setting-up tour, once, and it opens the Menu and 
     await expect(mark(page)).toContainText("Hide and Seek");
     // Nothing is dimmed or blocked: the Menu still opens under the tour.
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    const menu = page.getByRole("dialog", { name: "Menu" });
+    const menu = menuScreen(page);
     await expect(menu).toBeVisible();
-    await menu.press("Escape");
-    await expect(menu).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
 
     // Each step opens what it's about and points at it; the note stays
     // usable over them (clickThrough taps its Next).
@@ -253,16 +254,14 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
         if (step === "follow-me") {
             // The Menu opens on Settings, at the switch.
             await expect(
-                page
-                    .getByRole("dialog", { name: "Menu" })
-                    .getByRole("switch", { name: /Follow me \(GPS\)/ }),
+                menuScreen(page).getByRole("switch", {
+                    name: /Follow me \(GPS\)/,
+                }),
             ).toBeInViewport();
         }
         if (step === "menu") {
             await expect(
-                page
-                    .getByRole("dialog", { name: "Menu" })
-                    .getByRole("heading", { name: "Help" }),
+                menuScreen(page).getByRole("heading", { name: "Help" }),
             ).toBeInViewport();
         }
     });
@@ -287,7 +286,7 @@ test("a seeker opening a link gets the seeker tour, with examples in Zürich", a
     );
     expect(total).toBeLessThanOrEqual(18);
     // The Menu the tour opened is closed again.
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
     // The game's layers are back.
     await expect(page.locator(".leaflet-overlay-pane")).toHaveCSS(
         "visibility",
@@ -310,21 +309,17 @@ test("skipping a tour while it shows the Menu closes it, and the Menu works as b
     await page.goto("/");
     await mark(page).getByRole("button", { name: "Show Tutorial" }).click();
     await mark(page).getByRole("button", { name: "Next" }).click();
-    const menu = page.getByRole("dialog", { name: "Menu" });
-    const dimmed = page.locator("[data-vaul-overlay]");
+    const menu = menuScreen(page);
     await expect(mark(page)).toHaveAttribute("data-tour-step", "start");
     await expect(menu).toBeVisible();
-    // Shown by the tour: nothing dimmed, the note on top.
-    await expect(dimmed).toHaveCount(0);
     await mark(page).getByRole("button", { name: "Skip tutorial" }).click();
     await expect(mark(page)).toHaveCount(0);
-    await expect(menu).toBeHidden();
-    // The Menu as always: over a dimmed page.
+    await expect(menu).toHaveCount(0);
+    // The Menu as always.
     await page.getByRole("button", { name: "Menu", exact: true }).click();
     await expect(menu).toBeVisible();
-    await expect(dimmed).toBeVisible();
-    await menu.press("Escape");
-    await expect(menu).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
     expect(pageErrors).toEqual([]);
 });
 
@@ -378,10 +373,10 @@ test("the hider may decline the tour: then the pointer to the station; the Menu 
     await mark(page).getByRole("button", { name: "Got it" }).click();
     await expect(mark(page)).toHaveCount(0);
 
-    // Menu → Game → Help → Tutorial: Hider.
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    // Menu → Help → Tutorial: Hider.
+    await openMenu(page, "Help");
     await page.getByRole("button", { name: "Hider tutorial" }).click();
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
     const seen: string[] = [];
     await clickThrough(page, async (step) => {
         seen.push(step);

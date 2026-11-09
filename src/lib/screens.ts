@@ -4,7 +4,7 @@
 // button does the same, through the browser's history.
 import { atom, computed } from "nanostores";
 
-import { openQuestion } from "@/lib/context";
+import { openQuestion, type SidebarTab, sidebarTab } from "@/lib/context";
 
 /** The kinds a question can be asked as (the type tiles). */
 export type AskKind =
@@ -23,11 +23,26 @@ export const askFlow = atom<{ research: boolean; kind: AskKind | null } | null>(
     null,
 );
 
+/**
+ * A screen pushed over a tab's own view: the seekers' list (Hider tab), a
+ * photo question (Questions). It belongs to its tab and closes when
+ * another tab is chosen.
+ */
+export type PushedScreen =
+    | { tab: SidebarTab; kind: "seekers" }
+    | { tab: SidebarTab; kind: "photo"; id: string };
+
+export const pushedScreen = atom<PushedScreen | null>(null);
+
+export const pushScreen = (screen: PushedScreen) => pushedScreen.set(screen);
+
 /** How many screens are pushed over the list. */
 export const screenDepth = computed(
-    [askFlow, openQuestion],
-    (ask, open) =>
-        (open !== null ? 1 : 0) + (ask ? (ask.kind === null ? 1 : 2) : 0),
+    [askFlow, pushedScreen, openQuestion],
+    (ask, screen, open) =>
+        (open !== null ? 1 : 0) +
+        (screen ? 1 : 0) +
+        (ask ? (ask.kind === null ? 1 : 2) : 0),
 );
 
 export const openAsk = (research = false) =>
@@ -40,11 +55,16 @@ export const pickKind = (kind: AskKind) => {
 
 export const closeAsk = () => askFlow.set(null);
 
-/** Back one screen: a kind to the types, the types to the list, a card to the list. */
+/**
+ * Back one screen: a kind to the types, the types to what was under them,
+ * a pushed screen (a photo question, the seekers) to its tab, a card to
+ * the list.
+ */
 export const back = () => {
     const ask = askFlow.get();
     if (ask?.kind) askFlow.set({ ...ask, kind: null });
     else if (ask) askFlow.set(null);
+    else if (pushedScreen.get()) pushedScreen.set(null);
     else if (openQuestion.get() !== null) openQuestion.set(null);
 };
 
@@ -58,6 +78,11 @@ let wired = false;
 export const wireBackButton = () => {
     if (wired || typeof window === "undefined") return;
     wired = true;
+    // A pushed screen is its tab's: another tab closes it.
+    sidebarTab.listen((tab) => {
+        const screen = pushedScreen.get();
+        if (screen && screen.tab !== tab) pushedScreen.set(null);
+    });
     screenDepth.subscribe((depth) => {
         while (pushed < depth) {
             pushed += 1;

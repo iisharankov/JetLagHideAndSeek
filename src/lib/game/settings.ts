@@ -110,6 +110,7 @@ export const defaultGameSettings = (
     seekersSeeStations: true,
     teams: false,
     latePenalty: true,
+    galleryPhotos: false,
     tentacleKm: tentacleDefaults(region),
     rejectedPlaces: [],
     rest: null,
@@ -285,6 +286,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
         seekersSeeStations: input.seekersSeeStations !== false,
         teams: input.teams === true,
         latePenalty: input.latePenalty !== false,
+        galleryPhotos: input.galleryPhotos === true,
         tentacleKm:
             normalizeTentacleKm(input.tentacleKm) ?? defaults.tentacleKm,
         rejectedPlaces: normalizeRejected(input.rejectedPlaces),
@@ -298,7 +300,7 @@ export const describeStations = (kinds: StationKinds) =>
         .filter(Boolean)
         .join(", ");
 
-/** The big-place tentacle kinds (the book's 15 miles): parks, zoos, aquariums. */
+/** The big-place tentacle kinds (the book's 25 km): parks, zoos, aquariums. */
 export const BIG_TENTACLES = ["theme_park", "zoo", "aquarium"];
 
 /**

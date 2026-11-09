@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultGameSettings } from "@/lib/game/settings";
 
@@ -339,5 +339,39 @@ describe("organisers", () => {
         expect(store.hasOrganiser(old.id)).toBe(true);
         // The key never shows in the game's state.
         expect(JSON.stringify(store.get(old.id))).not.toContain(key!);
+    });
+});
+
+describe("photos sent late", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("count as late answers past the game's photo time (10 minutes in a medium game)", () => {
+        vi.useFakeTimers();
+        const t = Date.parse("2026-11-09T12:00:00Z");
+        vi.setSystemTime(t);
+        const game = start();
+        const ana = { id: "p-Ana", name: "Ana", role: "seeker" as const };
+        const ben = { id: "p-Ben", name: "Ben", role: "hider" as const };
+        games.apply(game.id, { type: "askPhoto", name: "Tree" }, ana);
+        games.apply(game.id, { type: "askPhoto", name: "Widest Street" }, ana);
+        const [tree, street] = games.get(game.id)!.photoRequests;
+        // Nine minutes: in time.
+        vi.setSystemTime(t + 9 * 60_000);
+        games.addPhoto(game.id, new Uint8Array([1]), "image/png", ben, {
+            requestId: tree.id,
+        });
+        expect(games.get(game.id)!.lateAnswers).toBe(0);
+        // Eleven minutes: late, the first of the round.
+        vi.setSystemTime(t + 11 * 60_000);
+        const { state } = games.addPhoto(
+            game.id,
+            new Uint8Array([1]),
+            "image/png",
+            ben,
+            { requestId: street.id },
+        );
+        expect(state.lateAnswers).toBe(1);
+        expect(state.photoRequests[1].late).toBe(1);
+        expect(state.photoRequests[0].late).toBeUndefined();
     });
 });

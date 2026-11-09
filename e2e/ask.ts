@@ -47,9 +47,47 @@ export const askQuestion = async (
     }
 };
 
-/** Opens the questions: the phone's tab bar (the sheet), or nothing on a desktop. */
+/** Opens the questions: the phone's tab bar (the sheet), the desktop's tab. */
 export const openQuestions = async (page: Page) => {
-    if (onPhone(page)) {
-        await page.getByRole("radio", { name: /^Questions/ }).click();
+    await page.getByRole("radio", { name: /^Questions/ }).click();
+};
+
+/** Asks for a photo: Ask a question → Photo → its row → "Ask for: …". */
+export const askPhoto = async (page: Page, name: string) => {
+    await page.getByRole("button", { name: "Ask a question" }).click();
+    await page.getByTestId("ask-photo").click();
+    const screen = page.getByTestId("question-subtype");
+    await screen
+        .getByTestId("photo-choices")
+        .getByRole("button", { name, exact: true })
+        .click();
+    await screen.getByRole("button", { name: `Ask for: ${name}` }).click();
+};
+
+/**
+ * Closes the notifications showing. On a phone they cover the top of the
+ * sheet, and a test's pointer over one pauses it (pause on hover) for good.
+ */
+export const dismissToasts = async (page: Page) => {
+    const close = page.locator(".toast-close");
+    for (let i = await close.count(); i > 0; i--) {
+        await close
+            .first()
+            .click({ timeout: 2000 })
+            .catch(() => undefined);
     }
+};
+
+/** Opens a photo question from the Questions list. */
+export const openPhoto = async (page: Page, name: string) => {
+    await dismissToasts(page);
+    await openQuestions(page);
+    // The rows are under the list, not under an open question's card.
+    const list = page.getByRole("button", { name: "All questions" });
+    if (await list.isVisible()) await list.click();
+    await page
+        .getByTestId("photo-request")
+        .filter({ hasText: `Photo · ${name}` })
+        .click();
+    return page.getByTestId("photo-screen");
 };

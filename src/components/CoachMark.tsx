@@ -14,8 +14,6 @@ import { useTick } from "@/hooks/useTick";
 import { coachMark } from "@/lib/coachMark";
 import {
     mapBottomInset,
-    menuOpen,
-    menuTab,
     openQuestion,
     setupDialog,
     setupPage,
@@ -23,6 +21,7 @@ import {
     sidebarTab,
 } from "@/lib/context";
 import { activeGameId, GAME_URL_PARAM } from "@/lib/game/session";
+import { askFlow, closeAsk, openAsk } from "@/lib/screens";
 import {
     backStep,
     endTour,
@@ -33,6 +32,8 @@ import {
 } from "@/lib/tour";
 import { OFFERS, TOURS, type TourStep } from "@/lib/tourSteps";
 import { cn } from "@/lib/utils";
+
+import { closeMenu, openMenu } from "./MenuScreen";
 
 const PAD = 8;
 const GAP = 16;
@@ -106,7 +107,21 @@ const arrangeSidebar = ({ sidebar, tab }: TourStep) => {
 };
 
 /** What a tour opened itself, to close again. */
-type Opened = { menu: boolean; setup: boolean };
+type Opened = { menu: boolean; setup: boolean; ask: boolean };
+
+/** The question types open for a step that shows them; closed after. */
+const arrangeScreen = ({ screen }: TourStep, opened: Opened) => {
+    if (screen === "types") {
+        const now = askFlow.get();
+        if (!now || now.kind !== null) {
+            openAsk();
+            opened.ask = true;
+        }
+    } else if (opened.ask) {
+        closeAsk();
+        opened.ask = false;
+    }
+};
 
 /**
  * Opens the Menu (on a tab) or a new game's setup (on a screen) to show
@@ -114,13 +129,10 @@ type Opened = { menu: boolean; setup: boolean };
  */
 const arrangeMenu = ({ menu, setup }: TourStep, opened: Opened) => {
     if (menu) {
-        menuTab.set(menu);
-        if (!menuOpen.get()) {
-            menuOpen.set(true);
-            opened.menu = true;
-        }
+        if (sidebarTab.get() !== "menu") opened.menu = true;
+        openMenu(menu);
     } else if (opened.menu) {
-        menuOpen.set(false);
+        closeMenu();
         opened.menu = false;
     }
     // Only while there's no game: the tour mustn't lead to a second one.
@@ -154,14 +166,15 @@ export const CoachMark = () => {
     const $sheet = useStore(mapBottomInset);
     const step =
         $tour && $tour.step !== "offer" ? TOURS[$tour.id][$tour.step] : null;
-    const offer = $tour?.step === "offer" ? OFFERS[$tour.id] : null;
+    const offer =
+        $tour?.step === "offer" && $tour.id !== "ask" ? OFFERS[$tour.id] : null;
     // Follows the element while the panel slides in or the page scrolls.
     useTick(!!$tour || !!$mark, 300);
     const cardRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 300, height: 120 });
     const demoShown = useRef(false);
-    const opened = useRef<Opened>({ menu: false, setup: false });
-    const $menuOpen = useStore(menuOpen);
+    const opened = useRef<Opened>({ menu: false, setup: false, ask: false });
+    const $menuOpen = useStore(sidebarTab) === "menu";
     const $setup = useStore(setupDialog);
     /** The sidebar as it was before the tour, to leave it so afterwards. */
     const sidebarBefore = useRef<{
@@ -217,6 +230,7 @@ export const CoachMark = () => {
         if (step) {
             arrangeSidebar(step);
             arrangeMenu(step, opened.current);
+            arrangeScreen(step, opened.current);
             if (step.demo) {
                 demoShown.current = true;
                 const demo = step.demo;
@@ -230,15 +244,16 @@ export const CoachMark = () => {
         }
     }, [$tour?.id, $tour?.step]);
 
-    // What the tour opened closes as it ends, in the same update: the Menu
-    // is never left open as it turns modal again (OptionDrawers.tsx).
+    // What the tour opened closes as it ends.
     useEffect(
         () =>
             tour.listen((next) => {
                 if (next) return;
-                if (opened.current.menu) menuOpen.set(false);
+                if (opened.current.menu) closeMenu();
                 if (opened.current.setup) closeSetup(opened.current);
+                if (opened.current.ask) closeAsk();
                 opened.current.menu = false;
+                opened.current.ask = false;
             }),
         [],
     );

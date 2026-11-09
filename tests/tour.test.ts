@@ -149,6 +149,16 @@ describe("what the tutorial opens", () => {
         }
     });
 
+    it("explains Ask a question in at most four notes, starting at the kinds, opening nothing", () => {
+        expect(TOURS.ask.length).toBeLessThanOrEqual(4);
+        expect(TOURS.ask[0].target).toEqual(['[data-tutorial-id="ask-kinds"]']);
+        for (const step of TOURS.ask) {
+            expect(step.sidebar, step.id).toBeUndefined();
+            expect(step.menu, step.id).toBeUndefined();
+            expect(step.screen, step.id).toBeUndefined();
+        }
+    });
+
     it("walks the organiser through the setup's three screens", () => {
         const screens = TOURS.organiser
             .map((step) => step.setup)
@@ -158,10 +168,10 @@ describe("what the tutorial opens", () => {
         expect(screens).toEqual([...screens].sort());
     });
 
-    it("ends every tour in the Menu's help", () => {
-        for (const steps of Object.values(TOURS)) {
-            const last = steps.at(-1)!;
-            expect(last.menu).toBe("game");
+    it("ends every tour in the Menu's help (not the ? on Ask a question)", () => {
+        for (const id of ["seeker", "hider", "organiser"] as const) {
+            const last = TOURS[id].at(-1)!;
+            expect(last.menu).toBe("help");
             expect(last.target).toContain('[data-tutorial-id="menu-help"]');
         }
     });

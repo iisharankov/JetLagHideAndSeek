@@ -2,6 +2,51 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 38: Run G, metric everywhere
+
+| Decision | Why | From |
+|---|---|---|
+| **Metric only, the values as in 03's tables** (radar 500 m to 160 km, thermometer 1, 5, 15, 75 km, tentacles 2 and 25 km, hiding zones 500 m and 1 km, found within 2 m, 3 m from a path, map sizes 25–250, 250–2,500, 2,500+ km²) | the owner's decision (2026-11-09) and Q51/Q57 | 03-metric-conversion.md |
+| **Mentions outside 03's tables convert with its rounding**: curses page "at least 15 km away", "within 3 m of any seeker", "Went 10 km"; the tentacle intro "Within ____ km"; prose miles → kilometres | the same rule, one page further | this round |
+| **The curses page's "100 feet" is Endless Tumble's, and says 30 meters as its card does** (03 named Gambler's Feet; that card has no distance) | the card text in `cards.ts` already says 30 meters | this round |
+| **"with cars and feet" stays** (walking, not a unit); the metric test allows exactly that phrase | it isn't a distance | this round |
+| **The tentacle page notes "Under the Swiss rules this game uses 10 km." under the big places** | the brief's one-line note; 10 km is a game setting, not the book's | RunG.md G1 |
+| **The rules pictures still show miles** | replacing the pictures is the owner's call | RunG.md G1 |
+| **The unit setting goes (Settings → Default unit); questions, the map's scale bar and the thermometer card are km; the radius card's Custom keeps km/m** | no imperial option anywhere | RunG.md G2 |
+| **Saved questions in miles convert on load (this phone's and an old shared game's), 3 decimals; a hiding radius saved in miles too; the server keeps accepting old games as they are** | old data must still open | RunG.md G2 |
+| **Internal geometry that measured in miles (measuring, buffers) measures in km** | self-consistent pairs; no visible change, no "miles" left in the code but the conversions | this round |
+
+## 2026-11-09, round 37: Run F, the remaining screens in the shell, and photos
+
+| Decision | Why | From |
+|---|---|---|
+| **Photo questions are rows under the questions; the Photos tab goes. The bar: Map · Questions · Cards · Stations or Hider · Menu** | principle 1's five tabs; round 35 kept Photos only until this run | 01-mobile-design.md, round 35 |
+| **The hider's Questions count includes the photos waiting for them** | one place for "something to answer" | this round |
+| **Photos sent without a question ("Other photos") fold away under the photo questions, and may come from the gallery** | they aren't answers, so the rule "taken when asked" doesn't apply; they need a home without the tab | this round |
+| **"Hiders may send photos from the gallery": a setup switch, off by default; on, Take a photo and From the gallery side by side** | the owner's answer | Q55 |
+| **"I cannot answer" for a photo is an answer: it earns the draw, ends the timer, tells the seekers; a photo sent after it replaces it without a second draw** | the rulebook: valid answers are a photo or "I cannot answer"; the brief: "owes the draw as a sent photo does" | RunF.md F3 |
+| **A photo past 10 minutes (20 in a large game) counts as a late answer** | the late rule had a gap for photos | 07-photo-questions.md |
+| **The Menu is a sidebar tab on both phone and desktop; the vaul drawer goes; Game, Settings, Help (and Admin) as sections; Escape closes it** | the brief's "simpler: both use the tab"; one place, no drawer crash | RunF.md F4 |
+| **The Menu button opens the Menu; it doesn't close it** (Escape, Map, or another tab do) | a second tap on Menu closing it surprised the tests and would surprise players switching sections | this round |
+| **Start the end game: a confirm, then 5 s with Undo before anything is sent; the browser tests shorten it through localStorage `endgameDelayMs`** | principle 10; the brief's documented test seam | RunF.md F1, F5 |
+| **Veto and Randomize are always shown to the hider for an asked question, greyed with the reason ("no card in hand", "not a thermometer")** | principle 4: shown greyed with the reason, not hidden | 01-mobile-design.md |
+| **"Pin follows GPS" is a row of its own, shown whenever the pin can move (turning it on shows the pin)** | mock-up 14 | RunF.md F1 |
+| **The phone's sheet goes full height for the Menu, a pushed screen (a photo question, the seekers) and a question waiting for this phone's answer** | at half height the pinned Send covered the answers (seen in the screenshots); mock-up 16 is a full screen | this round |
+| **The seekers' list (Hider → Seekers on the map) taps through to the seeker on the map** | the mock-up's row pushes a screen; a list without an action would be a dead end | this round |
+
+## 2026-11-09, round 36: Run E part 2, the i, toasts, targets, the mini-tour, the tests on the phone
+
+| Decision | Why | From |
+|---|---|---|
+| **The "i" unfolds in place under the header: the rulebook's text for the type (or the kind's first paragraph), "In this app", Full rules** | principle 5 ("unfolds", not a popover); the rule text was what the old ⓘ showed and the reference test expects | RunE.md E3 |
+| **Every button is at least 44 px tall on phones, set once in `ui/button.tsx` and the sidebar's rows (`max-md:min-h-11`)** | one change reaches every screen; class-by-class edits would miss some | RunE.md E3, changed |
+| **A question card shows its draw as the 3/1 badge left of the title; the "Hider draws 3, keeps 1" line goes** | principle 5: the badge, the same everywhere; Q57 places it left | Q57 |
+| **The mini-tour is a fourth tour (`ask`), started by the **?**, never offered, not in the Menu** | the brief's `startTour("ask")`; it explains one screen, where the player already is | RunE.md E4 |
+| **The seeker tour's Photos step opens the types screen and points at the Photo tile** (a step field `screen`) | photos are asked through Ask a question now; the brief's `TourStep.screen` | RunE.md E5 |
+| **A tentacle kind with no places in the play area is dimmed with "none in the play area" but can still be picked** | the data can be wrong; dimmed tells, a disabled tile would stop a real question | 01-mobile-design.md 05 |
+| **The 11 browser tests skipped on the phone for "sidebar open on desktop" now run on both projects; the 6 two-phone tests stay desktop-only** | the brief allows two-phone layouts to stay | RunE.md E5 |
+| **A short buzz on Ask (30 ms), off with the alerts switch** | the design's "haptics on Send/Ask where the browser allows" | 01-mobile-design.md |
+
 ## 2026-11-09, round 35: Run E part 1, the tab bar, Back and the ask flow
 
 | Decision | Why | From |

@@ -1,6 +1,5 @@
 import { useStore } from "@nanostores/react";
 import {
-    Camera,
     EyeOff,
     Layers,
     Map as MapIcon,
@@ -13,14 +12,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { SidebarContext } from "@/components/ui/sidebar-l";
-import {
-    endgame,
-    menuOpen,
-    menuTab,
-    questions,
-    type SidebarTab,
-    sidebarTab,
-} from "@/lib/context";
+import { endgame, questions, type SidebarTab, sidebarTab } from "@/lib/context";
 import { hand, handLimit } from "@/lib/game/hand";
 import {
     gameRole,
@@ -32,6 +24,8 @@ import { sectionLabel, sidebarSections } from "@/lib/game/tabBadges";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 import { openAsk } from "@/lib/screens";
 import { cn } from "@/lib/utils";
+
+import { menuButton } from "./MenuScreen";
 
 /** The phone's tab bar, in px (without the safe area under it). */
 export const TAB_BAR_HEIGHT = 64;
@@ -83,13 +77,12 @@ export const useSidebarSections = () => {
 };
 
 // The tour points at the items as data-tutorial-id="tab-questions",
-// data-tutorial-id="tab-stations", data-tutorial-id="tab-photos",
-// data-tutorial-id="tab-curses" and data-tutorial-id="tab-research"
+// data-tutorial-id="tab-stations", data-tutorial-id="tab-curses" and
+// data-tutorial-id="tab-research"
 // (built below from the section's value).
-const ICONS: Record<SidebarTab, typeof MapIcon> = {
+const ICONS: Record<Exclude<SidebarTab, "menu">, typeof MapIcon> = {
     questions: MessageCircleQuestion,
     stations: TrainFront,
-    photos: Camera,
     curses: Layers,
     research: Search,
 };
@@ -178,13 +171,14 @@ export const TabBar = () => {
             </div>
             <button
                 type="button"
-                className={item}
+                className={cn(
+                    item,
+                    openMobile && tab === "menu" && "text-white",
+                )}
                 aria-label="Menu"
                 data-tutorial-id="menu-button"
-                onClick={() => {
-                    menuTab.set("game");
-                    menuOpen.set(true);
-                }}
+                aria-pressed={openMobile && tab === "menu"}
+                onClick={menuButton}
             >
                 <MenuIcon className="h-6 w-6" aria-hidden />
                 Menu

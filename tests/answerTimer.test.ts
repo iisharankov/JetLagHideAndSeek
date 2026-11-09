@@ -5,6 +5,7 @@ import {
     answerTimeLeft,
     answerTimerText,
     answerTimerTone,
+    photoTimeLeft,
 } from "@/lib/game/answerTimer";
 
 describe("answer timer", () => {
@@ -45,5 +46,26 @@ describe("answer timer", () => {
         expect(answerTimerText(4 * 60_000 + 12_000)).toBe("4:12 to answer");
         expect(answerTimerText(-65_000)).toBe("1:05 over time");
         expect(answerTimerText(500)).toBe("0:01 to answer");
+    });
+});
+
+describe("the time to send a photo", () => {
+    it("is 10 minutes in small and medium games, 20 in large ones, from the ask", () => {
+        const request = { askedAt: 1000 };
+        expect(photoTimeLeft(request, "medium", 1000)).toBe(10 * 60_000);
+        expect(photoTimeLeft(request, "small", 61_000)).toBe(9 * 60_000);
+        expect(photoTimeLeft(request, "large", 1000)).toBe(20 * 60_000);
+        expect(photoTimeLeft(request, "medium", 1000 + 11 * 60_000)).toBe(
+            -60_000,
+        );
+    });
+
+    it("stops once the photo is sent or can't be answered", () => {
+        expect(
+            photoTimeLeft({ askedAt: 0, photoId: "a.jpg" }, "medium", 5),
+        ).toBeNull();
+        expect(
+            photoTimeLeft({ askedAt: 0, nullAnswer: true }, "medium", 5),
+        ).toBeNull();
     });
 });

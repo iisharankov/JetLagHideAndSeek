@@ -76,6 +76,14 @@ describe("game settings", () => {
         expect(fixed.disabledQuestions).toEqual(["measuring:lake"]);
         expect(fixed.seekersCanAnswer).toBe(false);
         expect(fixed.rest).toBeNull();
+        // Photos from the gallery: off unless the organiser turned them on.
+        expect(fixed.galleryPhotos).toBe(false);
+        expect(
+            normalizeGameSettings({ galleryPhotos: "yes" }).galleryPhotos,
+        ).toBe(false);
+        expect(
+            normalizeGameSettings({ galleryPhotos: true }).galleryPhotos,
+        ).toBe(true);
         expect(normalizeGameSettings({ region: "germany" }).region).toBe(
             "germany",
         );

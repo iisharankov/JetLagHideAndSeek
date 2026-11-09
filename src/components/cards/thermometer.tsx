@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/sidebar-l";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-    defaultUnit,
     gameSettings,
     hiderMode,
     isLoading,
@@ -224,8 +223,8 @@ export const ThermometerQuestionComponent = ({
         !data.research &&
         (state === null || state === "draft" || state === "armed");
 
-    const $defaultUnit = useStore(defaultUnit);
-    const DISTANCE_UNIT = $defaultUnit ?? "kilometers";
+    // Metric only.
+    const DISTANCE_UNIT = "kilometers";
 
     const label = `Thermometer
     ${
@@ -258,12 +257,7 @@ export const ThermometerQuestionComponent = ({
         };
     }, [data.latA, data.lngA, data.latB, data.lngB, DISTANCE_UNIT]);
 
-    const unitLabel =
-        DISTANCE_UNIT === "meters"
-            ? "Meters"
-            : DISTANCE_UNIT === "kilometers"
-              ? "km"
-              : "Miles";
+    const unitLabel = "km";
 
     return (
         <QuestionCard

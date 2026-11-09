@@ -10,14 +10,14 @@ Here is our best estimate for ideal map size and transit complexity in different
 
 Game SizeTransit Complexity/Map Size<span class="game-size game-size-small">SMALL</span>
 
-30 – 100 stations; 10 – 100 sq. miles
+30 – 100 stations; 25 – 250 km²
 
 <span class="game-size game-size-medium">MEDIUM</span>
 
-100 – 500 stations; 100 – 1,000 sq. miles
+100 – 500 stations; 250 – 2,500 km²
 
 <span class="game-size game-size-large">LARGE</span>
 
-500+ stations; 1,000+ sq. miles
+500+ stations; 2,500+ km²
 
 _(As a point of comparison, our game in Switzerland comprised about 1,800 stations, and our game in Japan was slightly over 8,500. Both would be considered "Large.")_

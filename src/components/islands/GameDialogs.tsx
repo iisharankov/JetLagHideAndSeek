@@ -1,7 +1,7 @@
 import { withErrorBoundary } from "@/components/ErrorBoundary";
-import { OptionDrawers as Panel } from "@/components/OptionDrawers";
+import { GameDialogs as Panel } from "@/components/GameDialogs";
 
-export const OptionDrawers = withErrorBoundary(Panel, "options bar", [
+export const GameDialogs = withErrorBoundary(Panel, "game dialogs", [
     "currentGame",
     "hiderTokens",
     "gameSettings",

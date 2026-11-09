@@ -11,7 +11,7 @@ import { withBase } from "@/lib/config";
 import { PHOTO_PAGE } from "./photoQuestions";
 import { headingSlug, parseRulesPage } from "./sections";
 
-export { photoQuestions } from "./photoQuestions";
+export { PHOTO_PAGE, photoQuestions } from "./photoQuestions";
 
 /** Rulebook pages by their path under /rules/. */
 export const RULES_PAGES = {

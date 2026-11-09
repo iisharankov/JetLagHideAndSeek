@@ -16,6 +16,8 @@ import {
     closeAsk,
     openAsk,
     pickKind,
+    pushedScreen,
+    pushScreen,
     screenDepth,
 } from "@/lib/screens";
 import { questionSchema } from "@/maps/schema";
@@ -94,5 +96,38 @@ describe("the screens and Back", () => {
         // Nothing left: Back does nothing.
         back();
         expect(screenDepth.get()).toBe(0);
+    });
+});
+
+describe("a screen pushed over a tab (the seekers' list, a photo question)", () => {
+    beforeEach(() => {
+        openQuestion.set(null);
+        closeAsk();
+        pushedScreen.set(null);
+    });
+
+    it("is one screen deep, and Back closes it", () => {
+        pushScreen({ tab: "stations", kind: "seekers" });
+        expect(screenDepth.get()).toBe(1);
+        back();
+        expect(pushedScreen.get()).toBeNull();
+        expect(screenDepth.get()).toBe(0);
+    });
+
+    it("comes off after the ask flow over it, and before the open card under it", () => {
+        openQuestion.set(3);
+        pushScreen({ tab: "questions", kind: "photo", id: "r1" });
+        openAsk();
+        expect(screenDepth.get()).toBe(3);
+        back();
+        expect(askFlow.get()).toBeNull();
+        expect(pushedScreen.get()).toEqual({
+            tab: "questions",
+            kind: "photo",
+            id: "r1",
+        });
+        back();
+        expect(pushedScreen.get()).toBeNull();
+        expect(openQuestion.get()).toBe(3);
     });
 });

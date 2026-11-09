@@ -2353,3 +2353,66 @@ describe("Duplicate Another Card", () => {
         expect(state.deck!.hand).toEqual([]);
     });
 });
+
+describe("I cannot answer, for a photo question", () => {
+    it("is the hider's answer to a photo not sent yet, and earns the draw like a photo", () => {
+        let state = apply(fresh(), { type: "askPhoto", name: "Tree" }, seeker);
+        const id = state.photoRequests[0].id;
+        expect(() =>
+            apply(state, { type: "photoNullAnswer", id }, seeker),
+        ).toThrow(GameRuleError);
+        state = apply(state, { type: "photoNullAnswer", id }, hider, 5000);
+        expect(state.photoRequests[0].nullAnswer).toBe(true);
+        expect(state.photoRequests[0].answeredAt).toBe(5000);
+        // Answered: not again, and no photo for it after.
+        expect(() =>
+            apply(state, { type: "photoNullAnswer", id }, hider),
+        ).toThrow(/waiting for an answer/);
+        expect(() =>
+            apply(state, { type: "randomizePhoto", id }, hider),
+        ).toThrow(/waiting for an answer/);
+    });
+
+    it("owes the draw with the digital deck", () => {
+        let state = newGameState(
+            "g8",
+            {
+                playArea: {},
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    deck: "virtual",
+                },
+            },
+            1000,
+        );
+        state = apply(state, { type: "askPhoto", name: "Tree" }, seeker);
+        const id = state.photoRequests[0].id;
+        const before = structuredClone(state.deck!);
+        state = apply(state, { type: "photoNullAnswer", id }, hider);
+        // The draw is owed or already dealt: the deck moved on.
+        expect(state.deck).not.toEqual(before);
+    });
+});
+
+describe("Randomize Question in the history", () => {
+    it("names the question before and after", () => {
+        let state = apply(fresh(), {
+            type: "putQuestion",
+            question: radius(1, { radius: 5, unit: "kilometers" }),
+            state: "asked",
+        });
+        state = apply(state, { type: "randomizeQuestion", key: 1 }, hider);
+        const now = state.questions["1"].question.data.radius;
+        expect(state.powerups.at(-1)?.detail).toBe(
+            `Radar 5 km → Radar ${now} km`,
+        );
+
+        state = apply(state, { type: "askPhoto", name: "Tree" }, seeker);
+        const id = state.photoRequests[0].id;
+        state = apply(state, { type: "randomizePhoto", id }, hider);
+        expect(state.powerups.at(-1)?.detail).toBe(
+            `Photo: Tree → ${state.photoRequests[0].name}`,
+        );
+    });
+});

@@ -1,16 +1,18 @@
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { useRuleInfo } from "@/components/RuleInfo";
 import { RulesText } from "@/components/RulesText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     addQuestion,
     gameSettings,
+    mapGeoJSON,
     openQuestion,
     regionRules,
 } from "@/lib/context";
-import { sidebarTab } from "@/lib/context";
+import { tap } from "@/lib/game/alerts";
 import { kindRefusal, photoKind } from "@/lib/game/curseRules";
 import {
     askedBefore,
@@ -22,6 +24,7 @@ import {
     tentacleQuestion,
     thermometerQuestion,
 } from "@/lib/game/newQuestion";
+import { placeCount } from "@/lib/game/placeCounts";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     armThermometer,
@@ -124,6 +127,32 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
     const [type, setType] = useState<string | null>(null);
     const [photo, setPhoto] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    // Tentacles: a kind with no places in the play area is dimmed.
+    const $area = useStore(mapGeoJSON);
+    const [none, setNone] = useState<string[]>([]);
+    useEffect(() => {
+        if (kind !== "tentacles" || !$area) return;
+        let cancelled = false;
+        void Promise.all(
+            [...SMALL_TENTACLES, ...BIG_TENTACLES].map(async (value) => ({
+                value,
+                count: await placeCount(
+                    $area,
+                    value as Parameters<typeof placeCount>[1],
+                ),
+            })),
+        ).then((counts) => {
+            if (cancelled) return;
+            setNone(counts.filter((c) => c.count === 0).map((c) => c.value));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [kind, $area]);
+    const info = useRuleInfo(
+        kind,
+        kind === "photo" ? (photo ?? undefined) : (type ?? undefined),
+    );
 
     /** The question as chosen so far (null: something still to pick). */
     const chosen = (at: Start) => {
@@ -264,6 +293,7 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
         <div className="grid grid-cols-2 gap-2">
             {choices.map((choice) => {
                 const probe = start ? chosenFor(choice.type) : null;
+                const empty = none.includes(choice.type);
                 return (
                     <button
                         key={choice.type}
@@ -271,12 +301,18 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                         aria-pressed={type === choice.type}
                         className={cn(
                             TILE,
+                            empty && "flex-col opacity-50",
                             type === choice.type &&
                                 "border-blue-500 bg-blue-600 text-white",
                         )}
                         onClick={() => setType(choice.type)}
                     >
                         {choice.label}
+                        {empty && (
+                            <span className="text-xs font-normal">
+                                none in the play area
+                            </span>
+                        )}
                         {probe && twice(probe) && (
                             <TwiceBadge className="absolute left-2 top-2" />
                         )}
@@ -304,7 +340,8 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
             className="flex min-h-full flex-col"
             data-testid="question-subtype"
         >
-            <ScreenHeader title={title} kind={kind} />
+            <ScreenHeader title={title} kind={kind} right={info.button} />
+            {info.panel}
             <div className="flex flex-1 flex-col gap-3 p-3">
                 {(kind === "radius" || kind === "thermometer") && (
                     <>
@@ -447,11 +484,12 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                     }
                     data-tutorial-id="ask-send"
                     onClick={() => {
+                        tap();
                         if (kind === "photo") {
                             if (!photo) return;
+                            // Its row appears under the questions.
                             void sendOp({ type: "askPhoto", name: photo });
                             closeAsk();
-                            sidebarTab.set("photos");
                             return;
                         }
                         void make(true);

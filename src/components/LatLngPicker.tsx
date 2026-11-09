@@ -240,7 +240,7 @@ const coordinatesText = (latitude: number, longitude: number) =>
     ).toFixed(5)}° ${longitude > 0 ? "E" : "W"}`;
 
 const ICON_BUTTON =
-    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/30 bg-black/20 hover:bg-black/35 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4";
+    "inline-flex h-7 w-7 max-md:h-11 max-md:w-11 shrink-0 items-center justify-center rounded-md border border-current/30 bg-black/20 hover:bg-black/35 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4";
 
 /**
  * A question's place: one row in the pin's colour with the coordinates and

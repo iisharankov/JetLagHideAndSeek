@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 35). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 38). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy rounds 32–35), then S7 (your admin code on your phone, a code per friend).
+**Only 5 minutes?** S1 (deploy rounds 32–38), then S7 (your admin code on your phone, a code per friend).
 
 ## Now
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A to D are built (rounds 32–34), run E half (round 35: the tab bar, Back, the ask flow). Say "go E" again in a new Opus session for the rest of E (the **i**, toasts, targets, the mini-tour, the tests on the phone), then F and G; `RunE.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
+Nothing. The November plan (runs A–G) is built (rounds 32–38) and in `history/plans/nov-game-fixes/`.
 
 ## Questions
 
@@ -20,17 +20,11 @@ Nothing.
 
 > **Answer:**
 
-**Q55. Photos from the gallery.** A game setting, "Hiders may send photos from the gallery", gives the hider two buttons, "Camera" and "Gallery". The rulebook means a photo taken when asked, so the suggestion is off by default and the organiser turns it on in setup. (asked 2026-11-09)
-
-*Suggested:* add the setting, off by default.
-
-> **Answer:** Looks good
-
 ## Your steps
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy runs A–D and half of E (rounds 32–35) and check.** **Where:** the server, as root, after you commit and push round 35. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy runs A–G (rounds 32–38) and check.** **Where:** the server, as root, after you commit and push rounds 36–38. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
@@ -47,7 +41,7 @@ Nothing.
   **Done:**
 
 - [ ] **S8. Walk one thermometer** (after S7). **Where:** outdoors, two phones, on the site. About 20 minutes. A game with you as the hider on one phone, a seeker on the other with location on.
-  1. Seeker: Add Question → Add Thermometer → **1 km** → **Start the thermometer (1 km)**. Expect: the hider's phone says "Thermometer started"; the seeker's card shows "Covered, as the crow flies: 0 of 1 km" and a greyed Ask.
+  1. Seeker: **Ask a question** → Thermometer → **1 km** → **Start the thermometer (1 km)**. Expect: the hider's phone says "Thermometer started"; the seeker's card shows "Covered, as the crow flies: 0 of 1 km" and a greyed Ask.
   2. Walk about 1 km in a straight line. Expect: the bar fills; at 1 km **Ask: hotter or colder?** lights up; tap it. Expect: the hider's phone has a new question and suggests Hotter or Colder.
   **Done:**
 

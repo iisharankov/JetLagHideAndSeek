@@ -85,6 +85,16 @@ const systemNotification = async (title: string, body?: string) => {
     }
 };
 
+/** A short buzz when something is sent (Ask, Send answer), where the phone allows. */
+export const tap = () => {
+    if (!alertsEnabled.get()) return;
+    try {
+        navigator.vibrate?.(30);
+    } catch {
+        // No vibration here.
+    }
+};
+
 /** Two beeps within this time would be one: a burst of news sounds once. */
 const QUIET_MS = 3000;
 let lastSoundAt = 0;

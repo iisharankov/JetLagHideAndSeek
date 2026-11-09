@@ -1,13 +1,10 @@
+import { openQuestions } from "./ask";
 import { expect, test } from "./fixtures";
 
 test("ⓘ shows a question's rules and links into the in-app rulebook", async ({
     page,
     externalHosts,
-}, testInfo) => {
-    test.skip(
-        testInfo.project.name !== "desktop",
-        "sidebar is open on desktop",
-    );
+}) => {
     void externalHosts;
 
     await page.goto("/");
@@ -26,11 +23,16 @@ test("ⓘ shows a question's rules and links into the in-app rulebook", async ({
     });
     await page.reload();
 
+    await openQuestions(page);
     await page
         .getByTestId("question-list")
         .getByRole("button", { name: /^Question 1 · Measuring/ })
         .click();
-    await page.getByRole("button", { name: "About this question" }).click();
+    // The "i" unfolds the rule in place (not a popover), and folds it again.
+    const info = page.getByRole("button", { name: "About this question" });
+    await info.click();
+    await expect(info).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByTestId("rule-info")).toBeInViewport();
     await expect(page.getByText("Measuring: Lake shore")).toBeVisible();
     // The rulebook's text for the question, not a link elsewhere.
     await expect(
@@ -45,6 +47,8 @@ test("ⓘ shows a question's rules and links into the in-app rulebook", async ({
     await expect(
         page.getByRole("link", { name: "All questions" }),
     ).toHaveAttribute("href", "/reference/");
+    await info.click();
+    await expect(page.getByTestId("rule-info")).toHaveCount(0);
 });
 
 test("the reference page lists the questions and the hider deck", async ({
@@ -101,4 +105,48 @@ test("the rulebook pages work and link to each other", async ({
         }),
     ).toBeVisible();
     expect([...externalHosts]).toEqual([]);
+});
+
+test("metric only: the rules in km, no miles to choose, an old question in miles loads in km", async ({
+    page,
+    externalHosts,
+}) => {
+    void externalHosts;
+    // The rulebook's tentacle questions, by their distance in km.
+    await page.goto("/rules/seeking/tentacle-questions/");
+    await expect(
+        page.getByRole("heading", { name: "Museums within 2 km" }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: "Zoos within 25 km" }),
+    ).toBeVisible();
+    await expect(page.getByText(/\bmiles?\b/i)).toHaveCount(0);
+
+    // A radar saved before, in miles: it loads as the same distance in km.
+    await page.goto("/");
+    await page.evaluate(() => {
+        localStorage.setItem("showTutorials", "false");
+        localStorage.setItem(
+            "questions",
+            JSON.stringify([
+                {
+                    id: "radius",
+                    key: 1,
+                    data: { lat: 47.38, lng: 8.54, radius: 5, unit: "miles" },
+                },
+            ]),
+        );
+    });
+    await page.reload();
+    await openQuestions(page);
+    await page
+        .getByTestId("question-list")
+        .getByRole("button", { name: /^Question 1 · Radar/ })
+        .click();
+    await expect(page.getByLabel("Custom radius")).toHaveValue("8.047");
+    await expect(page.getByText(/\bmiles?\b/i)).toHaveCount(0);
+    // The map's scale bar: metres and kilometres only.
+    await expect(page.locator(".leaflet-control-scale-imperial")).toHaveCount(
+        0,
+    );
 });

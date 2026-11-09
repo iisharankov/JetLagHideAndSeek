@@ -10,17 +10,17 @@ After a radar question has been answered, the hider may **draw 2 cards and keep 
 
 Here's a little diagram to help illustrate how radar questions can work:
 
-![Are you within 100 miles of me?](/rules/img/seeking_radar_questions.webp)
+![Are you within 160 km of me?](/rules/img/seeking_radar_questions.webp)
 
 These are the radar questions available to the seekers:
 
-- ¼ Mile
-- ½ Mile
-- 1 Mile
-- 3 Miles
-- 5 Miles
-- 10 Miles
-- 25 Miles
-- 50 Miles
-- 100 Miles
+- 500 m
+- 1 km
+- 2 km
+- 5 km
+- 10 km
+- 15 km
+- 40 km
+- 80 km
+- 160 km
 - Choose (for this, you may use any distance you wish)

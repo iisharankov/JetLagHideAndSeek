@@ -48,7 +48,7 @@ import {
     sendOp,
 } from "@/lib/game/session";
 import { sectionLabel } from "@/lib/game/tabBadges";
-import { askFlow, openAsk, wireBackButton } from "@/lib/screens";
+import { askFlow, openAsk, pushedScreen, wireBackButton } from "@/lib/screens";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/maps/schema";
 
@@ -59,9 +59,10 @@ import { CardsPanel } from "./game/CardsPanel";
 import { CurseBanner } from "./game/CurseBanner";
 import { LocationPrompt } from "./game/LocationPrompt";
 import { NotePinList } from "./game/NotePins";
-import { PhotosPanel } from "./game/PhotosPanel";
+import { OtherPhotos, PhotoRows, PhotoScreen } from "./game/PhotoRequests";
 import { RoundClock } from "./game/RoundClock";
 import { HiderPanel as HiderPanelPlain } from "./HiderPanel";
+import { MenuScreen } from "./MenuScreen";
 import {
     MatchingQuestionComponent,
     MeasuringQuestionComponent,
@@ -97,22 +98,36 @@ export const QuestionSidebar = () => {
     const { isMobile } = useStore(SidebarContext);
     const $ask = useStore(askFlow);
     useEffect(() => wireBackButton(), []);
-    // The ask flow needs the room: the phone's sheet goes full height.
+    // The ask flow, a pushed screen (a photo question, the seekers) and a
+    // question waiting for this phone's answer need the room: the phone's
+    // sheet goes full height.
+    const $screen = useStore(pushedScreen);
+    const $openKey = useStore(openQuestion);
+    const answering =
+        $openKey !== null &&
+        $game?.questions[String($openKey)]?.state === "asked" &&
+        ($role === "hider" || !!$game?.settings.seekersCanAnswer);
     useEffect(() => {
-        if ($ask && isMobile) sheetSnap.set("full");
-    }, [$ask !== null, isMobile]);
+        if (isMobile && ($ask || $screen || answering)) sheetSnap.set("full");
+    }, [$ask !== null, $screen !== null, answering, isMobile]);
     // Which sections exist (the same as the phone's tab bar), and what
     // holds the hider in one: too many cards, no station yet.
     const { sections, overLimit, noStationYet, stationsTab, hider } =
         useSidebarSections();
     useEffect(() => {
-        if (overLimit && tab !== "curses") sidebarTab.set("curses");
+        if (overLimit && tab !== "curses" && tab !== "menu")
+            sidebarTab.set("curses");
     }, [overLimit, tab]);
     const move = $game?.move ?? null;
     // The hider's first job in a game is their station: the other tabs
     // wait until it's picked and confirmed.
     useEffect(() => {
-        if (noStationYet && tab !== "stations" && tab !== "research") {
+        if (
+            noStationYet &&
+            tab !== "stations" &&
+            tab !== "research" &&
+            tab !== "menu"
+        ) {
             sidebarTab.set("stations");
         }
         if (!noStationYet && tab === "research") sidebarTab.set("stations");
@@ -149,6 +164,11 @@ export const QuestionSidebar = () => {
             )
         ) : null;
     const asking = askScreen(false);
+    // A photo question, pushed over the Questions list.
+    const photoScreen =
+        $screen?.kind === "photo" ? (
+            <PhotoScreen key={$screen.id} id={$screen.id} />
+        ) : null;
     const askingResearch = askScreen(true);
     const cards = (list: Question[]) =>
         list.map((question) => {
@@ -230,9 +250,11 @@ export const QuestionSidebar = () => {
                           ? hider
                               ? "Hider"
                               : "Stations"
-                          : tab === "photos"
-                            ? "Photos"
-                            : "Cards"}
+                          : tab === "menu"
+                            ? "Menu"
+                            : tab === "research"
+                              ? "Research"
+                              : "Cards"}
                 </h2>
                 <a
                     href={withBase("reference/")}
@@ -278,8 +300,7 @@ export const QuestionSidebar = () => {
                 )}
                 {noStationYet && (
                     <p className="mt-1 text-xs text-amber-400">
-                        Questions, Photos and Cards come once your station is
-                        set.
+                        Questions and Cards come once your station is set.
                     </p>
                 )}
                 {overLimit && (
@@ -323,9 +344,9 @@ export const QuestionSidebar = () => {
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
-            {tab === "photos" && (
+            {tab === "menu" && (
                 <SidebarContent>
-                    <PhotosPanel />
+                    <MenuScreen />
                 </SidebarContent>
             )}
             {tab === "curses" && (
@@ -335,7 +356,13 @@ export const QuestionSidebar = () => {
             )}
             <SidebarContent className={tab === "questions" ? "" : "hidden"}>
                 {asking}
-                <div className={cn("contents", asking && "hidden")}>
+                {!asking && photoScreen}
+                <div
+                    className={cn(
+                        "contents",
+                        (asking || photoScreen) && "hidden",
+                    )}
+                >
                     <CurseBanner />
                     {openAsked}
                     {!openAsked &&
@@ -378,6 +405,8 @@ export const QuestionSidebar = () => {
                         <>
                             <NotePinList />
                             <QuestionList list={asked} />
+                            <PhotoRows />
+                            <OtherPhotos />
                         </>
                     )}
                 </div>

@@ -10,7 +10,7 @@ import type { Role } from "@/lib/game/types";
 
 import type { DemoId } from "./tourDemo";
 
-export type TourId = "seeker" | "hider" | "organiser";
+export type TourId = "seeker" | "hider" | "organiser" | "ask";
 
 export interface TourStep {
     id: string;
@@ -26,6 +26,8 @@ export interface TourStep {
     menu?: MenuTab;
     /** A new game's setup open on this screen (0 to 2), while there's no game. */
     setup?: number;
+    /** The question types ("Ask a question") open in the sheet. */
+    screen?: "types";
     /** An example drawn on the map. */
     demo?: DemoId;
     /** Left out when its target isn't on the page (a tab that comes and goes). */
@@ -155,7 +157,7 @@ const HIDING: TourStep[] = [
     {
         id: "pin",
         title: "Your pin",
-        text: "Keep your pin where you really are: **Move my pin with GPS** does it for you. Once the end game starts it's fixed, and the seekers must find you right there. When they spot you, your time stops.",
+        text: "Keep your pin where you really are: **Pin follows GPS** does it for you. Once the end game starts it's fixed, and the seekers must find you right there. When they spot you, your time stops.",
         sidebar: "closed",
         demo: "endgame",
     },
@@ -164,10 +166,39 @@ const HIDING: TourStep[] = [
 const MENU_STEP: TourStep = {
     id: "menu",
     title: "Rules and help",
-    text: "The rules, every card and this tutorial are in the **Menu**, under **Help**. Tap the round button at the top right to open it.",
+    text: "The rules, every card and this tutorial are in the **Menu**, under **Help**.",
     target: [id("menu-help")],
-    menu: "game",
+    menu: "help",
 };
+
+/**
+ * The **?** on "Ask a question" (QuestionTypes.tsx): that screen in four
+ * notes. Not offered and not in the Menu; it starts where the player is.
+ */
+export const ASK_TOUR: TourStep[] = [
+    {
+        id: "kinds",
+        title: "Six kinds",
+        text: "Each tile is a kind of question. Tap one to choose exactly what to ask; nothing goes to the hider until you tap the button at the bottom of the next screen.",
+        target: [id("ask-kinds")],
+    },
+    {
+        id: "draws",
+        title: "What it costs",
+        text: "The badge, like 3/1, is what an answer costs you: the hider draws 3 cards from their deck and keeps 1.",
+        target: ['[data-testid="draw-badge"]'],
+    },
+    {
+        id: "twice",
+        title: "Asked before",
+        text: "A **×2** on a choice means it was asked already this round. Asking it again costs double: the hider draws and keeps twice, one after the other.",
+    },
+    {
+        id: "info",
+        title: "The rules",
+        text: "On the next screen, the round **i** at the top right unfolds the rule for that question, with a link to the full rules.",
+    },
+];
 
 export const TOURS: Record<TourId, TourStep[]> = {
     seeker: [
@@ -175,7 +206,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "sidebar",
             title: "Your sidebar",
-            text: "Tap **Questions** to open your questions, cards and photos. On a phone, swipe it up for more room.",
+            text: "Tap **Questions** to open your questions and photos. On a phone the bar at the bottom has every section; **Map** shows the whole map again.",
             target: [...SIDEBAR_BUTTON],
             sidebar: "closed",
             tab: "questions",
@@ -184,7 +215,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "ask",
             title: "Ask a question",
-            text: "Tap **Ask a question**, pick a kind, then what to ask: **Ask** sends it from where you are. A draft lets you plan first.",
+            text: "Tap **Ask a question**, pick a kind, then what to ask. The button at the bottom sends it from where you are; a draft lets you plan first.",
             target: [id("ask-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",
@@ -218,10 +249,12 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "photos",
             title: "Photos",
-            text: "Ask for a photo under **Photos**. The hider has ten minutes to send it (twenty in a large game).",
-            target: [...tab("photos"), ...TABS],
+            text: "Ask for a photo the same way: **Ask a question**, then **Photo**. The hider has ten minutes to send it (twenty in a large game).",
+            // The Photo tile is there in a game; outside one, the kinds.
+            target: ['[data-testid="ask-photo"]', id("ask-kinds")],
             sidebar: "open",
-            tab: "photos",
+            tab: "questions",
+            screen: "types",
         },
         {
             id: "clock",
@@ -359,20 +392,24 @@ export const TOURS: Record<TourId, TourStep[]> = {
             title: "Rules and help",
             text: "The rules, every card and the seeker and hider tutorials are in the **Menu**, under **Help**.",
             target: [id("menu-help")],
-            menu: "game",
+            menu: "help",
         },
     ],
+    ask: ASK_TOUR,
 };
 
 /** The buttons in Menu → Game → Help. */
-export const TOUR_LABELS: Record<TourId, string> = {
+export const TOUR_LABELS: Record<Exclude<TourId, "ask">, string> = {
     seeker: "Seeker",
     hider: "Hider",
     organiser: "Setting up",
 };
 
 /** The first time on a phone: "Show Tutorial" or not. */
-export const OFFERS: Record<TourId, { title: string; text: string }> = {
+export const OFFERS: Record<
+    Exclude<TourId, "ask">,
+    { title: string; text: string }
+> = {
     seeker: {
         title: "New here?",
         text: "How seeking works, with examples in Zürich on the map, then how to ask questions here.",

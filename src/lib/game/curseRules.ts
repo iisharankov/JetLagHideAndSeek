@@ -167,6 +167,7 @@ const radiusKm = (data: Record<string, unknown>) => {
     const value = Number(data.radius);
     if (!Number.isFinite(value)) return NaN;
     if (data.unit === "meters") return value / 1000;
+    // Old games only: the app is metric since round 38.
     if (data.unit === "miles")
         return Math.round(value * 1.609344 * 1000) / 1000;
     return value;

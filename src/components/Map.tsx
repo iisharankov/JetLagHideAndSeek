@@ -256,7 +256,7 @@ export const Map = ({ className }: { className?: string }) => {
                 <PlaceReviewMarkers />
                 <PolygonDraw />
                 {showZoom && <ZoomControl position="bottomright" />}
-                <ScaleControl position="bottomright" />
+                <ScaleControl position="bottomright" imperial={false} />
             </MapContainer>
         ),
         [map, $baseTileLayer, showZoom],

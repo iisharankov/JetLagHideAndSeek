@@ -3,11 +3,16 @@ import * as turf from "@turf/turf";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
+import {
+    PlayCardConfirm,
+    RANDOMIZE_ID,
+    VETO_ID,
+} from "@/components/game/PlayCardConfirm";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { useTick } from "@/hooks/useTick";
-import { questions } from "@/lib/context";
+import { endgame, hiderMode, questions } from "@/lib/context";
 import { ago } from "@/lib/format";
+import { tap } from "@/lib/game/alerts";
 import {
     answerChoices,
     answerOf,
@@ -38,6 +43,7 @@ import {
     suggestedAnswers,
 } from "@/lib/game/session";
 import type { QuestionEntry, SharedQuestion } from "@/lib/game/types";
+import { chosenStation } from "@/lib/hiderSpot";
 import { showTip } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 import { findTentacleLocations } from "@/maps/api";
@@ -141,6 +147,46 @@ const ReferenceLine = ({ question }: { question: Question }) => {
     );
 };
 
+/** "· from your station, Wipkingen, 2.1 km away": where the answer is worked out from. */
+const AnsweredFrom = ({ question }: { question: Question }) => {
+    const station = useStore(chosenStation);
+    const $endgame = useStore(endgame);
+    const pin = useStore(hiderMode);
+    const data = question.data as { lat?: number; lng?: number };
+    const from =
+        station && !$endgame
+            ? {
+                  what: `your station, ${station.name}`,
+                  lat: station.lat,
+                  lng: station.lng,
+              }
+            : pin !== false
+              ? { what: "your pin", lat: pin.latitude, lng: pin.longitude }
+              : null;
+    if (!from) return null;
+    const km =
+        typeof data.lat === "number" && typeof data.lng === "number"
+            ? turf.distance([from.lng, from.lat], [data.lng, data.lat], {
+                  units: "kilometers",
+              })
+            : null;
+    return (
+        <>
+            {" "}
+            · from {from.what}
+            {km !== null && (
+                <>
+                    ,{" "}
+                    <strong>
+                        {km < 10 ? km.toFixed(1) : Math.round(km)} km
+                    </strong>{" "}
+                    away
+                </>
+            )}
+        </>
+    );
+};
+
 /**
  * The hider's answer: a choice shows on the map what it would rule out;
  * Send makes it the answer. Four choices or fewer are buttons, more (a
@@ -206,12 +252,21 @@ const AnswerPanel = ({
         }
     };
 
+    const draw = DRAWS[question.id];
+    const again =
+        entry.state === "asked"
+            ? timesAnsweredBefore($game!, question as unknown as SharedQuestion)
+            : 0;
     return (
-        <div className="mt-1 flex flex-col gap-1" data-testid="answer-panel">
-            <p>
-                {suggestion
-                    ? `Hider mode suggests: ${suggestion.label}`
-                    : "Choose the answer:"}
+        <div className="mt-1 flex flex-col gap-2" data-testid="answer-panel">
+            <p className="text-sm">
+                {suggestion ? (
+                    <>
+                        The app suggests <strong>{suggestion.label}</strong>.
+                    </>
+                ) : (
+                    "Choose the answer:"
+                )}
             </p>
             {question.id === "tentacles" && places === null && !error && (
                 <p className="opacity-80">Finding the places within reach…</p>
@@ -222,12 +277,12 @@ const AnswerPanel = ({
                 </p>
             )}
             {choices.length <= 4 ? (
-                <div className="flex flex-wrap gap-1">
+                <div className="grid grid-cols-2 gap-2">
                     {choices.map((choice) => (
                         <Button
                             key={choice.label}
-                            size="sm"
                             variant={isSelected(choice) ? "default" : "outline"}
+                            className="h-auto min-h-16 whitespace-normal text-lg font-semibold max-md:min-h-16"
                             aria-pressed={isSelected(choice)}
                             onClick={() => choose(choice)}
                         >
@@ -236,30 +291,125 @@ const AnswerPanel = ({
                     ))}
                 </div>
             ) : (
-                <Select
-                    trigger="Answer"
-                    options={Object.fromEntries(
-                        choices.map((choice) => [choice.label, choice.label]),
-                    )}
-                    value={selectedLabel ?? ""}
-                    onValueChange={(label) => {
-                        const choice = choices.find((c) => c.label === label);
-                        if (choice) choose(choice);
-                    }}
-                />
+                <ul
+                    className="flex flex-col gap-1"
+                    aria-label="Answer"
+                    data-testid="answer-list"
+                >
+                    {choices.map((choice) => (
+                        <li key={choice.label}>
+                            <button
+                                type="button"
+                                aria-pressed={isSelected(choice)}
+                                className={cn(
+                                    "flex min-h-12 w-full items-center rounded-lg border px-3 text-left text-sm font-semibold",
+                                    isSelected(choice)
+                                        ? "border-blue-500 bg-blue-600 text-white"
+                                        : "border-slate-600 bg-slate-800/60",
+                                )}
+                                onClick={() => choose(choice)}
+                            >
+                                {choice.label}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
             )}
             <p className="opacity-80">
-                The map shows what this answer rules out. Send it when it&apos;s
-                right.
+                {draw && `You draw ${draw.draw}, keep ${draw.keep}`}
+                {again > 0 && (
+                    <span className="text-red-300">
+                        {" "}
+                        · ×{again + 1}: asked before
+                    </span>
+                )}
+                . The map shows what this answer rules out.
             </p>
+            <div className="sticky bottom-0 -mx-2 bg-sidebar px-2 py-2">
+                <Button
+                    className="h-12 w-full text-base font-semibold"
+                    disabled={selected === null}
+                    onClick={() => {
+                        tap();
+                        void send();
+                    }}
+                >
+                    Send answer{selectedLabel ? `: ${selectedLabel}` : ""}
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+/** Veto Question and Randomize Question: instead of answering, with the card's face. */
+const PlayInstead = ({
+    entry,
+    questionKey,
+    thermometer,
+}: {
+    entry: QuestionEntry;
+    questionKey: number;
+    thermometer: boolean;
+}) => {
+    const $game = useStore(gameState)!;
+    const [playing, setPlaying] = useState<"veto" | "randomize" | null>(null);
+    const hand = $game.deck?.hand;
+    const has = (id: string) => (hand ? hand.includes(id) : true);
+    const vetoOk = entry.state === "asked" && has(VETO_ID);
+    const randomOk =
+        entry.state === "asked" && !thermometer && has(RANDOMIZE_ID);
+    return (
+        <div className="grid grid-cols-2 gap-2" data-testid="play-instead">
             <Button
-                size="sm"
-                className="w-full"
-                disabled={selected === null}
-                onClick={() => void send()}
+                variant="outline"
+                className="h-auto min-h-11 whitespace-normal"
+                disabled={!vetoOk}
+                title="Play Veto Question: no answer, no cards for you"
+                onClick={() => setPlaying("veto")}
             >
-                Send answer{selectedLabel ? `: ${selectedLabel}` : ""}
+                {vetoOk ? "Veto" : "Veto (no card in hand)"}
             </Button>
+            <Button
+                variant="outline"
+                className="h-auto min-h-11 whitespace-normal"
+                disabled={!randomOk}
+                title="Play Randomize Question: another question of this kind, chosen at random, which you answer instead"
+                onClick={() => setPlaying("randomize")}
+            >
+                {randomOk
+                    ? "Randomize"
+                    : thermometer
+                      ? "Randomize (not a thermometer)"
+                      : "Randomize (no card in hand)"}
+            </Button>
+            <PlayCardConfirm
+                cardId={
+                    playing === "veto"
+                        ? VETO_ID
+                        : playing === "randomize"
+                          ? RANDOMIZE_ID
+                          : null
+                }
+                title={
+                    playing === "veto"
+                        ? "Veto this question?"
+                        : "Randomize this question?"
+                }
+                text={
+                    playing === "veto"
+                        ? "No answer is given and you draw no cards."
+                        : "It becomes another question of its kind, chosen at random, which you answer instead."
+                }
+                action={playing === "veto" ? "Play Veto" : "Play Randomize"}
+                onPlay={() =>
+                    void sendOp(
+                        playing === "veto"
+                            ? { type: "vetoQuestion", key: questionKey }
+                            : { type: "randomizeQuestion", key: questionKey },
+                    )
+                }
+                onClose={() => setPlaying(null)}
+            />
         </div>
     );
 };
@@ -298,18 +448,8 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const showChoices =
         mayAnswer &&
         (entry.state === "asked" || (entry.state === "answered" && changing));
-    const hand = $game.deck?.hand;
-    // Veto and Randomize: instead of answering. With the digital deck only
-    // with the card in hand.
-    const canVeto =
-        $role === "hider" &&
-        entry.state === "asked" &&
-        (hand ? hand.includes("powerup_veto_question") : true);
-    const canRandomize =
-        $role === "hider" &&
-        entry.state === "asked" &&
-        question.id !== "thermometer" &&
-        (hand ? hand.includes("powerup_randomize_question") : true);
+    // The hider's answer screen (mock-up 11): no coloured bar, big choices.
+    const answering = showChoices && entry.state === "asked";
     const timeLeft = answerTimeLeft(entry, serverNow());
     const askedBefore =
         entry.state === "draft" || entry.state === "armed"
@@ -333,37 +473,53 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
         <div
             className={cn(
                 "mx-2 mb-1 rounded-md px-2 py-1 text-xs",
+                answering && "text-sm",
                 entry.state === "draft" && "bg-amber-900/40 text-amber-100",
                 entry.state === "armed" && "bg-violet-900/50 text-violet-100",
-                entry.state === "asked" && "bg-blue-900/50 text-blue-100",
+                entry.state === "asked" &&
+                    !answering &&
+                    "bg-blue-900/50 text-blue-100",
                 entry.state === "answered" && "bg-green-900/40 text-green-100",
                 entry.state === "vetoed" && "bg-slate-700/60 text-slate-200",
             )}
             data-testid="question-game-state"
             data-state={entry.state}
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                <p>
-                    <strong>{STATE_TEXT[entry.state]}</strong>
-                    {entry.state === "answered" &&
-                        `: ${describeAnswer(question)}`}
-                </p>
-                <p className="opacity-80">
-                    {entry.updatedBy === entry.createdBy
-                        ? `By ${entry.createdBy}`
-                        : `Changed by ${entry.updatedBy}`}{" "}
-                    · {ago(entry.updatedAt, serverNow())}
-                </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                {answering ? (
+                    <p className="text-slate-300">
+                        Asked by {entry.createdBy} ·{" "}
+                        {ago(entry.askedAt ?? entry.updatedAt, serverNow())}
+                        <AnsweredFrom question={question} />
+                    </p>
+                ) : (
+                    <>
+                        <p>
+                            <strong>{STATE_TEXT[entry.state]}</strong>
+                            {entry.state === "answered" &&
+                                `: ${describeAnswer(question)}`}
+                        </p>
+                        <p className="opacity-80">
+                            {entry.updatedBy === entry.createdBy
+                                ? `By ${entry.createdBy}`
+                                : `Changed by ${entry.updatedBy}`}{" "}
+                            · {ago(entry.updatedAt, serverNow())}
+                        </p>
+                    </>
+                )}
+                {timeLeft !== null && (
+                    <span
+                        className={cn(
+                            "shrink-0 rounded-full bg-slate-800 px-2.5 py-1 font-semibold tabular-nums",
+                            TONE_CLASS[answerTimerTone(timeLeft)],
+                        )}
+                        data-testid="answer-timer"
+                        data-tone={answerTimerTone(timeLeft)}
+                    >
+                        ⏳ {answerTimerText(timeLeft)}
+                    </span>
+                )}
             </div>
-            {timeLeft !== null && (
-                <p
-                    className={TONE_CLASS[answerTimerTone(timeLeft)]}
-                    data-testid="answer-timer"
-                    data-tone={answerTimerTone(timeLeft)}
-                >
-                    ⏳ {answerTimerText(timeLeft)}
-                </p>
-            )}
             {entry.late && (
                 <p
                     className="font-semibold text-amber-300"
@@ -422,51 +578,12 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     onSent={() => setChanging(false)}
                 />
             )}
-            {(canVeto || canRandomize) && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                    {canVeto && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            title="Play Veto Question: no answer, no cards for you"
-                            onClick={() => {
-                                if (
-                                    window.confirm(
-                                        "Veto this question? No answer is given and you draw no cards.",
-                                    )
-                                ) {
-                                    void sendOp({
-                                        type: "vetoQuestion",
-                                        key: questionKey,
-                                    });
-                                }
-                            }}
-                        >
-                            Veto this question
-                        </Button>
-                    )}
-                    {canRandomize && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            title="Play Randomize Question: another question of this kind, chosen at random, which you answer instead"
-                            onClick={() => {
-                                if (
-                                    window.confirm(
-                                        "Randomize this question? It becomes another question of its kind, chosen at random, which you answer instead.",
-                                    )
-                                ) {
-                                    void sendOp({
-                                        type: "randomizeQuestion",
-                                        key: questionKey,
-                                    });
-                                }
-                            }}
-                        >
-                            Randomize
-                        </Button>
-                    )}
-                </div>
+            {$role === "hider" && entry.state === "asked" && (
+                <PlayInstead
+                    entry={entry}
+                    questionKey={questionKey}
+                    thermometer={question.id === "thermometer"}
+                />
             )}
             {entry.state === "answered" && mayAnswer && !changing && (
                 <Button

@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { giveCreatorCode, routeApi } from "./api";
 import { askQuestion } from "./ask";
 import { expect, test } from "./fixtures";
+import { closeMenu, openMenu } from "./menu";
 
 // Two tabs of the same browser (shared storage) are the same player: the
 // second tab doesn't ask who you are, has the first tab's role, and nothing
@@ -35,27 +36,11 @@ const prepare = async (page: Page) => {
     await routeApi(page);
 };
 
-/** Closes the menu; a dialog that is still closing may swallow an Escape. */
-const closeMenu = async (page: Page) => {
-    const menu = page.getByRole("dialog", { name: "Menu" });
-    for (let tries = 0; tries < 10 && (await menu.isVisible()); tries++) {
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(300);
-    }
-    await expect(menu).toBeHidden();
-};
-
-const openMenu = async (page: Page) => {
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("radio", { name: "Game" }).click();
-};
-
 test("a second tab of the same browser is the same player, with nothing to type", async ({
     page,
     externalHosts,
     pageErrors,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
     await prepare(page);
     await giveCreatorCode(page);
@@ -65,7 +50,7 @@ test("a second tab of the same browser is the same player, with nothing to type"
         localStorage.setItem("polyGeoJSON", JSON.stringify(area));
     }, PLAY_AREA);
     await page.goto("/");
-    await openMenu(page);
+    await openMenu(page, "Game");
     await page.getByRole("button", { name: "Start a shared game" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
@@ -82,7 +67,7 @@ test("a second tab of the same browser is the same player, with nothing to type"
     const other = await page.context().newPage();
     await prepare(other);
     await other.goto(link);
-    await openMenu(other);
+    await openMenu(other, "Game");
     await expect(other.getByTestId("game-connection")).toHaveText(/Live/);
     await expect(other.getByTestId("join-dialog")).toHaveCount(0);
     await expect(other.getByTestId("game-role")).toContainText(

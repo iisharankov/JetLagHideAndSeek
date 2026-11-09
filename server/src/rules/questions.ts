@@ -2,13 +2,17 @@
 // variants, the late-answer penalty.
 import { randomInt } from "node:crypto";
 
-import { ANSWER_TIME_MS } from "@/lib/game/answerTimer";
+import { ANSWER_TIME_MS, photoTimeMs } from "@/lib/game/answerTimer";
 import { advanceDeck, DRAWS, removeFromHand } from "@/lib/game/deck";
-import { questionIdentity } from "@/lib/game/questionIdentity";
+import {
+    questionIdentity,
+    timesPhotoAnsweredBefore,
+} from "@/lib/game/questionIdentity";
 import { ALWAYS_OFF, questionKey, tentacleRadiusKm } from "@/lib/game/settings";
 import {
     type GameSettings,
     type GameState,
+    type PhotoRequest,
     type QuestionEntry,
     type SharedQuestion,
 } from "@/lib/game/types";
@@ -168,12 +172,14 @@ export const randomVariant = (state: GameState, question: SharedQuestion) => {
  */
 export const noteLateAnswer = (
     state: GameState,
-    entry: QuestionEntry,
+    entry: { askedAt?: number; createdAt?: number; late?: number },
     now: number,
+    /** The time to answer: five minutes, or the photo's (photoTimeMs). */
+    limitMs = ANSWER_TIME_MS,
 ) => {
     if (!state.settings.latePenalty) return;
-    const askedAt = entry.askedAt ?? entry.createdAt;
-    if (now - askedAt <= ANSWER_TIME_MS) return;
+    const askedAt = entry.askedAt ?? entry.createdAt ?? now;
+    if (now - askedAt <= limitMs) return;
     state.lateAnswers += 1;
     entry.late = state.lateAnswers;
     if (state.lateAnswers % 3 === 0) {
@@ -220,4 +226,27 @@ export const payRandomize = (state: GameState) => {
         );
     }
     state.deck = removeFromHand(state.deck, index);
+};
+
+/**
+ * A photo question answered (a photo, or "I cannot answer"): the late-answer
+ * penalty past the photo's time, and with the digital deck the draw, again
+ * for the same photo asked again.
+ */
+export const photoAnswered = (
+    state: GameState,
+    request: PhotoRequest,
+    now: number,
+) => {
+    noteLateAnswer(state, request, now, photoTimeMs(state.settings.size));
+    if (!state.deck) return;
+    const again = timesPhotoAnsweredBefore(state, request.name, request.id);
+    for (let i = 0; i <= again; i++) {
+        state.deck.owed.push({
+            draw: 1,
+            keep: 1,
+            label: i === 0 ? "Photo" : "Photo (asked again)",
+        });
+    }
+    state.deck = advanceDeck(state.deck, now);
 };

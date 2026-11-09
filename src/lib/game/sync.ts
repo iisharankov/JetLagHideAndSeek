@@ -1,5 +1,6 @@
 // Mirroring a shared game's questions on this phone. Pure functions; the
 // connection and timing live in session.ts.
+import { metricQuestion } from "@/lib/metric";
 import { type Question, questionSchema } from "@/maps/schema";
 
 import {
@@ -75,10 +76,12 @@ export const mergeRemoteQuestions = (
             ) {
                 view.drag = false;
             }
-            const parsed = questionSchema.safeParse({
-                ...entry.question,
-                data: { ...entry.question.data, ...view },
-            });
+            const parsed = questionSchema.safeParse(
+                metricQuestion({
+                    ...entry.question,
+                    data: { ...entry.question.data, ...view },
+                }),
+            );
             return parsed.success ? [parsed.data as Question] : [];
         });
 

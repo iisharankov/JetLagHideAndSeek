@@ -1,11 +1,11 @@
 # Roadmap
 
-Ideas and what's next, in a suggested order. Updated 2026-11-09 (round 29). What was built is in `rounds/` and `history/rounds-before-the-standard.md`; bugs are in `known-issues.md`.
+Ideas and what's next, in a suggested order. Updated 2026-11-09 (round 38). What was built is in `rounds/` and `history/rounds-before-the-standard.md`; bugs are in `known-issues.md`.
 
 ## Next
 
-1. **The November game's fixes** ([plans/nov-game-fixes/](plans/nov-game-fixes/README.md)): identity and team roles (A), hider sync (B), the thermometer as the rulebook plays it (E) before the next game night; then the phone-first layout (C, D), metric and photos (F).
-2. **A shakedown game** after A, B and E, with two phones on one table first: one reload each, one phone swap.
+1. **A shakedown game** with the November game's fixes (built in rounds 32–38, [history/plans/nov-game-fixes/](history/plans/nov-game-fixes/README.md)), two phones on one table first: one reload each, one phone swap.
+2. **The rest of the phone layout** (known-issues "Phone layout, left after runs E and F").
 3. **The public site's gates** (Q47) and the backup schedule (Q48, S4).
 
 ## Later

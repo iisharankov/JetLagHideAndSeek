@@ -192,7 +192,7 @@ test("the hider's pin follows their GPS, inside their zone", async ({
     const pin = ben.locator(".hider-marker");
     await expect(pin).toHaveCount(1);
     await expect(ben.getByText(/^Pin: 47\.37790°N/)).toBeVisible();
-    await ben.getByRole("switch", { name: /Move my pin with GPS/ }).click();
+    await ben.getByRole("switch", { name: /Pin follows GPS/ }).click();
     // A kilometre north: outside the zone, so the pin waits at its edge.
     await expect(ben.getByTestId("pin-at-edge")).toBeVisible();
     await expect(ben.getByText(/^Pin: 47\.382\d\d°N/)).toBeVisible();

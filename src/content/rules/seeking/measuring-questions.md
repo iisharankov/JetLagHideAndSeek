@@ -60,7 +60,7 @@ Any named body of water on your maps app, excluding pools.
 
 Okay, so: defining where a coastline begins is a famously difficult geographical question. Here is the definition we have developed–we're not saying it's perfect, but at least it is objective.
 
-For our purposes, a coastline is defined as: any place where land meets either the ocean, a great lake, or a body of water that flows directly into the ocean or great lake via a waterway that is never less than 1 mile across.
+For our purposes, a coastline is defined as: any place where land meets either the ocean, a great lake, or a body of water that flows directly into the ocean or great lake via a waterway that is never less than 1.5 km across.
 
 You can see this illustrated below:
 
@@ -74,7 +74,7 @@ Anything correctly classified as a mountain by your mapping app. Measure distanc
 
 #### Park
 
-Anything correctly classified as a park by your mapping app. Measure distance from the map icon. As noted in the park matching question, this could lead to strangeness. If you are in a large park, a mile from the park icon, you might have to say you are a mile away from any park despite the fact that you are in a park. Nonetheless, we believe measuring to the icon is the cleanest and most objective system.
+Anything correctly classified as a park by your mapping app. Measure distance from the map icon. As noted in the park matching question, this could lead to strangeness. If you are in a large park, a kilometre from the park icon, you might have to say you are a kilometre away from any park despite the fact that you are in a park. Nonetheless, we believe measuring to the icon is the cleanest and most objective system.
 
 ### Places of Interest
 

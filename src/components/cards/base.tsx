@@ -9,7 +9,9 @@ import {
 import { createContext, useContext } from "react";
 import { VscTrash } from "react-icons/vsc";
 
+import { DrawBadge } from "@/components/ask/QuestionTypes";
 import { QuestionGameBar } from "@/components/game/QuestionGameBar";
+import { useRuleInfo } from "@/components/RuleInfo";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -42,10 +44,9 @@ import { DRAWS } from "@/lib/game/deck";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
-import { QuestionInfoButton } from "./QuestionInfoButton";
-
+/** 44 px on phones (principle 7), smaller beside the desktop's sidebar. */
 const ICON_BUTTON =
-    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/10 disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4";
+    "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/10 disabled:opacity-40 md:h-8 md:w-8 [&>svg]:h-5 [&>svg]:w-5 md:[&>svg]:h-4 md:[&>svg]:w-4";
 
 /** In a shared game: what the question's state is there, else null. */
 export const useGameQuestionState = (questionKey: number) => {
@@ -108,6 +109,14 @@ export const QuestionCard = ({
     const draw = question ? DRAWS[question.id] : undefined;
     // The hider's research questions never join the game.
     const research = !!question?.data.research;
+    const info = useRuleInfo(
+        question?.id ?? "radius",
+        question
+            ? ((question.data as { type?: string; locationType?: string })
+                  .type ??
+                  (question.data as { locationType?: string }).locationType)
+            : undefined,
+    );
     return (
         <>
             <SidebarGroup
@@ -126,12 +135,13 @@ export const QuestionCard = ({
                             <button
                                 type="button"
                                 onClick={heading.back}
-                                className="inline-flex h-9 shrink-0 items-center rounded-md pr-1 text-sm text-blue-300 hover:bg-white/10"
+                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm text-blue-300 hover:bg-white/10 md:h-9 md:w-9"
                                 aria-label="All questions"
                             >
                                 <ChevronLeft className="h-5 w-5" />
                             </button>
                         )}
+                        {question && draw && <DrawBadge kind={question.id} />}
                         <SidebarGroupLabel className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
                             {heading?.title ?? label} {sub && `(${sub})`}
                         </SidebarGroupLabel>
@@ -206,31 +216,9 @@ export const QuestionCard = ({
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
-                        {question && (
-                            <QuestionInfoButton
-                                category={question.id}
-                                type={
-                                    (
-                                        question.data as {
-                                            type?: string;
-                                            locationType?: string;
-                                        }
-                                    ).type ??
-                                    (question.data as { locationType?: string })
-                                        .locationType
-                                }
-                            />
-                        )}
+                        {question && info.button}
                     </div>
-                    {draw && (
-                        <p
-                            className="px-3 text-[11px] text-slate-400"
-                            title="What the hider draws from the deck for answering"
-                            data-testid="question-draw"
-                        >
-                            Hider draws {draw.draw}, keeps {draw.keep}
-                        </p>
-                    )}
+                    {info.panel}
                     {!research && <QuestionGameBar questionKey={questionKey} />}
                     {deleteRequest && (
                         <div
@@ -346,7 +334,7 @@ export const QuestionCard = ({
                                     type="button"
                                     className={cn(
                                         ICON_BUTTON,
-                                        "gap-1 px-2 text-xs",
+                                        "w-auto gap-1 px-2 text-xs md:w-auto",
                                     )}
                                     onClick={() =>
                                         updateQuestion(questionKey, {

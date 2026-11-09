@@ -46,6 +46,6 @@ export const timesPhotoAnsweredBefore = (
     state.photoRequests.filter(
         (request) =>
             request.id !== exceptId &&
-            !!request.photoId &&
+            (!!request.photoId || !!request.nullAnswer) &&
             photoName(request.name) === photoName(name),
     ).length;

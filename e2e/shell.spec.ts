@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import { API_PORT, createGameOnApi, routeApi } from "./api";
+import { openQuestions } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The phone's shell: the tab bar, Map and back to where you were, Back on
@@ -160,4 +161,48 @@ test("the ask flow marks what was asked before (×2) and unfolds each photo's ru
     await expect(
         choices.getByRole("button", { name: /^Ask for: / }),
     ).toBeEnabled();
+});
+
+test("the ? on Ask a question explains the screen in four notes; a toast closes by its full-height ×", async ({
+    page,
+    pageErrors,
+}) => {
+    await prepare(page);
+    await page.goto("/");
+    await openQuestions(page);
+    await page.getByRole("button", { name: "Ask a question" }).click();
+    await page.getByRole("button", { name: "How this screen works" }).click();
+    const note = page.getByTestId("coach-mark");
+    await expect(note).toContainText("Six kinds");
+    for (const title of ["What it costs", "Asked before", "The rules"]) {
+        await note.getByRole("button", { name: "Next" }).click();
+        await expect(note).toContainText(title);
+    }
+    await note.getByRole("button", { name: "Finish" }).click();
+    await expect(note).toHaveCount(0);
+    // The types screen is still there: the tour opened nothing of its own.
+    await expect(page.getByTestId("question-types")).toBeInViewport();
+
+    // The radar's "i" unfolds its rule under the header.
+    await page.getByTestId("ask-radius").click();
+    await page.getByRole("button", { name: "About this question" }).click();
+    await expect(page.getByTestId("rule-info")).toContainText("Are you within");
+
+    // A notification (deleting the question made here says "undo"): the ×
+    // is as tall as the toast, and closes it.
+    await page.getByRole("button", { name: "Add the question" }).click();
+    await page.getByRole("button", { name: "Delete question" }).click();
+    await page.getByRole("button", { name: "Delete Question" }).click();
+    const toast = page.locator(".Toastify__toast").first();
+    await expect(toast).toBeVisible();
+    const close = toast.getByRole("button", { name: "Close" });
+    const [toastBox, closeBox] = [
+        (await toast.boundingBox())!,
+        (await close.boundingBox())!,
+    ];
+    expect(closeBox.height).toBeGreaterThanOrEqual(toastBox.height - 1);
+    expect(closeBox.width).toBeGreaterThanOrEqual(44);
+    await close.click();
+    await expect(page.locator(".Toastify__toast")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
 });

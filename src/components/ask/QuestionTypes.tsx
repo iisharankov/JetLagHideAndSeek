@@ -16,9 +16,13 @@ import { gameRole, gameState } from "@/lib/game/session";
 import type { GameState } from "@/lib/game/types";
 import { recentPosition } from "@/lib/geolocation";
 import { askFlow, type AskKind, back, pickKind } from "@/lib/screens";
+import { startTour } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 
-/** The six kinds, as the type picker shows them (mock-up 03). */
+/**
+ * The six kinds, as the type picker shows them (mock-up 03). The tour
+ * points at the Photo tile as data-testid="ask-photo" (built from the kind).
+ */
 export const KINDS: {
     kind: AskKind;
     title: string;
@@ -166,6 +170,23 @@ export const QuestionTypes = () => {
         <div className="flex flex-col gap-3 pb-4" data-testid="question-types">
             <ScreenHeader
                 title={research ? "Add a research question" : "Ask a question"}
+                right={
+                    <button
+                        type="button"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center"
+                        aria-label="How this screen works"
+                        title="How this screen works"
+                        onClick={() => startTour("ask")}
+                        data-testid="ask-tour"
+                    >
+                        <span
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-400 text-sm font-bold"
+                            aria-hidden
+                        >
+                            ?
+                        </span>
+                    </button>
+                }
             />
             {research && (
                 <p className="px-3 text-xs text-slate-400">
@@ -173,7 +194,10 @@ export const QuestionTypes = () => {
                     your pin).
                 </p>
             )}
-            <div className="grid grid-cols-2 gap-2 px-2">
+            <div
+                className="grid grid-cols-2 gap-2 px-2"
+                data-tutorial-id="ask-kinds"
+            >
                 {kinds.map(({ kind, title, line, icon }) => {
                     const refusal = research
                         ? null
@@ -192,7 +216,7 @@ export const QuestionTypes = () => {
                             <span className="text-2xl" aria-hidden>
                                 {icon}
                             </span>
-                            <span className="flex items-center gap-1.5">
+                            <span className="flex flex-wrap items-center justify-center gap-1.5">
                                 <DrawBadge kind={kind} />
                                 <span className="font-semibold">{title}</span>
                             </span>

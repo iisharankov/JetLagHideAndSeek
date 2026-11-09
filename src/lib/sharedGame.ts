@@ -22,6 +22,7 @@ import type { Questions } from "@/maps/schema";
 const settingsSchema = z.object({
     disabledStations: z.array(z.string()).nullish(),
     hidingRadius: z.number().positive().nullish(),
+    // Old saved games may say miles; converted to km below.
     hidingRadiusUnits: z.enum(["miles", "kilometers", "meters"]).nullish(),
     zoneOptions: z.array(z.string()).nullish(),
 });

@@ -1,8 +1,9 @@
 import type { Browser, Page } from "@playwright/test";
 
 import { giveCreatorCode, routeApi } from "./api";
-import { askQuestion } from "./ask";
+import { askPhoto, askQuestion, openPhoto } from "./ask";
 import { expect, test } from "./fixtures";
+import { closeMenu, menuScreen, openMenu } from "./menu";
 
 // Two phones in one shared game: a seeker (Ana) and the hider (Ben).
 
@@ -55,31 +56,6 @@ const preparePhone = async (page: Page, name: string, url = "/") => {
         { name, area: PLAY_AREA },
     );
     await page.goto(url);
-};
-
-const openMenu = async (page: Page, section: "Game" | "Settings") => {
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("radio", { name: section }).click();
-};
-
-/**
- * Closes the menu. The Escape goes to the drawer itself (a keypress with the
- * focus elsewhere on the page is ignored), and a drawer still closing may
- * swallow one, so it is pressed again until the drawer is gone.
- */
-const closeMenu = async (page: Page) => {
-    // Joining ends when the join dialog closes, which can be after the game
-    // shows "Live" (the team is sent first). Until then the Menu is hidden
-    // behind it (aria-hidden), and the loop below would skip it.
-    await expect(page.getByTestId("join-dialog")).toHaveCount(0);
-    const menu = page.getByRole("dialog", { name: "Menu" });
-    for (let tries = 0; tries < 10 && (await menu.isVisible()); tries++) {
-        await menu.press("Escape");
-        await menu
-            .waitFor({ state: "hidden", timeout: 1000 })
-            .catch(() => undefined);
-    }
-    await expect(menu).toBeHidden();
 };
 
 const newPhone = async (browser: Browser) =>
@@ -136,8 +112,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     page,
     browser,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     // Ana starts a shared game: the settings screens, then start.
@@ -235,7 +210,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(
         ben.locator('path[stroke-dasharray="6 4"]').first(),
     ).toBeAttached({ timeout: 20_000 });
-    await expect(benState).toContainText("Hider mode suggests: Yes", {
+    await expect(benState).toContainText("The app suggests Yes", {
         timeout: 20_000,
     });
     await expect(anaState).toHaveAttribute("data-state", "asked");
@@ -272,24 +247,18 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(anaState).toHaveAttribute("data-state", "answered");
 
     // Photos: Ana asks for a tree, Ben sends one, Ana sees it.
-    await page.getByRole("radio", { name: /Photos/ }).click();
-    await page
-        .locator("summary")
-        .filter({ has: page.getByText("Tree", { exact: true }) })
-        .getByRole("button", { name: "Ask" })
-        .click();
-    await ben.getByRole("radio", { name: /Photos/ }).click();
-    await ben
-        .getByTestId("photo-request")
-        .locator('input[type="file"]')
-        .setInputFiles({
-            name: "tree.png",
-            mimeType: "image/png",
-            buffer: PNG,
-        });
-    await expect(
-        page.getByTestId("photo-request").getByRole("img"),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "All questions" }).click();
+    await askPhoto(page, "Tree");
+    const benPhoto = await openPhoto(ben, "Tree");
+    await benPhoto.getByTestId("photo-camera").setInputFiles({
+        name: "tree.png",
+        mimeType: "image/png",
+        buffer: PNG,
+    });
+    const anaPhoto = await openPhoto(page, "Tree");
+    await expect(anaPhoto.getByRole("img")).toBeVisible();
+    await page.getByRole("button", { name: "Back" }).click();
+    await ben.getByRole("button", { name: "Back" }).click();
 
     // Curses: Ben casts one, Ana sees it and clears it.
     await ben.getByRole("radio", { name: /Cards/ }).click();
@@ -331,8 +300,7 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     page,
     browser,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -533,8 +501,7 @@ test("with the virtual deck the game deals the hider's cards", async ({
     page,
     browser,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -614,8 +581,7 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     page,
     browser,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -753,8 +719,7 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
 test("whoever starts a game says who they are, and may be the hider", async ({
     page,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -774,7 +739,7 @@ test("whoever starts a game says who they are, and may be the hider", async ({
     await join.getByRole("button", { name: "I'm the hider" }).click();
     await expect(join).toBeHidden();
     // The Menu closes and the Hider tab opens, with the pointer.
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
     await expect(page.getByTestId("hider-panel")).toContainText(
         "Pick your station",
     );
@@ -787,8 +752,7 @@ test("whoever starts a game says who they are, and may be the hider", async ({
 test("the map's places can be reviewed before a game", async ({
     page,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -805,7 +769,7 @@ test("the map's places can be reviewed before a game", async ({
         .click();
     const bar = page.getByTestId("place-review-bar");
     await expect(bar).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
     await expect(bar.getByTestId("place-review-count")).toContainText(
         "0 places",
         { timeout: 20_000 },
@@ -817,8 +781,7 @@ test("the map's places can be reviewed before a game", async ({
 test("Settings → Places counts the places and opens the review", async ({
     page,
     externalHosts,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
+}) => {
     void externalHosts;
 
     await preparePhone(page, "Ana");
@@ -834,8 +797,8 @@ test("Settings → Places counts the places and opens the review", async ({
     await places.getByRole("button", { name: "Review on the map…" }).click();
     const bar = page.getByTestId("place-review-bar");
     await expect(bar).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
     await bar.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
+    await expect(menuScreen(page)).toBeVisible();
     await expect(page.getByTestId("places-settings")).toBeVisible();
 });

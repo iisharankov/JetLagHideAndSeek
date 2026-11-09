@@ -163,7 +163,7 @@ test("a thermometer starts where the seekers are, is asked once they've travelle
     // Ben answers: colder (he's at the start).
     await expect(ben.getByText(/New question: Thermometer 1 km/)).toBeVisible();
     const benState = ben.getByTestId("question-game-state");
-    await expect(benState).toContainText("Hider mode suggests: Colder", {
+    await expect(benState).toContainText("The app suggests Colder", {
         timeout: 20_000,
     });
     await ben.getByRole("button", { name: "Colder", exact: true }).click();

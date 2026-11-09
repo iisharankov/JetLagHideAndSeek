@@ -1,8 +1,22 @@
 // The rulebook gives the hider five minutes to answer a question. Both
 // phones count down from the moment the question was sent.
-import type { QuestionEntry } from "./types";
+import type { GameSize, PhotoRequest, QuestionEntry } from "./types";
 
 export const ANSWER_TIME_MS = 5 * 60_000;
+
+/** A photo: ten minutes in small and medium games, twenty in large ones. */
+export const photoTimeMs = (size: GameSize) =>
+    (size === "large" ? 20 : 10) * 60_000;
+
+/** Time left to send a photo (negative once overdue), or null once answered. */
+export const photoTimeLeft = (
+    request: Pick<PhotoRequest, "askedAt" | "photoId" | "nullAnswer">,
+    size: GameSize,
+    now: number,
+) =>
+    request.photoId || request.nullAnswer
+        ? null
+        : request.askedAt + photoTimeMs(size) - now;
 
 /**
  * Time left to answer, in milliseconds (negative once overdue), or null for

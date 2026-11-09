@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import { menuScreen, openMenu } from "./menu";
 
 test("one Menu holds game and settings, and no hider switch", async ({
     page,
@@ -15,7 +16,7 @@ test("one Menu holds game and settings, and no hider switch", async ({
     );
     await expect(page.getByRole("button", { name: "Options" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Menu" }).click();
+    await openMenu(page, "Help");
     await expect(page.getByRole("radio", { name: "Hider" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Rules" })).toHaveAttribute(
         "href",
@@ -34,19 +35,22 @@ test("one Menu holds game and settings, and no hider switch", async ({
         page.getByRole("button", { name: "I'm the hider" }),
     ).toHaveCount(0);
     await expect(page.getByText("Playing alone")).toHaveCount(0);
-    await page.getByRole("radio", { name: "Settings" }).click();
+    await openMenu(page, "Settings");
     const autoZoom = page.getByRole("switch", { name: /Auto zoom/ });
     const before = await autoZoom.getAttribute("aria-checked");
     await autoZoom.click();
     await expect(autoZoom).not.toHaveAttribute("aria-checked", before!);
+    // Escape closes it, back to where it was opened from.
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+    await expect(menuScreen(page)).toHaveCount(0);
 
-    // On a phone the Menu opens over the sheet too.
+    // On a phone the Menu is the sheet, opened from the tab bar; Map hides it.
     if (testInfo.project.name !== "desktop") {
         await page.getByRole("radio", { name: /^Questions/ }).click();
         await expect(page.getByTestId("sidebar-sheet")).toBeVisible();
         await page.getByRole("button", { name: "Menu" }).click();
-        await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
+        await expect(menuScreen(page)).toBeInViewport();
+        await page.getByRole("button", { name: "Map" }).click();
+        await expect(menuScreen(page)).not.toBeInViewport();
     }
 });

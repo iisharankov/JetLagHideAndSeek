@@ -55,6 +55,7 @@ import {
     noteLateAnswer,
     oweDraws,
     payRandomize,
+    photoAnswered,
     randomPhotoName,
     randomVariant,
     variantLabel,
@@ -388,6 +389,7 @@ export const applyOp = (
             const variant = randomVariant(state, entry.question);
             payRandomize(state);
             entry.randomizedFrom = variantLabel(state.settings, entry.question);
+            const from = entry.randomizedFrom;
             entry.askedAs = [
                 ...(entry.askedAs ?? []),
                 questionIdentity(entry.question),
@@ -403,6 +405,7 @@ export const applyOp = (
                 name: "Randomize Question",
                 playedAt: now,
                 by: actor.name,
+                detail: `${from} → ${variantLabel(state.settings, entry.question)}`,
             });
             break;
         }
@@ -413,7 +416,7 @@ export const applyOp = (
             const request = state.photoRequests.find((r) => r.id === op.id);
             if (!request)
                 throw new GameRuleError("No such photo question.", 404);
-            if (request.photoId) {
+            if (request.photoId || request.nullAnswer) {
                 throw new GameRuleError(
                     "Only a question waiting for an answer can be randomized.",
                     409,
@@ -430,7 +433,26 @@ export const applyOp = (
                 name: "Randomize Question",
                 playedAt: now,
                 by: actor.name,
+                detail: `Photo: ${request.randomizedFrom} → ${name}`,
             });
+            break;
+        }
+        case "photoNullAnswer": {
+            // "I cannot answer": the rulebook's answer when the subject
+            // isn't in the hiding zone. It earns the draw like a photo.
+            assertHider(actor, "answer photo questions");
+            const request = state.photoRequests.find((r) => r.id === op.id);
+            if (!request)
+                throw new GameRuleError("No such photo question.", 404);
+            if (request.photoId || request.nullAnswer) {
+                throw new GameRuleError(
+                    "Only a question waiting for an answer can be answered.",
+                    409,
+                );
+            }
+            request.nullAnswer = true;
+            request.answeredAt = now;
+            photoAnswered(state, request, now);
             break;
         }
         case "setPlayArea":

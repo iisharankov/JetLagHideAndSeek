@@ -321,6 +321,17 @@ export const gameEvents = (
             body: request?.name,
         });
     }
+    for (const request of after.photoRequests) {
+        if (!request.nullAnswer) continue;
+        const was = before.photoRequests.find((b) => b.id === request.id);
+        if (was?.nullAnswer) continue;
+        events.push({
+            key: `pn${request.id}`,
+            kind: "photo",
+            title: "The hider can't answer a photo question",
+            body: `${request.name}: there's none in their hiding zone.`,
+        });
+    }
     for (const curse of after.curses) {
         if (before.curses.some((b) => b.id === curse.id)) continue;
         events.push({
@@ -386,7 +397,7 @@ export const gameEvents = (
                   ? `${randomized.randomizedFrom} became ${label(randomized.question)}; the hider answers that instead.`
                   : randomizedPhoto
                     ? `Photo: ${randomizedPhoto.randomizedFrom} became Photo: ${randomizedPhoto.name}; the hider sends that instead.`
-                    : undefined,
+                    : powerup.detail,
         });
     }
     return events;

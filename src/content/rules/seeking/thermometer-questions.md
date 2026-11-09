@@ -10,17 +10,17 @@ After a thermometer question has been answered, the hider may **draw 2 cards and
 
 Here's a little diagram to help illustrate how thermometer questions can work:
 
-![After traveling 10 miles, am I hotter or colder?](/rules/img/seeking_thermometer_questions.webp)
+![After traveling 15 km, am I hotter or colder?](/rules/img/seeking_thermometer_questions.webp)
 
 These are the thermometer questions available to the seekers in <span class="game-size game-size-small">SMALL</span> **sized games**:
 
-- ½ Mile
-- 3 Miles
+- 1 km
+- 5 km
 
 ### For <span class="game-size game-size-medium">MEDIUM</span> and <span class="game-size game-size-large">LARGE</span> Sized Games, Add the Following:
 
-- 10 Miles
+- 15 km
 
 ### For <span class="game-size game-size-large">LARGE</span> Sized Games, Add the Following:
 
-- 50 Miles
+- 75 km

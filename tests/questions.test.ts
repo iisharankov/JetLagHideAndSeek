@@ -51,14 +51,14 @@ describe("changing questions", () => {
     it("replaces the changed question with a new object and keeps the rest", () => {
         const before = questions.get();
 
-        updateQuestion(2, { radius: 7, unit: "miles" });
+        updateQuestion(2, { radius: 7, unit: "meters" });
 
         const after = questions.get();
         expect(after).not.toBe(before);
         expect(after[1]).not.toBe(before[1]);
         expect(after[1].data).toMatchObject({
             radius: 7,
-            unit: "miles",
+            unit: "meters",
             lat: 47.37,
             lng: 8.54,
         });

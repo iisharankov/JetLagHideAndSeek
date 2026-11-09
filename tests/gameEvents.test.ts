@@ -314,6 +314,25 @@ describe("game events", () => {
         ]);
     });
 
+    it("tells the seekers when the hider can't answer a photo question", () => {
+        const request = {
+            id: "r1",
+            name: "Tree",
+            askedBy: "Ana",
+            askedAt: 3,
+        };
+        const before = { ...base(), photoRequests: [request] };
+        const after: GameState = {
+            ...base(),
+            photoRequests: [{ ...request, nullAnswer: true, answeredAt: 9 }],
+        };
+        const events = gameEvents(before, after, "seeker");
+        expect(events.map((e) => e.kind)).toEqual(["photo"]);
+        expect(events[0].title).toBe("The hider can't answer a photo question");
+        expect(events[0].body).toBe("Tree: there's none in their hiding zone.");
+        expect(gameEvents(after, after, "seeker")).toEqual([]);
+    });
+
     it("tells the seekers about answers, vetoes, cards and moves", () => {
         const before = { ...base(), questions: { "1": entry("asked") } };
         const after: GameState = {

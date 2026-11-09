@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { defaultUnit } from "@/lib/context";
-
 import { ICON_COLORS } from "./api/constants";
 
 export const NO_GROUP = "NO_GROUP";
@@ -21,11 +19,8 @@ export const determineUnionizedStrings = (
     return [];
 };
 
-const unitsSchema = z.union([
-    z.literal("miles"),
-    z.literal("kilometers"),
-    z.literal("meters"),
-]);
+/** Metric only (agentic_docs/history/plans/nov-game-fixes/03): saved miles convert on load (lib/metric.ts). */
+const unitsSchema = z.union([z.literal("kilometers"), z.literal("meters")]);
 
 const iconColorSchema = z.union([
     z.literal("green"),
@@ -114,17 +109,9 @@ const ordinaryBaseQuestionSchema = z.object({
     research: z.boolean().default(false),
 });
 
-const getDefaultUnit = () => {
-    try {
-        return defaultUnit.get();
-    } catch {
-        return "miles";
-    }
-};
-
 const radiusQuestionSchema = ordinaryBaseQuestionSchema.extend({
     radius: z.number().min(0, "You cannot have a negative radius").default(50),
-    unit: unitsSchema.default(getDefaultUnit),
+    unit: unitsSchema.default("kilometers"),
     within: z.boolean().default(true),
 });
 
@@ -151,7 +138,7 @@ const apiLocationSchema = z.union([
 
 const baseTentacleQuestionSchema = ordinaryBaseQuestionSchema.extend({
     radius: z.number().min(0, "You cannot have a negative radius").default(15),
-    unit: unitsSchema.default(getDefaultUnit),
+    unit: unitsSchema.default("kilometers"),
     location: z
         .union([
             z.object({
@@ -206,8 +193,12 @@ const customTentacleQuestionSchema = baseTentacleQuestionSchema.extend({
 
 export const tentacleQuestionSchema = z.union([
     customTentacleQuestionSchema.describe(NO_GROUP),
-    tentacleQuestionSpecificSchemaFifteen.describe("15 Miles (Typically)"),
-    tentacleQuestionSpecificSchemaOne.describe("1 Mile (Typically)"),
+    tentacleQuestionSpecificSchemaFifteen.describe(
+        "Big places (zoos, aquariums, parks)",
+    ),
+    tentacleQuestionSpecificSchemaOne.describe(
+        "Small places (museums, libraries, cinemas, hospitals)",
+    ),
 ]);
 
 const baseMatchingQuestionSchema = ordinaryBaseQuestionSchema.extend({

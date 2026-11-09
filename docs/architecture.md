@@ -13,6 +13,12 @@ Phone (installable web app)                 Your server (Docker, behind host ngi
   service worker (app shell)
 ```
 
+**Metric only** (round 38): distances are km or m everywhere, the rules
+pages included (`src/content/rules/`, converted as in
+`agentic_docs/history/plans/nov-game-fixes/03-metric-conversion.md`; their pictures
+still show the original miles); a question saved in miles loads in km
+(`lib/metric.ts`); `tests/metric.test.ts` keeps it so.
+
 The browser talks to no other host. The production nginx sends a
 Content-Security-Policy that enforces that, and `e2e/csp.spec.ts` runs the app
 under exactly that policy. For `pnpm dev`, `.env.development` points the app
@@ -90,24 +96,28 @@ src/
     api/overpass*.ts        the queries that read the reference data (placesInZone…); the Overpass client behind them has no server any more
     api/geocode.ts          place search over the reference data (zones, stations, places)
   components/
-    islands/                the islands: Map, QuestionSidebar, OptionDrawers, PlayAreaBar
+    islands/                the islands: Map, QuestionSidebar, TabBar, GameDialogs, PlayAreaBar
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline (the play area's shape: maps/playArea.ts)
     DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
-    QuestionSidebar.tsx     the sidebar: Questions, Stations (Hider on the hider's phone), Photos, Cards
+    QuestionSidebar.tsx     the sidebar: Questions (with the photo questions), Cards, Stations
+                            (Hider on the hider's phone), Menu
     QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
                             the order); a row (or the pin) opens the card in its place
     cards/                  base.tsx (the open card's frame: back, lock, hide, delete) + one card per type
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
-    HiderPanel.tsx          hider: pick the station, the pin, Continue after a Move
+    HiderPanel.tsx          hider: pick the station, then rows (station, pin follows GPS, seekers on
+                            the map, show stations, show pin, Start the end game with 5 s to undo)
     PlayAreaBar.tsx         choosing the play area during setup: tapping cantons, districts or
                             municipalities on the map (lib/playAreaPick.ts, maps/playAreaPickLayer.ts),
                             search, drawing; the areas are joined without slivers (maps/mergeAreas.ts)
-    OptionDrawers.tsx       the Menu panel: Game (GamePanel) and Settings (SettingsPanel) tabs,
-                            MenuGroup
+    MenuScreen.tsx          the Menu tab: Game (GamePanel), Settings (SettingsPanel), Help, Admin;
+                            openMenu / closeMenu (Escape). GameDialogs.tsx: the game's dialogs,
+                            popups, the tutorial and the desktop's Menu button
     game/                   GameSetupDialog (+ setup/DeckEditor, setup/QuestionsStep), GamePanel
                             (incl. scoreboard), JoinDialog (name and role
                             first, also after starting a game), QuestionGameBar (send / answer / veto /
-                            randomize, the answer timer), PhotosPanel, CardsPanel (the hand) with
+                            randomize, the answer timer), PhotoRequests (the photo rows, a photo
+                            question's screen, other photos), PlayCardConfirm, CardsPanel (the hand) with
                             CardTiles, ActiveCurses, CardHistory, CardFace; RoundClock, GamePopups
                             (alerts), PushCard, NotePins
     ReferenceMarkers.tsx    draws the active question's reference places
@@ -115,8 +125,8 @@ src/
                             state and what was seen; lib/tourSteps.ts: the texts, the tips),
                             single pointers ("pick your hiding spot", lib/coachMark.ts) and tips;
                             the examples in Zürich: lib/tourDemo.ts (shapes), maps/tourDemoLayer.ts;
-                            a step opens the sidebar on a tab, the Menu on a tab or a new game's
-                            setup on a screen (non-modal during a tour, the note above them)
+                            a step opens the sidebar on a tab, the Menu on a section, the question
+                            types, or a new game's setup on a screen (the note above them)
 server/src/                 API: app.ts routes, games.ts (games in SQLite, photos, live updates),
                             positions.ts (the seekers' positions, in memory),
                             gameOps.ts (the rules: applyOp, viewFor) with its helpers in
@@ -373,13 +383,14 @@ progress, the hider's spot, and earlier rounds.
   deleted) drops them.
 - **The shell.** On phones a tab bar sits at the bottom (`TabBar.tsx`):
   Map (hides the sheet; what was open stays open), the sidebar's sections
-  (Questions, Stations or Hider, Photos, Cards; Hider and Research while
+  (Questions, Cards, Stations or Hider; Hider and Research while
   the hider picks a station; their counts from `lib/game/tabBadges.ts`)
   and Menu. The sections open a bottom sheet above the bar
   (`ui/bottom-sheet.tsx` via `ui/sidebar-l.tsx`): half the screen or all
   of it (`sheetSnap`), nothing dimmed behind it. "＋ Ask a question" floats
   over the map. On desktop the left sidebar with the sections as tabs at
-  its top, and the Menu behind the gear (`OptionDrawers.tsx`).
+  its top. The Menu is a tab too (`MenuScreen.tsx`): the tab bar's Menu, or
+  the desktop's round button at the top right; Escape closes it.
 - **Screens and Back** (`lib/screens.ts`): the open question
   (`openQuestion`) and over it the ask flow (`askFlow`: the types, then
   one kind's choices) are pushed screens with a ‹ Back; each adds a
@@ -390,7 +401,38 @@ progress, the hider's spot, and earlier rounds.
   groups by distance), the photo questions as rows that unfold their rule;
   ×2 on what was answered before this round. The question is made only on
   **Ask** (sent; a thermometer started) or **Add as a draft**; playing
-  alone, **Add the question** (`lib/game/newQuestion.ts` builds it).
+  alone, **Add the question** (`lib/game/newQuestion.ts` builds it). A
+  tentacle kind with no places in the play area is dimmed
+  (`lib/game/placeCounts.ts`, counted once per play area). The **?** on
+  the types runs a four-note tour of that screen (`ASK_TOUR` in
+  `lib/tourSteps.ts`); a tour step may open the types itself
+  (`TourStep.screen`).
+- **Photo questions** (`components/game/PhotoRequests.tsx`): rows under
+  the questions; a row pushes the photo question's screen (`pushedScreen`
+  in `lib/screens.ts`): the rule, the time to send (10 or 20 minutes,
+  `photoTimeLeft`), what it earns, and for the hider Take a photo (the
+  camera; also From the gallery when the game's `galleryPhotos` allows),
+  I cannot answer (`photoNullAnswer`) and Randomize. A photo past its
+  time counts as a late answer (server `photoAnswered`). Randomize Question
+  writes what changed into the history (`PowerupEntry.detail`).
+- **The hider's answer screen** (`QuestionGameBar.tsx`): the timer as a
+  plain pill, "Asked by … · from your station, …, 2.1 km away", the
+  choices as big buttons (tentacle places as a list), Send pinned at the
+  bottom; Veto and Randomize side by side, greyed with the reason when the
+  card isn't in hand, each confirmed with the card's face
+  (`PlayCardConfirm.tsx`).
+- **Start the end game waits 5 s** (`lib/game/delayed.ts`,
+  `startEndgameSoon` in `lib/game/endgame.ts`): confirm, then "Starting
+  the end game… Undo"; nothing is sent before it runs out. The browser
+  tests shorten it with localStorage `endgameDelayMs`.
+- **Rules behind an "i"** (`components/RuleInfo.tsx`): every question
+  screen (a kind's choices, an open card) has a round **i** at its top
+  right that unfolds the rulebook's text for that question, how the app
+  works it out, and the Full rules link. The draw badge (`3/1`) sits left
+  of the title.
+- **Phones:** every button is at least 44 px tall (`ui/button.tsx` and the
+  sidebar's rows, `max-md:`); notifications (`components/Toasts.tsx`) have
+  a full-height × on their right edge.
 - There is no snapshot sharing (links, files, pasted games): the shared
   game on the server is the one way to play together.
 

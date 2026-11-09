@@ -1,3 +1,4 @@
+import { onPhone } from "./ask";
 import { expect, test } from "./fixtures";
 
 // Reference data as the server would serve it: the country, a canton and
@@ -59,8 +60,7 @@ test("places added to the play area show up where the game is set up", async ({
     page,
     externalHosts,
     pageErrors,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "menus open on desktop");
+}) => {
     void externalHosts;
     await page.route("**/data/**", (route) => {
         const name = new URL(route.request().url()).pathname
@@ -134,8 +134,7 @@ test("areas tapped on the map make the play area, and the map follows at once", 
     page,
     externalHosts,
     pageErrors,
-}, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "menus open on desktop");
+}) => {
     void externalHosts;
     await page.route("**/data/**", (route) => {
         const name = new URL(route.request().url()).pathname
@@ -204,6 +203,8 @@ test("areas tapped on the map make the play area, and the map follows at once", 
     // Tapped again, Westdorf goes; the list can't empty the play area.
     await tapArea(0);
     await expect(list).not.toContainText("Westdorf");
+    // A phone folds the list away: open it.
+    if (onPhone(page)) await bar.getByText(/^Chosen areas/).click();
     await list.getByRole("button", { name: "Remove Ostdorf" }).click();
     await expect(
         page.getByText("The play area needs at least one area."),

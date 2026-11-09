@@ -2,6 +2,7 @@ import type { Browser, Page, TestInfo } from "@playwright/test";
 
 import { ADMIN_CODE, routeApi } from "./api";
 import { expect, test } from "./fixtures";
+import { menuScreen, openMenu as openMenuOn } from "./menu";
 
 // Who may make games: the admin code opens Menu → Admin, where the admin
 // makes a creator code for a friend; the friend starts games with it until
@@ -51,14 +52,8 @@ const phone = async (browser: Browser, testInfo: TestInfo, name: string) => {
     return page;
 };
 
-const menu = (page: Page) => page.getByRole("dialog", { name: "Menu" });
-
-const openMenu = async (page: Page, section = "Game") => {
-    if (!(await menu(page).isVisible())) {
-        await page.getByRole("button", { name: "Menu", exact: true }).click();
-    }
-    await menu(page).getByRole("radio", { name: section }).click();
-};
+const menu = menuScreen;
+const openMenu = (page: Page, section = "Game") => openMenuOn(page, section);
 
 const typeCode = async (page: Page, code: string) => {
     await menu(page)

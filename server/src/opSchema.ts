@@ -131,6 +131,7 @@ const opSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal("vetoQuestion"), key }),
     z.object({ type: z.literal("randomizeQuestion"), key }),
     z.object({ type: z.literal("randomizePhoto"), id }),
+    z.object({ type: z.literal("photoNullAnswer"), id }),
     z.object({ type: z.literal("keepQuestion"), key }),
     z.object({
         type: z.literal("setHiderStation"),

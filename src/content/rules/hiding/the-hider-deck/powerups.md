@@ -12,7 +12,7 @@ The veto powerup can be played in response to any question instead of answering.
 
 ### Randomize
 
-The randomize powerup can be played in response to any question instead of answering. After the seekers have been informed that you have used a randomize powerup, they must choose–at random, either using a random number generator or dice–a different unasked question from the same category _(e.g. a 10 mile radar might become a 50 mile radar.)_ This question is then automatically asked instead, and you provide an answer as normal. The original question is **not** considered to have been asked, and can therefore be asked again for its original cost. If the randomize causes a question to be asked that returns a null answer, this is permitted (tough luck, though). You may play a randomize at any time during the response window after a question has been asked.
+The randomize powerup can be played in response to any question instead of answering. After the seekers have been informed that you have used a randomize powerup, they must choose–at random, either using a random number generator or dice–a different unasked question from the same category _(e.g. a 15 km radar might become an 80 km radar.)_ This question is then automatically asked instead, and you provide an answer as normal. The original question is **not** considered to have been asked, and can therefore be asked again for its original cost. If the randomize causes a question to be asked that returns a null answer, this is permitted (tough luck, though). You may play a randomize at any time during the response window after a question has been asked.
 
 ### Discard 1, draw 2 and Discard 2, draw 3
 

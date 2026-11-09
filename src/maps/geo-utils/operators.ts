@@ -72,7 +72,7 @@ export const modifyMapData = (
     );
 };
 
-const DEFAULT_BUFFER_UNIT = "miles";
+const DEFAULT_BUFFER_UNIT = "kilometers";
 const DEFAULT_DISTANCE_UNIT = "kilometers";
 
 const toArcGISGeometry = (geometry: Feature | Geometry) =>
@@ -120,7 +120,7 @@ const innateArcBuffer = async (
         {
             union: true,
             unit: unit,
-            maxDeviation: turf.convertLength(3, "feet", unit),
+            maxDeviation: turf.convertLength(1, "meters", unit),
         },
     );
 

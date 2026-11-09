@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { expect, test } from "./fixtures";
+import { openMenu } from "./menu";
 
 // The exact policy the production nginx sends (deploy/nginx/...conf).
 const policy = readFileSync(
@@ -39,7 +40,7 @@ test("the app works under the production Content-Security-Policy", async ({
     await mark.getByRole("button", { name: "No thanks" }).click();
     // The tutorial's examples load a script of their own: under the policy
     // too.
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await openMenu(page, "Help");
     await page.getByRole("button", { name: "Seeker tutorial" }).click();
     await mark.getByRole("button", { name: "Next" }).click();
     await expect(

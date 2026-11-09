@@ -12,9 +12,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { moveMinutes } from "@/lib/game/curseRules";
-import { advanceDeck } from "@/lib/game/deck";
 import { activePlayers, MIN_PASSWORD, roleOfPlayer } from "@/lib/game/players";
-import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { applyRest } from "@/lib/game/rest";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import type {
@@ -36,6 +34,7 @@ import {
     rejoinPlayer,
     removePlayer,
 } from "./rules/players";
+import { photoAnswered } from "./rules/questions";
 import { WrongGuessError } from "./rules/shared";
 
 const ID_ALPHABET =
@@ -568,25 +567,13 @@ export const createGameStore = (
                 (r) => r.id === options.requestId,
             );
             if (request) {
-                const first = !request.photoId;
+                const first = !request.photoId && !request.nullAnswer;
                 request.photoId = photoId;
-                request.answeredAt = now;
-                // With the digital deck, an answered photo question earns a
-                // draw; the same photo asked again costs the seekers double.
-                if (first && state.deck) {
-                    const again = timesPhotoAnsweredBefore(
-                        state,
-                        request.name,
-                        request.id,
-                    );
-                    for (let i = 0; i <= again; i++) {
-                        state.deck.owed.push({
-                            draw: 1,
-                            keep: 1,
-                            label: i === 0 ? "Photo" : "Photo (asked again)",
-                        });
-                    }
-                    state.deck = advanceDeck(state.deck, now);
+                // A photo after "I cannot answer" is the answer after all.
+                delete request.nullAnswer;
+                if (first) {
+                    request.answeredAt = now;
+                    photoAnswered(state, request, now);
                 }
             }
             state.version += 1;

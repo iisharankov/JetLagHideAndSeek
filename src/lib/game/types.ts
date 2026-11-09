@@ -62,6 +62,10 @@ export interface PhotoRequest {
     randomizedAt?: number;
     /** The names it was asked as before randomizing (not asked again this round). */
     askedAs?: string[];
+    /** The hider's "I cannot answer": the subject isn't in the hiding zone. */
+    nullAnswer?: boolean;
+    /** Sent over the time: which late answer of the round it was (1, 2, 3…). */
+    late?: number;
 }
 
 export interface CurseEntry {
@@ -142,6 +146,8 @@ export interface PowerupEntry {
     name: string;
     playedAt: number;
     by: string;
+    /** What it did, e.g. "Radar 5 km → Radar 15 km" for Randomize Question. */
+    detail?: string;
 }
 
 /**
@@ -349,6 +355,8 @@ export interface GameSettings {
     cardPopups: "important" | "all";
     /** Late answers (over five minutes): two warnings, the third makes the seekers' next question free. */
     latePenalty: boolean;
+    /** The hider may send a photo from the gallery, not only one taken now (Q55). */
+    galleryPhotos: boolean;
     /** Tentacle distances in km: small places (museums…), then big ones (zoos, parks, aquariums). */
     tentacleKm: [number, number];
     /** Places rejected while setting up: wrong "zoos", mis-tagged parks. */
@@ -517,6 +525,8 @@ export type GameOp =
     /** Randomize Question: the asked question becomes another of its category. */
     | { type: "randomizeQuestion"; key: number }
     | { type: "randomizePhoto"; id: string }
+    /** The hider can't send the photo: the subject isn't in their zone. */
+    | { type: "photoNullAnswer"; id: string }
     | { type: "keepQuestion"; key: number }
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "hiderReady"; station: StationPick }

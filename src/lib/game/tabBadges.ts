@@ -11,7 +11,7 @@ export interface SectionInput {
     stationsTab: boolean;
     /** Questions waiting for the hider's answer (hider only). */
     waitingQuestions: number;
-    /** Photo questions not answered yet. */
+    /** Photo questions not answered yet (in the hider's Questions count). */
     waitingPhotos: number;
     /** Curses in force. */
     activeCurses: number;
@@ -20,7 +20,7 @@ export interface SectionInput {
 }
 
 export interface Section {
-    value: SidebarTab;
+    value: Exclude<SidebarTab, "menu">;
     name: string;
     count: number;
 }
@@ -35,8 +35,12 @@ export const sidebarSections = (input: SectionInput): Section[] =>
               {
                   value: "questions",
                   name: "Questions",
-                  count: input.waitingQuestions,
+                  // The hider's: what waits for an answer, photos included.
+                  count:
+                      input.waitingQuestions +
+                      (input.hider ? input.waitingPhotos : 0),
               },
+              { value: "curses", name: "Cards", count: input.activeCurses },
               ...(input.stationsTab
                   ? [
                         {
@@ -46,8 +50,6 @@ export const sidebarSections = (input: SectionInput): Section[] =>
                         },
                     ]
                   : []),
-              { value: "photos", name: "Photos", count: input.waitingPhotos },
-              { value: "curses", name: "Cards", count: input.activeCurses },
           ];
 
 /** "Questions (2)": what a screen reader hears, and what the tests find. */

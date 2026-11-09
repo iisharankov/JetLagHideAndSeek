@@ -11,9 +11,10 @@ export const SidebarButton = () => {
     const label = {
         questions: "Questions",
         stations: hider ? "Hider" : "Stations",
-        photos: "Photos",
         curses: "Cards",
         research: "Research",
+        // Not "Menu": the Menu button is the round one at the top right.
+        menu: "Sidebar",
     }[tab];
     return (
         <SidebarTrigger title="Open or close the sidebar">
