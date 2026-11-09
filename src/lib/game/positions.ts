@@ -3,7 +3,7 @@
 import * as turf from "@turf/turf";
 import { atom } from "nanostores";
 
-import type { SeekerPosition } from "./types";
+import type { PlayerId, SeekerPosition } from "./types";
 
 /** The game's seekers, where they last were (from the game's stream). */
 export const seekerPositions = atom<SeekerPosition[]>([]);
@@ -32,11 +32,14 @@ export const positionDue = (last: Fix | null, here: Fix) => {
     return metres >= MOVED_METRES;
 };
 
-/** Who's on this phone's map: every seeker for the hider, the others for a seeker. */
+/**
+ * Who's on this phone's map: every seeker for the hider, the others for a
+ * seeker (their own is the blue dot). By player, so two Anas are two.
+ */
 export const positionsShown = (
     positions: SeekerPosition[],
-    { hider, me }: { hider: boolean; me: string },
+    { hider, me }: { hider: boolean; me: PlayerId | null },
 ) =>
     hider
         ? positions
-        : positions.filter((position) => position.name !== me.trim());
+        : positions.filter((position) => position.playerId !== me);

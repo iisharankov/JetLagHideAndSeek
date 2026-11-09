@@ -12,6 +12,7 @@ import {
     newGameState,
     viewFor,
 } from "./gameOps";
+import { joinPlayer } from "./rules/players";
 
 const radius = (key: number, data: Record<string, unknown> = {}) =>
     ({
@@ -20,8 +21,8 @@ const radius = (key: number, data: Record<string, unknown> = {}) =>
         data: { lat: 47.37, lng: 8.54, radius: 5, within: true, ...data },
     }) as SharedQuestion;
 
-const seeker: Actor = { name: "Ana", role: "seeker" };
-const hider: Actor = { name: "Ben", role: "hider" };
+const seeker: Actor = { id: "p-Ana", name: "Ana", role: "seeker" };
+const hider: Actor = { id: "p-Ben", name: "Ben", role: "hider" };
 
 const fresh = () =>
     newGameState(
@@ -192,7 +193,7 @@ describe("questions", () => {
         state = apply(
             state,
             { type: "putQuestion", question: radius(1, { radius: 7 }) },
-            { name: "Cleo", role: "seeker" },
+            { id: "p-Cleo", name: "Cleo", role: "seeker" },
             2500,
         );
         expect(state.questions["1"].question.data.radius).toBe(7);
@@ -556,12 +557,41 @@ describe("the hiding clock", () => {
 });
 
 describe("teams", () => {
-    const owl: Actor = { name: "Cem", role: "seeker" };
+    const owl: Actor = { id: "p-Cem", name: "Cem", role: "seeker" };
     const station = { id: "node/1", name: "Uster", lat: 47.3, lng: 8.7 };
-    const withTeams = () => {
-        let state = apply(fresh(), { type: "joinTeam", name: "Foxes" }, hider);
-        state = apply(state, { type: "joinTeam", name: " owls " }, seeker);
-        return apply(state, { type: "joinTeam", name: "Owls" }, owl);
+    const withTeam = (
+        state: GameState,
+        actor: Actor,
+        team: string,
+        password: string,
+    ) => {
+        const next = structuredClone(state);
+        joinPlayer(
+            next,
+            actor.id,
+            { name: actor.name, team: { name: team, password } },
+            1500,
+        );
+        return next;
+    };
+    /** Foxes (Ben) hide; owls (Ana, Cem) seek. */
+    const withTeams = (): GameState => {
+        let state = newGameState(
+            "g1",
+            {
+                playArea: { kind: "place" },
+                zone: {},
+                settings: {
+                    ...defaultGameSettings("medium", "switzerland"),
+                    teams: true,
+                },
+            },
+            1000,
+        );
+        state = withTeam(state, hider, "Foxes", "foxes-pass");
+        state = withTeam(state, seeker, " owls ", "owls-pass");
+        state = withTeam(state, owl, "Owls", "owls-pass");
+        return { ...state, hiderTeamId: state.teams[0].id };
     };
     /** A finished round: the hider was found. */
     const over = (state: GameState) => {
@@ -569,22 +599,68 @@ describe("teams", () => {
         return apply(state, { type: "clock", action: "stop" }, seeker, 5000);
     };
 
-    it("are joined by name, made when new, and one per player", () => {
+    it("are joined by name and password, made when new, one per player, by player", () => {
         let state = withTeams();
         expect(state.teams.map((t) => [t.name, t.members])).toEqual([
-            ["Foxes", ["Ben"]],
-            ["owls", ["Ana", "Cem"]],
+            ["Foxes", ["p-Ben"]],
+            ["owls", ["p-Ana", "p-Cem"]],
         ]);
-        state = apply(state, { type: "joinTeam", name: "Foxes" }, owl);
-        expect(state.teams.map((t) => t.members)).toEqual([
-            ["Ben", "Cem"],
-            ["Ana"],
-        ]);
-        state = apply(state, { type: "leaveTeam" }, owl);
-        expect(state.teams.map((t) => t.members)).toEqual([["Ben"], ["Ana"]]);
+        expect(state.players["p-Cem"].teamId).toBe(state.teams[1].id);
         expect(() =>
-            apply(state, { type: "joinTeam", name: " " }, owl),
+            apply(
+                state,
+                { type: "joinTeam", name: "Foxes", password: "owls-pass" },
+                owl,
+            ),
+        ).toThrow(/Wrong team password/);
+        state = apply(
+            state,
+            { type: "joinTeam", name: "foxes", password: "foxes-pass" },
+            owl,
+        );
+        expect(state.teams.map((t) => t.members)).toEqual([
+            ["p-Ben", "p-Cem"],
+            ["p-Ana"],
+        ]);
+        // Everyone is in a team (Q58): switch, don't leave.
+        expect(() => apply(state, { type: "leaveTeam" }, owl)).toThrow(
+            /pick another team/,
+        );
+        expect(() =>
+            apply(
+                state,
+                { type: "joinTeam", name: " ", password: "whatever" },
+                owl,
+            ),
         ).toThrow(/Give the team a name/);
+        expect(() =>
+            apply(
+                state,
+                { type: "joinTeam", name: "Hawks", password: "short" },
+                owl,
+            ),
+        ).toThrow(/at least 6 characters/);
+    });
+
+    it("are only in games with the Teams setting", () => {
+        expect(() =>
+            apply(
+                fresh(),
+                { type: "joinTeam", name: "Owls", password: "owls-pass" },
+                seeker,
+            ),
+        ).toThrow("This game has no teams.");
+    });
+
+    it("never show a password, and each player sees only their own code", () => {
+        const state = withTeams();
+        const view = viewFor(state, "seeker", "p-Ana");
+        expect(JSON.stringify(view)).not.toContain("passwordHash");
+        expect(view.players["p-Ana"].code).toBe(state.players["p-Ana"].code);
+        expect(view.players["p-Cem"].code).toBeUndefined();
+        expect(viewFor(state, "hider").players["p-Ben"].code).toBeUndefined();
+        // The stored game keeps them.
+        expect(state.teams[0].passwordHash).toMatch(/^[0-9a-f]+:[0-9a-f]+$/);
     });
 
     it("put the hider's team on the scoreboard", () => {
@@ -647,7 +723,6 @@ describe("teams", () => {
         expect(state.hiderTeamId).toBe(owls.id);
         expect(state.hiderName).toBe("owls");
         expect(state.nextHiderTeamId).toBeNull();
-        expect(state.hasHider).toBe(false);
     });
 });
 
@@ -940,6 +1015,7 @@ describe("the answer timer and the scoreboard", () => {
             state,
             { type: "clock", action: "start" },
             {
+                id: "p-Someone",
                 name: "Someone",
                 role: "hider",
             },

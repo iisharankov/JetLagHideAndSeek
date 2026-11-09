@@ -48,7 +48,7 @@ describe("game store", () => {
         games.apply(
             game.id,
             { type: "clock", action: "start" },
-            { name: "Ana", role: "seeker" },
+            { id: "p-Ana", name: "Ana", role: "seeker" },
         );
         // Tonight at 22:30 UTC (23:30 or 00:30 in Zürich) and tomorrow at
         // 06:30 UTC (07:30 or 08:30): the dates stay close to today, since
@@ -96,6 +96,7 @@ describe("game store", () => {
             game.id,
             { type: "askPhoto", name: "Tree" },
             {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             },
@@ -105,6 +106,7 @@ describe("game store", () => {
             game.id,
             { type: "askPhoto", name: "Sky" },
             {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             },
@@ -131,6 +133,7 @@ describe("game store", () => {
             game.id,
             { type: "newRound" },
             {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             },
@@ -146,6 +149,7 @@ describe("game store", () => {
             game.id,
             { type: "askPhoto", name: "Tree" },
             {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             },
@@ -157,7 +161,7 @@ describe("game store", () => {
             game.id,
             bytes,
             "image/jpeg",
-            { name: "Ben", role: "hider" },
+            { id: "p-Ben", name: "Ben", role: "hider" },
             { requestId: request.id },
         );
         expect(state.photos[0]).toMatchObject({ id: photoId, by: "Ben" });
@@ -172,6 +176,7 @@ describe("game store", () => {
     it("deletes games (and their photos) nobody has touched for a year", () => {
         const old = start();
         games.addPhoto(old.id, new Uint8Array([1]), "image/jpeg", {
+            id: "p-Ana",
             name: "Ana",
             role: "seeker",
         });
@@ -185,6 +190,7 @@ describe("deleting a game", () => {
     it("removes it with its photos and tells the phones in it", () => {
         const game = start();
         games.addPhoto(game.id, new Uint8Array([1, 2, 3]), "image/png", {
+            id: "p-Ben",
             name: "Ben",
             role: "hider",
         });
@@ -233,12 +239,14 @@ describe("limits", () => {
         const game = start();
         for (let i = 0; i < MAX_PHOTOS_PER_GAME; i++) {
             games.addPhoto(game.id, new Uint8Array([1]), "image/png", {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             });
         }
         expect(() =>
             games.addPhoto(game.id, new Uint8Array([1]), "image/png", {
+                id: "p-Ana",
                 name: "Ana",
                 role: "seeker",
             }),
@@ -265,8 +273,8 @@ describe("photo questions asked again", () => {
             [],
             "Ana",
         );
-        const seeker = { name: "Ana", role: "seeker" as const };
-        const hider = { name: "Ben", role: "hider" as const };
+        const seeker = { id: "p-Ana", name: "Ana", role: "seeker" as const };
+        const hider = { id: "p-Ben", name: "Ben", role: "hider" as const };
         const ask = () =>
             games
                 .apply(game.id, { type: "askPhoto", name: "Tree" }, seeker)

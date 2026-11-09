@@ -85,7 +85,7 @@ describe("push service", () => {
                 },
                 state: "asked",
             },
-            { name: "Ana", role: "seeker" },
+            { id: "p-Ana", name: "Ana", role: "seeker" },
             2000,
         );
         expect(await push.notify(before, asked)).toBe(1);
@@ -109,13 +109,13 @@ describe("push service", () => {
         let after = applyOp(
             before,
             { type: "castCurse", name: "Curse of the Cairn" },
-            { name: "Ben", role: "hider" },
+            { id: "p-Ben", name: "Ben", role: "hider" },
             2000,
         );
         after = applyOp(
             after,
             { type: "castCurse", name: "Curse of the Zoologist" },
-            { name: "Ben", role: "hider" },
+            { id: "p-Ben", name: "Ben", role: "hider" },
             2001,
         );
         await push.notify(before, after);
@@ -133,7 +133,7 @@ describe("push service", () => {
         const after = applyOp(
             before,
             { type: "castCurse", name: "Curse of the Cairn" },
-            { name: "Ben", role: "hider" },
+            { id: "p-Ben", name: "Ben", role: "hider" },
             2000,
         );
         expect(await push.notify(before, after)).toBe(1);
@@ -158,7 +158,7 @@ describe("push service", () => {
         const after = applyOp(
             before,
             { type: "castCurse", name: "Curse of the Cairn" },
-            { name: "Ben", role: "hider" },
+            { id: "p-Ben", name: "Ben", role: "hider" },
             2000,
         );
         expect(await push.notify(before, after)).toBe(0);

@@ -26,6 +26,7 @@ const game: GameState = {
     hider: null,
     hasHider: true,
     hiderReadyAt: null,
+    players: {},
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,

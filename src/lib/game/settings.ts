@@ -93,6 +93,7 @@ export const defaultGameSettings = (
     customCards: [],
     cardPopups: "important",
     seekersSeeStations: true,
+    teams: false,
     latePenalty: true,
     tentacleKm: tentacleDefaults(region),
     rejectedPlaces: [],
@@ -265,6 +266,7 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
             .slice(0, 50),
         cardPopups: input.cardPopups === "all" ? "all" : "important",
         seekersSeeStations: input.seekersSeeStations !== false,
+        teams: input.teams === true,
         latePenalty: input.latePenalty !== false,
         tentacleKm:
             normalizeTentacleKm(input.tentacleKm) ?? defaults.tentacleKm,

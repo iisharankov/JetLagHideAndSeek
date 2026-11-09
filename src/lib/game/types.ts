@@ -86,12 +86,42 @@ export interface RejectedPlace {
     lng: number;
 }
 
+/**
+ * A player's public id in a game. The phone holds a private key (sent in
+ * the X-Player-Key header); the server derives this id from it, so the
+ * game can list its players without letting anyone act as another.
+ * "legacy:<name>" for phones and games from before players.
+ */
+export type PlayerId = string;
+
+/** Someone in a shared game: one per phone (src/lib/game/players.ts). */
+export interface Player {
+    id: PlayerId;
+    name: string;
+    /** With teams: the team they're in (everyone is in one). */
+    teamId: string | null;
+    /** Without teams: the one player who is the hider. */
+    hider?: boolean;
+    /**
+     * Six characters to become this player on another phone. Only in the
+     * player's own view of the game.
+     */
+    code?: string;
+    joinedAt: number;
+    lastSeen: number;
+    /** Continued on another phone (their code), or removed: this id is dead. */
+    left?: number;
+    /** Removed from the game (gone quiet), rather than moved to another phone. */
+    removed?: boolean;
+}
+
 /** A team: people hiding or seeking together (2 v 2, say). */
 export interface Team {
     id: string;
     name: string;
-    /** Player names. */
-    members: string[];
+    members: PlayerId[];
+    /** The team's password, hashed; never in what the phones get. */
+    passwordHash?: string;
 }
 
 /** Minutes the hider was awarded during the round (a curse's penalty, say). */
@@ -216,6 +246,7 @@ export interface StationPick {
  * rulebook has the seekers keep a tracker on. Not part of the game's state.
  */
 export interface SeekerPosition {
+    playerId: PlayerId;
     name: string;
     latitude: number;
     longitude: number;
@@ -320,6 +351,11 @@ export interface GameSettings {
      * only the hider's phone shows them; the seekers keep the shaded map.
      */
     seekersSeeStations: boolean;
+    /**
+     * Players join teams with a password; the team that hides is the hider.
+     * Off: everyone plays alone and the hider is whoever says so first.
+     */
+    teams: boolean;
 }
 
 /** One finished round, kept to look back at. */
@@ -366,6 +402,8 @@ export interface GameState {
     hasHider: boolean;
     /** When the hider confirmed their station this round (the seekers know that, not where). */
     hiderReadyAt: number | null;
+    /** Everyone who joined, by public id (left players stay, marked). */
+    players: Record<PlayerId, Player>;
     teams: Team[];
     /** The team hiding this round, when teams are used. */
     hiderTeamId: string | null;
@@ -459,7 +497,7 @@ export type GameOp =
     | { type: "setHiderStation"; station: StationPick | null }
     | { type: "hiderReady"; station: StationPick }
     | { type: "setHiderPending"; station: StationPick | null }
-    | { type: "joinTeam"; name: string }
+    | { type: "joinTeam"; name: string; password?: string }
     | { type: "leaveTeam" }
     | { type: "claimNextRound"; teamId: string | null }
     | { type: "setHiderPin"; pin: { latitude: number; longitude: number } }

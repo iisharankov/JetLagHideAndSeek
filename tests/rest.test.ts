@@ -46,6 +46,7 @@ const game = (
     hider: null,
     hasHider: true,
     hiderReadyAt: null,
+    players: {},
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,

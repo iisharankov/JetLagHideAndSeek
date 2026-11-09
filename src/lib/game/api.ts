@@ -1,16 +1,25 @@
 // HTTP calls to the shared-game API (server/src/app.ts).
 import { API_URL } from "@/lib/config";
 
+import { playerKey } from "./playerKey";
 import type {
     GameOp,
     GameSettings,
     GameState,
+    Player,
+    PlayerId,
     Role,
     SharedQuestion,
 } from "./types";
 
+/**
+ * Every request says which player this phone is (its key), and carries the
+ * hider token of a phone that became the hider before players (kept one
+ * release).
+ */
 const headers = (token?: string, extra: Record<string, string> = {}) => ({
     ...extra,
+    "X-Player-Key": playerKey(),
     ...(token ? { "X-Hider-Token": token } : {}),
 });
 
@@ -52,14 +61,52 @@ export const createGame = (start: {
 /** Every answer carries the server's clock, for the clocks on the phones. */
 type Timed<T> = T & { now: number };
 
+/** `you`: this phone's player in the game (whether it joined or not). */
 export const fetchGame = (id: string, token?: string) =>
-    call<Timed<{ role: Role; state: GameState }>>(
+    call<Timed<{ role: Role; you: PlayerId | null; state: GameState }>>(
         `/games/${encodeURIComponent(id)}`,
         { headers: headers(token) },
     );
 
+/** The answer to joining (or rejoining with a code). */
+export type Joined = Timed<{
+    player: Player;
+    role: Role;
+    you: PlayerId;
+    state: GameState;
+}>;
+
+export interface JoinBody {
+    name: string;
+    /** With teams: one of the game's (by id), or a new one (by name). */
+    team?: { id?: string; name?: string; password?: string };
+    hider?: boolean;
+}
+
+export const postJoin = (id: string, body: JoinBody, token?: string) =>
+    post<Joined>(`/games/${encodeURIComponent(id)}/join`, body, token);
+
+export const postRejoin = (id: string, code: string, token?: string) =>
+    post<Joined>(`/games/${encodeURIComponent(id)}/rejoin`, { code }, token);
+
+export const deletePlayer = (
+    id: string,
+    player: PlayerId,
+    organiserToken?: string,
+) =>
+    call<{ ok: true }>(
+        `/games/${encodeURIComponent(id)}/players/${encodeURIComponent(player)}`,
+        {
+            method: "DELETE",
+            headers: headers(
+                undefined,
+                organiserToken ? { "X-Organiser-Token": organiserToken } : {},
+            ),
+        },
+    );
+
 export const postOp = (id: string, op: GameOp, by: string, token?: string) =>
-    post<Timed<{ state: GameState }>>(
+    post<Timed<{ state: GameState; role: Role }>>(
         `/games/${encodeURIComponent(id)}/ops`,
         { op, by },
         token,
@@ -89,12 +136,6 @@ export const deleteGameRequest = (
         ),
     });
 
-export const postHiderPassword = (id: string, password: string, by: string) =>
-    post<{ token: string }>(`/games/${encodeURIComponent(id)}/hider`, {
-        password,
-        by,
-    });
-
 export const postPhoto = (
     id: string,
     photo: Blob,
@@ -105,7 +146,7 @@ export const postPhoto = (
     const query = new URLSearchParams();
     if (options.requestId) query.set("request", options.requestId);
     if (options.caption) query.set("caption", options.caption);
-    return call<Timed<{ photoId: string; state: GameState }>>(
+    return call<Timed<{ photoId: string; state: GameState; role: Role }>>(
         `/games/${encodeURIComponent(id)}/photos?${query}`,
         {
             method: "POST",
@@ -147,9 +188,8 @@ export const parseSse = (block: string): SseMessage => {
 };
 
 /**
- * The game's live stream. EventSource can't send headers and a cookie
- * would be shared between tabs (making a seeker's tab the hider), so the
- * stream is read over fetch with the token in the header, like every other
+ * The game's live stream. EventSource can't send headers, so the stream is
+ * read over fetch with the player's key in the header, like every other
  * request. Returns a function that closes the stream.
  */
 export const openEvents = (

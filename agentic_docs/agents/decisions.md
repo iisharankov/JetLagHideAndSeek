@@ -2,6 +2,22 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 32: Run A, who you are
+
+| Decision | Why | From |
+|---|---|---|
+| **With Teams on, every player is in a team; nobody joins outside one and nobody leaves one (switch instead)** | the owner: "make it so even solo players need to make their own team in teams mode, no players outside team can join game" | Q58 |
+| **The phone's secret is a key (`X-Player-Key`, store `playerKey`); the game lists players by a public id hashed from it** | the brief had the id in the header *and* as the key of `players`, which every phone gets: anyone could have read the hider's id and sent it. Named "key" so the two aren't confused | RunA.md, changed |
+| **Two tabs of one browser are one player** | one key per browser; the brief wants it. To try hider and seeker on one laptop, use a private window for the second | RunA.md pitfalls |
+| **A player's name comes from their record; a rename joins again (Menu → Game, on leaving the field)** | one source for "asked by Ana"; phones from before players still sign with the name they send | this round |
+| **Last seen: stamped in memory, written with the next change, or every 5 minutes at most per game; removal checks the unwritten stamp too** | every write streams the whole game to every phone; a player only watching must not look gone | RunA.md pitfalls |
+| **Old games keep their team list as placeholder players (`legacy:<name>`) and play on without the Teams setting** | turning teams on for them would ask for passwords nobody set; their teams stay on the scoreboard | this round |
+| **The old hider password stays one release** (`/hider`, `X-Hider-Token`), refused in Teams games and when a player already hides | phones that were the hider at deploy time stay the hider | RunA.md |
+| **A team left empty goes, unless it hides this round or the next** | stray and typo teams would fill the join screen | this round |
+| **Switching team clears the typed password** | the old team's password sent to the new team is a wrong try, counted against the limit | seen in the screenshots |
+| **After a new round, the push subscription is re-sent with the new role** | subscriptions are per role; a role swap mid-session kept the old role's notifications | found on the way |
+| **Without teams, "I'm the hider" and "I'm not the hider after all" sit in Menu → Game** | after a new round nobody is the hider and nobody sees the join dialog again; a mistaken tap needs an undo | this round |
+
 ## 2026-11-09, round 31: the run briefs
 
 | Decision | Why | From |

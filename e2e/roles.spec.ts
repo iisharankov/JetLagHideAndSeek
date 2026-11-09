@@ -122,8 +122,6 @@ test("seekers who can't see the stations: the hider starts the end game", async 
 
     const ben = await phone(browser, "Ben", state.id);
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
     await ben
         .getByTestId("hider-panel")
         .locator("li", { hasText: "Zürich HB" })

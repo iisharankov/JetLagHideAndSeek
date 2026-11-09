@@ -29,6 +29,7 @@ describe("sending a seeker's position", () => {
 
 describe("the seekers on the map", () => {
     const at = (name: string): SeekerPosition => ({
+        playerId: `id-${name}`,
         name,
         latitude: 47.38,
         longitude: 8.54,
@@ -38,14 +39,15 @@ describe("the seekers on the map", () => {
     const all = [at("Ana"), at("Ben"), at("Cleo")];
 
     it("are all on the hider's map", () => {
-        expect(positionsShown(all, { hider: true, me: "Ben" })).toEqual(all);
+        expect(positionsShown(all, { hider: true, me: "id-Ben" })).toEqual(all);
     });
 
-    it("are the others on a seeker's (their own is the blue dot)", () => {
+    it("are the others on a seeker's (their own is the blue dot), by player not name", () => {
+        const twoAnas = [...all, { ...at("Ana"), playerId: "id-Ana-2" }];
         expect(
-            positionsShown(all, { hider: false, me: " Ben " }).map(
-                (p) => p.name,
+            positionsShown(twoAnas, { hider: false, me: "id-Ana" }).map(
+                (p) => p.playerId,
             ),
-        ).toEqual(["Ana", "Cleo"]);
+        ).toEqual(["id-Ben", "id-Cleo", "id-Ana-2"]);
     });
 });

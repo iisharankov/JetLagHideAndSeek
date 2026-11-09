@@ -419,6 +419,8 @@ describe("the seekers' positions", () => {
         expect(event).toBe("positions");
         expect(data.positions).toEqual([
             {
+                // A phone from before players: known by its name.
+                playerId: "legacy:Ana",
                 name: "Ana",
                 latitude: 47.38,
                 longitude: 8.54,

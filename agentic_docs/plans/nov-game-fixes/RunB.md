@@ -2,6 +2,8 @@
 
 For the agent that executes this. Read `CLAUDE.md`, `agentic_docs/agents/notes.md`, then this file and [05-hider-sync-audit.md](05-hider-sync-audit.md). Can be merged into Run A's session if the context allows; otherwise run after A (it assumes the role comes from the team or the hider flag).
 
+**After Run A (round 32):** the role comes from the server with every answer (`session.ts applyRole`); becoming the hider bumps `hiderTurn`, and `useHiderTurn` in `JoinDialog.tsx` opens the Hider tab and sets `hiderChoosing` only when no station is set. `claimHider`/`forgetHider` are already gone from the phone; what's left of the old path is `hiderTokens` and the `X-Hider-Token` header on the phone, and `/api/games/:id/hider` with `isHider` in `app.ts roleOf` on the server (known-issues).
+
 ## What went wrong
 
 A second hider phone (or the same phone after a reload) was asked to pick a station over a game whose station was set, and tapping Done re-announced "the hider is in place" to everyone.

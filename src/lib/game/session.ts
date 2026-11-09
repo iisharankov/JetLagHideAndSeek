@@ -41,18 +41,22 @@ import { refreshPush } from "./alerts";
 import {
     createGame,
     deleteGameRequest,
+    deletePlayer,
     fetchGame,
+    type JoinBody,
+    type Joined,
     openEvents,
-    postHiderPassword,
+    postJoin,
     postOp,
     postPhoto,
     postPosition,
+    postRejoin,
 } from "./api";
-import { forgetGame, rememberGame, unmarkJoined } from "./knownGames";
+import { forgetGame, rememberGame } from "./knownGames";
 import { positionDue, seekerPositions } from "./positions";
 import { noteServerTime } from "./serverTime";
 import { diffLocal, mergeRemoteQuestions, syncedJson, toShared } from "./sync";
-import type { GameOp, GameState, Role } from "./types";
+import type { GameOp, GameState, Player, PlayerId, Role } from "./types";
 
 /** The URL parameter holding the game's id: ?game=<id>. */
 export const GAME_URL_PARAM = "game";
@@ -62,6 +66,10 @@ export const playerName = persistentAtom<string>("playerName", "");
 export const currentGameId = persistentAtom<string>("currentGame", "");
 /** The game this phone is in right now ("" when playing alone). */
 export const activeGameId = atom<string>("");
+/**
+ * Hider tokens from before players (the hider password): a phone that
+ * became the hider that way stays the hider for one more release.
+ */
 const hiderTokens = persistentAtom<Record<string, string>>(
     "hiderTokens",
     {},
@@ -79,7 +87,26 @@ export const organiserTokens = persistentAtom<Record<string, string>>(
 hiderTokens.listen(() => {});
 
 export const gameState = atom<GameState | null>(null);
+/** This phone's role, as the server says with every answer. */
 export const gameRole = atom<Role>("seeker");
+/** This phone's player in the game (its public id; set once the game loads). */
+export const myPlayerId = atom<PlayerId | null>(null);
+/** This phone's player record, once it has joined. */
+export const myPlayer = computed(
+    [gameState, myPlayerId],
+    (game, id): Player | undefined =>
+        game && id ? game.players?.[id] : undefined,
+);
+/** Joined: in the game's players, and not taken over by another phone. */
+export const joinedHere = computed(
+    myPlayer,
+    (player) => !!player && !player.left,
+);
+/**
+ * Counts the times this phone became the hider while open (joined as the
+ * hider, a new round handed to its team): the Hider tab opens for it.
+ */
+export const hiderTurn = atom(0);
 
 /**
  * This phone is the hider's: hider mode, and (in a shared game) the hider's
@@ -126,7 +153,8 @@ export const suggestedAnswers = atom<
  */
 export const previewAnswers = atom<Record<number, Record<string, unknown>>>({});
 
-const me = () => (playerName.get() ?? "").trim() || "Someone";
+const me = () =>
+    (myPlayer.get()?.name ?? playerName.get() ?? "").trim() || "Someone";
 const token = () => hiderTokens.get()[activeGameId.get()];
 /** This phone's hider token for the game it's in, if it is the hider. */
 export const hiderToken = token;
@@ -146,9 +174,32 @@ const ensureHiderMode = () => {
     });
 };
 
+/**
+ * The role from the server. Becoming the hider puts the phone in hider
+ * mode (and, mid-session, opens the Hider tab); no longer the hider, the
+ * hider's spot goes.
+ */
+const applyRole = (role: Role, initial = false) => {
+    const before = gameRole.get();
+    gameRole.set(role);
+    if (role === before) return;
+    // Notifications are per role: say the new one.
+    if (!initial) void refreshPush(activeGameId.get(), token());
+    if (role === "hider") {
+        ensureHiderMode();
+        if (!initial) hiderTurn.set(hiderTurn.get() + 1);
+    } else {
+        if (hiderMode.get() !== false) hiderMode.set(false);
+        chosenStation.set(null);
+        pendingStation.set(null);
+        hiderChoosing.set(false);
+        pinLocked.set(false);
+    }
+};
+
 // What this phone last had in common with the server.
 let synced = new Map<number, string>();
-/** Rounds the game had when last seen: one more means "say who you are again". */
+/** Rounds the game had when last seen: one more is a new round. */
 let roundsSeen = -1;
 let syncedPlayArea = "";
 let syncedZone = "";
@@ -200,11 +251,28 @@ const receive = (received: GameState, force = false) => {
             }
         }
     }
+    // This phone's player moved to another phone (its code), or was
+    // removed: this phone is out of the game.
+    const you = myPlayerId.get();
+    const mineBefore = you ? current?.players?.[you] : undefined;
+    const mineNow = you ? state.players?.[you] : undefined;
+    if (mineBefore && !mineBefore.left && mineNow?.left) {
+        toast.info(
+            mineNow.removed
+                ? "You were removed from the game. Open its link to join again."
+                : "You continued on another phone. Rejoin here with your code if that was a mistake.",
+            { toastId: "player-left", autoClose: 15_000 },
+        );
+        leaveGame();
+        return;
+    }
     gameState.set(state);
     lastUpdateAt.set(Date.now());
-    // A new round: the hider's password is new, so everyone says who they
-    // are again; the old hider's phone is a seeker's until then.
-    if (roundsSeen >= 0 && state.rounds.length > roundsSeen) startOfRound();
+    // A new round: nothing of the old one lingers (the role came with this
+    // state: the team that claimed the round is the hider now).
+    if (roundsSeen >= 0 && state.rounds.length > roundsSeen) {
+        startOfRound();
+    }
     roundsSeen = state.rounds.length;
 
     applyingRemote = true;
@@ -309,9 +377,10 @@ const resync = async () => {
     const id = activeGameId.get();
     if (!id) return;
     try {
-        const { role, state, now } = await fetchGame(id, token());
+        const { role, you, state, now } = await fetchGame(id, token());
         noteServerTime(now);
-        gameRole.set(role);
+        myPlayerId.set(you);
+        applyRole(role);
         receive(state, true);
     } catch (error) {
         toast.error(errorMessage(error), { toastId: "game-resync-error" });
@@ -323,8 +392,9 @@ export const sendOp = async (op: GameOp) => {
     const id = activeGameId.get();
     if (!id) return;
     try {
-        const { state, now } = await postOp(id, op, me(), token());
+        const { state, role, now } = await postOp(id, op, me(), token());
         noteServerTime(now);
+        if (role) applyRole(role);
         receive(state);
     } catch (error) {
         toast.error(errorMessage(error), { toastId: `game-op-${op.type}` });
@@ -461,9 +531,10 @@ const connect = async () => {
     if (!id) return;
     gameConnection.set("connecting");
     try {
-        const { role, state, now } = await fetchGame(id, token());
+        const { role, you, state, now } = await fetchGame(id, token());
         noteServerTime(now);
-        gameRole.set(role);
+        myPlayerId.set(you);
+        applyRole(role, true);
         receive(state, true);
     } catch (error) {
         if ((error as { status?: number }).status === 404) {
@@ -487,8 +558,9 @@ const connect = async () => {
                 gameConnection.set("live");
                 attempts = 0;
                 reconnectAt.set(null);
-                const { state, now } = JSON.parse(message.data);
+                const { state, role, now } = JSON.parse(message.data);
                 noteServerTime(now);
+                if (role) applyRole(role);
                 receive(state);
             } else if (message.event === "positions") {
                 const { positions, now } = JSON.parse(message.data);
@@ -532,25 +604,26 @@ export const joinGame = (id: string) => {
     void connect();
 };
 
-/**
- * Back to no game. The game's questions were the game's: they go, and
- * joining again asks who you are.
- */
 /** A new round began on the server: nothing of the old one lingers here. */
 const startOfRound = () => {
+    // A hider token from before players is void after a round.
     const id = activeGameId.get();
-    if (gameRole.get() === "hider") {
-        // The old token is void: a seeker until someone claims the hider.
-        gameRole.set("seeker");
-        forgetHider();
+    if (hiderTokens.get()[id]) {
+        const { [id]: removed, ...rest } = hiderTokens.get();
+        void removed;
+        hiderTokens.set(rest);
     }
     chosenStation.set(null);
     pendingStation.set(null);
-    hiderChoosing.set(false);
+    // The new hider picks their station first.
+    hiderChoosing.set(gameRole.get() === "hider");
     pinLocked.set(false);
-    if (id) unmarkJoined(id);
 };
 
+/**
+ * Back to no game. The game's questions were the game's: they go. The
+ * player stays this phone's (opening the link again needs no joining).
+ */
 export const leaveGame = () => {
     const id = activeGameId.get();
     disconnect();
@@ -565,10 +638,11 @@ export const leaveGame = () => {
     activeGameId.set("");
     gameState.set(null);
     gameRole.set("seeker");
+    myPlayerId.set(null);
     gameConnection.set("off");
     suggestedAnswers.set({});
     synced = new Map();
-    if (id) unmarkJoined(id);
+    void id;
     questions.set([]);
     endgame.set(null);
     setUrl("");
@@ -594,28 +668,49 @@ export const startGame = async () => {
     }
     syncedPlayArea = JSON.stringify(state.playArea);
     syncedZone = JSON.stringify(state.zone);
-    // Not marked as joined: whoever starts the game says who they are
-    // next, like everyone opening the link.
+    // Whoever starts the game says who they are next, like everyone
+    // opening the link.
     joinGame(state.id);
     return state.id;
 };
 
-/** Becomes the hider on this phone (the first hider sets the password). */
-export const claimHider = async (password: string) => {
-    const id = activeGameId.get();
-    const { token: hiderToken } = await postHiderPassword(id, password, me());
-    hiderTokens.set({ ...hiderTokens.get(), [id]: hiderToken });
-    await connect();
+/** The server's answer to joining: this phone's player, role and game. */
+const acceptPlayer = ({ player, role, you, state, now }: Joined) => {
+    noteServerTime(now);
+    myPlayerId.set(you);
+    playerName.set(player.name);
+    applyRole(role);
+    receive(state);
 };
 
-/** Stops being the hider on this phone (the role stays protected). */
-export const forgetHider = () => {
+/** Joins the game this phone is in (or updates its player: a new name, a team). */
+export const joinAs = async (body: JoinBody) =>
+    acceptPlayer(await postJoin(activeGameId.get(), body, token()));
+
+/** Becomes, on this phone, the player whose code this is. */
+export const rejoinWithCode = async (code: string) =>
+    acceptPlayer(await postRejoin(activeGameId.get(), code, token()));
+
+/** Without teams: says this phone's player hides this round (or not any more). */
+export const setHiding = (hider: boolean) => joinAs({ name: me(), hider });
+
+/** A new name, for the others too, once joined. */
+export const renameInGame = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || !joinedHere.get() || trimmed === myPlayer.get()?.name) {
+        return;
+    }
+    try {
+        await joinAs({ name: trimmed });
+    } catch (error) {
+        toast.error(errorMessage(error), { toastId: "rename" });
+    }
+};
+
+/** Takes a player gone quiet out of the game (whoever started it: anyone). */
+export const removePlayer = (player: PlayerId) => {
     const id = activeGameId.get();
-    const { [id]: removed, ...rest } = hiderTokens.get();
-    void removed;
-    hiderTokens.set(rest);
-    hiderMode.set(false);
-    void connect();
+    return deletePlayer(id, player, organiserTokens.get()[id]);
 };
 
 /** Deletes a game on the server, for everyone; this phone forgets it. */
@@ -645,7 +740,7 @@ export const uploadPhoto = async (
     photo: Blob,
     options: { requestId?: string; caption?: string } = {},
 ) => {
-    const { state, now } = await postPhoto(
+    const { state, role, now } = await postPhoto(
         activeGameId.get(),
         photo,
         me(),
@@ -653,6 +748,7 @@ export const uploadPhoto = async (
         options,
     );
     noteServerTime(now);
+    if (role) applyRole(role);
     receive(state);
 };
 

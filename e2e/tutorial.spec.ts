@@ -364,8 +364,6 @@ test("the hider may decline the tour: then the pointer to the station; the Menu 
     const id = await newGame(request);
     await openLink(page, id, "Ben");
     await page.getByRole("button", { name: "I'm the hider" }).click();
-    await page.getByLabel("Hider password").fill("secret");
-    await page.getByRole("button", { name: "Become the hider" }).click();
     await expect(page.getByTestId("join-dialog")).toBeHidden();
 
     await expect(mark(page)).toContainText("How hiding works");
@@ -491,8 +489,6 @@ test("tips come the first time something happens, once, and never over the stati
     const ben = await (await browser.newContext()).newPage();
     await veteran(ben, id, "Ben");
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(mark(ben)).toContainText("Pick your hiding spot");
     await ben
         .getByTestId("hider-panel")

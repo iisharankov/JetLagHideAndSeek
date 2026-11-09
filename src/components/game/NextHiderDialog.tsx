@@ -11,20 +11,20 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { clockState } from "@/lib/game/clock";
-import { gameRole, gameState, playerName, sendOp } from "@/lib/game/session";
+import { gameRole, gameState, myPlayerId, sendOp } from "@/lib/game/session";
 
 /** Opens the "who hides next?" popup (Menu → Game, the clock). */
 export const nextHiderOpen = atom(false);
 
 /**
  * After a round, with teams: everyone's phone asks who hides next. One
- * team claims it; then anyone starts the new round, and everyone says who
- * they are again (the new hiders set a new password).
+ * team claims it; then anyone starts the new round, and that team's
+ * members are the hiders (nobody types anything).
  */
 export const NextHiderDialog = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
-    const $name = useStore(playerName);
+    const $me = useStore(myPlayerId);
     const $requested = useStore(nextHiderOpen);
     const [open, setOpen] = useState(false);
     const askedFor = useRef<number | null>(null);
@@ -32,7 +32,8 @@ export const NextHiderDialog = () => {
     const over = clockState(clock) === "stopped";
     // Claiming: once the round is over, or when it never got going.
     const claimable = !["running", "paused"].includes(clockState(clock));
-    const teams = $game?.teams ?? [];
+    // Only games with the Teams setting hand rounds from team to team.
+    const teams = $game?.settings.teams ? $game.teams : [];
     const bonusesSent = clock?.bonusMinutes !== undefined;
     const stoppedAt = clock?.stoppedAt ?? null;
 
@@ -55,8 +56,15 @@ export const NextHiderDialog = () => {
     useEffect(() => setOpen(false), [rounds]);
 
     if (!$game || teams.length === 0) return null;
-    const me = $name.trim();
-    const mine = teams.find((team) => team.members.includes(me));
+    const mine = $me
+        ? teams.find((team) => team.members.includes($me))
+        : undefined;
+    const names = (ids: string[]) =>
+        ids
+            .map((id) => $game.players[id])
+            .filter((player) => player && !player.left)
+            .map((player) => player!.name)
+            .join(", ");
     const next = teams.find((team) => team.id === $game.nextHiderTeamId);
     const round = $game.rounds.length + 1;
 
@@ -75,7 +83,7 @@ export const NextHiderDialog = () => {
                               ? `Round ${round} hasn't got going. `
                               : `Round ${round} is still on. `}
                         One team claims the next round; then anyone starts it,
-                        and everyone says who they are again.
+                        and that team&apos;s phones are the hiders&apos;.
                     </DialogDescription>
                 </DialogHeader>
                 <ul className="flex flex-col gap-1 text-sm">
@@ -87,7 +95,7 @@ export const NextHiderDialog = () => {
                             <span>
                                 <strong>{team.name}</strong>{" "}
                                 <span className="text-xs text-slate-400">
-                                    {team.members.join(", ")}
+                                    {names(team.members)}
                                 </span>
                             </span>
                             {next?.id === team.id && (
@@ -113,7 +121,7 @@ export const NextHiderDialog = () => {
                     )}
                     {!next && !mine && (
                         <p className="text-xs text-slate-400">
-                            You&apos;re in no team: join one in Menu → Game to
+                            You&apos;re in no team: pick one in Menu → Game to
                             claim a round.
                         </p>
                     )}

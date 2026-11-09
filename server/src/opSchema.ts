@@ -129,7 +129,11 @@ const opSchema = z.discriminatedUnion("type", [
         type: z.literal("setHiderPending"),
         station: stationPick.nullable(),
     }),
-    z.object({ type: z.literal("joinTeam"), name: text(60) }),
+    z.object({
+        type: z.literal("joinTeam"),
+        name: text(60),
+        password: text(200).optional(),
+    }),
     z.object({ type: z.literal("leaveTeam") }),
     z.object({
         type: z.literal("claimNextRound"),

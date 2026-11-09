@@ -6,10 +6,10 @@ import { useTick } from "@/hooks/useTick";
 import { ago } from "@/lib/format";
 import { positionsShown, seekerPositions } from "@/lib/game/positions";
 import { serverNow } from "@/lib/game/serverTime";
-import { gameRole, playerName } from "@/lib/game/session";
+import { gameRole, myPlayerId } from "@/lib/game/session";
 
-/** Not heard from for this long: drawn faded. */
-const QUIET_MS = 5 * 60_000;
+/** Not heard from for this long: drawn faded (after an hour it's gone). */
+const QUIET_MS = 10 * 60_000;
 
 /** A person, white on dark: not a question's pin, not the blue "you". */
 const ICON = L.divIcon({
@@ -27,7 +27,7 @@ const ICON = L.divIcon({
 export const SeekerMarkers = () => {
     const $positions = useStore(seekerPositions);
     const $role = useStore(gameRole);
-    const $me = useStore(playerName);
+    const $me = useStore(myPlayerId);
     useTick($positions.length > 0, 30_000);
     const now = serverNow();
     return positionsShown($positions, {
@@ -35,7 +35,7 @@ export const SeekerMarkers = () => {
         me: $me,
     }).map((seeker) => (
         <Marker
-            key={seeker.name}
+            key={seeker.playerId}
             position={[seeker.latitude, seeker.longitude]}
             icon={ICON}
             opacity={now - seeker.at > QUIET_MS ? 0.5 : 1}

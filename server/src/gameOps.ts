@@ -32,6 +32,8 @@ import {
     type GameOp,
     type GameSettings,
     type GameState,
+    type Player,
+    type PlayerId,
     type Role,
 } from "@/lib/game/types";
 
@@ -68,7 +70,7 @@ import {
     visibleEntry,
     withoutLocalFields,
 } from "./rules/shared";
-import { teamById, teamOf } from "./rules/teams";
+import { joinTeamIn, teamById, teamOf } from "./rules/teams";
 export { type Actor, GameRuleError } from "./rules/shared";
 
 const CHANGEABLE_LATER = new Set(["hidingRadiusKm", "seekersCanAnswer"]);
@@ -112,6 +114,7 @@ export const newGameState = (
     hider: { station: null, pin: null },
     hasHider: false,
     hiderReadyAt: null,
+    players: {},
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,
@@ -127,14 +130,38 @@ export const newGameState = (
     rounds: [],
 });
 
+/** A player as the others see them: without their code. */
+const withoutCode = ({ code: _code, ...player }: Player): Player => {
+    void _code;
+    return player;
+};
+
 /**
- * What a player may see: the hider never sees the seekers' drafts, and the
- * seekers never see the hider's cards.
+ * What a player may see: the hider never sees the seekers' drafts, the
+ * seekers never see the hider's cards, nobody sees a team's password, and
+ * each player sees only their own code.
  */
-export const viewFor = (state: GameState, role: Role): GameState =>
-    role === "hider"
+export const viewFor = (
+    state: GameState,
+    role: Role,
+    viewer: PlayerId | null = null,
+): GameState => {
+    const shared = {
+        ...state,
+        players: Object.fromEntries(
+            Object.entries(state.players ?? {}).map(([id, player]) => [
+                id,
+                id === viewer ? player : withoutCode(player),
+            ]),
+        ),
+        teams: state.teams.map(({ passwordHash: _hash, ...team }) => {
+            void _hash;
+            return team;
+        }),
+    };
+    return role === "hider"
         ? {
-              ...state,
+              ...shared,
               questions: Object.fromEntries(
                   Object.entries(state.questions).filter(
                       ([, entry]) => entry.state !== "draft",
@@ -142,7 +169,7 @@ export const viewFor = (state: GameState, role: Role): GameState =>
               ),
           }
         : {
-              ...state,
+              ...shared,
               deck: state.deck ? deckForSeekers(state.deck) : null,
               hider: null,
               // Once the round is over the seekers see where the hider was.
@@ -151,6 +178,7 @@ export const viewFor = (state: GameState, role: Role): GameState =>
                       ? (state.hider?.pin ?? null)
                       : null,
           };
+};
 
 /** Applies one change, returning the new state (the old one is untouched). */
 export const applyOp = (
@@ -168,7 +196,7 @@ export const applyOp = (
         actor.name !== "Someone" &&
         !state.hiderName
     ) {
-        state.hiderName = teamOf(state, actor.name)?.name ?? actor.name;
+        state.hiderName = teamOf(state, actor.id)?.name ?? actor.name;
     }
     passTime(state, now);
 
@@ -563,40 +591,23 @@ export const applyOp = (
             }
             break;
         }
-        case "joinTeam": {
+        case "joinTeam":
             // Teams: people hiding or seeking together. One team per name;
-            // an existing team's name joins it, a new one makes it.
-            const name = String(op.name ?? "")
-                .trim()
-                .slice(0, 30);
-            if (!name) throw new GameRuleError("Give the team a name.", 400);
-            if (actor.name === "Someone") {
-                throw new GameRuleError("Give your name first.", 400);
-            }
-            for (const team of state.teams) {
-                team.members = team.members.filter((m) => m !== actor.name);
-            }
-            let team = state.teams.find(
-                (t) => t.name.toLowerCase() === name.toLowerCase(),
-            );
-            if (!team) {
-                team = { id: shortId(), name, members: [] };
-                state.teams.push(team);
-            }
-            team.members.push(actor.name);
-            // The hider's team is the round's hider team, named on the
-            // scoreboard.
-            if (actor.role === "hider" && !state.hiderTeamId) {
-                state.hiderTeamId = team.id;
-                state.hiderName = team.name;
-            }
+            // an existing team's name joins it (with its password), a new
+            // one makes it. Joining the hiding team makes you a hider.
+            joinTeamIn(state, actor.id, {
+                name: op.name,
+                password: op.password,
+            });
             break;
-        }
         case "leaveTeam":
-            for (const team of state.teams) {
-                team.members = team.members.filter((m) => m !== actor.name);
-            }
-            break;
+            // With teams everyone is in one (Q58): switch, don't leave.
+            throw new GameRuleError(
+                state.settings.teams
+                    ? "Everyone in this game is in a team: pick another team instead."
+                    : "This game has no teams.",
+                409,
+            );
         case "claimNextRound": {
             // After a round, a team says it hides next; only one can. A
             // round that never got going (no clock) can be handed over too.
@@ -607,7 +618,7 @@ export const applyOp = (
                     409,
                 );
             }
-            const mine = teamOf(state, actor.name);
+            const mine = teamOf(state, actor.id);
             if (!mine) {
                 throw new GameRuleError(
                     "Join a team first (Menu → Game).",
@@ -1005,7 +1016,7 @@ export const applyOp = (
             const next = state.nextHiderTeamId
                 ? teamById(state, state.nextHiderTeamId)
                 : undefined;
-            if (state.teams.length > 0 && !next) {
+            if (state.settings.teams && state.teams.length > 0 && !next) {
                 throw new GameRuleError(
                     "Pick the team that hides next first.",
                     409,
@@ -1044,6 +1055,10 @@ export const applyOp = (
             state.hiderTeamId = next?.id ?? null;
             state.hiderName = next?.name ?? null;
             state.nextHiderTeamId = null;
+            // Without teams, whoever hides next says so.
+            for (const player of Object.values(state.players)) {
+                delete player.hider;
+            }
             state.lateAnswers = 0;
             state.freeQuestions = 0;
             state.clockRequest = null;

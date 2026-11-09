@@ -3,8 +3,9 @@ import type { Page } from "@playwright/test";
 import { routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
-// Two tabs of the same browser (shared storage): the hider's tab must not
-// turn the seeker's tab into the hider's, and nothing may crash.
+// Two tabs of the same browser (shared storage) are the same player: the
+// second tab doesn't ask who you are, has the first tab's role, and nothing
+// crashes.
 
 const PLAY_AREA = {
     type: "FeatureCollection",
@@ -48,7 +49,7 @@ const openMenu = async (page: Page) => {
     await page.getByRole("radio", { name: "Game" }).click();
 };
 
-test("a second tab becoming the hider leaves the first tab a seeker", async ({
+test("a second tab of the same browser is the same player, with nothing to type", async ({
     page,
     externalHosts,
     pageErrors,
@@ -75,20 +76,22 @@ test("a second tab becoming the hider leaves the first tab a seeker", async ({
     const link = page.url();
     await closeMenu(page);
 
-    // The same browser, a second tab: it becomes the hider.
+    // The same browser, a second tab: Ana again, a seeker, no questions.
     const other = await page.context().newPage();
     await prepare(other);
     await other.goto(link);
-    // Every tab joins for itself: the join dialog asks for a name and the
-    // role, and the hider's password.
-    await other.getByLabel("Your name").fill("Ben");
-    await other.getByRole("button", { name: "I'm the hider" }).click();
-    await other.getByLabel("Hider password").fill("secret");
-    await other.getByRole("button", { name: "Become the hider" }).click();
-    await expect(other.getByTestId("hider-panel")).toBeVisible();
+    await openMenu(other);
+    await expect(other.getByTestId("game-connection")).toHaveText(/Live/);
+    await expect(other.getByTestId("join-dialog")).toHaveCount(0);
+    await expect(other.getByTestId("game-role")).toContainText(
+        "Ana · a seeker",
+    );
+    await expect(other.getByTestId("players-list")).toContainText(
+        "Players (1)",
+    );
+    await closeMenu(other);
 
-    // The first tab is still a seeker: its new question is a draft, and
-    // nothing broke on the way.
+    // A question from the first tab is a seeker's draft, and nothing broke.
     await page.getByRole("button", { name: "Add Question" }).click();
     await page.getByRole("button", { name: "Add Radius" }).click();
     await expect(page.getByTestId("question-game-state")).toHaveAttribute(

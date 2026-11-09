@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import {
     type GameState,
     LOCAL_FIELDS,
+    type PlayerId,
     type QuestionEntry,
     type Role,
     type SharedQuestion,
@@ -14,13 +15,21 @@ import {
 export class GameRuleError extends Error {
     constructor(
         message: string,
-        readonly status: 400 | 403 | 404 | 409 = 403,
+        readonly status: 400 | 403 | 404 | 409 | 429 = 403,
     ) {
         super(message);
     }
 }
 
+/** A wrong team password or player code: counted towards the limit. */
+export class WrongGuessError extends GameRuleError {}
+
+/**
+ * Who is asking: their player (by public id), the name for "asked by …"
+ * labels, and their role this round.
+ */
 export interface Actor {
+    id: PlayerId;
     name: string;
     role: Role;
 }

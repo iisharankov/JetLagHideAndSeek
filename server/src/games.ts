@@ -1,5 +1,5 @@
 // Shared games in SQLite, photos on disk, and live updates to subscribers.
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
     existsSync,
     mkdirSync,
@@ -13,6 +13,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { moveMinutes } from "@/lib/game/curseRules";
 import { advanceDeck } from "@/lib/game/deck";
+import { activePlayers, roleOfPlayer } from "@/lib/game/players";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { applyRest } from "@/lib/game/rest";
 import { normalizeGameSettings } from "@/lib/game/settings";
@@ -20,10 +21,20 @@ import type {
     GameOp,
     GameSettings,
     GameState,
+    Player,
+    PlayerId,
     SharedQuestion,
 } from "@/lib/game/types";
 
 import { type Actor, applyOp, GameRuleError, newGameState } from "./gameOps";
+import { hashPassword, passwordMatches } from "./rules/passwords";
+import {
+    joinPlayer,
+    type JoinRequest,
+    migratePlayers,
+    rejoinPlayer,
+    removePlayer,
+} from "./rules/players";
 
 const ID_ALPHABET =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -34,6 +45,12 @@ const newId = (length: number) =>
 export const KEEP_GAMES_MS = 365 * 24 * 3600 * 1000;
 /** Photos per game; anyone with the link can upload, so there is a cap. */
 export const MAX_PHOTOS_PER_GAME = 100;
+/**
+ * Players seen (a phone loading the game, its live stream) are noted in
+ * memory and written with the next change, or at most this often per game:
+ * every write sends the whole game to every phone.
+ */
+export const SEEN_EVERY_MS = 5 * 60_000;
 
 const PHOTO_TYPES: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -56,6 +73,24 @@ export interface GameStore {
     ): () => void;
     /** Removes a game for everyone, photos included. False if unknown. */
     delete(id: string): boolean;
+    /** Joins a player, or updates one who joined before (the same id). */
+    join(
+        id: string,
+        playerId: PlayerId,
+        request: JoinRequest,
+    ): { state: GameState; player: Player };
+    /** Becomes the player with that code on this phone (another phone, wiped storage). */
+    rejoin(
+        id: string,
+        playerId: PlayerId,
+        code: string,
+    ): { state: GameState; player: Player; replaced: PlayerId };
+    removePlayer(id: string, playerId: PlayerId): GameState;
+    /** A player's phone was here just now (kept in memory, written now and then). */
+    touch(id: string, playerId: PlayerId): void;
+    /** When a player was last seen, counting what isn't written yet. */
+    lastSeen(id: string, playerId: PlayerId): number | undefined;
+    /** The hider password from before teams: kept for phones not reloaded since. */
     claimHider(id: string, password: string, by?: string): string;
     isHider(id: string, token: string | undefined | null): boolean;
     /**
@@ -82,14 +117,27 @@ export interface GameStore {
     tick(now?: number): number;
 }
 
-const hashPassword = (password: string, salt = randomBytes(16)) =>
-    `${salt.toString("hex")}:${scryptSync(password, salt, 32).toString("hex")}`;
-
-const passwordMatches = (password: string, stored: string) => {
-    const [salt, hash] = stored.split(":");
-    const candidate = scryptSync(password, Buffer.from(salt, "hex"), 32);
-    return timingSafeEqual(candidate, Buffer.from(hash, "hex"));
+/** A player who moved to another phone (or was removed) can't change anything. */
+const assertStillIn = (state: GameState, actor: Actor) => {
+    const player = state.players[actor.id];
+    if (player?.left) {
+        throw new GameRuleError(
+            player.removed
+                ? "You were removed from this game. Open its link to join again."
+                : "This player continued on another phone.",
+        );
+    }
 };
+
+/**
+ * Whether the game has a hider: a player hiding (by team or by saying so),
+ * or a phone with the hider password from before teams.
+ */
+const hasHider = (state: GameState, secret: boolean) =>
+    secret ||
+    activePlayers(state).some(
+        (player) => roleOfPlayer(state, player) === "hider",
+    );
 
 /**
  * Games in SQLite (a database, or a path; `:memory:` for tests); photos
@@ -155,7 +203,6 @@ export const createGameStore = (
         const found = row(id);
         if (!found) return undefined;
         const state = JSON.parse(found.state) as GameState;
-        state.hasHider = found.hider_secret !== null;
         // Games from before a settings change get the defaults for what's new.
         state.settings = normalizeGameSettings(state.settings);
         state.powerups ??= [];
@@ -178,6 +225,8 @@ export const createGameStore = (
         state.restWindow ??= null;
         state.deleteRequests ??= {};
         state.revealedPin ??= null;
+        migratePlayers(state);
+        state.hasHider = hasHider(state, found.hider_secret !== null);
         if (state.move && !state.move.endsAt) {
             state.move.endsAt =
                 state.move.startedAt +
@@ -189,7 +238,23 @@ export const createGameStore = (
     const notify = (state: GameState) => {
         for (const listener of listeners.get(state.id) ?? []) listener(state);
     };
+    /** Players seen and not written yet, per game. */
+    const seen = new Map<string, Map<PlayerId, number>>();
+    const seenWritten = new Map<string, number>();
+    /** Writes the players seen into the game (with a change, or now and then). */
+    const writeSeen = (state: GameState) => {
+        for (const [playerId, at] of seen.get(state.id) ?? []) {
+            const player = state.players[playerId];
+            if (player && !player.left && at > player.lastSeen) {
+                player.lastSeen = at;
+            }
+        }
+        seen.delete(state.id);
+        seenWritten.set(state.id, Date.now());
+    };
     const store = (state: GameState, before?: GameState) => {
+        writeSeen(state);
+        state.hasHider = hasHider(state, row(state.id)?.hider_secret != null);
         save.run(JSON.stringify(state), state.updatedAt, state.id);
         notify(state);
         if (before && onChange) onChange(before, state);
@@ -225,9 +290,67 @@ export const createGameStore = (
 
         apply(id, op, actor) {
             const before = required(id);
-            const next = applyOp(before, op, actor, Date.now());
+            const now = Date.now();
+            assertStillIn(before, actor);
+            const next = applyOp(before, op, actor, now);
+            const me = next.players[actor.id];
+            if (me) me.lastSeen = now;
             if (op.type === "newRound") setHider.run(null, null, id);
             return store(next, before);
+        },
+
+        join(id, playerId, request) {
+            const before = required(id);
+            const state = structuredClone(before);
+            const now = Date.now();
+            const player = joinPlayer(state, playerId, request, now);
+            state.version += 1;
+            state.updatedAt = now;
+            store(state, before);
+            return { state, player };
+        },
+
+        rejoin(id, playerId, code) {
+            const before = required(id);
+            const state = structuredClone(before);
+            const now = Date.now();
+            const { player, from } = rejoinPlayer(state, playerId, code, now);
+            state.version += 1;
+            state.updatedAt = now;
+            store(state, before);
+            return { state, player, replaced: from };
+        },
+
+        removePlayer(id, playerId) {
+            const before = required(id);
+            const state = structuredClone(before);
+            const now = Date.now();
+            removePlayer(state, playerId, now);
+            state.version += 1;
+            state.updatedAt = now;
+            return store(state, before);
+        },
+
+        touch(id, playerId) {
+            const now = Date.now();
+            const stamps = seen.get(id) ?? new Map<PlayerId, number>();
+            stamps.set(playerId, now);
+            seen.set(id, stamps);
+            if (now - (seenWritten.get(id) ?? 0) < SEEN_EVERY_MS) return;
+            const state = load(id);
+            const player = state?.players[playerId];
+            if (!state || !player || player.left) return;
+            if (now - player.lastSeen < SEEN_EVERY_MS) return;
+            // Not a change of the game's: no new "updated" time, no push.
+            state.version += 1;
+            store(state);
+        },
+
+        lastSeen(id, playerId) {
+            const stored = load(id)?.players[playerId]?.lastSeen;
+            const memory = seen.get(id)?.get(playerId);
+            if (stored === undefined) return memory;
+            return Math.max(stored, memory ?? 0);
         },
 
         subscribe(id, listener) {
@@ -257,9 +380,29 @@ export const createGameStore = (
                 );
             }
             const found = row(id)!;
+            // Phones from before players only (they never had teams): an
+            // updated phone says "I'm the hider" with its player instead.
+            if (state.settings.teams) {
+                throw new GameRuleError(
+                    "Reload the page to join this game: the app was updated.",
+                    409,
+                );
+            }
+            if (activePlayers(state).some((player) => player.hider)) {
+                throw new GameRuleError(
+                    "Someone is already the hider. If that's you on another phone, rejoin with your code.",
+                    409,
+                );
+            }
             // With teams, only the team hiding this round hides.
             const team = by
-                ? state.teams.find((t) => t.members.includes(by))
+                ? state.teams.find((t) =>
+                      t.members.some(
+                          (member) =>
+                              member === by ||
+                              state.players[member]?.name === by,
+                      ),
+                  )
                 : undefined;
             if (state.hiderTeamId && team?.id !== state.hiderTeamId) {
                 const hiders = state.teams.find(
@@ -327,6 +470,7 @@ export const createGameStore = (
                 );
             }
             const state = required(id);
+            assertStillIn(state, actor);
             const before = structuredClone(state);
             if (state.photos.length >= MAX_PHOTOS_PER_GAME) {
                 throw new GameRuleError(

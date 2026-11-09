@@ -103,8 +103,6 @@ const phone = async (
 
 const joinAsHider = async (page: Page) => {
     await page.getByRole("button", { name: "I'm the hider" }).click();
-    await page.getByLabel("Hider password").fill("secret");
-    await page.getByRole("button", { name: "Become the hider" }).click();
     await page
         .getByTestId("hider-panel")
         .locator("li", { hasText: "Zürich HB" })

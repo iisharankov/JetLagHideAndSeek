@@ -2,8 +2,9 @@ import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 
+import { playerStale, roleOfPlayer } from "@/lib/game/players";
 import { normalizeGameSettings } from "@/lib/game/settings";
-import type { GameState } from "@/lib/game/types";
+import type { GameState, Player, PlayerId, Role } from "@/lib/game/types";
 
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
 import type { GameStore } from "./games";
@@ -14,6 +15,9 @@ import {
     type SeekerPosition,
 } from "./positions";
 import { parseSubscription, type PushService } from "./push";
+import { createRateLimiter } from "./rateLimit";
+import { legacyId, publicId, validKey } from "./rules/players";
+import { WrongGuessError } from "./rules/shared";
 
 const MAX_GAME_BYTES = 2 * 1024 * 1024;
 /** Phones shrink photos to at most 5 MB before uploading. */
@@ -52,6 +56,31 @@ const playerName = (value: unknown) => {
     return name || "Someone";
 };
 
+/**
+ * The name a change is signed with: the player's own (a rename joins
+ * again), or for phones from before players the one they send.
+ */
+const nameOf = (sent: unknown, player: Player | undefined) =>
+    player && !player.left ? player.name : playerName(sent);
+
+/** The phone's private key (a random id it made once), if it sent one. */
+const keyOf = (c: Context) => {
+    const key = c.req.header("X-Player-Key");
+    return validKey(key) ? key : null;
+};
+
+/**
+ * The phone's player: by its key, or for phones from before players (no
+ * key) by the name it signs with, as before.
+ */
+const playerOf = (c: Context, name?: unknown): PlayerId => {
+    const key = keyOf(c);
+    return key ? publicId(key) : legacyId(playerName(name));
+};
+
+const text = (value: unknown, max: number) =>
+    typeof value === "string" ? value.slice(0, max) : undefined;
+
 export const createApp = ({
     games,
     push,
@@ -78,14 +107,63 @@ export const createApp = ({
     // Shared games ------------------------------------------------------
 
     /**
-     * Hider if the request carries this game's hider token in its header
-     * (the live stream too: the phones read it over fetch). Never in the
-     * URL, which servers log, and never a cookie, which tabs share.
+     * The player's role: their team's, or (without teams) whether they said
+     * they hide. Phones that became the hider with the password before
+     * players still are, by the token in their header (kept for one
+     * release; never in the URL, which servers log, nor a cookie, which
+     * tabs share).
      */
-    const roleOf = (c: Context, id: string) =>
-        games.isHider(id, c.req.header("X-Hider-Token") ?? null)
-            ? ("hider" as const)
-            : ("seeker" as const);
+    const roleOf = (
+        state: GameState,
+        player: PlayerId,
+        hiderToken: string | null,
+    ): Role =>
+        roleOfPlayer(state, state.players[player]) === "hider" ||
+        games.isHider(state.id, hiderToken)
+            ? "hider"
+            : "seeker";
+    const tokenOf = (c: Context) => c.req.header("X-Hider-Token") ?? null;
+
+    /** Wrong team passwords and player codes: five a minute per game (Q50). */
+    const guesses = createRateLimiter();
+    const guarded = <T>(key: string, run: () => T): T => {
+        if (!guesses.allow(key)) {
+            throw new GameRuleError(
+                "Too many wrong tries. Wait a minute, then try again.",
+                429,
+            );
+        }
+        try {
+            return run();
+        } catch (error) {
+            if (error instanceof WrongGuessError) guesses.failed(key);
+            throw error;
+        }
+    };
+
+    /** A player's answer: who they are, their role, and the game as they see it. */
+    const playerAnswer = (c: Context, state: GameState, player: Player) => {
+        const role = roleOf(state, player.id, tokenOf(c));
+        return c.json({
+            player,
+            role,
+            you: player.id,
+            state: viewFor(state, role, player.id),
+            now: Date.now(),
+        });
+    };
+
+    /** Joining needs a phone with a key (an app from after players). */
+    const requiredKey = (c: Context) => {
+        const key = keyOf(c);
+        if (!key) {
+            throw new GameRuleError(
+                "Reload the page to join: the app was updated.",
+                400,
+            );
+        }
+        return publicId(key);
+    };
 
     const found = (id: string) => {
         const state = games.get(id);
@@ -127,12 +205,80 @@ export const createApp = ({
 
     app.get("/games/:id", (c) => {
         const id = c.req.param("id");
-        const role = roleOf(c, id);
+        const state = found(id);
+        const key = keyOf(c);
+        const you = key ? publicId(key) : null;
+        if (you) games.touch(id, you);
+        const role = roleOf(state, you ?? legacyId("Someone"), tokenOf(c));
         return c.json({
             role,
-            state: viewFor(found(id), role),
+            you,
+            state: viewFor(state, role, you),
             now: Date.now(),
         });
+    });
+
+    // Joining: a name, a team (with its password) when the game has
+    // teams, and "I hide". Again with the same phone: the same player.
+    app.post("/games/:id/join", async (c) => {
+        const id = c.req.param("id");
+        found(id);
+        const you = requiredKey(c);
+        const body = await c.req.json().catch(() => ({}));
+        const name = playerName(body?.name);
+        if (name === "Someone") {
+            throw new GameRuleError("Give your name first.", 400);
+        }
+        const team =
+            body?.team && typeof body.team === "object"
+                ? {
+                      id: text(body.team.id, 80),
+                      name: text(body.team.name, 60),
+                      password: text(body.team.password, 200),
+                  }
+                : undefined;
+        const hider = typeof body?.hider === "boolean" ? body.hider : undefined;
+        const join = () => games.join(id, you, { name, team, hider });
+        const { state, player } = team ? guarded(`team:${id}`, join) : join();
+        return playerAnswer(c, state, player);
+    });
+
+    // Another phone (or wiped storage): the player's code makes this phone
+    // that player.
+    app.post("/games/:id/rejoin", async (c) => {
+        const id = c.req.param("id");
+        found(id);
+        const you = requiredKey(c);
+        const body = await c.req.json().catch(() => ({}));
+        const { state, player, replaced } = guarded(`code:${id}`, () =>
+            games.rejoin(id, you, String(body?.code ?? "")),
+        );
+        if (replaced !== you) positions.drop(id, replaced);
+        return playerAnswer(c, state, player);
+    });
+
+    // A player gone quiet (a phone that died, a stray tab): whoever started
+    // the game removes anyone; anyone removes a player not seen for an hour.
+    app.delete("/games/:id/players/:player", (c) => {
+        const id = c.req.param("id");
+        const target = c.req.param("player");
+        const state = found(id);
+        const seenAt = games.lastSeen(id, target);
+        if (seenAt === undefined || state.players[target]?.left) {
+            throw new GameRuleError("That player isn't in the game.", 404);
+        }
+        const organiser = games.isOrganiser(
+            id,
+            c.req.header("X-Organiser-Token") ?? null,
+        );
+        if (!organiser && !playerStale({ lastSeen: seenAt }, Date.now())) {
+            throw new GameRuleError(
+                "Only whoever started the game can remove a player who was here in the last hour.",
+            );
+        }
+        games.removePlayer(id, target);
+        positions.drop(id, target);
+        return c.json({ ok: true });
     });
 
     app.post(
@@ -141,9 +287,12 @@ export const createApp = ({
         async (c) => {
             const id = c.req.param("id");
             const body = await c.req.json();
+            const current = found(id);
+            const player = playerOf(c, body?.by);
             const actor: Actor = {
-                name: playerName(body?.by),
-                role: roleOf(c, id),
+                id: player,
+                name: nameOf(body?.by, current.players[player]),
+                role: roleOf(current, player, tokenOf(c)),
             };
             const op = parseOp(body?.op);
             if (!op) {
@@ -152,9 +301,14 @@ export const createApp = ({
                     400,
                 );
             }
-            const state = games.apply(id, op, actor);
+            const apply = () => games.apply(id, op, actor);
+            const state =
+                op.type === "joinTeam" ? guarded(`team:${id}`, apply) : apply();
+            // Joining the hiding team, a new round: the role may change.
+            const role = roleOf(state, player, tokenOf(c));
             return c.json({
-                state: viewFor(state, actor.role),
+                state: viewFor(state, role, player),
+                role,
                 now: Date.now(),
             });
         },
@@ -166,7 +320,7 @@ export const createApp = ({
         const state = found(id);
         const organised = games.hasOrganiser(id);
         const who = {
-            hider: roleOf(c, id) === "hider",
+            hider: roleOf(state, playerOf(c), tokenOf(c)) === "hider",
             organiser: games.isOrganiser(
                 id,
                 c.req.header("X-Organiser-Token") ?? null,
@@ -197,21 +351,29 @@ export const createApp = ({
 
     app.get("/games/:id/events", (c) => {
         const id = c.req.param("id");
-        const role = roleOf(c, id);
         const first = found(id);
+        const key = keyOf(c);
+        const you = key ? publicId(key) : null;
+        const player = you ?? legacyId("Someone");
+        const token = tokenOf(c);
+        if (you) games.touch(id, you);
         // nginx: don't buffer the stream.
         c.header("X-Accel-Buffering", "no");
         return streamSSE(c, async (stream) => {
-            const send = (state: GameState | null) =>
-                state
-                    ? stream.writeSSE({
-                          event: "state",
-                          data: JSON.stringify({
-                              state: viewFor(state, role),
-                              now: Date.now(),
-                          }),
-                      })
-                    : stream.writeSSE({ event: "deleted", data: "" });
+            // The role per state: a new round may hand it to another team.
+            const send = (state: GameState | null) => {
+                if (!state)
+                    return stream.writeSSE({ event: "deleted", data: "" });
+                const role = roleOf(state, player, token);
+                return stream.writeSSE({
+                    event: "state",
+                    data: JSON.stringify({
+                        state: viewFor(state, role, you),
+                        role,
+                        now: Date.now(),
+                    }),
+                });
+            };
             const sendPositions = (list: SeekerPosition[]) =>
                 stream.writeSSE({
                     event: "positions",
@@ -236,6 +398,8 @@ export const createApp = ({
                 await stream.sleep(KEEPALIVE_MS);
                 if (!stream.aborted) {
                     await stream.writeSSE({ event: "ping", data: "" });
+                    // Still here: for the players list's "last seen".
+                    if (you) games.touch(id, you);
                 }
             }
             unsubscribe();
@@ -250,13 +414,19 @@ export const createApp = ({
         bodyLimit({ maxSize: 2000, onError: tooLarge("position") }),
         async (c) => {
             const id = c.req.param("id");
-            found(id);
-            if (roleOf(c, id) === "hider") {
+            const state = found(id);
+            const body = await c.req.json().catch(() => null);
+            const player = playerOf(c, body?.by);
+            if (state.players[player]?.left) {
+                throw new GameRuleError(
+                    "This player continued on another phone.",
+                );
+            }
+            if (roleOf(state, player, tokenOf(c)) === "hider") {
                 throw new GameRuleError(
                     "Only the seekers' positions are shared, not the hider's.",
                 );
             }
-            const body = await c.req.json().catch(() => null);
             const { latitude, longitude, accuracy } = body ?? {};
             const number = (value: unknown, limit: number) =>
                 typeof value === "number" &&
@@ -265,8 +435,10 @@ export const createApp = ({
             if (!number(latitude, 90) || !number(longitude, 180)) {
                 throw new GameRuleError("That isn't a position.", 400);
             }
+            if (keyOf(c)) games.touch(id, player);
             positions.set(id, {
-                name: playerName(body.by),
+                playerId: player,
+                name: nameOf(body.by, state.players[player]),
                 latitude,
                 longitude,
                 accuracy:
@@ -283,11 +455,13 @@ export const createApp = ({
         bodyLimit({ maxSize: MAX_PHOTO_BYTES, onError: tooLarge("photo") }),
         async (c) => {
             const id = c.req.param("id");
+            const current = found(id);
+            const sentName = decodeURIComponent(c.req.header("X-Player") ?? "");
+            const player = playerOf(c, sentName);
             const actor: Actor = {
-                name: playerName(
-                    decodeURIComponent(c.req.header("X-Player") ?? ""),
-                ),
-                role: roleOf(c, id),
+                id: player,
+                name: nameOf(sentName, current.players[player]),
+                role: roleOf(current, player, tokenOf(c)),
             };
             const bytes = new Uint8Array(await c.req.arrayBuffer());
             const { state, photoId } = games.addPhoto(
@@ -301,7 +475,12 @@ export const createApp = ({
                 },
             );
             return c.json(
-                { photoId, state: viewFor(state, actor.role), now: Date.now() },
+                {
+                    photoId,
+                    state: viewFor(state, actor.role, player),
+                    role: actor.role,
+                    now: Date.now(),
+                },
                 201,
             );
         },
@@ -317,13 +496,17 @@ export const createApp = ({
     app.post("/games/:id/push", async (c) => {
         if (!push) throw new GameRuleError("No push notifications here.", 404);
         const id = c.req.param("id");
-        found(id);
+        const state = found(id);
         const body = await c.req.json().catch(() => ({}));
         const subscription = parseSubscription(body?.subscription);
         if (!subscription) {
             throw new GameRuleError("That isn't a push subscription.", 400);
         }
-        push.subscribe(id, roleOf(c, id), subscription);
+        push.subscribe(
+            id,
+            roleOf(state, playerOf(c), tokenOf(c)),
+            subscription,
+        );
         return c.json({ ok: true });
     });
 

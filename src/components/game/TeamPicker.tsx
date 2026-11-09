@@ -1,99 +1,143 @@
-import type { Team } from "@/lib/game/types";
+import type { Player, Team } from "@/lib/game/types";
+import { cn } from "@/lib/utils";
 
-/** What the player chose: no team, one of the game's, or a new one. */
+/** What the player chose: one of the game's teams, or a new one. */
 export type TeamChoice =
-    | { kind: "none" }
     | { kind: "existing"; id: string; name: string }
     | { kind: "new"; name: string };
 
-/** The choice that matches the team a player is in, if any. */
-export const currentTeamChoice = (teams: Team[], me: string): TeamChoice => {
-    const mine = teams.find((team) => team.members.includes(me));
-    return mine
-        ? { kind: "existing", id: mine.id, name: mine.name }
-        : { kind: "none" };
-};
+/** The team body for joining: an existing team by id, a new one by name. */
+export const teamBody = (choice: TeamChoice, password: string) =>
+    choice.kind === "existing"
+        ? { id: choice.id, password }
+        : { name: choice.name.trim(), password };
+
+/** The members' names, for a line under the teams. */
+const memberNames = (team: Team, players: Record<string, Player>) =>
+    team.members
+        .map((id) => players[id])
+        .filter((player) => player && !player.left)
+        .map((player) => player!.name)
+        .join(", ");
 
 /**
  * Teams: people hiding or seeking together (2 v 2, say). One team hides,
- * the others seek; the team's name goes on the scoreboard.
+ * the others seek. A team has a password, chosen by whoever makes it;
+ * joining one means typing it. Already in the team: nothing to type.
  */
 export const TeamPicker = ({
     teams,
+    players,
+    hiderTeamId,
+    mine,
     value,
     onChange,
-    hiderTeamId,
+    password,
+    onPasswordChange,
 }: {
     teams: Team[];
-    value: TeamChoice;
-    onChange: (choice: TeamChoice) => void;
+    players: Record<string, Player>;
     hiderTeamId: string | null;
-}) => (
-    <fieldset className="flex flex-col gap-1 text-sm" data-testid="team-picker">
-        <legend className="text-xs text-slate-400">
-            Team (hiding or seeking together)
-        </legend>
-        <label className="flex items-center gap-2">
-            <input
-                type="radio"
-                name="team"
-                checked={value.kind === "none"}
-                onChange={() => onChange({ kind: "none" })}
-            />
-            No team
-        </label>
-        {teams.map((team) => (
-            <label key={team.id} className="flex items-center gap-2">
-                <input
-                    type="radio"
-                    name="team"
-                    checked={value.kind === "existing" && value.id === team.id}
-                    onChange={() =>
+    /** The team this player is in already, if any. */
+    mine: string | null;
+    value: TeamChoice | null;
+    onChange: (choice: TeamChoice) => void;
+    password: string;
+    onPasswordChange: (password: string) => void;
+}) => {
+    const chosen =
+        value?.kind === "existing"
+            ? teams.find((team) => team.id === value.id)
+            : undefined;
+    const needsPassword = value !== null && chosen?.id !== mine;
+    const button = (active: boolean) =>
+        cn(
+            "min-h-11 rounded-md border px-2 py-2 text-sm font-semibold transition-colors",
+            active
+                ? "border-blue-500 bg-blue-500 text-white"
+                : "border-slate-600 bg-slate-800/40 text-slate-200 hover:bg-slate-800",
+        );
+    return (
+        <div className="flex flex-col gap-2 text-sm" data-testid="team-picker">
+            <div
+                role="radiogroup"
+                aria-label="Team"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
+                {teams.map((team) => (
+                    <button
+                        key={team.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={chosen?.id === team.id}
+                        className={button(chosen?.id === team.id)}
+                        onClick={() =>
+                            onChange({
+                                kind: "existing",
+                                id: team.id,
+                                name: team.name,
+                            })
+                        }
+                    >
+                        {team.name}
+                        {team.id === hiderTeamId && " (hiding)"}
+                    </button>
+                ))}
+                <button
+                    type="button"
+                    role="radio"
+                    aria-checked={value?.kind === "new"}
+                    className={button(value?.kind === "new")}
+                    onClick={() =>
                         onChange({
-                            kind: "existing",
-                            id: team.id,
-                            name: team.name,
+                            kind: "new",
+                            name: value?.kind === "new" ? value.name : "",
                         })
                     }
+                >
+                    + New team
+                </button>
+            </div>
+            {chosen && (
+                <p className="text-xs text-slate-400">
+                    In {chosen.name}:{" "}
+                    {memberNames(chosen, players) || "nobody yet"}
+                </p>
+            )}
+            {value?.kind === "new" && (
+                <input
+                    type="text"
+                    aria-label="New team's name"
+                    maxLength={30}
+                    placeholder="Team name, e.g. Foxes"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={value.name}
+                    onChange={(event) =>
+                        onChange({ kind: "new", name: event.target.value })
+                    }
                 />
-                <span>
-                    {team.name}
-                    <span className="text-xs text-slate-400">
-                        {" "}
-                        ({team.members.join(", ") || "nobody yet"}
-                        {team.id === hiderTeamId ? "; hiding this round" : ""})
-                    </span>
-                </span>
-            </label>
-        ))}
-        <label className="flex items-center gap-2">
-            <input
-                type="radio"
-                name="team"
-                checked={value.kind === "new"}
-                onChange={() =>
-                    onChange({
-                        kind: "new",
-                        name: value.kind === "new" ? value.name : "",
-                    })
-                }
-            />
-            New team:
-            <input
-                type="text"
-                aria-label="New team's name"
-                maxLength={30}
-                placeholder="Foxes"
-                className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
-                value={value.kind === "new" ? value.name : ""}
-                onFocus={() => {
-                    if (value.kind !== "new")
-                        onChange({ kind: "new", name: "" });
-                }}
-                onChange={(event) =>
-                    onChange({ kind: "new", name: event.target.value })
-                }
-            />
-        </label>
-    </fieldset>
-);
+            )}
+            {needsPassword && (
+                <>
+                    <input
+                        type="password"
+                        aria-label="Team password"
+                        autoComplete="off"
+                        maxLength={64}
+                        placeholder="Team password"
+                        className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={password}
+                        onChange={(event) =>
+                            onPasswordChange(event.target.value)
+                        }
+                    />
+                    <p className="text-xs text-slate-400">
+                        {value?.kind === "new"
+                            ? "Choose one, 6 to 64 characters, and tell your teammates."
+                            : "Ask your teammates for it."}
+                    </p>
+                </>
+            )}
+        </div>
+    );
+};

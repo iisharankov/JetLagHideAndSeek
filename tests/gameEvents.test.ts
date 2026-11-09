@@ -25,6 +25,7 @@ const base = (): GameState => ({
     hider: null,
     hasHider: true,
     hiderReadyAt: null,
+    players: {},
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,
@@ -189,7 +190,19 @@ describe("game events", () => {
         };
         const events = gameEvents(claimed, next, "hider");
         expect(events.map((e) => e.kind)).toEqual(["round"]);
-        expect(events[0].body).toBe("Team Owls hides. Say who you are.");
+        // Nobody joins again: the team's phones are the hiders' at once.
+        expect(events[0].body).toBe(
+            "Team Owls hides: its phones are the hiders now.",
+        );
+        // Without teams, whoever hides says so.
+        const solo = gameEvents(
+            base(),
+            { ...next, teams: [], hiderTeamId: null },
+            "seeker",
+        );
+        expect(solo[0].body).toBe(
+            'Whoever hides taps "I\'m the hider" in Menu → Game.',
+        );
     });
 
     it("tells the seekers the hider is in place, and what a photo question became", () => {

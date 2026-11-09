@@ -36,6 +36,7 @@ import { formatDuration } from "@/lib/game/clock";
 import { deckComposition } from "@/lib/game/deck";
 import { downloadGame } from "@/lib/game/download";
 import { knownGames } from "@/lib/game/knownGames";
+import { activePlayers, formatCode, playerStale } from "@/lib/game/players";
 import { describeRest } from "@/lib/game/rest";
 import { ranking, scoreRows } from "@/lib/game/scoreboard";
 import { serverNow } from "@/lib/game/serverTime";
@@ -52,23 +53,27 @@ import {
     joinGame,
     lastUpdateAt,
     leaveGame,
+    myPlayer,
     organiserTokens,
     playerName,
     reconnectAt,
+    removePlayer,
+    renameInGame,
     sendOp,
+    setHiding,
 } from "@/lib/game/session";
 import {
     describeStations,
     questionKey,
     REGION_LABELS,
 } from "@/lib/game/settings";
-import type { GameSettings, GameState } from "@/lib/game/types";
+import type { GameSettings, GameState, Player } from "@/lib/game/types";
 import { currentPlayArea, parsePlayArea, playAreaName } from "@/lib/sharedGame";
 import { shareOrFallback } from "@/lib/utils";
 import { errorMessage } from "@/maps/errors";
 
 import { nextHiderOpen } from "./NextHiderDialog";
-import { currentTeamChoice, type TeamChoice, TeamPicker } from "./TeamPicker";
+import { teamBody, type TeamChoice, TeamPicker } from "./TeamPicker";
 
 const CONNECTION_TEXT = {
     off: "Not connected",
@@ -126,6 +131,12 @@ const SettingsSummary = ({
             {settings.seekersSeeStations
                 ? "may show the hiding zones"
                 : "don't get the hiding zones"}
+        </dd>
+        <dt>Teams</dt>
+        <dd>
+            {settings.teams
+                ? "on: everyone joins a team, with its password"
+                : "off: everyone plays alone"}
         </dd>
         <dt>Rest</dt>
         <dd data-testid="rest-summary">
@@ -189,28 +200,39 @@ const ConnectionStatus = () => {
     );
 };
 
-/** Menu → Game: the player's team, and changing it. */
-const TeamLine = ({ game }: { game: GameState }) => {
-    const $name = useStore(playerName);
-    const me = $name.trim();
-    const mine = game.teams.find((team) => team.members.includes(me));
+/** Menu → Game: the player's team, and switching (with the other team's password). */
+const TeamLine = ({ game, me }: { game: GameState; me: Player }) => {
+    const mine = game.teams.find((team) => team.id === me.teamId);
     const [open, setOpen] = useState(false);
     const [choice, setChoice] = useState<TeamChoice | null>(null);
-    const value = choice ?? currentTeamChoice(game.teams, me);
+    const [password, setPassword] = useState("");
+    const [busy, setBusy] = useState(false);
+    const value: TeamChoice | null =
+        choice ??
+        (mine ? { kind: "existing", id: mine.id, name: mine.name } : null);
     const save = async () => {
-        if (value.kind === "none") {
-            if (mine) await sendOp({ type: "leaveTeam" });
-        } else {
-            const name = value.name.trim();
-            if (!name) {
-                toast.error("Give the team a name.");
-                return;
-            }
-            if (mine?.name.toLowerCase() !== name.toLowerCase()) {
-                await sendOp({ type: "joinTeam", name });
-            }
+        if (!value || (value.kind === "existing" && value.id === mine?.id)) {
+            setOpen(false);
+            return;
         }
-        setOpen(false);
+        if (value.kind === "new" && !value.name.trim()) {
+            toast.error("Give the team a name.");
+            return;
+        }
+        setBusy(true);
+        const body = teamBody(value, password);
+        try {
+            await sendOp({
+                type: "joinTeam",
+                name: value.kind === "new" ? value.name.trim() : value.name,
+                password: body.password,
+            });
+            if (gameState.get()?.players[me.id]?.teamId !== me.teamId) {
+                setOpen(false);
+            }
+        } finally {
+            setBusy(false);
+        }
     };
     return (
         <div
@@ -220,34 +242,59 @@ const TeamLine = ({ game }: { game: GameState }) => {
             <span>
                 {mine ? (
                     <>
-                        Team <strong>{mine.name}</strong> (
-                        {mine.members.join(", ")})
+                        Team <strong>{mine.name}</strong>
+                        {mine.id === game.hiderTeamId && " (hiding)"}
                     </>
                 ) : (
                     "No team"
                 )}
             </span>
-            <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-                Team…
+            <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                    setChoice(null);
+                    setPassword("");
+                    setOpen(true);
+                }}
+            >
+                Switch team…
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
                     <DialogHeader>
                         <DialogTitle>Your team</DialogTitle>
                         <DialogDescription>
-                            Teams hide and seek together (2 v 2, say): one team
-                            hides a round, the others seek. Join one, or make a
-                            new one.
+                            Teams hide and seek together: one team hides a
+                            round, the others seek. Another team needs its
+                            password; a new one needs one of its own.
                         </DialogDescription>
                     </DialogHeader>
                     <TeamPicker
                         teams={game.teams}
-                        value={value}
-                        onChange={setChoice}
+                        players={game.players}
                         hiderTeamId={game.hiderTeamId}
+                        mine={mine?.id ?? null}
+                        value={value}
+                        onChange={(next) => {
+                            // Another team, another password.
+                            if (
+                                next.kind !== value?.kind ||
+                                (next.kind === "existing" &&
+                                    value.kind === "existing" &&
+                                    next.id !== value.id)
+                            ) {
+                                setPassword("");
+                            }
+                            setChoice(next);
+                        }}
+                        password={password}
+                        onPasswordChange={setPassword}
                     />
                     <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={() => void save()}>Save</Button>
+                        <Button disabled={busy} onClick={() => void save()}>
+                            Save
+                        </Button>
                         <Button
                             variant="outline"
                             onClick={() => setOpen(false)}
@@ -258,6 +305,172 @@ const TeamLine = ({ game }: { game: GameState }) => {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+};
+
+/**
+ * Menu → Game: who this phone is, and the code that moves the player to
+ * another phone (or back, after the browser forgot it).
+ */
+const PlayerCard = ({
+    game,
+    me,
+    hider,
+}: {
+    game: GameState;
+    me: Player;
+    hider: boolean;
+}) => {
+    const team = game.teams.find((t) => t.id === me.teamId);
+    const someoneHides = activePlayers(game).some((p) => p.hider);
+    const shareCode = async () => {
+        if (!me.code) return;
+        const text = `My player code in our Jet Lag game: ${formatCode(me.code)}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ text });
+                return;
+            }
+        } catch {
+            // Fall through to the clipboard.
+        }
+        try {
+            await navigator.clipboard.writeText(formatCode(me.code));
+            toast.success("Code copied", { autoClose: 2000 });
+        } catch {
+            toast.info(formatCode(me.code));
+        }
+    };
+    return (
+        <section
+            className="flex flex-col gap-2 rounded-lg bg-slate-800/60 p-3"
+            data-testid="player-card"
+        >
+            <p className="text-sm" data-testid="game-role">
+                <strong>You:</strong> {me.name} ·{" "}
+                {hider ? "the hider" : "a seeker"}
+                {team && ` · team ${team.name}`}
+            </p>
+            <p className="text-xs text-slate-400">
+                Your player code moves you to another phone, or back after the
+                browser lost you.
+            </p>
+            {me.code && (
+                <p
+                    className="rounded-md bg-slate-900/60 py-2 text-center font-mono text-2xl tracking-[0.3em]"
+                    data-testid="player-code"
+                >
+                    {formatCode(me.code)}
+                </p>
+            )}
+            <Button
+                variant="outline"
+                className="min-h-11"
+                onClick={() => void shareCode()}
+            >
+                Share the code
+            </Button>
+            {!game.settings.teams && !hider && !someoneHides && (
+                <Button
+                    className="min-h-11"
+                    onClick={() => void setHiding(true).catch(showError)}
+                >
+                    I&apos;m the hider
+                </Button>
+            )}
+            {!game.settings.teams && me.hider && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void setHiding(false).catch(showError)}
+                >
+                    I&apos;m not the hider after all
+                </Button>
+            )}
+        </section>
+    );
+};
+
+const showError = (error: unknown) => toast.error(errorMessage(error));
+
+/** "live", "12 min", from when a player was last heard of. */
+const seenText = (at: number, now: number) => {
+    const minutes = Math.floor((now - at) / 60_000);
+    if (minutes < 10) return "live";
+    return minutes < 60
+        ? `${minutes} min ago`
+        : `${Math.floor(minutes / 60)} h ago`;
+};
+
+/** Menu → Game: everyone in the game; one gone quiet for an hour can be removed. */
+const PlayersList = ({
+    game,
+    me,
+}: {
+    game: GameState;
+    me: Player | undefined;
+}) => {
+    const players = activePlayers(game);
+    useTick(players.length > 0, 60_000);
+    const now = serverNow();
+    const [removing, setRemoving] = useState<string | null>(null);
+    if (players.length === 0) return null;
+    const quiet = players.filter(
+        (p) => p.id !== me?.id && playerStale(p, now),
+    ).length;
+    const teamName = (player: Player) =>
+        game.teams.find((t) => t.id === player.teamId)?.name;
+    return (
+        <section className="flex flex-col gap-1" data-testid="players-list">
+            <h4 className="flex justify-between text-xs text-slate-300">
+                <span>Players ({players.length})</span>
+                {quiet > 0 && (
+                    <span className="text-slate-400">
+                        {quiet} not heard from in an hour
+                    </span>
+                )}
+            </h4>
+            <ul className="flex flex-col gap-1">
+                {players.map((player) => {
+                    const stale = playerStale(player, now);
+                    const team = teamName(player);
+                    return (
+                        <li
+                            key={player.id}
+                            className={`flex min-h-11 items-center justify-between gap-2 rounded-md border border-slate-700 px-3 text-sm ${stale ? "text-slate-500" : ""}`}
+                        >
+                            <span>
+                                {player.name}
+                                {player.id === me?.id && " (you)"}
+                                {team && ` · ${team}`}
+                            </span>
+                            <span className="flex items-center gap-2 text-xs text-slate-400">
+                                {seenText(player.lastSeen, now)}
+                                {stale && player.id !== me?.id && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={removing === player.id}
+                                        onClick={async () => {
+                                            setRemoving(player.id);
+                                            try {
+                                                await removePlayer(player.id);
+                                            } catch (error) {
+                                                showError(error);
+                                            } finally {
+                                                setRemoving(null);
+                                            }
+                                        }}
+                                    >
+                                        Remove
+                                    </Button>
+                                )}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+        </section>
     );
 };
 
@@ -343,6 +556,7 @@ const Scoreboard = ({ game }: { game: GameState }) => {
     );
 };
 
+/** Your name; in a game, the others see a new one once you leave the field. */
 const NameInput = () => {
     const $name = useStore(playerName);
     return (
@@ -354,6 +568,7 @@ const NameInput = () => {
                 maxLength={40}
                 placeholder="Shown to the others"
                 onChange={(e) => playerName.set(e.target.value)}
+                onBlur={(e) => void renameInGame(e.target.value)}
             />
         </>
     );
@@ -503,6 +718,7 @@ export const GamePanel = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
     const $name = useStore(playerName);
+    const $me = useStore(myPlayer);
     const $settings = useStore(gameSettings);
 
     const settings = $game?.settings ?? $settings;
@@ -602,23 +818,13 @@ export const GamePanel = () => {
                 Download this game (file)
             </Button>
             <NameInput />
-            <p className="text-sm" data-testid="game-role">
-                {$role === "hider" ? (
-                    <>
-                        You&apos;re <strong>the hider</strong> in this game.
-                    </>
-                ) : (
-                    <>
-                        You&apos;re <strong>a seeker</strong>
-                        {$game?.hasHider && " (a hider has joined)"}.
-                    </>
-                )}
-            </p>
-            <p className="text-xs text-slate-400">
-                Chosen when you joined. Leave the game and open its link again
-                to join as someone else.
-            </p>
-            {$game && <TeamLine game={$game} />}
+            {$game && $me && !$me.left && (
+                <PlayerCard game={$game} me={$me} hider={$role === "hider"} />
+            )}
+            {$game && $me && !$me.left && $game.settings.teams && (
+                <TeamLine game={$game} me={$me} />
+            )}
+            {$game && <PlayersList game={$game} me={$me} />}
 
             {$game && <Scoreboard game={$game} />}
             <h4 className="text-xs font-semibold font-poppins text-slate-300">
@@ -678,9 +884,11 @@ export const GamePanel = () => {
                             </AlertDialogTitle>
                             <AlertDialogDescription>
                                 The questions, photo questions and curses of
-                                this round are put away (kept with the game),
-                                and the next hider sets a new password. The play
-                                area and settings stay.
+                                this round are put away (kept with the game).
+                                {$game?.settings.teams
+                                    ? " The team that claimed the next round hides it."
+                                    : " Then whoever hides taps I'm the hider in Menu → Game."}{" "}
+                                The play area and settings stay.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -689,7 +897,7 @@ export const GamePanel = () => {
                                 onClick={() => {
                                     // With teams, who hides next comes first.
                                     if (
-                                        $game &&
+                                        $game?.settings.teams &&
                                         $game.teams.length > 0 &&
                                         !$game.nextHiderTeamId
                                     ) {

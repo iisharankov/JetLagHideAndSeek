@@ -381,6 +381,12 @@ export const GameSetupDialog = ({
                                 cities of a million. Changing this resets the
                                 question list on the last screen.
                             </p>
+                            <ToggleCard
+                                title="Teams"
+                                description="Players join teams; the team hides together. Each team has a password. Off: everyone plays alone, and the hider is whoever says so."
+                                checked={draft.teams}
+                                onCheckedChange={(teams) => update({ teams })}
+                            />
                         </>
                     )}
 

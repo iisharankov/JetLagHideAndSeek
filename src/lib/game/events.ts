@@ -146,7 +146,8 @@ export const gameEvents = (
         }
     }
 
-    // A new round: everyone says who they are again.
+    // A new round: with teams the claiming team hides at once; without,
+    // whoever hides says so.
     if (after.rounds.length > before.rounds.length) {
         const team = after.teams.find((t) => t.id === after.hiderTeamId);
         events.push({
@@ -154,8 +155,8 @@ export const gameEvents = (
             kind: "round",
             title: `Round ${after.rounds.length + 1}`,
             body: team
-                ? `Team ${team.name} hides. Say who you are.`
-                : "The next hider sets a new password. Say who you are.",
+                ? `Team ${team.name} hides: its phones are the hiders now.`
+                : `Whoever hides taps "I'm the hider" in Menu → Game.`,
         });
     }
     if (

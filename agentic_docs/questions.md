@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 31). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 32). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** Q58 (my reading of your team answer), Q56 (admin codes: blank stops run C), S1.
+**Only 5 minutes?** S1 (deploy, now with Run A), then S6 (two phones, five minutes).
 
 ## Now
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Say "go A" (or "go A B C") in a new Opus session; `RunA.md`–`RunG.md` are the briefs. Q55, Q56 and Q58 below are what's left to settle.
+- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Run A is built (round 32). Say "go B" (or "go B C") in a new Opus session; `RunB.md`–`RunG.md` are the briefs. Q55 and Q56 are answered; runs F and C use them.
 
 ## Questions
 
@@ -32,30 +32,27 @@ Nothing.
 
 > **Answer:** I added my secret there, great, let's go
 
-**Q58. My reading of your Q54 answer.** Correct any line. (asked 2026-11-09)
-- A game setting **Teams** (on/off) in setup.
-- Teams on: every team has a password, set when the team is made and typed to join it; the team that hides is the hider team; its members are hiders; there is **no separate hider password** anywhere.
-- Teams off: whoever taps "I'm the hider" first is the hider, known by their phone's player id; a second phone becomes that hider only with the player code; no password.
-- Team passwords: at least 6 characters, 5 wrong tries a minute (your Q50 answer, now for teams).
-
-*Suggested:* "yes" means all four lines are right; Run A builds exactly this.
-
-> **Answer:** yup, looks good. make it so even solo players need to make their own team in teams mode, no players outside team can join game
-
 ## Your steps
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 27–28 and check.** **Where:** the server, as root. Rounds 22–26 may already be deployed; `check.sh` tells.
+- [ ] **S1. Deploy Run A (round 32) and check.** **Where:** the server, as root, after you commit and push round 32. If you deployed after round 28, this adds Run A; if not, it brings 27, 28 and Run A at once. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
   sleep 60 && ~/jetlag/deploy/check.sh
   # expect: every line PASS or OK; the API answers /api/health
   ```
-  **Done:** Already deployed a moment ago?
+  **Done:**
 
 ### After deploying
+
+- [ ] **S6. Try Run A on two phones** (after S1). **Where:** two phones at one table, on the site. About 5 minutes. Everyone's phone reloads the page once.
+  1. Phone 1: Menu → Game → Start a shared game; on the first screen turn **Teams** on; start. Make team "Owls" with a password, tick "We hide this round", join.
+  2. Phone 2: open the link, tap Owls, type the password, join. Expect: the Hider tab, no "Location off" prompt.
+  3. Phone 2: close the browser completely, open the link again. Expect: no join screen, still in Owls.
+  4. Phone 2: Menu → Game, note the code (like `K7M-4PQ`). On a third browser (or a private window on phone 1), open the link and use "Rejoin with the code". Expect: that browser is phone 2's player; phone 2 shows "You continued on another phone".
+  **Done:**
 
 - [ ] **S2. Refresh the map data.** **Where:** the server, as root. The pack predates the `access` tag and the country codes (known issue 5). About 20–40 minutes; the app keeps working meanwhile.
   ```bash
@@ -66,15 +63,6 @@ Nothing.
 
 - [ ] **S3. Review the places for Zürich canton.** **Where:** a phone or the laptop's browser, on the site. Menu → Game → Change game settings → Questions → "Review places on the map…"; reject wrong zoos, parks and museums. About 10 minutes.
   **Done:** Will do later
-
-### Before run C is deployed
-
-- [ ] **S5. Choose the admin code.** **Where:** the server, as root. 12 characters or more from your password manager; the agent building run C will tell you the exact line and when.
-  ```bash
-  nano ~/jetlag/deploy/.env    # add: ADMIN_CODE=<your code>
-  # expect: no other line changed
-  ```
-  **Done:** Set
 
 ### When you have time
 

@@ -2,6 +2,8 @@
 
 For the agent that executes this. Read `CLAUDE.md`, `agentic_docs/agents/notes.md`, then this file and [08-admin-and-gates.md](08-admin-and-gates.md). **Q56 (the design) was blank on 2026-11-09**: check `agentic_docs/questions.md` first; if still blank, build nothing here and say so. Q50 (6 characters, 5 tries a minute) is answered and can be built regardless.
 
+**After Run A (round 32):** `server/src/rateLimit.ts` exists (`createRateLimiter({ limit, windowMs, now })` → `allow(key)`, `failed(key)`: it counts wrong tries only), used in `app.ts` through `guarded(key, run)` for `team:<id>` and `code:<id>`; `GameRuleError` takes 429; a `WrongGuessError` is what counts. `hashPassword`/`passwordMatches` are in `server/src/rules/passwords.ts`. Team passwords are already 6–64 characters. New games have no hider password: `claimHider` is the old path, kept one release (refused in Teams games).
+
 ## The code today
 
 - `POST /games` (`server/src/app.ts` ~l.95) is open to anyone; it issues an organiser token (`games.issueOrganiser`), kept on the phone in `organiserTokens` (`session.ts`) and sent as `X-Organiser-Token` to delete.

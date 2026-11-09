@@ -62,6 +62,7 @@ const game = (entries: QuestionEntry[]): GameState => ({
     hider: null,
     hasHider: false,
     hiderReadyAt: null,
+    players: {},
     teams: [],
     hiderTeamId: null,
     nextHiderTeamId: null,

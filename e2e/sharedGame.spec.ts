@@ -168,15 +168,13 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
 
     // Ben opens the link and becomes the hider (the join dialog asks for
-    // his name and role; the hider gives a password). The sidebar shows
+    // his name and role; without teams, no password). The sidebar shows
     // his Hider tab. He doesn't see the draft.
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
     await mockStations(ben);
-    // Opening the link asks who he is: the hider, with a password.
+    // Opening the link asks who he is: the hider.
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("join-dialog")).toBeHidden();
     await expect(ben.getByTestId("hider-panel")).toContainText(
         "Pick your station",
@@ -338,13 +336,17 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await mockStations(page);
     await openMenu(page, "Game");
     await page.getByRole("button", { name: "Start a shared game" }).click();
+    await page.getByRole("switch", { name: /^Teams/ }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Next" }).click();
     await page.getByRole("button", { name: "Start the game" }).click();
     // Starting asks who you are, like opening the link does. Teams: Ana's
-    // Owls seek, Ben's Foxes hide.
+    // Owls seek, Ben's Foxes hide. Each team has a password.
     await page.getByLabel("New team's name").fill("Owls");
-    await page.getByRole("button", { name: "I'm a seeker" }).click();
+    await page.getByLabel("Team password").fill("owls-pass");
+    await page
+        .getByRole("button", { name: "Join as Ana · seeking with Owls" })
+        .click();
     await expect(page.getByTestId("game-connection")).toHaveText(/Live/);
     const link = page.url();
     await closeMenu(page);
@@ -353,11 +355,14 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
     await mockStations(ben);
-    // Opening the link asks who he is: the hider, with a password.
+    // Opening the link asks who he is: a new team, Foxes, hiding.
+    await ben.getByRole("radio", { name: "+ New team" }).click();
     await ben.getByLabel("New team's name").fill("Foxes");
-    await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
+    await ben.getByLabel("Team password").fill("foxes-pass");
+    await ben.getByLabel("We hide this round").check();
+    await ben
+        .getByRole("button", { name: "Join as Ben · hiding with Foxes" })
+        .click();
     const benPanel = ben.getByTestId("hider-panel");
     await expect(benPanel).toContainText("Pick your station");
     // No hiding spot yet: a pointer at the instructions, gone once he's done.
@@ -501,22 +506,15 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     await expect(
         benNext.getByRole("button", { name: /^We hide next/ }),
     ).toHaveCount(0);
-    // Anyone starts the new round; everyone says who they are again.
+    // Anyone starts the new round: the Owls are the hiders at once, the
+    // Foxes the seekers, and nobody types anything.
     await anaNext.getByRole("button", { name: "Start the new round" }).click();
-    const anaJoin = page.getByTestId("join-dialog");
-    await expect(anaJoin).toContainText("team Owls hides");
-    await anaJoin.getByRole("button", { name: "I'm the hider" }).click();
-    await anaJoin.getByLabel("Hider password").fill("owls1");
-    await anaJoin.getByRole("button", { name: "Become the hider" }).click();
     await expect(page.getByTestId("hider-panel")).toContainText(
         "Pick your station",
     );
-    const benJoin = ben.getByTestId("join-dialog");
-    await expect(
-        benJoin.getByRole("button", { name: "I'm the hider" }),
-    ).toBeDisabled();
-    await benJoin.getByRole("button", { name: "I'm a seeker" }).click();
-    await expect(benJoin).toBeHidden();
+    await expect(page.getByTestId("join-dialog")).toHaveCount(0);
+    await expect(ben.getByTestId("join-dialog")).toHaveCount(0);
+    await expect(ben.getByTestId("hider-panel")).toHaveCount(0);
     await ben.getByRole("radio", { name: /^Questions/ }).click();
     await expect(
         ben.getByRole("button", { name: "Add Question" }),
@@ -555,10 +553,8 @@ test("with the virtual deck the game deals the hider's cards", async ({
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
     await mockStations(ben);
-    // Opening the link asks who he is: the hider, with a password.
+    // Opening the link asks who he is: the hider.
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("hider-panel")).toBeVisible();
     await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /^Questions/ }).click();
@@ -644,8 +640,6 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     await preparePhone(ben, "Ben", link);
     await mockStations(ben);
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben.getByLabel("Hider password").fill("secret");
-    await ben.getByRole("button", { name: "Become the hider" }).click();
     await expect(ben.getByTestId("hider-panel")).toBeVisible();
     await pickHiderStation(ben);
     await ben.getByRole("radio", { name: /Cards/ }).click();
@@ -781,9 +775,8 @@ test("whoever starts a game says who they are, and may be the hider", async ({
     const join = page.getByTestId("join-dialog");
     await expect(join).toContainText("Who are you");
     await expect(join.getByLabel("Your name")).toHaveValue("Ana");
+    // Without teams the hider just says so: no password.
     await join.getByRole("button", { name: "I'm the hider" }).click();
-    await join.getByLabel("Hider password").fill("secret");
-    await join.getByRole("button", { name: "Become the hider" }).click();
     await expect(join).toBeHidden();
     // The Menu closes and the Hider tab opens, with the pointer.
     await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();

@@ -1,17 +1,16 @@
 # Known issues
 
-Bugs and debt not fixed yet. Updated 2026-11-09 (round 29). A fixed item leaves this file in the round that fixes it.
+Bugs and debt not fixed yet. Updated 2026-11-09 (round 32). A fixed item leaves this file in the round that fixes it.
 
 ## From the game of 2026-11-08 (planned in plans/nov-game-fixes/)
 
-- **A reload or a closed browser makes a new player**; stale players and their GPS markers stay on the maps for 12 hours. Cause: no player identity (a name string; the joined flag is per tab in sessionStorage). [04-identity-and-rejoin.md](plans/nov-game-fixes/04-identity-and-rejoin.md).
-- **A phone becoming the hider mid-game is asked to pick a station** although one is set, and Done re-announces it to everyone. Cause: `hiderChoosing.set(true)` is unconditional in `JoinDialog.tsx`; the server accepts `hiderReady` at any time. [05-hider-sync-audit.md](plans/nov-game-fixes/05-hider-sync-audit.md).
+- **A phone becoming the hider mid-game is asked to pick a station** although one is set, and Done re-announces it to everyone. Cause: the server accepts `hiderReady` at any time; since round 32 the phone opens the pick view only without a station (`useHiderTurn` in `JoinDialog.tsx`), not tested on its own. [05-hider-sync-audit.md](plans/nov-game-fixes/05-hider-sync-audit.md).
 - **Two hider phones both with "pin follows GPS" fight over the pin.** Found while auditing the hider state; same file.
-- **A hider-team member who didn't type the password is a seeker**: the seekers' view, and their position broadcast. Cause: the team is a list of names, the role a per-phone token; nothing joins them. [06-teams-and-roles.md](plans/nov-game-fixes/06-teams-and-roles.md).
 - **The thermometer isn't the rulebook's**: two pins placed by hand, no start at the seekers' position, no distance enforced. [02-thermometer.md](plans/nov-game-fixes/02-thermometer.md).
 - **The rules pages are in miles and feet** while the app plays in km. [03-metric-conversion.md](plans/nov-game-fixes/03-metric-conversion.md).
 - **A photo request doesn't show its rules on tap; a randomized question isn't named in Cards → History** ("Randomize Question · played 14:05", nothing more). [07-photo-questions.md](plans/nov-game-fixes/07-photo-questions.md).
 - **Phone layout**: small targets, no Back, swiping the sheet undiscovered. [01-mobile-design.md](plans/nov-game-fixes/01-mobile-design.md).
+- **The hider password from before players still works** for one release (round 32): `POST /api/games/<id>/hider`, the `X-Hider-Token` header and `isHider` in `server/src/app.ts` `roleOf`, `hiderTokens` in `session.ts`. It keeps phones that were the hider at deploy time the hider. Remove in run B or C, once every phone has reloaded.
 
 ## From the audit of 2026-10-17 (round 20)
 
@@ -46,7 +45,10 @@ Numbering as in [history/audit-2026-10-17.md](history/audit-2026-10-17.md); stat
    try hider passwords at nginx's 5 requests a second (a four-character
    password is 1.3 million tries). The invite code and the per-address cap
    are Q47; a 10-character minimum, or a 2-second wait after a wrong
-   password in `claimHider`, is a one-liner either way.
+   password in `claimHider`, is a one-liner either way. (Round 32: new
+   games have no hider password; team passwords are 6 to 64 characters,
+   5 wrong tries a minute per game. The old password path stays one
+   release for phones not reloaded since.)
 3. **No scheduled backups yet** (Q48). `backup.sh` works and `check.sh`
    warns when the newest copy is older than two days; the crontab line is
    in `deploy/README.md`. One thing to know: the script moves a file the

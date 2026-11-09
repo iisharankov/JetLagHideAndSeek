@@ -220,11 +220,13 @@ progress, the hider's spot, and earlier rounds.
   hider; _answered_ ones are locked for seekers unless the hider allows them
   to answer. Last change wins. `viewFor` strips what a role may not see
   (drafts from the hider, the hider's spot and the deck's order from the
-  seekers).
+  seekers), every team's password, and every player code but the
+  viewer's own.
 - **Live updates:** each phone reads a server-sent-events stream
-  (`/api/games/<id>/events`, over fetch so the hider's token can go in the
+  (`/api/games/<id>/events`, over fetch so the player's key can go in the
   header) and gets the whole game, as its role may see it, after every
-  change, with the server's clock. `events.ts` diffs the old and new game
+  change, with its role and the server's clock (the role can change with
+  the game: a new round hands it to another team). `events.ts` diffs the old and new game
   into what to tell this phone (toast; buzz, beep and background
   notification only for news worth it, one sound per burst); the server
   runs the same diff for push notifications. "Download this game" in Menu
@@ -234,11 +236,12 @@ progress, the hider's spot, and earlier rounds.
   hider can follow them): a seeker's phone with Follow me on sends its
   position (`POST /api/games/<id>/position`) after a 25 m move (at most
   every 10 s) and once a minute. The server keeps each seeker's newest in
-  memory only (not in the game, not in SQLite: a restart forgets them, the
-  phones resend within a minute) and passes them on in the same stream as a
-  `positions` event, so a moving seeker doesn't resend the whole game.
-  Every seeker on the hider's map, the others on a seeker's
-  (`SeekerMarkers.tsx`). The hider's position is never sent this way (403).
+  memory only, one per player (not in the game, not in SQLite: a restart
+  forgets them, the phones resend within a minute; dropped after an hour
+  without news) and passes them on in the same stream as a `positions`
+  event, so a moving seeker doesn't resend the whole game. Every seeker on
+  the hider's map, the others on a seeker's (`SeekerMarkers.tsx`, faded
+  after 10 minutes). A hider's position, any hider's, is refused (403).
 - **On the phone**, `session.ts` mirrors the game into the usual stores
   (questions, play area, zone settings, end game, the hider's spot). Local
   edits are compared with what the server last sent and the differences go
@@ -246,15 +249,41 @@ progress, the hider's spot, and earlier rounds.
   settings (folded, hidden, locked) stay per phone.
 - **The map** applies answered questions as usual, then the seekers' drafts
   on top in their colours; questions waiting for the hider are outlined.
-- **The hider** proves the role with a token (from the password) in a
-  header on every request: never in the URL (servers log it) and never a
-  cookie (tabs share it, which would make a seeker's tab the hider). The
-  hider's station and pin live in the game so two hider phones share one
-  spot, and are never sent to seekers; answers are worked out from the
-  station until the end game, then from the pin. Photos are re-encoded
-  before upload, which drops their location data; a game holds 100 at most.
-- **Joining:** a game's link opens a dialog for the name and the role
-  before anything else; the choice is remembered per browser.
+- **Players** (`players` in the game state; `src/lib/game/players.ts`,
+  `server/src/rules/players.ts`): each phone makes a random key once
+  (`playerKey.ts`, localStorage) and sends it on every request as
+  `X-Player-Key`: never in the URL, which servers log. The server knows the
+  player by a public id made from the key (a hash), so the game can list
+  its players without letting anyone act as another. One key per browser:
+  two tabs are one player. A player has a name, a team (with teams), the
+  hider flag (without teams), when they joined and were last seen, and a
+  six-character **player code** (`K7M-4PQ`, no 0/O or 1/I) that only they
+  see. Typed on another phone (`POST /api/games/<id>/rejoin`), the code
+  moves the player there, team and role included; the old phone's id is
+  marked `left` and it leaves the game with a note. Last seen is stamped in
+  memory and written with the next change, or every 5 minutes at most.
+  Whoever started the game removes any player; anyone removes one not seen
+  for an hour (`DELETE /api/games/<id>/players/<player>`).
+- **The role** (`roleOfPlayer`, shared): with the **Teams** setting, the
+  team hiding this round (`hiderTeamId`) is the hider, every member of it;
+  without, the one player who said "I'm the hider". The server works it out
+  on every request and sends it with every answer. A phone that became the
+  hider with the old hider password, before players, still is by its token
+  (`X-Hider-Token`) for one more release. The hider's station and pin live
+  in the game so two hider phones share one spot, and are never sent to
+  seekers; answers are worked out from the station until the end game,
+  then from the pin. Photos are re-encoded before upload, which drops their
+  location data; a game holds 100 at most.
+- **Joining** (`POST /api/games/<id>/join`, `JoinDialog.tsx`): a game's link
+  opens a dialog before anything else, once per phone (a reload, a
+  restarted browser or a new round doesn't ask again): the name, then
+  without teams "I'm a seeker" or "I'm the hider" (the first to say so; no
+  password), with teams a team (every player is in one) and its password,
+  and "We hide this round" while no team hides. Below, "Rejoin with the
+  code". Wrong team passwords and codes: 5 a minute per game, then a
+  minute's wait (`server/src/rateLimit.ts`, in memory). Menu → Game shows
+  you, your code with Share, your team (switching asks the other team's
+  password), and the players with when each was last heard of.
 - **Push notifications** (`server/src/push.ts`): phones that opted in get
   what their role must hear about through the browser's push service, as
   encrypted messages signed with the server's own keys; the service worker
@@ -262,10 +291,15 @@ progress, the hider's spot, and earlier rounds.
 - **The digital deck** (`deck.ts`, pure, shared with the server): the server
   shuffles and deals what an answered question earns, the hider keeps or
   plays cards, and the time bonuses are worked out from the hand.
-- **Teams** (`teams` in the game state): optional; a player is in one team
-  at a time, the hider's team is the round's hider (`hiderTeamId`), and
-  after a round one team claims the next (`nextHiderTeamId`) before anyone
-  starts it. A new round voids the hider token, so every phone re-joins.
+- **Teams** (`teams` in the game state, the `teams` setting): members by
+  player id; each team's password stored hashed (scrypt) and never sent to
+  the phones; at least 6 and at most 64 characters. A team left empty goes,
+  unless it hides this round or the next. After a round one team claims the
+  next (`nextHiderTeamId`) before anyone starts it; the new round makes
+  its members the hiders and everyone else a seeker, with nothing to type.
+  Without teams a new round clears the hider, and whoever hides next says
+  so in Menu → Game. Games from before players keep their team list (each
+  member a `legacy:<name>` placeholder) and play on without the setting.
 - **The hider's station:** a tapped station is `pendingStation` (memory
   only) until Done makes it `chosenStation` and tells the server
   (`hiderReady`): the seekers hear that, the clock starts. Before that the

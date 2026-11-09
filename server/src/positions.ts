@@ -9,8 +9,8 @@ export type { SeekerPosition };
 
 /** A game's seekers, at most: the longest silent goes beyond this. */
 const MAX_PER_GAME = 30;
-/** Not passed on after this long without news. */
-const KEPT_MS = 12 * 3600 * 1000;
+/** Not passed on after this long without news (a player gone quiet). */
+const KEPT_MS = 60 * 60_000;
 
 export type PositionStore = ReturnType<typeof createPositionStore>;
 
@@ -30,9 +30,10 @@ export const createPositionStore = (now = () => Date.now()) => {
         set(id: string, position: Omit<SeekerPosition, "at">) {
             const seekers = games.get(id) ?? new Map<string, SeekerPosition>();
             games.set(id, seekers);
-            // The newest last: the longest silent goes first.
-            seekers.delete(position.name);
-            seekers.set(position.name, { ...position, at: now() });
+            // The newest last: the longest silent goes first. By player,
+            // not by name: two Anas are two seekers, a renamed one is one.
+            seekers.delete(position.playerId);
+            seekers.set(position.playerId, { ...position, at: now() });
             while (seekers.size > MAX_PER_GAME) {
                 seekers.delete(seekers.keys().next().value!);
             }
@@ -46,6 +47,12 @@ export const createPositionStore = (now = () => Date.now()) => {
                 listeners.get(id)?.delete(listener);
                 if (listeners.get(id)?.size === 0) listeners.delete(id);
             };
+        },
+        /** A player who left (another phone, or removed): off the maps. */
+        drop(id: string, playerId: string) {
+            if (!games.get(id)?.delete(playerId)) return;
+            const current = list(id);
+            for (const listener of listeners.get(id) ?? []) listener(current);
         },
         forget(id: string) {
             games.delete(id);
