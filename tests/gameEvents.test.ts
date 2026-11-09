@@ -205,6 +205,18 @@ describe("game events", () => {
         );
     });
 
+    it("says the hider is in place once, not again when a second phone confirms the same station", () => {
+        const placed: GameState = { ...base(), hiderReadyAt: 9 };
+        const repeated: GameState = {
+            ...placed,
+            version: placed.version + 1,
+            updatedAt: 20,
+        };
+        expect(
+            gameEvents(placed, repeated, "seeker").map((e) => e.kind),
+        ).toEqual([]);
+    });
+
     it("tells the seekers the hider is in place, and what a photo question became", () => {
         const before = base();
         const after: GameState = {

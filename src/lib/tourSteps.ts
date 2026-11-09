@@ -305,8 +305,8 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "start",
             title: "Start a game",
-            text: "It starts in the **Menu**: give your name, then **Start a shared game**. The setup has three screens: the game, the hiding zones and the questions.",
-            target: [id("start-shared-game")],
+            text: "It starts in the **Menu**: give your name, type the code you got from whoever runs this site under **Have a code?** (once per phone), then **Start a shared game**. The setup has three screens: the game, the hiding zones and the questions.",
+            target: [id("creator-code"), id("start-shared-game")],
             menu: "game",
             // Not while a game is on.
             optional: true,

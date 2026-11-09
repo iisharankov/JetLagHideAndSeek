@@ -214,6 +214,11 @@ export interface HiderSpot {
     pinLocked?: boolean;
     /** A station tapped but not confirmed yet, so the hider's other phone sees it too. */
     pending?: StationPick | null;
+    /**
+     * The hider's phone that moved the pin last: with two phones following
+     * GPS, the other one gives way (src/lib/hiderSpot.ts followPin).
+     */
+    pinDriver?: PlayerId;
 }
 
 /** The hider is moving to a new station (the Move card). */

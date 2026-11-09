@@ -6,6 +6,11 @@ import { playerStale, roleOfPlayer } from "@/lib/game/players";
 import { normalizeGameSettings } from "@/lib/game/settings";
 import type { GameState, Player, PlayerId, Role } from "@/lib/game/types";
 
+import {
+    ADMIN_GAMES_PER_DAY,
+    CREATOR_GAMES_PER_DAY,
+    sameSecret,
+} from "./codes";
 import { type Actor, GameRuleError, viewFor } from "./gameOps";
 import type { GameStore } from "./games";
 import { opProblem, parseOp, parseQuestions } from "./opSchema";
@@ -85,12 +90,15 @@ export const createApp = ({
     games,
     push,
     positions = createPositionStore(),
+    adminCode,
 }: {
     games: GameStore;
     /** Push notifications; without it the phones get none. */
     push?: PushService;
     /** Where the seekers are (in memory). */
     positions?: PositionStore;
+    /** ADMIN_CODE from the server's .env; without it nobody makes games. */
+    adminCode?: string;
 }) => {
     const app = new Hono().basePath("/api");
 
@@ -141,6 +149,63 @@ export const createApp = ({
         }
     };
 
+    /** The admin code, compared in constant time; never stored. */
+    const isAdmin = (typed: string | undefined) =>
+        !!adminCode && !!typed && sameSecret(typed.trim(), adminCode);
+
+    /** Admin routes: the admin code in a header, five wrong tries a minute. */
+    const requireAdmin = (c: Context) =>
+        guarded("admin", () => {
+            if (!isAdmin(c.req.header("X-Admin-Code"))) {
+                throw new WrongGuessError("Not allowed.");
+            }
+        });
+
+    /**
+     * The code a phone sent to make a game: the admin code, or a creator
+     * code the admin made. Wrong ones count towards five a minute.
+     */
+    const codeOf = (c: Context) => {
+        if (!adminCode) {
+            throw new GameRuleError(
+                "This server has no admin code set: see docs/deployment.md.",
+            );
+        }
+        const typed = c.req.header("X-Creator-Code")?.trim() ?? "";
+        return guarded("code", () => {
+            if (!typed) {
+                throw new GameRuleError(
+                    "Ask the organiser for a creator code.",
+                );
+            }
+            if (isAdmin(typed)) {
+                return {
+                    who: "admin",
+                    kind: "admin" as const,
+                    name: "Admin",
+                    limit: ADMIN_GAMES_PER_DAY,
+                };
+            }
+            const found = games.codes.find(typed);
+            if (!found) {
+                throw new WrongGuessError(
+                    "That code doesn't work. Ask the organiser for a creator code.",
+                );
+            }
+            if (found.revokedAt) {
+                throw new GameRuleError(
+                    "This creator code no longer works. Ask the organiser for a new one.",
+                );
+            }
+            return {
+                who: found.id,
+                kind: "creator" as const,
+                name: found.name,
+                limit: CREATOR_GAMES_PER_DAY,
+            };
+        });
+    };
+
     /** A player's answer: who they are, their role, and the game as they see it. */
     const playerAnswer = (c: Context, state: GameState, player: Player) => {
         const role = roleOf(state, player.id, tokenOf(c));
@@ -175,6 +240,14 @@ export const createApp = ({
         "/games",
         bodyLimit({ maxSize: MAX_GAME_BYTES, onError: tooLarge("game") }),
         async (c) => {
+            // Only the admin and holders of a creator code make games (Q49).
+            const code = codeOf(c);
+            if (games.codes.gamesToday(code.who) >= code.limit) {
+                throw new GameRuleError(
+                    `This code has made its ${code.limit} games today. Try again tomorrow.`,
+                    429,
+                );
+            }
             const body = await c.req.json();
             const questions = parseQuestions(body?.questions ?? []);
             if (!questions) {
@@ -196,7 +269,9 @@ export const createApp = ({
                 },
                 questions,
                 playerName(body?.by),
+                code.who,
             );
+            games.codes.countGame(code.who);
             // Only the phone that started the game gets its key.
             const organiserToken = games.issueOrganiser(state.id);
             return c.json({ state, organiserToken }, 201);
@@ -318,6 +393,13 @@ export const createApp = ({
     app.delete("/games/:id", (c) => {
         const id = c.req.param("id");
         const state = found(id);
+        // The admin deletes any game.
+        if (c.req.header("X-Admin-Code")) {
+            requireAdmin(c);
+            games.delete(id);
+            positions.forget(id);
+            return c.json({ ok: true });
+        }
         const organised = games.hasOrganiser(id);
         const who = {
             hider: roleOf(state, playerOf(c), tokenOf(c)) === "hider",
@@ -341,12 +423,53 @@ export const createApp = ({
     app.post("/games/:id/hider", async (c) => {
         const id = c.req.param("id");
         const body = await c.req.json().catch(() => ({}));
-        const token = games.claimHider(
-            id,
-            String(body?.password ?? ""),
-            playerName(body?.by),
+        const token = guarded(`hider:${id}`, () =>
+            games.claimHider(
+                id,
+                String(body?.password ?? ""),
+                playerName(body?.by),
+            ),
         );
         return c.json({ token });
+    });
+
+    // Codes ---------------------------------------------------------------
+
+    /** What a code typed on a phone is: the admin's, or a creator code. */
+    app.get("/codes/mine", (c) => {
+        const { kind, name } = codeOf(c);
+        return c.json({ kind, name });
+    });
+
+    app.get("/admin/codes", (c) => {
+        requireAdmin(c);
+        return c.json({ codes: games.codes.list() });
+    });
+
+    app.post("/admin/codes", async (c) => {
+        requireAdmin(c);
+        const body = await c.req.json().catch(() => ({}));
+        const name = typeof body?.name === "string" ? body.name.trim() : "";
+        if (!name || name.length > 40) {
+            throw new GameRuleError(
+                "Give the code a name (whose it is), 40 characters at most.",
+                400,
+            );
+        }
+        return c.json(games.codes.create(name), 201);
+    });
+
+    app.delete("/admin/codes/:code", (c) => {
+        requireAdmin(c);
+        if (!games.codes.revoke(c.req.param("code"))) {
+            throw new GameRuleError("No such code, or revoked already.", 404);
+        }
+        return c.json({ ok: true });
+    });
+
+    app.get("/admin/games", (c) => {
+        requireAdmin(c);
+        return c.json({ games: games.summaries() });
     });
 
     app.get("/games/:id/events", (c) => {

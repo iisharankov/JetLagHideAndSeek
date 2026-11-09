@@ -108,6 +108,19 @@ key=$(curl -s --max-time 10 "$API/api/push/key")
 case "$key" in *'"key":"'*) ok "push notifications have a key" ;; *) warn "no push key ('${key:-nothing}'): notifications off" ;; esac
 [ -f "$DATA/api/jetlag.db" ] && ok "database at $DATA/api/jetlag.db ($(du -h "$DATA/api/jetlag.db" | cut -f1))" || fail "no database at $DATA/api/jetlag.db"
 [ -f "$DATA/api/vapid.json" ] && ok "push keys at $DATA/api/vapid.json" || warn "no $DATA/api/vapid.json yet (made on the API's first start)"
+# Who may make games: the admin code (its length only; never printed).
+if [ -z "${ADMIN_CODE:-}" ]; then
+    warn "ADMIN_CODE is empty in deploy/.env: nobody can start a game (docs/deployment.md, Who may make games)"
+elif [ "${#ADMIN_CODE}" -lt 12 ]; then
+    warn "ADMIN_CODE is set but shorter than 12 characters: make it longer"
+else
+    ok "ADMIN_CODE is set (${#ADMIN_CODE} characters)"
+fi
+case "$(curl -s --max-time 10 "$API/api/codes/mine")" in
+    *"no admin code set"*) fail "the API has no ADMIN_CODE: is it in deploy/.env, and did deploy.sh run since?" ;;
+    *"creator code"*) ok "the API knows the admin code: games need a code" ;;
+    *) warn "couldn't tell whether the API has the admin code (/api/codes/mine)" ;;
+esac
 
 echo "== The public site ($SITE)"
 public=$(status "$SITE/")

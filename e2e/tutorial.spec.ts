@@ -1,6 +1,6 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
-import { API_PORT, routeApi } from "./api";
+import { createGameOnApi, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // The tutorial on a first visit and on a game's link, on the desktop and
@@ -31,18 +31,13 @@ const PLAY_AREA = {
 
 /** A shared game in Zürich canton, made straight on the test API. */
 const newGame = async (request: APIRequestContext) => {
-    const response = await request.post(
-        `http://127.0.0.1:${API_PORT}/api/games`,
-        {
-            data: {
-                playArea: { kind: "polygon", polygon: PLAY_AREA },
-                zone: null,
-                settings: {},
-                questions: [],
-                by: "Org",
-            },
-        },
-    );
+    const response = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings: {},
+        questions: [],
+        by: "Org",
+    });
     expect(response.ok()).toBe(true);
     const { state } = (await response.json()) as { state: { id: string } };
     return state.id;
@@ -124,10 +119,10 @@ test("a first visit offers the setting-up tour, once, and it opens the Menu and 
     const total = await clickThrough(page, async (step) => {
         seen.push(step);
         if (step === "start") {
+            // A new phone has no creator code yet: the tour shows where it
+            // goes (Start appears once one is typed).
             await expect(menu).toBeVisible();
-            await expect(
-                menu.getByRole("button", { name: "Start a shared game" }),
-            ).toBeInViewport();
+            await expect(menu.getByLabel(/Have a code/)).toBeInViewport();
         }
         if (step === "play-area") {
             await expect(menu).toBeHidden();
@@ -174,9 +169,10 @@ test("a first visit offers the setting-up tour, once, and it opens the Menu and 
     await expect(menu).toBeHidden();
     await expect(setup).toBeHidden();
     await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await expect(menu.getByLabel(/Have a code/)).toBeVisible();
     await expect(
         menu.getByRole("button", { name: "Start a shared game" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await menu.press("Escape");
 
     // Seen: not offered again on this phone.
@@ -343,6 +339,9 @@ test("skipping a tour halfway leaves the sidebar as it was", async ({
     // (The desktop's closed sidebar slides off the screen.)
     if (open) await expect(addQuestion).toBeInViewport();
     await mark(page).getByRole("button", { name: "Show Tutorial" }).click();
+    // The first step, drawn, before its Next (a click on the offer's note
+    // as it turns into the first step was lost now and then).
+    await expect(mark(page)).toHaveAttribute("data-tour-step", "how-to-play");
     await mark(page).getByRole("button", { name: "Next" }).click();
     // An example: the sidebar makes way for the map.
     await expect(mark(page)).toHaveAttribute("data-tour-step", "example");

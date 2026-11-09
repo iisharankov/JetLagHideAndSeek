@@ -252,7 +252,7 @@ export const sidebarTab = atom<SidebarTab>("questions");
 
 /** The Menu drawer is open… */
 export const menuOpen = atom<boolean>(false);
-export type MenuTab = "game" | "settings";
+export type MenuTab = "game" | "settings" | "admin";
 /** …on this tab. */
 export const menuTab = atom<MenuTab>("game");
 /** On a phone, the bottom sheet covers this much of the map (px): zooming keeps clear of it. */

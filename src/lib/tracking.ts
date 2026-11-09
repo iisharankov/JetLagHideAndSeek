@@ -21,6 +21,16 @@ let started = false;
  */
 const AGAIN_MS = 5_000;
 
+/** A fix for the pin; another hider phone driving it turns this one's off. */
+const offerToPin = (here: Parameters<typeof followPin>[0]) => {
+    if (followPin(here) === "taken") {
+        toast.info(
+            "Another of your team's phones is moving the pin with its GPS: this one stopped.",
+            { toastId: "pin-taken", autoClose: 8000 },
+        );
+    }
+};
+
 export const startTracking = () => {
     if (started) return;
     started = true;
@@ -39,7 +49,7 @@ export const startTracking = () => {
                         at: Date.now(),
                     };
                     currentPosition.set(here);
-                    followPin(here);
+                    offerToPin(here);
                 },
                 (error) => {
                     toast.error(describeGeoError(error), {
@@ -52,7 +62,7 @@ export const startTracking = () => {
             );
             again = setInterval(() => {
                 const here = currentPosition.get();
-                if (here) followPin({ ...here, at: Date.now() });
+                if (here) offerToPin({ ...here, at: Date.now() });
             }, AGAIN_MS);
         } else if (!wanted && stop) {
             stop();

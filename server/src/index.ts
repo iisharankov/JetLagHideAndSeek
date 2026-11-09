@@ -41,7 +41,17 @@ const games = createGameStore(db, join(dataDir, "photos"), {
         );
     },
 });
-const app = createApp({ games, push });
+// Who may make games: the admin code from deploy/.env (docs/deployment.md,
+// "Who may make games"). Without it nobody can start a game.
+const adminCode = (process.env.ADMIN_CODE ?? "").trim();
+if (!adminCode) {
+    console.warn(
+        "ADMIN_CODE is not set: nobody can start a game. Set it in deploy/.env (docs/deployment.md).",
+    );
+} else if (adminCode.length < 12) {
+    console.warn("ADMIN_CODE is shorter than 12 characters: make it longer.");
+}
+const app = createApp({ games, push, adminCode });
 
 // Games untouched for a year are deleted, photos included.
 const cleanup = () => {

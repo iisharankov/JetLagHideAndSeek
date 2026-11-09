@@ -2,6 +2,22 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-09, round 33: Runs B and C, the hider's phones in step, who may make games
+
+| Decision | Why | From |
+|---|---|---|
+| **Admin code in `.env`, creator codes made and revoked in Menu → Admin, 5 games a day per creator code and 20 for the admin, joining needs nothing** | the owner's design answer | Q56 ("let's go"), Q49 |
+| **No admin code set: nobody makes games** (the server warns at start; `check.sh` warns) | safer than open, as the brief says | RunC.md |
+| **An admin code shorter than 12 characters works, with a warning** | refusing would stop every game on a deploy over a length; 5 wrong tries a minute makes guessing useless anyway | this round |
+| **Creator codes: 12 random letters, stored as a plain SHA-256 hash** (not scrypt) | random codes have ~60 bits; a plain hash allows a lookup, scrypt would need a scan of every code | this round |
+| **"A day" is a Zürich day** | the brief allowed UTC "simpler"; `Intl` gives the Zürich date in one line | RunC.md |
+| **One code field in Menu → Game for both kinds; the server says which** (`GET /api/codes/mine`) | the design: "An admin types the admin code in the same field" | 08-admin-and-gates.md |
+| **A code refused when starting a game is forgotten on the phone; one used up for the day is kept** | a revoked code is no use; tomorrow the used one works again | RunC.md |
+| **The old hider password stays** (now 6 characters and 5 tries a minute) | Run A's deploy isn't confirmed (S1's Done is blank); the brief says remove only after | RunB.md B5 |
+| **Once the clock goes the station is set: another station is refused, the same one is a no-op** | a second hider phone re-announced "the hider is in place" | RunB.md B2 |
+| **The pin's last mover is in the game (`pinDriver`); the phone that turned GPS-follow on last drives, the other gives way after 30 s** | the audit's "the one that turned it on last" | 05, RunB.md B4 |
+| **`followPin` says "taken" when it gives way, so the phone can say why** | the brief's "off" would be silent | this round |
+
 ## 2026-11-09, round 32: Run A, who you are
 
 | Decision | Why | From |

@@ -50,6 +50,7 @@ the updater image too) and then `update-data.sh`.
     ```bash
     cd deploy
     cp .env.example .env   # defaults are fine; change ports if they clash
+    nano .env              # set ADMIN_CODE (see "Who may make games")
     ```
 3. **Build the images:**
     ```bash
@@ -88,6 +89,15 @@ deploy/check.sh     # a minute later
 Phones pick up the new version the next time the app is opened. If the
 change touched the reference data builder (`server/datasets/` or
 `src/maps/datasets/`), `deploy.sh` says so: run `deploy/update-data.sh` too.
+
+## Who may make games
+
+Only you (the admin) and friends with a **creator code** start shared games; everyone else joins by the link. Playing alone needs nothing.
+
+- **The admin code** is `ADMIN_CODE` in `deploy/.env`: 12 to 64 characters from your password manager. The server never stores it, only compares it. Without it nobody can start a game (`check.sh` warns). After changing it, run `deploy/deploy.sh` so the `api` container gets it.
+- **On your phone:** Menu → Game → "Have a code?", type the admin code once. Menu → **Admin** appears: make a creator code per friend (named, e.g. "Ana"), shown once with Copy; revoke one any time (its games stay); see every game, who made it, and delete any.
+- **A friend** types their creator code in the same field; **Start a shared game** appears. Each creator code makes 5 games a day (Zürich time), the admin code 20.
+- **Wrong guesses** (admin code, creator codes, team passwords, player codes, the old hider password): the server allows 5 wrong tries a minute (per game for passwords and player codes), then asks to wait a minute. nginx's request limit stays in front of it.
 
 ## Backups
 

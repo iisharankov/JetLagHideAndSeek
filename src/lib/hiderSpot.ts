@@ -113,24 +113,39 @@ export const pinFollowsGps = persistentAtom<boolean>(
 const FOLLOW_EVERY_MS = 15_000;
 /** …and only for a real move, not the GPS's jitter. */
 const FOLLOW_METRES = 10;
+/** Another phone moving the pin this long: this one stops following. */
+const GIVE_WAY_MS = 30_000;
 let followedAt = -Infinity;
+/** When this phone started following (its first fix since turning it on). */
+let followingSince: number | null = null;
 /** Following, and outside the zone: the pin waits at its edge. */
 export const pinAtEdge = atom<boolean>(false);
+/**
+ * Another of the hider's phones moved the pin last (from the game's
+ * `hider.pinDriver`): which player, and since when (this phone's clock).
+ * Null when it was this phone, or nobody.
+ */
+export const pinDrivenElsewhere = atom<{ by: string; since: number } | null>(
+    null,
+);
 pinFollowsGps.listen(() => {
     followedAt = -Infinity;
+    followingSince = null;
     pinAtEdge.set(false);
 });
 
 /**
  * A GPS fix for the hider's pin: moved there (or to the zone's edge, from
  * outside it), or left alone for now ("waiting") or altogether ("off":
- * picking the station, the pin fixed, or the setting off).
+ * picking the station, the pin fixed, or the setting off). Two hider phones
+ * following would fight over the pin: the one turned on last drives it,
+ * and the other gives way after 30 s ("taken": its setting goes off).
  */
 export const followPin = (here: {
     latitude: number;
     longitude: number;
     at: number;
-}): "moved" | "clamped" | "waiting" | "off" => {
+}): "moved" | "clamped" | "waiting" | "off" | "taken" => {
     const pin = hiderMode.get();
     if (
         !pinFollowsGps.get() ||
@@ -139,6 +154,13 @@ export const followPin = (here: {
         pin === false
     ) {
         return "off";
+    }
+    followingSince ??= here.at;
+    const other = pinDrivenElsewhere.get();
+    if (other && other.since >= followingSince) {
+        if (here.at - other.since < GIVE_WAY_MS) return "waiting";
+        pinFollowsGps.set(false);
+        return "taken";
     }
     const metres =
         turf.distance(

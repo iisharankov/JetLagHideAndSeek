@@ -408,6 +408,7 @@ describe("the hiding spot", () => {
         expect(state.hider).toEqual({
             station: { id: "node/5", name: "Uster", lat: 47.35, lng: 8.72 },
             pin: { latitude: 47.351, longitude: 8.721 },
+            pinDriver: hider.id,
         });
         expect(viewFor(state, "hider").hider?.station?.name).toBe("Uster");
         expect(viewFor(state, "seeker").hider).toBeNull();
@@ -1268,6 +1269,62 @@ describe("the hider's station", () => {
         state = apply(state, { type: "hiderReady", station }, hider);
         expect(state.hider?.pending).toBeNull();
         expect(state.hider?.station).toEqual(station);
+    });
+
+    it("is set for the round once the clock goes: only a Move changes it", () => {
+        const other = { id: "node/2", name: "Wetzikon", lat: 47.32, lng: 8.8 };
+        const set = apply(
+            fresh(),
+            { type: "hiderReady", station },
+            hider,
+            5000,
+        );
+        expect(set.clock).not.toBeNull();
+        // A second hider phone tapping Done again with another station.
+        expect(() =>
+            apply(set, { type: "hiderReady", station: other }, hider, 6000),
+        ).toThrow(/Only playing Move changes it/);
+        expect(() =>
+            apply(set, { type: "setHiderStation", station: other }, hider),
+        ).toThrow(/Only playing Move changes it/);
+        // The same station again (a retry, a second phone): nothing new,
+        // so nobody hears "the hider is in place" twice.
+        const again = apply(set, { type: "hiderReady", station }, hider, 7000);
+        expect(again.hiderReadyAt).toBe(5000);
+        expect(again.version).toBe(set.version + 1);
+        expect(again.hider?.station).toEqual(station);
+        // A Move re-picks.
+        const moving = apply(set, { type: "move", station }, hider, 8000);
+        const moved = apply(
+            moving,
+            { type: "hiderReady", station: other },
+            hider,
+            9000,
+        );
+        expect(moved.hider?.station).toEqual(other);
+        expect(moved.hiderReadyAt).toBe(9000);
+    });
+
+    it("may change before the clock goes", () => {
+        const other = { id: "node/2", name: "Wetzikon", lat: 47.32, lng: 8.8 };
+        let state = apply(fresh(), { type: "setHiderStation", station }, hider);
+        state = apply(
+            state,
+            { type: "setHiderStation", station: other },
+            hider,
+        );
+        expect(state.hider?.station).toEqual(other);
+    });
+
+    it("knows which phone moved the pin last", () => {
+        const pin = { latitude: 47.3, longitude: 8.7 };
+        let state = apply(fresh(), { type: "setHiderPin", pin }, hider);
+        expect(state.hider?.pinDriver).toBe(hider.id);
+        const teammate = { ...hider, id: "p-Dan", name: "Dan" };
+        state = apply(state, { type: "setHiderPin", pin }, teammate);
+        expect(state.hider?.pinDriver).toBe("p-Dan");
+        // The seekers see none of it.
+        expect(viewFor(state, "seeker").hider).toBeNull();
     });
 });
 

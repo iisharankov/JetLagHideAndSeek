@@ -6,6 +6,7 @@ import {
     chosenStation,
     followPin,
     hiderChoosing,
+    pinDrivenElsewhere,
     pinFollowsGps,
     pinLocked,
 } from "@/lib/hiderSpot";
@@ -40,6 +41,7 @@ describe("the hider's pin following their GPS", () => {
         hiderChoosing.set(false);
         pinLocked.set(false);
         hiderMode.set({ latitude: station.lat, longitude: station.lng });
+        pinDrivenElsewhere.set(null);
         pinFollowsGps.set(false);
         pinFollowsGps.set(true);
     });
@@ -76,5 +78,23 @@ describe("the hider's pin following their GPS", () => {
         pinLocked.set(true);
         expect(followPin(north(200, 3000))).toBe("off");
         expect(pinFromStation()).toBeCloseTo(0, 0);
+    });
+
+    it("gives way to another hider phone moving the pin: it stops following after 30 s", () => {
+        expect(followPin(north(200, 1000))).toBe("moved");
+        // Dan's phone (same team) moved the pin after this one turned on.
+        pinDrivenElsewhere.set({ by: "p-Dan", since: 5000 });
+        expect(followPin(north(300, 20_000))).toBe("waiting");
+        expect(pinFromStation()).toBeCloseTo(200, 0);
+        expect(followPin(north(300, 36_000))).toBe("taken");
+        expect(pinFollowsGps.get()).toBe(false);
+        expect(followPin(north(300, 40_000))).toBe("off");
+    });
+
+    it("takes over when turned on after another phone moved the pin", () => {
+        pinDrivenElsewhere.set({ by: "p-Dan", since: 500 });
+        pinFollowsGps.set(false);
+        pinFollowsGps.set(true);
+        expect(followPin(north(200, 1000))).toBe("moved");
     });
 });

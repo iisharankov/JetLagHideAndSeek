@@ -304,7 +304,17 @@ progress, the hider's spot, and earlier rounds.
   only) until Done makes it `chosenStation` and tells the server
   (`hiderReady`): the seekers hear that, the clock starts. Before that the
   hider's Research tab holds `research` questions: never synced, answered
-  from the tapped station or the pin, deleted on Done.
+  from the tapped station or the pin, deleted on Done. Once the clock goes
+  the station is set for the round: the server refuses another one
+  (`assertStationOpen`, 409) except during a Move, and the same station
+  again is a no-op, so the seekers hear "the hider is in place" once. A
+  phone that becomes the hider later (a teammate, a player code) gets the
+  station from the game and never the pick view (`HiderPanel` picks only
+  without a station, or during a Move).
+- **The hider's pin** is shared by the hider's phones; the game notes which
+  player's phone moved it last (`hider.pinDriver`). With "Move my pin with
+  GPS" on two phones, the one turned on last drives it and the other turns
+  its own off after 30 seconds (`followPin` in `lib/hiderSpot.ts`).
 - **Which places count** (`lib/placeRules.ts`): only places inside the
   play area (the rulebook); of those, the named ones that fit their kind's
   built-in rules (a "zoo" must say zoo, Tierpark, Wildpark…; no indoor golf,
@@ -326,6 +336,16 @@ progress, the hider's spot, and earlier rounds.
   (the Drained Brain's three, the Spotty Memory's die), which end by
   themselves, and what they award the hider. The server refuses what a
   curse forbids; the phones grey it out and say why.
+- **Who may make games** (`server/src/codes.ts`): `POST /api/games` needs
+  `X-Creator-Code`: the admin code (`ADMIN_CODE` in the server's
+  environment, compared in constant time, never stored; 20 games a day) or
+  a creator code the admin made (12 random letters, stored as a SHA-256
+  hash; 5 games a day, Zürich days). No admin code set: nobody makes
+  games. The phone keeps the typed code (`lib/game/codes.ts`) and shows
+  Start only with one; the admin code adds Menu → Admin
+  (`AdminPanel.tsx`: `/api/admin/codes` to make, list and revoke codes,
+  `/api/admin/games` for every game, who made it, and Delete). Wrong admin
+  or creator codes count towards 5 a minute, like the passwords.
 - Games untouched for a year are deleted (`games.cleanup`, daily).
 
 ## Persistence and sharing

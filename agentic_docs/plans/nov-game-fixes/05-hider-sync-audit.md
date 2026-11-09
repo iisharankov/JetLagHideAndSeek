@@ -1,5 +1,7 @@
 # 5 · A new hider phone mid-game: "pick your station" over a running game
 
+> **Built in round 33 (Run B).** Station: server (`assertStationOpen`, a repeat is a no-op). Choosing: derived (`HiderPanel`: no station, or changing during a Move). Pin follows GPS: the server keeps `hider.pinDriver`, one phone follows. Hider token: the player id since Run A; the old path stays until S1. `hiderReadyAt`: server. Show all stations, research questions, suggested answers: per phone by design. How it works now: `docs/architecture.md`, "The hider's station" and "The hider's pin".
+
 ## What happened
 
 A hider's phone was lost (reload, new tab) or a second hider joined while

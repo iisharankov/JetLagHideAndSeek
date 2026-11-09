@@ -13,7 +13,7 @@ import {
 import { formatDuration } from "@/lib/game/clock";
 import { endEndgame, startEndgame } from "@/lib/game/endgame";
 import { serverNow } from "@/lib/game/serverTime";
-import { gameState, sendOp } from "@/lib/game/session";
+import { gameState, myPlayerId, sendOp } from "@/lib/game/session";
 import { describeGeoError, locate } from "@/lib/geolocation";
 import {
     chosenStation,
@@ -58,6 +58,7 @@ export const HiderPanel = () => {
     const $atEdge = useStore(pinAtEdge);
     const $endgame = useStore(endgame);
     const $game = useStore(gameState);
+    const $me = useStore(myPlayerId);
     useTick(!!$game?.move);
     const $isLoading = useStore(isLoading);
     const $hidingRadius = useStore(hidingRadius);
@@ -67,7 +68,15 @@ export const HiderPanel = () => {
         $hidingRadiusUnits === "kilometers" ? "km" : $hidingRadiusUnits
     }`;
 
-    const choosing = $choosing || !$chosen;
+    // Picking: with no station yet, or changing it alone or during a Move.
+    // In a shared game the station is set for the round once the clock
+    // goes, whatever a phone joining as the hider thinks.
+    const choosing = !$chosen || ($choosing && (!$game || !!$game.move));
+    const driver = $game?.hider?.pinDriver;
+    const driverName =
+        driver && driver !== $me
+            ? ($game?.players?.[driver]?.name ?? "Another phone")
+            : null;
 
     if (choosing) {
         return (
@@ -343,6 +352,24 @@ export const HiderPanel = () => {
                     onCheckedChange={pinFollowsGps.set}
                     tutorialId="pin-follows-gps"
                 />
+            )}
+            {$game && driver && !$pinLocked && (
+                <p
+                    className={
+                        driverName && $pinFollows
+                            ? "text-xs text-amber-300"
+                            : "text-xs text-slate-400"
+                    }
+                    data-testid="pin-driver"
+                >
+                    {driverName
+                        ? $pinFollows
+                            ? `${driverName}'s phone is moving the pin: this one stops following in half a minute.`
+                            : `${driverName}'s phone moved the pin last.`
+                        : $pinFollows
+                          ? "The pin follows this phone."
+                          : "This phone moved the pin last."}
+                </p>
             )}
             {$pinFollows && $atEdge && !$pinLocked && (
                 <p className="text-xs text-amber-300" data-testid="pin-at-edge">

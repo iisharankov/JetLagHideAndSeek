@@ -47,4 +47,4 @@ None. The rulebook texts in `src/content/rules/` are the game's; keep them as th
 
 ## Flag these files when changed
 
-`deploy/docker-compose.yml`, `deploy/Dockerfile`, `deploy/nginx/*.conf`, `deploy/*.sh`, `.github/workflows/ci.yml`, `server/src/app.ts` (the API's limits and auth).
+`deploy/docker-compose.yml`, `deploy/Dockerfile`, `deploy/nginx/*.conf`, `deploy/*.sh`, `.github/workflows/ci.yml`, `server/src/app.ts` (the API's limits and auth), `server/src/codes.ts` (who may make games).

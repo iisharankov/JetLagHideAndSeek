@@ -13,7 +13,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { moveMinutes } from "@/lib/game/curseRules";
 import { advanceDeck } from "@/lib/game/deck";
-import { activePlayers, roleOfPlayer } from "@/lib/game/players";
+import { activePlayers, MIN_PASSWORD, roleOfPlayer } from "@/lib/game/players";
 import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
 import { applyRest } from "@/lib/game/rest";
 import { normalizeGameSettings } from "@/lib/game/settings";
@@ -26,6 +26,7 @@ import type {
     SharedQuestion,
 } from "@/lib/game/types";
 
+import { type CodeStore, createCodeStore } from "./codes";
 import { type Actor, applyOp, GameRuleError, newGameState } from "./gameOps";
 import { hashPassword, passwordMatches } from "./rules/passwords";
 import {
@@ -35,6 +36,7 @@ import {
     rejoinPlayer,
     removePlayer,
 } from "./rules/players";
+import { WrongGuessError } from "./rules/shared";
 
 const ID_ALPHABET =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -58,12 +60,31 @@ const PHOTO_TYPES: Record<string, string> = {
     "image/webp": "webp",
 };
 
+/** A game as the admin lists it (Menu → Admin). */
+export interface GameSummary {
+    id: string;
+    area: string;
+    createdAt: number;
+    updatedAt: number;
+    /** The creator code's name ("Ana's code"), "Admin", or "" for older games. */
+    creator: string;
+    /** The name of whoever started it. */
+    by: string;
+    players: number;
+}
+
 export interface GameStore {
     create(
         start: { playArea: unknown; zone: unknown; settings: GameSettings },
         questions: SharedQuestion[],
         by: string,
+        /** The code it was made with: a creator code's id, or "admin". */
+        creator?: string,
     ): GameState;
+    /** Every game, newest change first, for the admin. */
+    summaries(): GameSummary[];
+    /** Creator codes and games made per day (same database). */
+    codes: CodeStore;
     get(id: string): GameState | undefined;
     apply(id: string, op: GameOp, actor: Actor): GameState;
     /** `null` tells a subscriber the game was deleted. */
@@ -171,9 +192,27 @@ export const createGameStore = (
     if (!columns.some((column) => column.name === "organiser_token")) {
         db.exec("ALTER TABLE games ADD COLUMN organiser_token TEXT");
     }
+    // Added with creator codes (round 33): who made a game.
+    if (!columns.some((column) => column.name === "creator")) {
+        db.exec("ALTER TABLE games ADD COLUMN creator TEXT");
+        db.exec("ALTER TABLE games ADD COLUMN created_by TEXT");
+    }
+    const codes = createCodeStore(db);
     const insert = db.prepare(
-        "INSERT INTO games (id, state, updated_at) VALUES (?, ?, ?)",
+        "INSERT INTO games (id, state, updated_at, creator, created_by) VALUES (?, ?, ?, ?, ?)",
     );
+    const summaries = db.prepare(`
+        SELECT g.id, g.updated_at, g.creator, g.created_by,
+            json_extract(g.state, '$.createdAt') AS created_at,
+            json_extract(g.state, '$.playArea.kind') AS area_kind,
+            json_extract(g.state, '$.playArea.location.properties.name') AS area_name,
+            (SELECT count(*) FROM json_each(g.state, '$.players') AS p
+                WHERE json_extract(p.value, '$.left') IS NULL) AS players,
+            c.name AS code_name
+        FROM games g LEFT JOIN creator_codes c ON c.id = g.creator
+        ORDER BY g.updated_at DESC
+        LIMIT 500
+    `);
     const select = db.prepare(
         "SELECT state, hider_secret, hider_token, organiser_token FROM games WHERE id = ?",
     );
@@ -268,7 +307,36 @@ export const createGameStore = (
     const photoFolder = (id: string) => join(photoDir, id);
 
     return {
-        create(start, questions, by) {
+        codes,
+
+        summaries() {
+            const rows = summaries.all() as {
+                id: string;
+                updated_at: number;
+                creator: string | null;
+                created_by: string | null;
+                created_at: number | null;
+                area_kind: string | null;
+                area_name: string | null;
+                players: number;
+                code_name: string | null;
+            }[];
+            return rows.map((row) => ({
+                id: row.id,
+                area:
+                    row.area_kind === "place"
+                        ? (row.area_name ?? "a place")
+                        : "a drawn play area",
+                createdAt: row.created_at ?? row.updated_at,
+                updatedAt: row.updated_at,
+                creator:
+                    row.creator === "admin" ? "Admin" : (row.code_name ?? ""),
+                by: row.created_by ?? "",
+                players: row.players,
+            }));
+        },
+
+        create(start, questions, by, creator) {
             const now = Date.now();
             const state = newGameState(newId(8), start, now);
             for (const question of questions) {
@@ -282,7 +350,13 @@ export const createGameStore = (
                     answeredAt: now,
                 };
             }
-            insert.run(state.id, JSON.stringify(state), now);
+            insert.run(
+                state.id,
+                JSON.stringify(state),
+                now,
+                creator ?? null,
+                by,
+            );
             return state;
         },
 
@@ -373,9 +447,9 @@ export const createGameStore = (
 
         claimHider(id, password, by) {
             const state = required(id);
-            if (password.length < 4) {
+            if (password.length < MIN_PASSWORD) {
                 throw new GameRuleError(
-                    "Choose a password of at least 4 characters.",
+                    `Choose a password of at least ${MIN_PASSWORD} characters.`,
                     400,
                 );
             }
@@ -415,7 +489,7 @@ export const createGameStore = (
             }
             if (found.hider_secret && found.hider_token) {
                 if (!passwordMatches(password, found.hider_secret)) {
-                    throw new GameRuleError("Wrong hider password.");
+                    throw new WrongGuessError("Wrong hider password.");
                 }
                 return found.hider_token;
             }

@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 32). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-09 (round 33). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy, now with Run A), then S6 (two phones, five minutes).
+**Only 5 minutes?** S1 (deploy runs A–C), then S7 (your admin code on your phone, a code per friend).
 
 ## Now
 
@@ -10,7 +10,7 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Run A is built (round 32). Say "go B" (or "go B C") in a new Opus session; `RunB.md`–`RunG.md` are the briefs. Q55 and Q56 are answered; runs F and C use them.
+- [plans/nov-game-fixes/plan.md](plans/nov-game-fixes/plan.md): seven runs, A–G, with what you do after each. Runs A, B and C are built (rounds 32–33). Say "go D" (or "go D E") in a new Opus session; `RunD.md`–`RunG.md` are the briefs. Q55 is answered; run F uses it.
 
 ## Questions
 
@@ -26,28 +26,27 @@ Nothing.
 
 > **Answer:** Looks good
 
-**Q56. How the admin codes work.** From your Q49 answer, [plans/nov-game-fixes/08-admin-and-gates.md](plans/nov-game-fixes/08-admin-and-gates.md): one admin code in `deploy/.env` that you type once in Menu → Game; it opens an Admin section where you make named creator codes and revoke them; a friend types a creator code once and can then start games, 5 a day; everyone else only joins by link. No accounts, nothing to reset. (asked 2026-11-09)
-
-*Suggested:* yes, build it like that (run C).
-
-> **Answer:** I added my secret there, great, let's go
-
 ## Your steps
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy Run A (round 32) and check.** **Where:** the server, as root, after you commit and push round 32. If you deployed after round 28, this adds Run A; if not, it brings 27, 28 and Run A at once. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy runs A–C (rounds 32–33) and check.** **Where:** the server, as root, after you commit and push round 33. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
   sleep 60 && ~/jetlag/deploy/check.sh
-  # expect: every line PASS or OK; the API answers /api/health
+  # expect: every line ok; among them "ok    ADMIN_CODE is set (NN characters)" and "ok    the API knows the admin code: games need a code"
   ```
   **Done:**
 
 ### After deploying
 
-- [ ] **S6. Try Run A on two phones** (after S1). **Where:** two phones at one table, on the site. About 5 minutes. Everyone's phone reloads the page once.
+- [ ] **S7. Your admin code on your phone, and a code per friend** (after S1). **Where:** your phone, on the site. About 5 minutes.
+  1. Menu → Game → **Have a code?**: type your `ADMIN_CODE` (from your password manager), Save. Expect: "Admin code saved", and an **Admin** tab next to Settings.
+  2. Menu → Admin → "Whose code": a friend's name → **New code**. Expect: a code like `JFSQ-EM3Z-TC5Q`, shown once; Copy it and send it to that friend privately. One per friend who should start games (5 games a day each); Revoke any time.
+  **Done:**
+
+- [ ] **S6. Try Run A on two phones** (after S7: your phone can start games). **Where:** two phones at one table, on the site. About 5 minutes. Everyone's phone reloads the page once.
   1. Phone 1: Menu → Game → Start a shared game; on the first screen turn **Teams** on; start. Make team "Owls" with a password, tick "We hide this round", join.
   2. Phone 2: open the link, tap Owls, type the password, join. Expect: the Hider tab, no "Location off" prompt.
   3. Phone 2: close the browser completely, open the link again. Expect: no join screen, still in Owls.

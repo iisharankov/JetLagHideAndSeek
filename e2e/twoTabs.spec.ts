@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { routeApi } from "./api";
+import { giveCreatorCode, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // Two tabs of the same browser (shared storage) are the same player: the
@@ -57,6 +57,7 @@ test("a second tab of the same browser is the same player, with nothing to type"
     test.skip(testInfo.project.name !== "desktop", "sidebar open on desktop");
     void externalHosts;
     await prepare(page);
+    await giveCreatorCode(page);
     await page.goto("/");
     await page.evaluate((area) => {
         localStorage.setItem("showTutorials", "false");

@@ -15,6 +15,8 @@ import { createApp } from "./app";
 import { createGameStore, type GameStore } from "./games";
 import { createPositionStore, type PositionStore } from "./positions";
 
+const ADMIN = "admin-code-for-tests-123";
+
 const KEY = {
     ana: "key-ana-00000000000001",
     ben: "key-ben-00000000000002",
@@ -35,7 +37,7 @@ beforeEach(() => {
     db = new DatabaseSync(":memory:");
     games = createGameStore(db, mkdtempSync(join(tmpdir(), "jetlag-players-")));
     positions = createPositionStore();
-    app = createApp({ games, positions });
+    app = createApp({ games, positions, adminCode: ADMIN });
 });
 
 afterEach(() => {
@@ -80,6 +82,7 @@ const newGame = async (settings: Record<string, unknown> = {}) => {
             by: "Ana",
             settings,
         },
+        headers: { "X-Creator-Code": ADMIN },
     });
     expect(response.status).toBe(201);
     const { state, organiserToken } = await response.json();

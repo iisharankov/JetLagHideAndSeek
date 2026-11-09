@@ -45,7 +45,12 @@ import {
     passTime,
     rollAgain,
 } from "./rules/curses";
-import { hiderWith, startMove, stationOf } from "./rules/hider";
+import {
+    assertStationOpen,
+    hiderWith,
+    startMove,
+    stationOf,
+} from "./rules/hider";
 import {
     noteLateAnswer,
     oweDraws,
@@ -562,10 +567,13 @@ export const applyOp = (
             assertHider(actor, "move");
             startMove(state, actor, stationOf(op.station), now);
             break;
-        case "setHiderStation":
+        case "setHiderStation": {
             assertHider(actor, "pick the hiding station");
-            state.hider = hiderWith(state, { station: stationOf(op.station) });
+            const station = stationOf(op.station);
+            assertStationOpen(state, station);
+            state.hider = hiderWith(state, { station });
             break;
+        }
         case "setHiderPending":
             // Tapped, not confirmed: the hider's other phone shows it too.
             assertHider(actor, "pick the hiding station");
@@ -578,6 +586,13 @@ export const applyOp = (
             assertHider(actor, "pick the hiding station");
             const station = stationOf(op.station);
             if (!station) throw new GameRuleError("Pick a station first.", 400);
+            assertStationOpen(state, station);
+            // The same station again (a retry, the hider's other phone):
+            // nothing new, so nobody hears "the hider is in place" twice.
+            if (state.hiderReadyAt && state.hider?.station?.id === station.id) {
+                state.hider = hiderWith(state, { pending: null });
+                break;
+            }
             state.hider = hiderWith(state, {
                 station,
                 pending: null,
@@ -670,6 +685,7 @@ export const applyOp = (
             }
             state.hider = hiderWith(state, {
                 pin: { latitude: pin.latitude!, longitude: pin.longitude! },
+                pinDriver: actor.id,
             });
             break;
         }

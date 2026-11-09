@@ -6,7 +6,7 @@ import type {
     TestInfo,
 } from "@playwright/test";
 
-import { API_PORT, routeApi } from "./api";
+import { API_PORT, createGameOnApi, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // Who you are in a shared game: the same player after a restart, another
@@ -44,14 +44,12 @@ const newGame = async (
     request: APIRequestContext,
     settings: Record<string, unknown> = {},
 ) => {
-    const response = await request.post(`${API}/games`, {
-        data: {
-            playArea: { kind: "polygon", polygon: PLAY_AREA },
-            zone: null,
-            settings,
-            questions: [],
-            by: "Org",
-        },
+    const response = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings,
+        questions: [],
+        by: "Org",
     });
     expect(response.ok()).toBe(true);
     return ((await response.json()) as { state: { id: string } }).state.id;

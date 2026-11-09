@@ -40,6 +40,9 @@ services:
             # use it to reach you if the server misbehaves): the site's
             # address unless you set a mailto: here.
             PUSH_CONTACT: "${PUSH_CONTACT:-}"
+            # Who may make games: the admin code (docs/deployment.md, "Who
+            # may make games"). Empty: nobody can start a game.
+            ADMIN_CODE: "${ADMIN_CODE:-}"
         ports:
             - "127.0.0.1:${API_PORT:-18787}:8787"
         volumes:

@@ -1,6 +1,11 @@
-import type { APIRequestContext, Browser, Page } from "@playwright/test";
+import type {
+    APIRequestContext,
+    Browser,
+    BrowserContextOptions,
+    Page,
+} from "@playwright/test";
 
-import { API_PORT, routeApi } from "./api";
+import { API_PORT, createGameOnApi, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // Two phones in a game made on the test API: who starts the end game when
@@ -44,18 +49,13 @@ const newGame = async (
     request: APIRequestContext,
     settings: Record<string, unknown> = {},
 ) => {
-    const response = await request.post(
-        `http://127.0.0.1:${API_PORT}/api/games`,
-        {
-            data: {
-                playArea: { kind: "polygon", polygon: PLAY_AREA },
-                zone: null,
-                settings,
-                questions: [],
-                by: "Ana",
-            },
-        },
-    );
+    const response = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings,
+        questions: [],
+        by: "Ana",
+    });
     expect(response.ok()).toBe(true);
     return (await response.json()) as {
         state: { id: string };
@@ -69,9 +69,13 @@ const phone = async (
     name: string,
     id: string,
     organiserToken?: string,
+    options: BrowserContextOptions = {},
 ) => {
     const page = await (
-        await browser.newContext({ viewport: { width: 1366, height: 900 } })
+        await browser.newContext({
+            viewport: { width: 1366, height: 900 },
+            ...options,
+        })
     ).newPage();
     await page.route("**/data/**", (route) => route.fulfill({ status: 404 }));
     await routeApi(page);
@@ -191,4 +195,90 @@ test("only the phone that started a game deletes it; the others forget it", asyn
         .click();
     await expect(ana.getByText("Game deleted.")).toBeVisible();
     await expect(ben.getByText("This game was deleted.")).toBeVisible();
+});
+
+test("a second phone of the hiding team gets the station, not the pick; only one phone moves the pin", async ({
+    browser,
+    request,
+}, testInfo) => {
+    test.setTimeout(150_000);
+    const viewport = testInfo.project.use.viewport!;
+    /** About 100 m east and 200 m north of Zürich HB: inside its zone. */
+    const EAST = { latitude: 47.3779, longitude: 8.5416 };
+    const NORTH = { latitude: 47.3797, longitude: 8.5403 };
+    const { state } = await newGame(request, { teams: true });
+    const readyAt = async () =>
+        (
+            await (
+                await request.get(
+                    `http://127.0.0.1:${API_PORT}/api/games/${state.id}`,
+                )
+            ).json()
+        ).state.hiderReadyAt;
+
+    // Ben makes Foxes, hides, and picks Zürich HB.
+    const ben = await phone(browser, "Ben", state.id, undefined, {
+        viewport,
+        geolocation: EAST,
+        permissions: ["geolocation"],
+    });
+    await ben.getByLabel("New team's name").fill("Foxes");
+    await ben.getByLabel("Team password").fill("foxes-pass");
+    await ben.getByLabel("We hide this round").check();
+    await ben
+        .getByRole("button", { name: "Join as Ben · hiding with Foxes" })
+        .click();
+    await ben
+        .getByTestId("hider-panel")
+        .locator("li", { hasText: "Zürich HB" })
+        .getByRole("button", { name: "Mine" })
+        .click({ timeout: 30_000 });
+    await ben.getByTestId("hider-done").click();
+    await expect(ben.getByTestId("hider-station")).toContainText(
+        "Your station: Zürich HB",
+    );
+    await expect.poll(readyAt).not.toBeNull();
+    const placedAt = await readyAt();
+
+    // Dan joins Foxes later: the station is there, nothing to pick, and the
+    // seekers aren't told the hider is in place again.
+    const dan = await phone(browser, "Dan", state.id, undefined, {
+        viewport,
+        geolocation: NORTH,
+        permissions: ["geolocation"],
+    });
+    await dan.getByRole("radio", { name: "Foxes (hiding)" }).click();
+    await dan.getByLabel("Team password").fill("foxes-pass");
+    await dan
+        .getByRole("button", { name: "Join as Dan · hiding with Foxes" })
+        .click();
+    await expect(dan.getByTestId("hider-station")).toContainText(
+        "Your station: Zürich HB",
+    );
+    await expect(dan.getByText("Pick your station.")).toHaveCount(0);
+    await expect(dan.getByTestId("hider-done")).toHaveCount(0);
+    await expect(dan.getByTestId("station-locked")).toBeVisible();
+    expect(await readyAt()).toBe(placedAt);
+
+    // Both turn on "Move my pin with GPS": the one turned on last drives
+    // the pin, the other gives way within half a minute.
+    const follow = (page: Page) =>
+        page.getByRole("switch", { name: /^Move my pin with GPS/ });
+    await follow(ben).click();
+    await expect(ben.getByTestId("pin-driver")).toHaveText(
+        "The pin follows this phone.",
+    );
+    await follow(dan).click();
+    await expect(dan.getByTestId("pin-driver")).toHaveText(
+        "The pin follows this phone.",
+        { timeout: 20_000 },
+    );
+    await expect(ben.getByTestId("pin-driver")).toContainText(
+        "Dan's phone is moving the pin",
+    );
+    await expect(follow(ben)).toHaveAttribute("aria-checked", "false", {
+        timeout: 45_000,
+    });
+    await expect(ben.getByText(/this one stopped/)).toBeVisible();
+    await expect(follow(dan)).toHaveAttribute("aria-checked", "true");
 });

@@ -140,7 +140,7 @@ describe("game store", () => {
         );
         expect(games.isHider(game.id, token)).toBe(false);
         expect(games.get(game.id)?.hasHider).toBe(false);
-        expect(games.claimHider(game.id, "other")).not.toBe(token);
+        expect(games.claimHider(game.id, "others")).not.toBe(token);
     });
 
     it("stores photos and links an answer to its photo question", () => {

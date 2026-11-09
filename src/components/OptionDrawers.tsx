@@ -17,12 +17,14 @@ import {
     playAreaEditing,
     setupDialog,
 } from "@/lib/context";
+import { myCode } from "@/lib/game/codes";
 import { resumeGame } from "@/lib/game/session";
 import { showTutorial, startTour, tour, tutorialsSeen } from "@/lib/tour";
 import { TOUR_LABELS, type TourId } from "@/lib/tourSteps";
 import { cn } from "@/lib/utils";
 
 import { CoachMark } from "./CoachMark";
+import { AdminPanel } from "./game/AdminPanel";
 import { GamePanel } from "./game/GamePanel";
 import { GamePopups } from "./game/GamePopups";
 import { GameSetupDialog } from "./game/GameSetupDialog";
@@ -43,6 +45,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     // isn't modal then, so the note can be tapped and the map seen.
     const modal = !useStore(tour);
     const $playAreaEditing = useStore(playAreaEditing);
+    const admin = useStore(myCode)?.kind === "admin";
 
     useEffect(() => {
         resumeGame();
@@ -107,12 +110,23 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             options={[
                                 { value: "game", label: "Game" },
                                 { value: "settings", label: "Settings" },
+                                ...(admin
+                                    ? [
+                                          {
+                                              value: "admin" as const,
+                                              label: "Admin",
+                                          },
+                                      ]
+                                    : []),
                             ]}
-                            value={menuTab}
+                            value={
+                                menuTab === "admin" && !admin ? "game" : menuTab
+                            }
                             onValueChange={setMenuTab}
                         />
                         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
-                            {menuTab === "game" && (
+                            {(menuTab === "game" ||
+                                (menuTab === "admin" && !admin)) && (
                                 <>
                                     <GamePanel />
                                     <MenuGroup
@@ -189,6 +203,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                 </>
                             )}
                             {menuTab === "settings" && <SettingsPanel />}
+                            {menuTab === "admin" && admin && <AdminPanel />}
                         </div>
                     </div>
                 </DrawerContent>

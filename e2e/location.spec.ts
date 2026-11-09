@@ -5,7 +5,7 @@ import type {
     Page,
 } from "@playwright/test";
 
-import { API_PORT, routeApi } from "./api";
+import { API_PORT, createGameOnApi, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // The phones' positions, with the browser's location faked: the seekers'
@@ -51,18 +51,13 @@ const STATIONS = {
 };
 
 const newGame = async (request: APIRequestContext) => {
-    const response = await request.post(
-        `http://127.0.0.1:${API_PORT}/api/games`,
-        {
-            data: {
-                playArea: { kind: "polygon", polygon: PLAY_AREA },
-                zone: null,
-                settings: {},
-                questions: [],
-                by: "Org",
-            },
-        },
-    );
+    const response = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings: {},
+        questions: [],
+        by: "Org",
+    });
     expect(response.ok()).toBe(true);
     return ((await response.json()) as { state: { id: string } }).state.id;
 };

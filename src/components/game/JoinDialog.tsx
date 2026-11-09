@@ -81,15 +81,20 @@ const useHiderTurn = () => {
         handled.current = $turn;
         const game = gameState.get();
         const team = game?.teams.find((t) => t.id === game.hiderTeamId);
-        if (!chosenStation.get()) hiderChoosing.set(true);
+        // The station is the game's: a phone joining a hider who has one
+        // sees it, not "Pick your station".
+        const station = chosenStation.get();
+        hiderChoosing.set(!station);
         showHiderTab();
-        if (team) {
-            toast.success(
-                `Team ${team.name} hides this round: the Hider tab is yours.`,
-                { autoClose: 6000 },
-            );
-        } else if (chosenStation.get()) {
-            toast.success("You're the hider. The Hider tab is yours.", {
+        const who = team
+            ? `Team ${team.name} hides this round`
+            : "You're the hider";
+        if (station) {
+            toast.success(`${who}. Your station is ${station.name}.`, {
+                autoClose: 6000,
+            });
+        } else if (team) {
+            toast.success(`${who}: the Hider tab is yours.`, {
                 autoClose: 6000,
             });
         }

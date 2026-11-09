@@ -24,6 +24,7 @@ import {
     chosenStation,
     hiderChoosing,
     pendingStation,
+    pinDrivenElsewhere,
     pinLocked,
 } from "@/lib/hiderSpot";
 import { persistentAtom } from "@/lib/persist";
@@ -52,6 +53,7 @@ import {
     postPosition,
     postRejoin,
 } from "./api";
+import { forgetCode, myCode } from "./codes";
 import { forgetGame, rememberGame } from "./knownGames";
 import { positionDue, seekerPositions } from "./positions";
 import { noteServerTime } from "./serverTime";
@@ -348,6 +350,14 @@ const receive = (received: GameState, force = false) => {
             ) {
                 pendingStation.set(pending);
             }
+            // Which of the hider's phones moved the pin last.
+            const driver = state.hider.pinDriver;
+            const elsewhere = pinDrivenElsewhere.get();
+            if (!driver || driver === myPlayerId.get()) {
+                if (elsewhere) pinDrivenElsewhere.set(null);
+            } else if (elsewhere?.by !== driver) {
+                pinDrivenElsewhere.set({ by: driver, since: Date.now() });
+            }
             const pin = state.hider.pin;
             const mine = hiderMode.get();
             if (
@@ -639,6 +649,11 @@ export const leaveGame = () => {
     gameState.set(null);
     gameRole.set("seeker");
     myPlayerId.set(null);
+    // After the game is gone, so nothing is sent: no station of this game
+    // shows on the next one.
+    chosenStation.set(null);
+    hiderChoosing.set(false);
+    pinDrivenElsewhere.set(null);
     gameConnection.set("off");
     suggestedAnswers.set({});
     synced = new Map();
@@ -650,16 +665,33 @@ export const leaveGame = () => {
 
 /** Starts a shared game from this phone's play area, settings and questions. */
 export const startGame = async () => {
-    const { state, organiserToken } = await createGame({
-        playArea: currentPlayArea(),
-        zone: currentZoneSettings(),
-        settings: gameSettings.get(),
-        questions: questions
-            .get()
-            .filter((q) => !q.data.research)
-            .map(toShared),
-        by: me(),
-    });
+    const code = myCode.get();
+    if (!code) {
+        throw new Error(
+            "Starting a game needs a creator code: ask whoever runs this site, and type it in Menu → Game.",
+        );
+    }
+    let started: Awaited<ReturnType<typeof createGame>>;
+    try {
+        started = await createGame(
+            {
+                playArea: currentPlayArea(),
+                zone: currentZoneSettings(),
+                settings: gameSettings.get(),
+                questions: questions
+                    .get()
+                    .filter((q) => !q.data.research)
+                    .map(toShared),
+                by: me(),
+            },
+            code.code,
+        );
+    } catch (error) {
+        // A code that no longer works (revoked, mistyped) is forgotten.
+        if ((error as { status?: number }).status === 403) forgetCode();
+        throw error;
+    }
+    const { state, organiserToken } = started;
     if (organiserToken) {
         organiserTokens.set({
             ...organiserTokens.get(),

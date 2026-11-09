@@ -49,14 +49,83 @@ const post = <T>(path: string, body: unknown, token?: string) =>
         body: JSON.stringify(body),
     });
 
-export const createGame = (start: {
-    playArea: unknown;
-    zone: unknown;
-    settings: GameSettings;
-    questions: SharedQuestion[];
+/** Starts a game; only with a creator code or the admin code. */
+export const createGame = (
+    start: {
+        playArea: unknown;
+        zone: unknown;
+        settings: GameSettings;
+        questions: SharedQuestion[];
+        by: string;
+    },
+    code: string,
+) =>
+    call<{ state: GameState; organiserToken: string | null }>("/games", {
+        method: "POST",
+        headers: headers(undefined, {
+            "Content-Type": "application/json",
+            "X-Creator-Code": code,
+        }),
+        body: JSON.stringify(start),
+    });
+
+/** What a typed code is: the admin's, or a creator code (403 if neither). */
+export const checkCode = (code: string) =>
+    call<{ kind: "admin" | "creator"; name: string }>("/codes/mine", {
+        headers: { "X-Creator-Code": code },
+    });
+
+// The admin (Menu → Admin), with the admin code -------------------------
+
+export interface AdminCodeRow {
+    id: string;
+    name: string;
+    createdAt: number;
+    revokedAt: number | null;
+    gamesToday: number;
+}
+
+export interface AdminGameRow {
+    id: string;
+    area: string;
+    createdAt: number;
+    updatedAt: number;
+    creator: string;
     by: string;
-}) =>
-    post<{ state: GameState; organiserToken: string | null }>("/games", start);
+    players: number;
+}
+
+const asAdmin = (code: string, init: RequestInit = {}) => ({
+    ...init,
+    headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Code": code,
+    },
+});
+
+export const adminCodes = (code: string) =>
+    call<{ codes: AdminCodeRow[] }>("/admin/codes", asAdmin(code));
+
+export const adminMakeCode = (code: string, name: string) =>
+    call<{ id: string; code: string; name: string }>(
+        "/admin/codes",
+        asAdmin(code, { method: "POST", body: JSON.stringify({ name }) }),
+    );
+
+export const adminRevokeCode = (code: string, id: string) =>
+    call<{ ok: true }>(
+        `/admin/codes/${encodeURIComponent(id)}`,
+        asAdmin(code, { method: "DELETE" }),
+    );
+
+export const adminGames = (code: string) =>
+    call<{ games: AdminGameRow[] }>("/admin/games", asAdmin(code));
+
+export const adminDeleteGame = (code: string, id: string) =>
+    call<{ ok: true }>(
+        `/games/${encodeURIComponent(id)}`,
+        asAdmin(code, { method: "DELETE" }),
+    );
 
 /** Every answer carries the server's clock, for the clocks on the phones. */
 type Timed<T> = T & { now: number };

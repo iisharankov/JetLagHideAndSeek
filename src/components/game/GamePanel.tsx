@@ -33,6 +33,7 @@ import {
     setupDialog,
 } from "@/lib/context";
 import { formatDuration } from "@/lib/game/clock";
+import { enterCode, forgetCode, myCode } from "@/lib/game/codes";
 import { deckComposition } from "@/lib/game/deck";
 import { downloadGame } from "@/lib/game/download";
 import { knownGames } from "@/lib/game/knownGames";
@@ -556,6 +557,87 @@ const Scoreboard = ({ game }: { game: GameState }) => {
     );
 };
 
+/**
+ * Menu → Game, no game: the code that lets this phone start games (a
+ * creator code from the organiser, or the admin code), typed once.
+ */
+const CodeField = () => {
+    const $code = useStore(myCode);
+    const [typed, setTyped] = useState("");
+    const [busy, setBusy] = useState(false);
+    if ($code) {
+        return (
+            <p
+                className="flex items-center justify-between gap-2 text-xs text-slate-300"
+                data-testid="my-code"
+                data-tutorial-id="creator-code"
+            >
+                <span>
+                    {$code.kind === "admin"
+                        ? "Admin code: you can start games, and Menu → Admin is yours."
+                        : `Creator code "${$code.name}": you can start games.`}
+                </span>
+                <Button size="sm" variant="outline" onClick={forgetCode}>
+                    Forget
+                </Button>
+            </p>
+        );
+    }
+    return (
+        <form
+            className="flex flex-col gap-1"
+            data-tutorial-id="creator-code"
+            onSubmit={async (event) => {
+                event.preventDefault();
+                setBusy(true);
+                try {
+                    const { kind } = await enterCode(typed);
+                    setTyped("");
+                    toast.success(
+                        kind === "admin"
+                            ? "Admin code saved: Menu → Admin is open to you."
+                            : "Code saved: you can start games.",
+                        { autoClose: 4000 },
+                    );
+                } catch (error) {
+                    toast.error(errorMessage(error));
+                } finally {
+                    setBusy(false);
+                }
+            }}
+        >
+            <Label htmlFor="creator-code">Have a code?</Label>
+            <p className="text-xs text-slate-400">
+                Starting a game needs one, from whoever runs this site.
+            </p>
+            <div className="flex gap-2">
+                <Input
+                    id="creator-code"
+                    type="password"
+                    autoComplete="off"
+                    maxLength={64}
+                    placeholder="Creator or admin code"
+                    className="min-h-11"
+                    debounce={0}
+                    value={typed}
+                    onChange={(event) => setTyped(event.target.value)}
+                />
+                <Button
+                    type="submit"
+                    variant="outline"
+                    className="min-h-11"
+                    disabled={busy || typed.trim() === ""}
+                >
+                    Save
+                </Button>
+            </div>
+            <p className="text-xs text-slate-400">
+                Joining a game needs no code: open the link someone sent you.
+            </p>
+        </form>
+    );
+};
+
 /** Your name; in a game, the others see a new one once you leave the field. */
 const NameInput = () => {
     const $name = useStore(playerName);
@@ -719,6 +801,7 @@ export const GamePanel = () => {
     const $role = useStore(gameRole);
     const $name = useStore(playerName);
     const $me = useStore(myPlayer);
+    const $code = useStore(myCode);
     const $settings = useStore(gameSettings);
 
     const settings = $game?.settings ?? $settings;
@@ -776,12 +859,15 @@ export const GamePanel = () => {
                         settings are decided when the game starts.
                     </p>
                     <NameInput />
-                    <Button
-                        onClick={() => setupDialog.set("start")}
-                        data-tutorial-id="start-shared-game"
-                    >
-                        Start a shared game
-                    </Button>
+                    <CodeField />
+                    {$code && (
+                        <Button
+                            onClick={() => setupDialog.set("start")}
+                            data-tutorial-id="start-shared-game"
+                        >
+                            Start a shared game
+                        </Button>
+                    )}
                 </section>
                 <GamesList />
             </>

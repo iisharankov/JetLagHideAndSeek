@@ -1,5 +1,5 @@
 // The hider's spot and the Move card.
-import { applyClockAction } from "@/lib/game/clock";
+import { applyClockAction, clockState } from "@/lib/game/clock";
 import { moveMinutes } from "@/lib/game/curseRules";
 import { discardHand } from "@/lib/game/deck";
 import {
@@ -27,6 +27,28 @@ export const stationOf = (raw: unknown): StationPick | null => {
         lat: station.lat!,
         lng: station.lng!,
     };
+};
+
+/**
+ * Once the round's clock goes, the station is set: only a Move re-picks
+ * (the Hider tab says so; a second hider phone must not change it).
+ */
+export const assertStationOpen = (
+    state: GameState,
+    station: StationPick | null,
+) => {
+    const going = clockState(state.clock);
+    if (
+        state.hider?.station &&
+        station?.id !== state.hider.station.id &&
+        !state.move &&
+        (going === "running" || going === "paused")
+    ) {
+        throw new GameRuleError(
+            "The station is set for this round. Only playing Move changes it.",
+            409,
+        );
+    }
 };
 
 /** The hider's spot with some of it changed. */

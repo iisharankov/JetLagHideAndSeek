@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createApp, mayDelete } from "./app";
 
 const DAY = 24 * 3600 * 1000;
+/** The server's admin code: it makes games (see codes.test.ts). */
+const ADMIN = "admin-code-for-tests-123";
 import { createGameStore } from "./games";
 import { createPushService, type PushMessage, type PushService } from "./push";
 
@@ -33,7 +35,7 @@ beforeEach(() => {
         mkdtempSync(join(tmpdir(), "jetlag-api-")),
         { onChange: (before, after) => void push.notify(before, after) },
     );
-    app = createApp({ games, push });
+    app = createApp({ games, push, adminCode: ADMIN });
 });
 
 describe("health", () => {
@@ -52,12 +54,15 @@ const json = (body: unknown, headers: Record<string, string> = {}) => ({
 const newGame = async () => {
     const response = await app.request(
         "/api/games",
-        json({
-            playArea: { kind: "place" },
-            zone: {},
-            questions: [],
-            by: "Ana",
-        }),
+        json(
+            {
+                playArea: { kind: "place" },
+                zone: {},
+                questions: [],
+                by: "Ana",
+            },
+            { "X-Creator-Code": ADMIN },
+        ),
     );
     expect(response.status).toBe(201);
     const { state, organiserToken } = await response.json();
@@ -100,7 +105,10 @@ describe("shared games", () => {
     it("a game is for whoever started it to delete", async () => {
         const response = await app.request(
             "/api/games",
-            json({ playArea: { kind: "place" }, zone: {}, by: "Ana" }),
+            json(
+                { playArea: { kind: "place" }, zone: {}, by: "Ana" },
+                { "X-Creator-Code": ADMIN },
+            ),
         );
         const { state, organiserToken } = await response.json();
         expect(organiserToken).toMatch(/^[\w-]{20,}$/);
@@ -222,7 +230,7 @@ describe("shared games", () => {
         });
         const { token } = await claim(id);
         expect(typeof token).toBe("string");
-        expect((await claim(id, "wrong")).status).toBe(403);
+        expect((await claim(id, "wrong-password")).status).toBe(403);
 
         const asHider = await app.request(`/api/games/${id}`, {
             headers: { "X-Hider-Token": token },

@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const PORT = 4329;
-const API_PORT = 8788; // also in e2e/api.ts
+const API_PORT = 8788; // also in e2e/api.ts, with the admin code below
 
 export default defineConfig({
     testDir: "e2e",
@@ -29,7 +29,7 @@ export default defineConfig({
         {
             // The API for shared games (`pnpm build:server` first), with a
             // throwaway data folder. Tests route /api/ to it (e2e/api.ts).
-            command: `PORT=${API_PORT} DATA_DIR=$(mktemp -d) node server/dist/index.mjs`,
+            command: `PORT=${API_PORT} DATA_DIR=$(mktemp -d) ADMIN_CODE=e2e-admin-code-not-a-secret node server/dist/index.mjs`,
             url: `http://127.0.0.1:${API_PORT}/api/health`,
             reuseExistingServer: !process.env.CI,
             timeout: 30_000,

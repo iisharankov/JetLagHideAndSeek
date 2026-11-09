@@ -1,6 +1,6 @@
 import type { Browser, Page } from "@playwright/test";
 
-import { routeApi } from "./api";
+import { giveCreatorCode, routeApi } from "./api";
 import { expect, test } from "./fixtures";
 
 // Two phones in one shared game: a seeker (Ana) and the hider (Ben).
@@ -42,6 +42,8 @@ const preparePhone = async (page: Page, name: string, url = "/") => {
     );
     await page.route("**/data/**", (route) => route.fulfill({ status: 404 }));
     await routeApi(page);
+    // Every phone here could start a game (a creator code, as if typed).
+    await giveCreatorCode(page);
     await page.goto("/");
     await page.evaluate(
         ({ name, area }) => {
