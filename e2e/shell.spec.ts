@@ -85,9 +85,7 @@ test("the tab bar: Map hides the sheet, Questions comes back to the same questio
     // It's made, and open on its card with the chosen distance.
     const back = page.getByRole("button", { name: "All questions" });
     await expect(back).toBeInViewport();
-    await expect(
-        page.getByRole("button", { name: "5 km", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("distance-picker")).toContainText("5 km");
 
     // Map: the sheet goes; Questions: the same open question again.
     await bar.getByRole("button", { name: "Map" }).click();

@@ -49,12 +49,7 @@ import {
 } from "@/lib/game/hand";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameState, hiderPhone, sendOp } from "@/lib/game/session";
-import type {
-    Draw,
-    GameSize,
-    PowerupEntry,
-    SharedQuestion,
-} from "@/lib/game/types";
+import type { Draw, GameSize, SharedQuestion } from "@/lib/game/types";
 import { chosenStation } from "@/lib/hiderSpot";
 
 import { ActiveCurses } from "./ActiveCurses";
@@ -347,10 +342,7 @@ export const CardsPanel = () => {
         ($game?.freeQuestions ?? 0) > 0 ||
         (!digital &&
             active.some((entry) => curseRule(entry.name).freeQuestion));
-    const cleared = ($game?.curses ?? []).filter((c) => c.clearedAt).reverse();
-    const played: PowerupEntry[] = [...($game?.powerups ?? [])].reverse();
     const log = [...(deck?.log ?? [])].reverse();
-    const moves = [...($game?.moves ?? [])].reverse();
     const handSize = digital ? (deck?.hand.length ?? 0) : $hand.length;
     const limit = digital ? (deck?.limit ?? 6) : $limit;
     const over = hider && handSize > limit;
@@ -837,16 +829,7 @@ export const CardsPanel = () => {
             {$game && (
                 <ActiveCurses active={active} custom={custom} size={size} />
             )}
-            {$game && (
-                <CardHistory
-                    moves={moves}
-                    played={played}
-                    cleared={cleared}
-                    log={log}
-                    size={size}
-                    hiderReadyAt={$game.hiderReadyAt ?? null}
-                />
-            )}
+            {$game && <CardHistory state={$game} log={log} />}
             <CardDialog
                 card={open}
                 custom={custom}

@@ -118,13 +118,23 @@ export const showDemo = (id: DemoId) => {
 
     group.addTo(map);
     layer = group;
-    // Clear of the tutorial's note: at the bottom on a phone (above the
-    // sidebar button), on the left on a bigger screen.
+    // Clear of the tutorial's note: at the top on a phone (the example goes
+    // below it, above the tab bar), on the left on a bigger screen.
     const phone = window.innerWidth < 768;
     map.fitBounds(scene.bounds, {
-        paddingTopLeft: [phone ? 16 : 360, phone ? 16 : 40],
-        paddingBottomRight: [16, (phone ? 300 : 16) + mapBottomInset.get()],
+        paddingTopLeft: [phone ? 16 : 360, phone ? noteBottom() + 24 : 40],
+        paddingBottomRight: [16, 24 + mapBottomInset.get()],
     });
+};
+
+/**
+ * Where the tutorial's note ends on a phone: the note on screen (the step
+ * before's, about the same size), or a typical one below the top margin.
+ */
+const noteBottom = () => {
+    const note = document.querySelector('[data-testid="coach-mark"]');
+    const bottom = note?.getBoundingClientRect().bottom ?? 0;
+    return bottom > 0 ? bottom : 64 + 200;
 };
 
 /** Takes the example off the map; at the tour's end, the map goes back. */

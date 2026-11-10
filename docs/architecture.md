@@ -382,16 +382,16 @@ progress, the hider's spot, and earlier rounds.
   replaces them with the game's, and leaving it (or the game being
   deleted) drops them.
 - **The shell.** On phones a tab bar sits at the bottom (`TabBar.tsx`):
-  Map (hides the sheet; what was open stays open), the sidebar's sections
-  (Questions, Cards, Stations or Hider; Hider and Research while
-  the hider picks a station; their counts from `lib/game/tabBadges.ts`)
-  and Menu. The sections open a bottom sheet above the bar
-  (`ui/bottom-sheet.tsx` via `ui/sidebar-l.tsx`): half the screen or all
-  of it (`sheetSnap`), nothing dimmed behind it. Asking starts in the
-  Questions tab ("＋ Ask a question"; since round 40 nothing floats over
-  the map). On desktop the left sidebar with the sections as tabs at
-  its top. The Menu is a tab too (`MenuScreen.tsx`): the tab bar's Menu, or
-  the desktop's round button at the top right; Escape closes it.
+  Hider (or Stations) · Questions · Map · Cards · Menu (round 41: Map in
+  the middle, the way back to the map from anywhere; the counts from
+  `lib/game/tabBadges.ts`). A tab opens a panel over the whole screen above
+  the bar (`ui/bottom-sheet.tsx` via `ui/sidebar-l.tsx`): no handle, no
+  half height. Asking starts in the Questions tab. On desktop the left
+  sidebar with the sections as tabs at its top. The Menu is a tab too
+  (`MenuScreen.tsx`): the tab bar's Menu, or the desktop's round button at
+  the top right; Escape closes it. The hider's tabs are the same before
+  the station is set (round 41): the seekers may ask early; the hider's
+  research is a toggle inside Questions.
 - **Screens and Back** (`lib/screens.ts`): the open question
   (`openQuestion`) and over it the ask flow (`askFlow`: the types, then
   one kind's choices) are pushed screens with a ‹ Back; each adds a
@@ -411,12 +411,22 @@ progress, the hider's spot, and earlier rounds.
 - **The question card** (`components/cards/`, round 40): the header is ‹,
   the cost badge, the title and the **i**; then the game's status and its
   action; then labelled sections (`cards/parts.tsx`: `CardSection`, the
-  44 px `CHIP`s, `AnswerToggle` for Inside/Outside, Hotter/Colder,
+  44 px `CHIP`s, `DistancePicker`, `AnswerToggle` for Inside/Outside, Hotter/Colder,
   Same/Different, Closer/Further), the place as one "Asked from" row whose
   Change opens Use my location, typed or pasted coordinates and Copy
   (`LatLngPicker.tsx`); Hide from the map, Lock (alone) and Delete at the
   card's foot. Other layouts are drawn in
   `agentic_docs/plans/question-card/` (Q59).
+- **A card's distance** (radar, thermometer) is one button; the game's
+  distances, ×2 and Custom… open in a pop-up (`DistancePicker` in
+  `cards/parts.tsx`).
+- **The hider's station** (`HiderPanel.tsx`): "Choose from the list" opens
+  the stations in a pop-up with a search; the tab shows "Selected zone: …"
+  and Done; a pick flies the map to it.
+- **History** (Cards, `game/CardHistory.tsx` from `lib/game/history.ts`):
+  the round newest first: questions asked, answered and vetoed, photo
+  questions, curses cast and cleared, cards played, moves, the end game,
+  the digital deck's draws.
 - **Photo questions** (`components/game/PhotoRequests.tsx`): rows under
   the questions; a row pushes the photo question's screen (`pushedScreen`
   in `lib/screens.ts`): the rule, the time to send (10 or 20 minutes,

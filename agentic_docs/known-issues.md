@@ -1,6 +1,6 @@
 # Known issues
 
-Bugs and debt not fixed yet. Updated 2026-11-10 (round 40). A fixed item leaves this file in the round that fixes it.
+Bugs and debt not fixed yet. Updated 2026-11-10 (round 41). A fixed item leaves this file in the round that fixes it.
 
 ## From the game of 2026-11-08 (planned in history/plans/nov-game-fixes/)
 

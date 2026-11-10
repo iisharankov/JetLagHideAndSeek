@@ -13,7 +13,6 @@ import { SidebarContext } from "@/components/ui/sidebar-l";
 import { useTick } from "@/hooks/useTick";
 import { coachMark } from "@/lib/coachMark";
 import {
-    mapBottomInset,
     openQuestion,
     setupDialog,
     setupPage,
@@ -48,10 +47,8 @@ const WAIT_MS = 1_500;
  */
 const SETTLE_MS = 250;
 const RESTLESS_MS = 2_000;
-/** A note without a target: below the Menu button… */
+/** A note without a target: at the top (below the desktop's Menu button). */
 const TOP = 64;
-/** …or, on a phone with the sheet closed, above the sidebar button: clear of the toasts at the top, and in reach of a thumb. */
-const BOTTOM = 72;
 const PHONE = 768;
 
 const demoLayer = () => import("@/maps/tourDemoLayer");
@@ -163,7 +160,6 @@ const closeSetup = (opened: Opened) => {
 export const CoachMark = () => {
     const $mark = useStore(coachMark);
     const $tour = useStore(tour);
-    const $sheet = useStore(mapBottomInset);
     const step =
         $tour && $tour.step !== "offer" ? TOURS[$tour.id][$tour.step] : null;
     const offer =
@@ -337,8 +333,10 @@ export const CoachMark = () => {
     let left: number;
     let top: number;
     if (!rect && vw < PHONE) {
+        // At the top: the examples are framed below it, above the tab bar
+        // (maps/tourDemoLayer.ts).
         left = (vw - width) / 2;
-        top = $sheet === 0 ? vh - size.height - BOTTOM : TOP;
+        top = TOP;
     } else if (!rect) {
         // On the left of the map (beside the sidebar when it's open): the
         // examples are framed to the right of it (maps/tourDemoLayer.ts).

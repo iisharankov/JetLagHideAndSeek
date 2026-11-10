@@ -1,7 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 import { createGameOnApi, routeApi } from "./api";
-import { askQuestion, onPhone } from "./ask";
+import { askQuestion, chooseStation, onPhone } from "./ask";
 import { expect, test } from "./fixtures";
 import { menuScreen, openMenu } from "./menu";
 
@@ -491,11 +491,7 @@ test("tips come the first time something happens, once, and never over the stati
     await veteran(ben, id, "Ben");
     await ben.getByRole("button", { name: "I'm the hider" }).click();
     await expect(mark(ben)).toContainText("Pick your hiding spot");
-    await ben
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich HB");
     await ben.getByTestId("hider-done").click();
     // Its job done, the pointer goes.
     await expect(mark(ben)).toHaveCount(0);
@@ -535,4 +531,54 @@ test("tips come the first time something happens, once, and never over the stati
         expect.arrayContaining(["tip:hider-question", "tip:hider-draw"]),
     );
     expect(pageErrors).toEqual([]);
+});
+
+test("on a phone the examples sit on the map below the note, not under it", async ({
+    page,
+    externalHosts,
+}, testInfo) => {
+    test.skip(testInfo.project.name !== "phone", "the phone's layout");
+    void externalHosts;
+    await page.addInitScript(() =>
+        localStorage.setItem("showTutorials", "false"),
+    );
+    await page.goto("/");
+    await openMenu(page, "Help");
+    await page.getByRole("button", { name: "Hider tutorial" }).click();
+    const tabBar = (await page.getByTestId("tab-bar").boundingBox())!;
+    // Each step that draws an example: the zone, the radar, the end game…
+    for (let i = 0; i < 8; i++) {
+        const step = await mark(page).getAttribute("data-tour-step");
+        if ((await demo(page).count()) > 0) {
+            // Let the map settle where the step put it.
+            await page.waitForTimeout(1200);
+            const note = (await mark(page).boundingBox())!;
+            // The circles and zones, not a shading that covers the world.
+            const shapes = (
+                await demo(page).evaluateAll((paths) =>
+                    paths.map((path) => {
+                        const box = path.getBoundingClientRect();
+                        return {
+                            top: box.top,
+                            bottom: box.bottom,
+                            height: box.height,
+                        };
+                    }),
+                )
+            ).filter((box) => box.height < tabBar.y);
+            const top = Math.min(...shapes.map((box) => box.top));
+            const bottom = Math.max(...shapes.map((box) => box.bottom));
+            expect(top, `${step}: below the note`).toBeGreaterThanOrEqual(
+                note.y + note.height - 2,
+            );
+            expect(bottom, `${step}: above the tab bar`).toBeLessThanOrEqual(
+                tabBar.y + 2,
+            );
+        }
+        await mark(page).getByRole("button", { name: "Next" }).click();
+        await expect(mark(page)).not.toHaveAttribute(
+            "data-tour-step",
+            step ?? "",
+        );
+    }
 });

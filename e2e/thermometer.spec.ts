@@ -5,6 +5,7 @@ import type {
 } from "@playwright/test";
 
 import { createGameOnApi, routeApi } from "./api";
+import { chooseStation } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The thermometer as the rulebook plays it, with the phones' locations
@@ -106,11 +107,7 @@ test("a thermometer starts where the seekers are, is asked once they've travelle
     // Ben hides at Zürich HB.
     const ben = await phone(browser, viewport, "Ben", id);
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich HB");
     await ben.getByTestId("hider-done").click();
 
     // Ana seeks from HB, her location on.

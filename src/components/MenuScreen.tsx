@@ -1,7 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useEffect } from "react";
 
-import { sheetSnap } from "@/components/ui/bottom-sheet";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { withBase } from "@/lib/config";
 import {
@@ -48,8 +47,6 @@ export const openMenu = (tab?: MenuTab) => {
     }
     sidebarTab.set("menu");
     if (sidebar.isMobile) {
-        // The Menu has the whole screen on a phone (mock-up 16).
-        sheetSnap.set("full");
         sidebar.setOpenMobile(true);
     } else sidebar.setOpen(true);
 };

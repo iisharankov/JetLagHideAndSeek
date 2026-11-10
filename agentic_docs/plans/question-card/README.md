@@ -36,6 +36,11 @@ Good: you see what the guess does to the map while choosing (principle 3); every
 - `05-toggles-per-kind.png`: a segmented control (two big halves) where both words matter (Inside/Outside, Hotter/Colder); a switch where the question reads as yes/no ("Same airport as me"). And "from where" as one control with a cycle button instead of three icons.
 - `06-clock-in-header.png`: the hiding clock as a pill in the sheet's header instead of the bar at the bottom of every tab (it takes about a sixth of a half sheet today); a tap opens Start, Pause and Rest.
 
+## Since (round 41)
+
+- Your chat answer: a distance is one button ("10 km ▾"), its choices, ×2 and Custom… in a pop-up. Built on the radar and thermometer cards (`DistancePicker`).
+- Every tab is now full screen, Map in the middle of the tab bar: option D's "short card over the map" doesn't fit as drawn; its one-row ideas (the cycling "from where") still do.
+
 ## Suggested
 
-C's structure with D's height: the card as a short summary over the map with the guess toggle and Send, **Edit** reopening the ask screens, and the clock as a pill (06). It removes the duplicated controls (the ask flow and the card both choose the distance today) and keeps the map in view. A (built) is a sound fallback if you'd rather keep editing on the card.
+C's structure: the card as a summary with the guess toggle and Send, **Edit** reopening the ask screens, and the clock as a pill (06). It removes the duplicated controls (the ask flow and the card both choose the distance today). (Round 40 suggested D's height too; with full-screen tabs since round 41, the map is a tap away on the tab bar instead.) A, as built with the distance pop-up, is a sound fallback if you'd rather keep editing on the card.

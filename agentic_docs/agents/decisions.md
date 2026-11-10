@@ -2,6 +2,21 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 41: full-screen tabs, questions before the station, the station chooser, History
+
+| Decision | Why | From |
+|---|---|---|
+| **The phone's tab bar is Hider (or Stations) · Questions · Map · Cards · Menu; every tab is the whole screen above it, no handle, no half height, no close button** | the owner: Map in the middle "as a hotbar to always go back"; half a sheet showed only some of the questions | the owner (in chat) |
+| **The ‹ Back on pushed screens stays** | it's how a card or the ask flow goes back to its list; "remove the back button" read as the panel's close button | this round |
+| **The hider sees the seekers' questions before setting a station; the tabs don't change with the station; the Hider tab opens once** | the owner: seekers sometimes start early "to make the game more speedy" | the owner (in chat) |
+| **Until the station is set, answers come from the tapped station, or the pin** | the same rule as the research questions (`hiderAnswerPosition`); said in a note on Questions | this round |
+| **Research is a toggle inside Questions ("The seekers' \| My research"), shown while there's no station or research is left** | the owner's "research is a toggle" | the owner (in chat) |
+| **The station list is a pop-up with a search ("Choose from the list"); the Hider tab shows "Selected zone: …"; a pick flies the map there (on a phone, shows the map)** | the owner's design; the red circle was drawn but off screen | the owner (in chat) |
+| **History is one list, newest first, built from the game's state (`lib/game/history.ts`), open by itself, 30 lines then "Show all"** | the owner: "seekers asking questions, hiders answering them, cards played, etc."; one story on every phone | the owner (in chat) |
+| **History says who asked and answered, never where the hider is** (the station picked is "The hider picked their station") | the seekers read it too | this round |
+| **A card's distance is one button; the game's distances, ×2 and Custom… in a pop-up; Custom keeps it open with the number pad; custom distances in km** | the owner's chat answer to the mock-ups (Q59 in part); km/m toggle no longer needed (0.5 km is 500 m) | the owner (in chat) |
+| **On a phone the tutorial's note stays at the top; the examples are framed between it and the tab bar** | the owner: "map should go north a bit" | the owner (in chat) |
+
 ## 2026-11-10, round 40: the question card on phones, no Ask button over the map
 
 | Decision | Why | From |

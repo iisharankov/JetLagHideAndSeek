@@ -6,7 +6,7 @@ import type {
 } from "@playwright/test";
 
 import { API_PORT, createGameOnApi, routeApi } from "./api";
-import { askQuestion } from "./ask";
+import { askQuestion, chooseStation } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The phones' positions, with the browser's location faked: the seekers'
@@ -99,11 +99,7 @@ const phone = async (
 
 const joinAsHider = async (page: Page) => {
     await page.getByRole("button", { name: "I'm the hider" }).click();
-    await page
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(page, "Zürich HB");
     await page.getByTestId("hider-done").click();
 };
 

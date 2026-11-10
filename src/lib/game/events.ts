@@ -48,7 +48,8 @@ const LABELS: Record<string, string> = {
     measuring: "Measuring",
 };
 
-const label = (question: SharedQuestion) => {
+/** "Radar 10 km", "Matching (airport)": a question in a line. */
+export const label = (question: SharedQuestion) => {
     const data = question.data as {
         type?: string;
         locationType?: string;
@@ -70,7 +71,8 @@ const label = (question: SharedQuestion) => {
         : category;
 };
 
-const answerText = (question: SharedQuestion) => {
+/** The answer as the hider gave it ("Yes", "Colder"…). */
+export const answerText = (question: SharedQuestion) => {
     try {
         return describeAnswer(question as unknown as Question);
     } catch {

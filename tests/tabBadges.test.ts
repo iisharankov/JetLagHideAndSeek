@@ -4,12 +4,10 @@ import { sectionLabel, sidebarSections } from "@/lib/game/tabBadges";
 
 const base = {
     hider: false,
-    noStationYet: false,
     stationsTab: true,
     waitingQuestions: 0,
     waitingPhotos: 0,
     activeCurses: 0,
-    research: 0,
 };
 
 describe("the tab bar's sections", () => {
@@ -30,15 +28,15 @@ describe("the tab bar's sections", () => {
         ).not.toContain("Stations");
     });
 
-    it("are the Hider tab and Research only, while the hider picks a station", () => {
+    it("are the same while the hider picks a station: the seekers' questions are there already (research is a toggle inside)", () => {
         expect(
+            // (Whether the station is set doesn't change them any more.)
             sidebarSections({
                 ...base,
                 hider: true,
-                noStationYet: true,
-                research: 2,
+                waitingQuestions: 1,
             }).map(sectionLabel),
-        ).toEqual(["Hider", "Research (2)"]);
+        ).toEqual(["Questions (1)", "Cards", "Hider"]);
         // The hider's Questions count what waits for an answer: questions
         // and photos.
         expect(

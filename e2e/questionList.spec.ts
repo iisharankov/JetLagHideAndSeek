@@ -56,7 +56,7 @@ test("questions are rows; a row, or a pin, opens its card", async ({
 
     // A question's pin on the map opens its card too.
     if (testInfo.project.name === "phone") {
-        await page.getByRole("button", { name: "Close sidebar" }).click();
+        await page.getByRole("button", { name: "Map" }).click();
     }
     await page
         .locator('img.leaflet-marker-icon[alt="Question"]')

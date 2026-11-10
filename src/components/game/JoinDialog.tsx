@@ -41,7 +41,7 @@ const pointAtStationPick = () => {
     coachMark.set({
         target: '[data-tutorial-id="hider-pick"]',
         title: "Pick your hiding spot",
-        text: "Tap your station on the map, or Mine in this list; the red circle around it is your hiding zone. Then tap Done.",
+        text: "Tap your station on the map, or choose it from the list; the red circle around it is your hiding zone. Then tap Done.",
     });
 };
 

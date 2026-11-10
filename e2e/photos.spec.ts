@@ -183,9 +183,16 @@ test("a photo question shows its rule and time; the hider sends it, can't answer
     // …and Cards → History names the change.
     await ana.getByRole("button", { name: "Back" }).click();
     await ana.getByRole("radio", { name: /^Cards/ }).click();
-    await ana.getByText(/^History \(/).click();
-    await expect(ana.getByTestId("powerup-detail")).toContainText(
+    // History is open by itself: the card played, and what it changed.
+    await expect(ana.getByTestId("played-powerup")).toContainText(
         "Photo: Widest Street →",
+    );
+    // …and the rest of the round: who asked, what came back.
+    const history = ana.getByTestId("history");
+    await expect(history).toContainText("Ana asked for a photo: Tree");
+    await expect(history).toContainText("The hider sent the photo: Tree");
+    await expect(history).toContainText(
+        "The hider can't answer the photo: The Sky",
     );
 });
 

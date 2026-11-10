@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { Plus, SidebarCloseIcon } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { withErrorBoundary } from "@/components/ErrorBoundary";
@@ -14,7 +14,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { sheetSnap } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import {
     Sidebar,
@@ -98,40 +97,34 @@ export const QuestionSidebar = () => {
     const { isMobile } = useStore(SidebarContext);
     const $ask = useStore(askFlow);
     useEffect(() => wireBackButton(), []);
-    // The ask flow, a pushed screen (a photo question, the seekers) and a
-    // question waiting for this phone's answer need the room: the phone's
-    // sheet goes full height.
     const $screen = useStore(pushedScreen);
-    const $openKey = useStore(openQuestion);
-    const answering =
-        $openKey !== null &&
-        $game?.questions[String($openKey)]?.state === "asked" &&
-        ($role === "hider" || !!$game?.settings.seekersCanAnswer);
-    useEffect(() => {
-        if (isMobile && ($ask || $screen || answering)) sheetSnap.set("full");
-    }, [$ask !== null, $screen !== null, answering, isMobile]);
     // Which sections exist (the same as the phone's tab bar), and what
     // holds the hider in one: too many cards, no station yet.
-    const { sections, overLimit, noStationYet, stationsTab, hider } =
-        useSidebarSections();
+    const {
+        sections,
+        overLimit,
+        noStationYet,
+        stationsTab,
+        hider,
+        research: researchCount,
+    } = useSidebarSections();
     useEffect(() => {
         if (overLimit && tab !== "curses" && tab !== "menu")
             sidebarTab.set("curses");
     }, [overLimit, tab]);
     const move = $game?.move ?? null;
-    // The hider's first job in a game is their station: the other tabs
-    // wait until it's picked and confirmed.
+    // The hider's first job in a game is their station: the Hider tab
+    // opens on it once. The other tabs stay open: the seekers may ask
+    // before the hider has settled (round 41).
     useEffect(() => {
-        if (
-            noStationYet &&
-            tab !== "stations" &&
-            tab !== "research" &&
-            tab !== "menu"
-        ) {
-            sidebarTab.set("stations");
+        if (noStationYet) sidebarTab.set("stations");
+    }, [noStationYet]);
+    // The hider's research goes with the station's confirmation.
+    useEffect(() => {
+        if (!noStationYet && researchCount === 0 && tab === "research") {
+            sidebarTab.set("questions");
         }
-        if (!noStationYet && tab === "research") sidebarTab.set("stations");
-    }, [noStationYet, tab]);
+    }, [noStationYet, researchCount, tab]);
     // The Move card's period: counted down; when it's over the game goes on
     // by itself (whichever phone notices first).
     useTick(!!move);
@@ -164,6 +157,30 @@ export const QuestionSidebar = () => {
             )
         ) : null;
     const asking = askScreen(false);
+    // The hider, before the station is set (or with research left): the
+    // seekers' questions and their own research, one toggle (round 41).
+    const researchToggle =
+        hider && $game && (noStationYet || researchCount > 0) ? (
+            <div className="px-2 pt-2" data-tutorial-id="tab-research">
+                <SegmentedControl
+                    label="Questions to show"
+                    options={[
+                        { value: "questions", label: "The seekers'" },
+                        {
+                            value: "research",
+                            label:
+                                researchCount > 0
+                                    ? `My research (${researchCount})`
+                                    : "My research",
+                        },
+                    ]}
+                    value={tab === "research" ? "research" : "questions"}
+                    onValueChange={(value) =>
+                        sidebarTab.set(value as SidebarTab)
+                    }
+                />
+            </div>
+        ) : null;
     // A photo question, pushed over the Questions list.
     const photoScreen =
         $screen?.kind === "photo" ? (
@@ -264,16 +281,6 @@ export const QuestionSidebar = () => {
                 >
                     Reference
                 </a>
-                <button
-                    type="button"
-                    className="mr-2 md:hidden"
-                    aria-label="Close sidebar"
-                    onClick={() => {
-                        SidebarContext.get().setOpenMobile(false);
-                    }}
-                >
-                    <SidebarCloseIcon />
-                </button>
             </div>
             {$game && $connection === "retrying" && (
                 <p
@@ -292,15 +299,19 @@ export const QuestionSidebar = () => {
                         <SegmentedControl
                             label="Sidebar section"
                             options={tabOptions}
-                            value={tab}
+                            value={tab === "research" ? "questions" : tab}
                             onValueChange={sidebarTab.set}
                             disabled={overLimit}
                         />
                     </div>
                 )}
-                {noStationYet && (
-                    <p className="mt-1 text-xs text-amber-400">
-                        Questions and Cards come once your station is set.
+                {noStationYet && tab !== "stations" && tab !== "menu" && (
+                    <p
+                        className="mt-1 text-xs text-amber-400"
+                        data-testid="no-station-note"
+                    >
+                        No station yet: pick it in the Hider tab. Until then
+                        answers come from the station you tapped, or your pin.
                     </p>
                 )}
                 {overLimit && (
@@ -363,6 +374,7 @@ export const QuestionSidebar = () => {
                         (asking || photoScreen) && "hidden",
                     )}
                 >
+                    {!openAsked && researchToggle}
                     <CurseBanner />
                     {openAsked}
                     {!openAsked &&
@@ -414,6 +426,7 @@ export const QuestionSidebar = () => {
             <SidebarContent className={tab === "research" ? "" : "hidden"}>
                 {askingResearch}
                 <div className={cn("contents", askingResearch && "hidden")}>
+                    {!openResearch && researchToggle}
                     {openResearch}
                     <SidebarMenu
                         className={cn("px-2 pt-2", openResearch && "hidden")}

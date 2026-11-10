@@ -278,7 +278,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "pick",
             title: "Pick your station",
-            text: "Tap your station on the map, or **Mine** in the list; it turns red. Then tap **Done**: the seekers hear you're ready, not where.",
+            text: "Tap your station on the map, or **Choose from the list**; it turns red. Then tap **Done**: the seekers hear you're ready, not where.",
             target: [id("hider-pick")],
             sidebar: "open",
             tab: "stations",
@@ -288,9 +288,10 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "research",
             title: "Try it first",
-            text: "Before **Done**, **Research** questions are yours alone: see what a station would answer before you commit.",
-            target: [...tab("research")],
+            text: "Before **Done**, **My research** under Questions is yours alone: see what a station would answer before you commit.",
+            target: [id("tab-research")],
             sidebar: "open",
+            tab: "questions",
             optional: true,
         },
         {

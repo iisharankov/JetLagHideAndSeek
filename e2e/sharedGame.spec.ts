@@ -1,7 +1,13 @@
 import type { Browser, Page } from "@playwright/test";
 
 import { giveCreatorCode, routeApi } from "./api";
-import { askPhoto, askQuestion, openPhoto } from "./ask";
+import {
+    askPhoto,
+    askQuestion,
+    chooseStation,
+    openPhoto,
+    setDistance,
+} from "./ask";
 import { expect, test } from "./fixtures";
 import { closeMenu, menuScreen, openMenu } from "./menu";
 
@@ -100,11 +106,7 @@ const mockStations = (page: Page) =>
  * HB, near the middle of the play area.
  */
 const pickHiderStation = async (ben: Page) => {
-    await ben
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich HB");
     await ben.getByTestId("hider-done").click();
 };
 
@@ -139,7 +141,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(anaState).toHaveAttribute("data-state", "draft");
     // A draft's guessed answer shades the map as speculation (amber); the
     // 5 km radar card keeps it inside this play area.
-    await page.getByRole("button", { name: "5 km", exact: true }).click();
+    await setDistance(page, "5 km");
     // Drafts shade the map dashed, in the question's own colour.
     const speculation = page.locator('path[stroke-dasharray="6 4"]');
     await expect(speculation.first()).toBeAttached({ timeout: 20_000 });
@@ -156,27 +158,33 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await expect(ben.getByTestId("hider-panel")).toContainText(
         "Pick your station",
     );
-    // Until his station is picked, only the Hider and Research tabs exist:
-    // a research question is his alone, answered from his tapped station.
-    await expect(ben.getByRole("radio", { name: /^Questions/ })).toHaveCount(0);
-    await ben.getByRole("radio", { name: /^Research/ }).click();
+    // Before his station is picked the seekers' questions are already
+    // there (they may start early), and his own research is a toggle in
+    // Questions: his alone, answered from his tapped station.
+    await ben.getByRole("radio", { name: /^Questions/ }).click();
+    await expect(ben.getByTestId("no-station-note")).toBeVisible();
+    await ben.getByRole("radio", { name: "My research" }).click();
     await ben.getByTestId("add-research").click();
     await ben.getByTestId("ask-radius").click();
     await ben.getByRole("button", { name: "Add the question" }).click();
+    // It opens on its card; back on the list, the toggle counts it.
+    await ben.getByRole("button", { name: "All questions" }).click();
     await expect(
-        ben.getByRole("radio", { name: /^Research \(1\)/ }),
+        ben.getByRole("radio", { name: /^My research \(1\)/ }),
     ).toBeVisible();
     await ben.getByRole("radio", { name: "Hider" }).click();
     await pickHiderStation(ben);
-    await expect(ben.getByRole("radio", { name: /^Questions/ })).toBeVisible();
-    await expect(ben.getByRole("radio", { name: /^Research/ })).toHaveCount(0);
-    // Ana never saw it: her draft is the only question.
-    await expect(page.getByTestId("question-game-state")).toHaveCount(1);
     // Set for the round: only a Move changes it.
     await expect(ben.getByTestId("station-locked")).toBeVisible();
+    // His research went with the confirmation: no toggle any more.
+    await ben.getByRole("radio", { name: /^Questions/ }).click();
+    await expect(ben.getByRole("radio", { name: /^My research/ })).toHaveCount(
+        0,
+    );
+    // Ana never saw it: her draft is the only question.
+    await expect(page.getByTestId("question-game-state")).toHaveCount(1);
     // Ana hears that the hider is in place (in Cards → History too).
     await page.getByRole("radio", { name: /Cards/ }).click();
-    await page.getByText(/^History/).click();
     await expect(page.getByTestId("hider-ready")).toContainText(
         "The hider picked their station",
     );
@@ -221,9 +229,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     // Once asked, the question is a statement on both phones: no chips, no
     // result toggle.
     await expect(page.getByTestId("radius-fact")).toContainText("Within 5 km");
-    await expect(
-        page.getByRole("button", { name: "5 km", exact: true }),
-    ).toHaveCount(0);
+    await expect(page.getByTestId("distance-picker")).toHaveCount(0);
     await expect(ben.getByRole("radio", { name: "Inside" })).toHaveCount(0);
     // Ben picks "No": his map previews it; Send makes it the answer.
     await ben.getByRole("button", { name: "No", exact: true }).click();
@@ -346,19 +352,21 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     const mine = ben.locator('.leaflet-overlay-pane path[stroke="red"]');
     const stationIcons = ben.locator(".leaflet-marker-pane svg");
     const pin = ben.locator(".hider-marker");
-    await expect(benPanel.locator("li")).toHaveCount(2, { timeout: 30_000 });
+    // The list is behind "Choose from the list", not in the tab.
+    await expect(benPanel.getByTestId("hider-choose")).toContainText("(2)", {
+        timeout: 30_000,
+    });
+    await expect(benPanel.locator("li")).toHaveCount(0);
     await expect(stationIcons).toHaveCount(2);
     await expect(zones).toHaveCount(0);
     await expect(pin).toHaveCount(0);
-    await benPanel
-        .locator("li", { hasText: "Zürich Altstetten" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich Altstetten");
     await expect(ben.getByTestId("hider-station")).toContainText(
-        "Zürich Altstetten",
+        "Selected zone: Zürich Altstetten",
     );
-    // The tapped station's circle, alone.
+    // The chosen station's circle, alone, and the map there to show it.
     await expect(mine).toHaveCount(1);
+    await expect(mine).toBeInViewport();
     await expect(zones).toHaveCount(0);
     await expect(pin).toHaveCount(0);
     await ben.getByTestId("hider-done").click();
@@ -597,7 +605,7 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     const link = page.url();
     await closeMenu(page);
     await askQuestion(page, "Radius", "draft");
-    await page.getByRole("button", { name: "5 km", exact: true }).click();
+    await setDistance(page, "5 km");
     const send = page.getByRole("button", { name: "Send to the hider" });
     await expect(send).toBeEnabled();
     const banner = page.getByTestId("curse-banner");
@@ -672,9 +680,13 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     ).toHaveCount(0);
     // Ana's 5 km question is fine; the 500 m radar and the thermometer aren't.
     await expect(send).toBeEnabled();
+    await page.getByTestId("distance-picker").click();
     await expect(
-        page.getByRole("button", { name: "500 m", exact: true }),
+        page
+            .getByTestId("distance-options")
+            .getByRole("button", { name: /^500 m/ }),
     ).toBeDisabled();
+    await page.keyboard.press("Escape");
     // Adding is on the list, back from her open question.
     const allQuestions = page.getByRole("button", { name: "All questions" });
     const reopen = () =>

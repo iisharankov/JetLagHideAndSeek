@@ -5,11 +5,7 @@ import { atom } from "nanostores";
 import * as React from "react";
 import { TbMessage2Question } from "react-icons/tb";
 
-import {
-    BottomSheet,
-    sheetHeight,
-    sheetSnap,
-} from "@/components/ui/bottom-sheet";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -188,25 +184,12 @@ const Sidebar = React.forwardRef<
         },
         ref,
     ) => {
-        const { isMobile, state, openMobile, setOpenMobile } =
-            useStore(SidebarContext);
-        // Half the screen, or all of it; the map zooms to what's left above
-        // the half sheet.
-        const snap = useStore(sheetSnap);
-        const setSnap = sheetSnap.set;
+        const { isMobile, state, openMobile } = useStore(SidebarContext);
+        // The map keeps clear of the phone's tab bar (the panel covers the
+        // map whole when it's up: the map is framed for when it's down).
         React.useEffect(() => {
-            if (!openMobile) setSnap("half");
-        }, [openMobile]);
-        // The map keeps clear of the phone's tab bar, and of the sheet when
-        // it's up.
-        React.useEffect(() => {
-            mapBottomInset.set(
-                isMobile
-                    ? PHONE_TAB_BAR +
-                          (openMobile ? sheetHeight("half", PHONE_TAB_BAR) : 0)
-                    : 0,
-            );
-        }, [isMobile, openMobile]);
+            mapBottomInset.set(isMobile ? PHONE_TAB_BAR : 0);
+        }, [isMobile]);
 
         if (collapsible === "none") {
             return (
@@ -224,14 +207,10 @@ const Sidebar = React.forwardRef<
         }
 
         if (isMobile) {
-            // A bottom sheet, half the screen or all of it, with nothing
-            // dimmed: the map (and the game) stay in view and usable.
+            // The whole screen above the tab bar; Map brings the map back.
             return (
                 <BottomSheet
                     open={openMobile}
-                    snap={snap}
-                    onSnapChange={setSnap}
-                    onClose={() => setOpenMobile(false)}
                     bottomInset={PHONE_TAB_BAR}
                     data-sidebar="sidebar"
                     data-mobile="true"

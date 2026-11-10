@@ -6,6 +6,7 @@ import type {
 } from "@playwright/test";
 
 import { API_PORT, createGameOnApi, routeApi } from "./api";
+import { chooseStation } from "./ask";
 import { expect, test } from "./fixtures";
 
 // Two phones in a game made on the test API: who starts the end game when
@@ -126,11 +127,7 @@ test("seekers who can't see the stations: the hider starts the end game", async 
 
     const ben = await phone(browser, "Ben", state.id);
     await ben.getByRole("button", { name: "I'm the hider" }).click();
-    await ben
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich HB");
     await ben.getByTestId("hider-done").click();
 
     // The seekers reach the zone: Ben says so. It asks first, then waits
@@ -246,11 +243,7 @@ test("a second phone of the hiding team gets the station, not the pick; only one
     await ben
         .getByRole("button", { name: "Join as Ben · hiding with Foxes" })
         .click();
-    await ben
-        .getByTestId("hider-panel")
-        .locator("li", { hasText: "Zürich HB" })
-        .getByRole("button", { name: "Mine" })
-        .click({ timeout: 30_000 });
+    await chooseStation(ben, "Zürich HB");
     await ben.getByTestId("hider-done").click();
     await expect(ben.getByTestId("hider-station")).toContainText(
         "Your station: Zürich HB",

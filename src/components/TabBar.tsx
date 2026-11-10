@@ -5,7 +5,6 @@ import {
     Map as MapIcon,
     Menu as MenuIcon,
     MessageCircleQuestion,
-    Search,
     TrainFront,
 } from "lucide-react";
 
@@ -18,7 +17,11 @@ import {
     hiderPhone,
     zonesAllowed,
 } from "@/lib/game/session";
-import { sectionLabel, sidebarSections } from "@/lib/game/tabBadges";
+import {
+    type Section,
+    sectionLabel,
+    sidebarSections,
+} from "@/lib/game/tabBadges";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +58,6 @@ export const useSidebarSections = () => {
     const stationsTab = hider || $allowed || !!$endgame || !!$game?.revealedPin;
     const sections = sidebarSections({
         hider,
-        noStationYet,
         stationsTab,
         waitingQuestions:
             $game && $role === "hider"
@@ -68,20 +70,21 @@ export const useSidebarSections = () => {
             0,
         activeCurses:
             $game?.curses.filter((curse) => !curse.clearedAt).length ?? 0,
-        research: $questions.filter((q) => q.data.research).length,
     });
-    return { sections, overLimit, noStationYet, stationsTab, hider };
+    const research = $questions.filter((q) => q.data.research).length;
+    return { sections, overLimit, noStationYet, stationsTab, hider, research };
 };
 
 // The tour points at the items as data-tutorial-id="tab-questions",
-// data-tutorial-id="tab-stations", data-tutorial-id="tab-curses" and
-// data-tutorial-id="tab-research"
+// data-tutorial-id="tab-stations" and data-tutorial-id="tab-curses"
 // (built below from the section's value).
-const ICONS: Record<Exclude<SidebarTab, "menu">, typeof MapIcon> = {
+const ICONS: Record<
+    Exclude<SidebarTab, "menu" | "research">,
+    typeof MapIcon
+> = {
     questions: MessageCircleQuestion,
     stations: TrainFront,
     curses: Layers,
-    research: Search,
 };
 
 /**
@@ -96,8 +99,55 @@ export const TabBar = () => {
     if (!isMobile) return null;
     const item =
         "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold";
+    const section = (value: Section["value"]) => {
+        const found = sections.find((s) => s.value === value);
+        if (!found) return null;
+        const Icon = value === "stations" && hider ? EyeOff : ICONS[value];
+        // The hider's research is a view of Questions.
+        const on =
+            openMobile &&
+            (tab === value || (tab === "research" && value === "questions"));
+        return (
+            <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                aria-label={sectionLabel(found)}
+                disabled={overLimit && value !== "curses"}
+                className={cn(item, on && "text-white", "disabled:opacity-40")}
+                data-tutorial-id={`tab-${value}`}
+                onClick={() => {
+                    sidebarTab.set(value);
+                    setOpenMobile(true);
+                }}
+            >
+                <span
+                    className={cn(
+                        "flex h-8 w-10 items-center justify-center rounded-lg",
+                        on && "bg-blue-600",
+                    )}
+                >
+                    <Icon className="h-5 w-5" aria-hidden />
+                </span>
+                {found.name}
+                {found.count > 0 && (
+                    <span
+                        className="absolute right-[18%] top-1 min-w-4 rounded-full bg-red-500 px-1 text-[10px] text-white"
+                        aria-hidden
+                    >
+                        {found.count}
+                    </span>
+                )}
+            </button>
+        );
+    };
+    // Hider (or Stations) · Questions · Map in the middle · Cards · Menu
+    // (round 41): Map is always one thumb away.
     return (
         <nav
+            role="radiogroup"
+            aria-label="Sidebar section"
             className="fixed inset-x-0 bottom-0 z-[1036] flex border-t border-slate-700 bg-slate-950 text-slate-300"
             style={{
                 height: `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))`,
@@ -105,6 +155,8 @@ export const TabBar = () => {
             }}
             data-testid="tab-bar"
         >
+            {section("stations")}
+            {section("questions")}
             <button
                 type="button"
                 className={cn(item, !openMobile && "text-white")}
@@ -112,62 +164,17 @@ export const TabBar = () => {
                 onClick={() => setOpenMobile(false)}
                 data-tutorial-id="tab-map"
             >
-                <MapIcon className="h-6 w-6" aria-hidden />
+                <span
+                    className={cn(
+                        "flex h-8 w-10 items-center justify-center rounded-lg",
+                        !openMobile && "bg-blue-600",
+                    )}
+                >
+                    <MapIcon className="h-5 w-5" aria-hidden />
+                </span>
                 Map
             </button>
-            <div
-                role="radiogroup"
-                aria-label="Sidebar section"
-                className="flex min-w-0"
-                // One share per item, like Map and Menu: evenly spaced.
-                style={{ flex: sections.length }}
-            >
-                {sections.map((section) => {
-                    const Icon =
-                        section.value === "stations" && hider
-                            ? EyeOff
-                            : ICONS[section.value];
-                    const on = openMobile && tab === section.value;
-                    return (
-                        <button
-                            key={section.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={on}
-                            aria-label={sectionLabel(section)}
-                            disabled={overLimit && section.value !== "curses"}
-                            className={cn(
-                                item,
-                                on && "text-white",
-                                "disabled:opacity-40",
-                            )}
-                            data-tutorial-id={`tab-${section.value}`}
-                            onClick={() => {
-                                sidebarTab.set(section.value);
-                                setOpenMobile(true);
-                            }}
-                        >
-                            <span
-                                className={cn(
-                                    "flex h-8 w-10 items-center justify-center rounded-lg",
-                                    on && "bg-blue-600",
-                                )}
-                            >
-                                <Icon className="h-5 w-5" aria-hidden />
-                            </span>
-                            {section.name}
-                            {section.count > 0 && (
-                                <span
-                                    className="absolute right-[18%] top-1 min-w-4 rounded-full bg-red-500 px-1 text-[10px] text-white"
-                                    aria-hidden
-                                >
-                                    {section.count}
-                                </span>
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
+            {section("curses")}
             <button
                 type="button"
                 className={cn(
@@ -175,11 +182,18 @@ export const TabBar = () => {
                     openMobile && tab === "menu" && "text-white",
                 )}
                 aria-label="Menu"
-                data-tutorial-id="menu-button"
                 aria-pressed={openMobile && tab === "menu"}
+                data-tutorial-id="menu-button"
                 onClick={menuButton}
             >
-                <MenuIcon className="h-6 w-6" aria-hidden />
+                <span
+                    className={cn(
+                        "flex h-8 w-10 items-center justify-center rounded-lg",
+                        openMobile && tab === "menu" && "bg-blue-600",
+                    )}
+                >
+                    <MenuIcon className="h-5 w-5" aria-hidden />
+                </span>
                 Menu
             </button>
         </nav>

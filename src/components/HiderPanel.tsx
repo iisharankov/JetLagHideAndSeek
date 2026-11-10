@@ -13,6 +13,15 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Row, SwitchRow } from "@/components/ui/row";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { useTick } from "@/hooks/useTick";
@@ -50,6 +59,7 @@ import {
     showHiderPin,
 } from "@/lib/hiderSpot";
 import { pushedScreen, pushScreen } from "@/lib/screens";
+import { cn } from "@/lib/utils";
 import type { StationCircle } from "@/maps/api";
 import { extractStationLabel } from "@/maps/geo-utils";
 import {
@@ -115,50 +125,60 @@ export const HiderPanel = () => {
                     className="rounded-md bg-yellow-500/15 p-2"
                     data-tutorial-id="hider-pick"
                 >
-                    <strong>Pick your station.</strong> Every station is on the
-                    map. Tap yours, on the map or in the list: its hiding zone (
-                    {radius} around it) shows in red.
+                    <strong>Pick your station.</strong> Tap it on the map, or
+                    choose it from the list: its hiding zone ({radius} around
+                    it) shows in red.
                 </p>
-                {$pending && (
-                    <p data-testid="hider-station">
-                        Picked: <strong>{$pending.name}</strong> (tap Done to
-                        make it yours)
-                    </p>
-                )}
-                {stations.length === 0 && (
-                    <p className="text-xs text-slate-400">
-                        {$isLoading
-                            ? "Loading the stations…"
-                            : "No stations yet: the play area may still be loading."}
-                    </p>
-                )}
-                <ul className="flex max-h-[50vh] flex-col overflow-y-auto">
-                    {stations.map((station) => (
-                        <li
-                            key={stationId(station)}
-                            className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-accent"
-                        >
-                            <button
-                                type="button"
-                                className="flex-1 truncate text-left"
-                                title="Show on the map"
-                                onClick={() => goToStation(station)}
+                <Row
+                    icon="🚉"
+                    title={
+                        <span data-testid="hider-station">
+                            {$pending ? (
+                                <>
+                                    Selected zone:{" "}
+                                    <strong>{$pending.name}</strong>
+                                </>
+                            ) : (
+                                "Selected zone: none yet"
+                            )}
+                        </span>
+                    }
+                    sub={
+                        $pending
+                            ? "Tap Done to make it yours."
+                            : "Tap a station on the map, or choose it below."
+                    }
+                    right={
+                        $pending ? (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => goToPick($pending)}
                             >
-                                {label(station)}
-                            </button>
-                            <button
-                                type="button"
-                                className="rounded-md bg-slate-600 px-1.5 py-0.5 text-xs disabled:opacity-50"
-                                disabled={stationId(station) === $pending?.id}
-                                onClick={() => pickStation(station)}
-                            >
-                                {stationId(station) === $pending?.id
-                                    ? "Picked"
-                                    : "Mine"}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                                Show
+                            </Button>
+                        ) : undefined
+                    }
+                />
+                <StationChooser
+                    stations={stations}
+                    picked={$pending?.id ?? null}
+                    loading={$isLoading}
+                    onPick={(station) => {
+                        pickStation(station);
+                        // The red circle where you can see it: on a phone
+                        // the panel covers the map, so the map comes up.
+                        goToStation(station);
+                        const sidebar = SidebarContext.get();
+                        if (sidebar.isMobile) {
+                            sidebar.setOpenMobile(false);
+                            toast.info(
+                                `${label(station)}: its zone is in red. Back in Hider, tap Done to make it yours.`,
+                                { toastId: "station-picked" },
+                            );
+                        }
+                    }}
+                />
                 <div className="sticky bottom-0 bg-sidebar py-2">
                     <Button
                         className="h-12 w-full text-base font-semibold"
@@ -521,5 +541,117 @@ const SeekersScreen = () => {
                 ))}
             </ul>
         </div>
+    );
+};
+
+/**
+ * "Choose from the list": the stations in a pop-up, with a search; one tap
+ * picks it (round 41: the list no longer fills the Hider tab).
+ */
+const StationChooser = ({
+    stations,
+    picked,
+    loading,
+    onPick,
+}: {
+    stations: StationCircle[];
+    picked: string | null;
+    loading: boolean;
+    onPick: (station: StationCircle) => void;
+}) => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const typed = search.trim().toLowerCase();
+    const shown = typed
+        ? stations.filter((station) =>
+              label(station).toLowerCase().includes(typed),
+          )
+        : stations;
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setSearch("");
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button
+                    variant="outline"
+                    className="h-12 w-full text-base"
+                    disabled={stations.length === 0}
+                    data-testid="hider-choose"
+                >
+                    {stations.length === 0 ? (
+                        loading ? (
+                            "Loading the stations…"
+                        ) : (
+                            "No stations yet (the play area may be loading)"
+                        )
+                    ) : (
+                        <>
+                            Choose from the list{" "}
+                            <span className="text-slate-400">
+                                ({stations.length})
+                            </span>
+                        </>
+                    )}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="flex max-h-[85vh] flex-col">
+                <DialogHeader>
+                    <DialogTitle>Your station</DialogTitle>
+                    <DialogDescription>
+                        Its hiding zone shows in red on the map.
+                    </DialogDescription>
+                </DialogHeader>
+                <Input
+                    placeholder="Search the stations"
+                    aria-label="Search the stations"
+                    className="h-11 text-base"
+                    debounce={0}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                />
+                <ul
+                    className="-mx-2 min-h-0 flex-1 overflow-y-auto"
+                    data-testid="station-choices"
+                >
+                    {shown.map((station) => {
+                        const id = stationId(station);
+                        return (
+                            <li key={id}>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "flex min-h-12 w-full items-center gap-2 rounded-lg px-3 text-left text-base hover:bg-white/10",
+                                        id === picked &&
+                                            "bg-red-600/20 font-semibold",
+                                    )}
+                                    aria-pressed={id === picked}
+                                    onClick={() => {
+                                        onPick(station);
+                                        setOpen(false);
+                                        setSearch("");
+                                    }}
+                                >
+                                    <span className="flex-1 truncate">
+                                        {label(station)}
+                                    </span>
+                                    {id === picked && (
+                                        <span aria-hidden>✓</span>
+                                    )}
+                                </button>
+                            </li>
+                        );
+                    })}
+                    {shown.length === 0 && (
+                        <li className="px-3 py-2 text-sm text-slate-400">
+                            No station by that name.
+                        </li>
+                    )}
+                </ul>
+            </DialogContent>
+        </Dialog>
     );
 };

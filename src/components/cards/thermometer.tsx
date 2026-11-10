@@ -3,7 +3,6 @@ import { point } from "@turf/turf";
 import { useEffect, useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
-import { Input } from "@/components/ui/input";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
@@ -16,6 +15,7 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
+import { askedBefore, thermometerQuestion } from "@/lib/game/newQuestion";
 import { gameRole, gameState } from "@/lib/game/session";
 import { kmText } from "@/lib/game/thermometer";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
@@ -24,7 +24,7 @@ import { arcDistance } from "@/maps/geo-utils";
 import type { ThermometerQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen, useGameQuestionState } from "./base";
-import { AnswerToggle, CardSection, CHIP, CHIP_OFF, CHIP_ON } from "./parts";
+import { AnswerToggle, DistancePicker } from "./parts";
 
 const coordinates = (lat: number, lng: number) =>
     `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
@@ -52,9 +52,6 @@ const Travel = ({
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     const settings = $game?.settings ?? $settings;
     const distances = settings.thermometerKm;
-    const listed = distances.includes(data.distanceKm);
-    const [custom, setCustom] = useState(!listed);
-    const showCustom = custom || !listed;
     const locked = !data.drag || $isLoading || $role === "hider";
     const here = recentPosition();
 
@@ -87,68 +84,23 @@ const Travel = ({
                     Starts where you are. Travel the distance, then ask.
                 </p>
             </SidebarMenuItem>
-            <CardSection label="Distance">
-                <div
-                    className="flex flex-wrap gap-2"
-                    role="group"
-                    aria-label="Distance"
-                    data-testid="thermometer-distances"
-                >
-                    {distances.map((km) => {
-                        const on = !showCustom && data.distanceKm === km;
-                        return (
-                            <button
-                                key={km}
-                                type="button"
-                                disabled={locked}
-                                aria-pressed={on}
-                                className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}
-                                onClick={() => {
-                                    set({ distanceKm: km });
-                                    setCustom(false);
-                                }}
-                            >
-                                {km} km
-                            </button>
-                        );
-                    })}
-                    <button
-                        type="button"
-                        disabled={locked}
-                        aria-pressed={showCustom}
-                        className={cn(
-                            CHIP,
-                            showCustom
-                                ? CHIP_ON
-                                : "border border-dashed border-slate-500",
-                        )}
-                        onClick={() => setCustom(true)}
-                    >
-                        Custom…
-                    </button>
-                </div>
-                {showCustom && (
-                    <label className="flex flex-row items-center gap-2 text-sm">
-                        <Input
-                            type="number"
-                            inputMode="decimal"
-                            min={0.1}
-                            step={0.1}
-                            aria-label="Custom distance (km)"
-                            className="h-11 w-28 rounded-md p-2 text-base"
-                            value={data.distanceKm}
-                            disabled={locked}
-                            onChange={(e) => {
-                                const km = parseFloat(e.target.value);
-                                if (km > 0 && km <= 1000) {
-                                    set({ distanceKm: km });
-                                }
-                            }}
-                        />
-                        km
-                    </label>
-                )}
-            </CardSection>
+            <DistancePicker
+                value={data.distanceKm}
+                options={distances}
+                disabled={locked}
+                twice={(km) =>
+                    !!$game &&
+                    askedBefore(
+                        $game,
+                        thermometerQuestion(
+                            { lat: data.latA, lng: data.lngA },
+                            km,
+                            true,
+                        ),
+                    ) > 0
+                }
+                onChange={(km) => set({ distanceKm: km })}
+            />
             <SidebarMenuItem>
                 <div
                     className={cn(

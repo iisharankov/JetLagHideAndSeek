@@ -94,3 +94,31 @@ export const openPhoto = async (page: Page, name: string) => {
         .click();
     return page.getByTestId("photo-screen");
 };
+
+/**
+ * The hider picks a station: Hider tab → "Choose from the list" → its name
+ * (the button waits for the stations to load).
+ */
+export const chooseStation = async (page: Page, name: string) => {
+    if (onPhone(page))
+        await page.getByRole("radio", { name: /^Hider/ }).click();
+    await page.getByTestId("hider-choose").click({ timeout: 30_000 });
+    await page
+        .getByTestId("station-choices")
+        .getByRole("button", { name, exact: true })
+        .click();
+    // A phone shows the map (the zone in red): back to the Hider tab.
+    if (onPhone(page)) {
+        await dismissToasts(page);
+        await page.getByRole("radio", { name: /^Hider/ }).click();
+    }
+};
+
+/** A card's distance: its button, then the distance in the pop-up. */
+export const setDistance = async (page: Page, label: string) => {
+    await page.getByTestId("distance-picker").click();
+    await page
+        .getByTestId("distance-options")
+        .getByRole("button", { name: new RegExp(`^${label}`) })
+        .click();
+};

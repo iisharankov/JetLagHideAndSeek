@@ -1,13 +1,10 @@
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
-import { Input } from "@/components/ui/input";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { UnitToggle } from "@/components/UnitToggle";
 import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     gameSettings,
@@ -17,12 +14,13 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
+import { askedBefore, radarQuestion } from "@/lib/game/newQuestion";
 import { gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
-import { AnswerToggle, CardSection, CHIP, CHIP_OFF, CHIP_ON } from "./parts";
+import { AnswerToggle, DistancePicker } from "./parts";
 
 const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
 
@@ -45,13 +43,10 @@ export const RadiusQuestionComponent = ({
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     // Asked or answered: what was asked is a statement, not a choice.
     const frozen = useFrozen(questionKey);
-    // The game's radar distances, as cards; anything else is "custom".
+    // The game's radar distances; anything else is "custom".
     const radii = ($game?.settings ?? $settings).radarKm;
-    const listed = data.unit === "kilometers" && radii.includes(data.radius);
     // Radii a Curse of the Drained Brain took away.
     const gone = useTakenAway("radius").map(Number);
-    const [custom, setCustom] = useState(!listed);
-    const showCustom = custom || !listed;
     const locked = !data.drag || $isLoading;
     const label = `Radius
     ${
@@ -85,76 +80,24 @@ export const RadiusQuestionComponent = ({
                 </SidebarMenuItem>
             )}
             {!frozen && (
-                <CardSection label="Distance">
-                    <div
-                        className="flex flex-wrap gap-2"
-                        role="group"
-                        aria-label="Radius"
-                    >
-                        {radii.map((km) => {
-                            const on = !showCustom && data.radius === km;
-                            const taken = gone.includes(km);
-                            return (
-                                <button
-                                    key={km}
-                                    type="button"
-                                    disabled={locked || taken}
-                                    aria-pressed={on}
-                                    title={
-                                        taken
-                                            ? "Taken away by the Curse of the Drained Brain"
-                                            : undefined
-                                    }
-                                    className={cn(
-                                        CHIP,
-                                        on ? CHIP_ON : CHIP_OFF,
-                                        taken && "line-through",
-                                    )}
-                                    onClick={() => {
-                                        set({ radius: km, unit: "kilometers" });
-                                        setCustom(false);
-                                    }}
-                                >
-                                    {kmLabel(km)}
-                                </button>
-                            );
-                        })}
-                        <button
-                            type="button"
-                            disabled={locked}
-                            aria-pressed={showCustom}
-                            className={cn(
-                                CHIP,
-                                showCustom
-                                    ? CHIP_ON
-                                    : "border border-dashed border-slate-500",
-                            )}
-                            onClick={() => setCustom(true)}
-                        >
-                            Custom
-                        </button>
-                    </div>
-                    {showCustom && (
-                        <div className="flex flex-row items-center gap-2">
-                            <Input
-                                type="number"
-                                inputMode="decimal"
-                                aria-label="Custom radius"
-                                className="h-11 w-28 rounded-md p-2 text-base"
-                                value={data.radius}
-                                disabled={locked}
-                                onChange={(e) =>
-                                    set({ radius: parseFloat(e.target.value) })
-                                }
-                            />
-                            <UnitToggle
-                                unit={data.unit}
-                                disabled={locked}
-                                onChange={(unit) => set({ unit })}
-                            />
-                        </div>
-                    )}
-                </CardSection>
+                <DistancePicker
+                    value={
+                        data.unit === "meters"
+                            ? data.radius / 1000
+                            : data.radius
+                    }
+                    options={radii}
+                    taken={gone}
+                    disabled={locked}
+                    twice={(km) =>
+                        !!$game &&
+                        askedBefore(
+                            $game,
+                            radarQuestion({ lat: data.lat, lng: data.lng }, km),
+                        ) > 0
+                    }
+                    onChange={(km) => set({ radius: km, unit: "kilometers" })}
+                />
             )}
             <LatitudeLongitude
                 latitude={data.lat}

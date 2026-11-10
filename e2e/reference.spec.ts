@@ -143,7 +143,7 @@ test("metric only: the rules in km, no miles to choose, an old question in miles
         .getByTestId("question-list")
         .getByRole("button", { name: /^Question 1 · Radar/ })
         .click();
-    await expect(page.getByLabel("Custom radius")).toHaveValue("8.047");
+    await expect(page.getByTestId("distance-picker")).toContainText("8.047 km");
     await expect(page.getByText(/\bmiles?\b/i)).toHaveCount(0);
     // The map's scale bar: metres and kilometres only.
     await expect(page.locator(".leaflet-control-scale-imperial")).toHaveCount(
