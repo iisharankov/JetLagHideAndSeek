@@ -4,7 +4,6 @@ import * as React from "react";
 
 import { AdminLevelSelect } from "@/components/AdminLevelSelect";
 import CustomInitDialog from "@/components/CustomInitDialog";
-import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -14,6 +13,7 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { useTakenAway } from "@/hooks/useTakenAway";
+import { summaryTitle } from "@/lib/cardText";
 import {
     customInitPreference,
     displayHidingZones,
@@ -36,10 +36,18 @@ import {
     type MeasuringQuestion,
     measuringQuestionSchema,
     NO_GROUP,
+    type Question,
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
-import { AnswerToggle, CardSection } from "./parts";
+import {
+    type CardParts,
+    FixedRow,
+    LocationButton,
+    selectTrigger,
+    useWhere,
+} from "./layout";
+import { whereLine } from "./radius";
 
 export const MeasuringQuestionComponent = ({
     data,
@@ -163,12 +171,172 @@ export const MeasuringQuestionComponent = ({
             break;
     }
 
+    const where = useWhere(data.lat, data.lng);
+    const locked = !data.drag || $isLoading;
+    const parts: CardParts | null = frozen
+        ? null
+        : {
+              first: {
+                  label: "Type",
+                  render: (look) => (
+                      <Select
+                          trigger={selectTrigger(look, "Measuring Type")}
+                          options={adaptTypeOptions(
+                              Object.fromEntries(
+                                  measuringQuestionSchema.options
+                                      .filter((x) => x.description === NO_GROUP)
+                                      .flatMap((x) =>
+                                          determineUnionizedStrings(
+                                              x.shape.type,
+                                          ),
+                                      )
+                                      .map((x) => [
+                                          (x._def as any).value,
+                                          x.description,
+                                      ]),
+                              ),
+                              gameRules,
+                              data.type,
+                          )}
+                          groups={measuringQuestionSchema.options
+                              .filter((x) => x.description !== NO_GROUP)
+                              .map((x): [string, Record<string, string>] => [
+                                  x.description ?? "",
+                                  adaptTypeOptions(
+                                      Object.fromEntries(
+                                          determineUnionizedStrings(
+                                              x.shape.type,
+                                          ).map((x) => [
+                                              (x._def as any).value,
+                                              x.description,
+                                          ]),
+                                      ),
+                                      gameRules,
+                                      data.type,
+                                  ),
+                              ])
+                              .reduce(
+                                  (acc, [key, value]) => {
+                                      const values = {
+                                          disabled: false,
+                                          options: value,
+                                      };
+
+                                      if (acc[key]) {
+                                          acc[key].options = {
+                                              ...acc[key].options,
+                                              ...value,
+                                          };
+                                      } else {
+                                          acc[key] = values;
+                                      }
+
+                                      return acc;
+                                  },
+                                  {} as Record<
+                                      string,
+                                      {
+                                          disabled: boolean;
+                                          options: Record<string, string>;
+                                      }
+                                  >,
+                              )}
+                          value={data.type}
+                          onValueChange={async (value) => {
+                              if (value === "custom-measure") {
+                                  if ($customInitPref === "ask") {
+                                      setCustomDialogOpen(true);
+                                      return;
+                                  }
+                                  const patch: Record<string, unknown> = {
+                                      type: value,
+                                  };
+                                  if ($customInitPref === "blank") {
+                                      patch.geo = customGeo();
+                                  } else if ($customInitPref === "prefill") {
+                                      const boundary =
+                                          await determineMeasuringBoundary(
+                                              data,
+                                          );
+                                      patch.geo = customGeo(
+                                          boundary ? boundary : [],
+                                      );
+                                  }
+                                  set(patch as QuestionPatch);
+                                  return;
+                              }
+                              const cat = (data as { cat?: unknown }).cat;
+                              set({
+                                  type: value,
+                                  ...(value === "admin-measure" && !cat
+                                      ? { cat: { adminLevel: 4 } }
+                                      : {}),
+                              } as QuestionPatch);
+                          }}
+                          disabled={!data.drag || $isLoading}
+                      />
+                  ),
+              },
+              location: {
+                  label: "Location",
+                  render: (look) => (
+                      <LocationButton
+                          look={look}
+                          lat={data.lat}
+                          lng={data.lng}
+                          colorName={data.color}
+                          disabled={locked}
+                          onChange={(lat, lng) =>
+                              set({
+                                  lat: lat ?? data.lat,
+                                  lng: lng ?? data.lng,
+                              })
+                          }
+                      />
+                  ),
+              },
+              sentence: (first, location) =>
+                  data.type === "sea-level" ? (
+                      <>
+                          {first}: higher than {location}?
+                      </>
+                  ) : (
+                      <>
+                          Closer to {first} than {location}?
+                      </>
+                  ),
+              summary: {
+                  title: summaryTitle(
+                      { id: "measuring", data } as Question,
+                      where,
+                  ),
+                  sub: whereLine(where, data.lat, data.lng),
+              },
+              guess: {
+                  value: data.hiderCloser ? "closer" : "further",
+                  options:
+                      data.type === "sea-level"
+                          ? [
+                                { value: "closer", label: "Lower" },
+                                { value: "further", label: "Higher" },
+                            ]
+                          : [
+                                { value: "closer", label: "Closer" },
+                                { value: "further", label: "Further" },
+                            ],
+                  onChange: (value) => set({ hiderCloser: value === "closer" }),
+                  disabled: !!$hiderMode || locked,
+              },
+              extra: questionSpecific,
+          };
+
     return (
         <QuestionCard
             questionKey={questionKey}
             label={label}
             sub={sub}
             className={className}
+            parts={parts}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -189,141 +357,15 @@ export const MeasuringQuestionComponent = ({
                     setCustomDialogOpen(false);
                 }}
             />
-            {frozen ? (
-                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                    <p className="text-sm" data-testid="measuring-fact">
-                        <strong>
-                            {TYPES.measuring[
-                                data.type as keyof typeof TYPES.measuring
-                            ]?.label ?? data.type.replace(/[-_]/g, " ")}
-                        </strong>
-                    </p>
-                </SidebarMenuItem>
-            ) : (
-                <CardSection label="Type">
-                    <Select
-                        trigger="Measuring Type"
-                        options={adaptTypeOptions(
-                            Object.fromEntries(
-                                measuringQuestionSchema.options
-                                    .filter((x) => x.description === NO_GROUP)
-                                    .flatMap((x) =>
-                                        determineUnionizedStrings(x.shape.type),
-                                    )
-                                    .map((x) => [
-                                        (x._def as any).value,
-                                        x.description,
-                                    ]),
-                            ),
-                            gameRules,
-                            data.type,
-                        )}
-                        groups={measuringQuestionSchema.options
-                            .filter((x) => x.description !== NO_GROUP)
-                            .map((x): [string, Record<string, string>] => [
-                                x.description ?? "",
-                                adaptTypeOptions(
-                                    Object.fromEntries(
-                                        determineUnionizedStrings(
-                                            x.shape.type,
-                                        ).map((x) => [
-                                            (x._def as any).value,
-                                            x.description,
-                                        ]),
-                                    ),
-                                    gameRules,
-                                    data.type,
-                                ),
-                            ])
-                            .reduce(
-                                (acc, [key, value]) => {
-                                    const values = {
-                                        disabled: false,
-                                        options: value,
-                                    };
-
-                                    if (acc[key]) {
-                                        acc[key].options = {
-                                            ...acc[key].options,
-                                            ...value,
-                                        };
-                                    } else {
-                                        acc[key] = values;
-                                    }
-
-                                    return acc;
-                                },
-                                {} as Record<
-                                    string,
-                                    {
-                                        disabled: boolean;
-                                        options: Record<string, string>;
-                                    }
-                                >,
-                            )}
-                        value={data.type}
-                        onValueChange={async (value) => {
-                            if (value === "custom-measure") {
-                                if ($customInitPref === "ask") {
-                                    setCustomDialogOpen(true);
-                                    return;
-                                }
-                                const patch: Record<string, unknown> = {
-                                    type: value,
-                                };
-                                if ($customInitPref === "blank") {
-                                    patch.geo = customGeo();
-                                } else if ($customInitPref === "prefill") {
-                                    const boundary =
-                                        await determineMeasuringBoundary(data);
-                                    patch.geo = customGeo(
-                                        boundary ? boundary : [],
-                                    );
-                                }
-                                set(patch as QuestionPatch);
-                                return;
-                            }
-                            const cat = (data as { cat?: unknown }).cat;
-                            set({
-                                type: value,
-                                ...(value === "admin-measure" && !cat
-                                    ? { cat: { adminLevel: 4 } }
-                                    : {}),
-                            } as QuestionPatch);
-                        }}
-                        disabled={!data.drag || $isLoading}
-                    />
-                </CardSection>
-            )}
-            {!frozen && questionSpecific}
-            <LatitudeLongitude
-                latitude={data.lat}
-                longitude={data.lng}
-                colorName={data.color}
-                onChange={(lat, lng) =>
-                    set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
-                }
-                disabled={!data.drag || $isLoading}
-                readOnly={frozen}
-            />
-            {!frozen && (
-                <AnswerToggle
-                    value={data.hiderCloser ? "closer" : "further"}
-                    options={
-                        data.type === "sea-level"
-                            ? [
-                                  { value: "closer", label: "Lower" },
-                                  { value: "further", label: "Higher" },
-                              ]
-                            : [
-                                  { value: "closer", label: "Closer" },
-                                  { value: "further", label: "Further" },
-                              ]
+            {frozen && (
+                <FixedRow
+                    first={
+                        TYPES.measuring[
+                            data.type as keyof typeof TYPES.measuring
+                        ]?.label ?? data.type.replace(/[-_]/g, " ")
                     }
-                    onChange={(value) =>
-                        set({ hiderCloser: value === "closer" })
-                    }
-                    disabled={!!$hiderMode || !data.drag || $isLoading}
+                    testId="measuring-fact"
+                    place={{ lat: data.lat, lng: data.lng }}
                 />
             )}
         </QuestionCard>

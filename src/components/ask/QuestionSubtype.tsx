@@ -451,7 +451,7 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                         className="text-xs text-slate-400"
                         data-testid="asked-from"
                     >
-                        Asked from:{" "}
+                        Location:{" "}
                         {start?.here
                             ? `where you are (${start.lat.toFixed(4)}° N, ${start.lng.toFixed(4)}° E${
                                   start.here.accuracy

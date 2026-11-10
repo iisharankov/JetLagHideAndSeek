@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { point } from "@turf/turf";
+import { LocateFixed, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
@@ -7,6 +8,7 @@ import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
+import { summaryTitle } from "@/lib/cardText";
 import {
     gameSettings,
     hiderMode,
@@ -21,29 +23,58 @@ import { kmText } from "@/lib/game/thermometer";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 import { arcDistance } from "@/maps/geo-utils";
-import type { ThermometerQuestion } from "@/maps/schema";
+import type { Question, ThermometerQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen, useGameQuestionState } from "./base";
-import { AnswerToggle, DistancePicker } from "./parts";
+import { type CardParts, FixedRow, LocationButton } from "./layout";
+import { DistancePicker } from "./parts";
 
 const coordinates = (lat: number, lng: number) =>
     `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
 
-/**
- * A shared game's thermometer before it's asked (the rulebook's way): the
- * distance to travel, and where it starts (where the seekers are). The
- * buttons that start, ask and call it off are in the game bar below
- * (`ThermometerBar`).
- */
-const Travel = ({
+/** Where a game's thermometer starts: where you are, or its pin. */
+const StartShown = ({
     data,
-    questionKey,
-    armed,
+    look,
 }: {
     data: ThermometerQuestion;
-    questionKey: number;
-    armed: boolean;
+    look: "plain" | "token";
 }) => {
+    useStore(currentPosition);
+    const here = recentPosition();
+    const Icon = here ? LocateFixed : MapPin;
+    if (look === "token") return null;
+    return (
+        <div
+            className="flex min-h-12 items-center gap-2 rounded-xl border border-dashed border-slate-600 px-3"
+            data-testid="thermometer-start"
+        >
+            <Icon className="h-5 w-5 shrink-0 text-violet-300" aria-hidden />
+            <span className="min-w-0 flex-1 leading-tight">
+                <span className="block truncate text-base font-semibold">
+                    {here ? "Me · GPS" : "Pin"}
+                </span>
+                <span className="block truncate text-xs text-slate-400 tabular-nums">
+                    {here
+                        ? here.accuracy
+                            ? `±${Math.round(here.accuracy)} m`
+                            : coordinates(here.latitude, here.longitude)
+                        : `${data.latA.toFixed(4)}, ${data.lngA.toFixed(4)}`}
+                </span>
+            </span>
+        </div>
+    );
+};
+
+/**
+ * A shared game's thermometer before it's started (the rulebook's way):
+ * the distance to travel, and where it starts (where the seekers are).
+ * Start, then Ask, are the card's big button (`ThermometerBar`).
+ */
+const useTravelParts = (
+    data: ThermometerQuestion,
+    questionKey: number,
+): CardParts => {
     const $game = useStore(gameState);
     const $settings = useStore(gameSettings);
     const $role = useStore(gameRole);
@@ -54,90 +85,84 @@ const Travel = ({
     const distances = settings.thermometerKm;
     const locked = !data.drag || $isLoading || $role === "hider";
     const here = recentPosition();
-
-    if (armed) {
-        return (
-            <SidebarMenuItem>
-                <div
-                    className={cn(MENU_ITEM_CLASSNAME, "text-sm")}
-                    data-testid="thermometer-fact"
-                >
-                    {/* A paragraph, not a span: the row cuts a last span short. */}
-                    <p>
-                        <strong>{kmText(data.distanceKm)} km</strong> from the
-                        Start pin ({coordinates(data.latA, data.lngA)}), as the
-                        crow flies.
-                    </p>
-                </div>
-            </SidebarMenuItem>
-        );
-    }
-    return (
-        <>
-            <SidebarMenuItem>
-                <p
-                    className={cn(
-                        MENU_ITEM_CLASSNAME,
-                        "text-xs text-muted-foreground",
-                    )}
-                >
-                    Starts where you are. Travel the distance, then ask.
-                </p>
-            </SidebarMenuItem>
-            <DistancePicker
-                value={data.distanceKm}
-                options={distances}
-                disabled={locked}
-                asked={(km) =>
-                    askedBefore(
-                        $game,
-                        thermometerQuestion(
-                            { lat: data.latA, lng: data.lngA },
-                            km,
-                            true,
-                        ),
-                    )
-                }
-                onChange={(km) => set({ distanceKm: km })}
-            />
-            <SidebarMenuItem>
-                <div
-                    className={cn(
-                        MENU_ITEM_CLASSNAME,
-                        "flex justify-between gap-2 text-sm",
-                    )}
-                    data-testid="thermometer-start"
-                >
-                    <span>Start</span>
-                    <p className="text-right text-muted-foreground">
-                        {here
-                            ? `${coordinates(here.latitude, here.longitude)}${
-                                  here.accuracy
-                                      ? ` · ±${Math.round(here.accuracy)} m`
-                                      : ""
-                              }`
-                            : coordinates(data.latA, data.lngA)}
-                    </p>
-                </div>
-            </SidebarMenuItem>
-            {!here && $role === "seeker" && (
+    return {
+        first: {
+            label: "Distance",
+            render: (look) => (
+                <DistancePicker
+                    look={look}
+                    value={data.distanceKm}
+                    options={distances}
+                    disabled={locked}
+                    asked={(km) =>
+                        askedBefore(
+                            $game,
+                            thermometerQuestion(
+                                { lat: data.latA, lng: data.lngA },
+                                km,
+                                true,
+                            ),
+                        )
+                    }
+                    onChange={(km) => set({ distanceKm: km })}
+                />
+            ),
+        },
+        location: {
+            label: "Start",
+            render: (look) => <StartShown data={data} look={look} />,
+        },
+        sentence: (first) => <>After traveling {first}: hotter or colder?</>,
+        summary: {
+            title: summaryTitle(
+                { id: "thermometer", data } as unknown as Question,
+                "me",
+            ),
+            sub: here
+                ? `Starts where you are${here.accuracy ? ` · ±${Math.round(here.accuracy)} m` : ""}`
+                : "Starts at its pin (no position yet)",
+        },
+        guess: null,
+        extra: (
+            <>
                 <SidebarMenuItem>
                     <p
                         className={cn(
                             MENU_ITEM_CLASSNAME,
-                            "text-xs text-amber-300",
+                            "text-xs text-muted-foreground",
                         )}
-                        data-testid="thermometer-no-fix"
                     >
-                        No position yet: it would start from its pin on the map
-                        (drag it to where you are). Turn location on to start
-                        where you are.
+                        Starts where you are. Travel the distance, then ask.
                     </p>
                 </SidebarMenuItem>
-            )}
-        </>
-    );
+                {!here && $role === "seeker" && (
+                    <SidebarMenuItem>
+                        <p
+                            className={cn(
+                                MENU_ITEM_CLASSNAME,
+                                "text-xs text-amber-300",
+                            )}
+                            data-testid="thermometer-no-fix"
+                        >
+                            No position yet: it would start from its pin on the
+                            map (drag it to where you are). Turn location on to
+                            start where you are.
+                        </p>
+                    </SidebarMenuItem>
+                )}
+            </>
+        ),
+    };
 };
+
+/** Started: what's being travelled, fixed. */
+const Travelling = ({ data }: { data: ThermometerQuestion }) => (
+    <FixedRow
+        first={`${kmText(data.distanceKm)} km`}
+        testId="thermometer-fact"
+        place={{ lat: data.latA, lng: data.lngA, label: "Start" }}
+    />
+);
 
 export const ThermometerQuestionComponent = ({
     data,
@@ -199,6 +224,82 @@ export const ThermometerQuestionComponent = ({
     }, [data.latA, data.lngA, data.latB, data.lngB, DISTANCE_UNIT]);
 
     const unitLabel = "km";
+    const travelParts = useTravelParts(data, questionKey);
+    const locked = !data.drag || $isLoading;
+    const distanceLine = hasEnd && distanceValue !== null && (
+        <div className="px-3 text-sm text-muted-foreground">
+            Distance:{" "}
+            <span className="font-medium text-foreground">
+                {distanceValue.toFixed(2)} {unitLabel}
+            </span>
+        </div>
+    );
+    // Alone (or the hider's research): the two ends to drag, and the answer.
+    const endsParts: CardParts = {
+        first: {
+            label: "Start",
+            render: (look) => (
+                <LocationButton
+                    look={look}
+                    label="Start"
+                    lat={data.latA}
+                    lng={data.lngA}
+                    colorName={data.colorA}
+                    disabled={locked}
+                    onChange={(lat, lng) =>
+                        set({ latA: lat ?? data.latA, lngA: lng ?? data.lngA })
+                    }
+                />
+            ),
+        },
+        location:
+            data.latB !== null && data.lngB !== null
+                ? {
+                      label: "End",
+                      render: (look) => (
+                          <LocationButton
+                              look={look}
+                              label="End"
+                              lat={data.latB!}
+                              lng={data.lngB!}
+                              colorName={data.colorB}
+                              disabled={locked}
+                              onChange={(lat, lng) =>
+                                  set({
+                                      latB: lat ?? data.latB,
+                                      lngB: lng ?? data.lngB,
+                                  })
+                              }
+                          />
+                      ),
+                  }
+                : null,
+        sentence: (first, location) => (
+            <>
+                Hotter at {location} than {first}?
+            </>
+        ),
+        summary: {
+            title: summaryTitle(
+                { id: "thermometer", data } as unknown as Question,
+                "me",
+            ),
+            sub:
+                distanceValue !== null
+                    ? `${distanceValue.toFixed(2)} km from start to end`
+                    : "",
+        },
+        guess: {
+            value: data.warmer ? "warmer" : "colder",
+            options: [
+                { value: "warmer", label: "Hotter" },
+                { value: "colder", label: "Colder" },
+            ],
+            onChange: (value) => set({ warmer: value === "warmer" }),
+            disabled: !!$hiderMode || locked,
+        },
+        extra: distanceLine,
+    };
 
     return (
         <QuestionCard
@@ -206,14 +307,16 @@ export const ThermometerQuestionComponent = ({
             label={label}
             sub={sub}
             className={className}
+            parts={
+                frozen || state === "armed"
+                    ? null
+                    : travelling
+                      ? travelParts
+                      : endsParts
+            }
         >
-            {travelling ? (
-                <Travel
-                    data={data}
-                    questionKey={questionKey}
-                    armed={state === "armed"}
-                />
-            ) : (
+            {travelling && state === "armed" && <Travelling data={data} />}
+            {!travelling && frozen && (
                 <>
                     <LatitudeLongitude
                         latitude={data.latA}
@@ -227,7 +330,7 @@ export const ThermometerQuestionComponent = ({
                             })
                         }
                         disabled={!data.drag || $isLoading}
-                        readOnly={frozen}
+                        readOnly
                     />
 
                     {data.latB !== null && data.lngB !== null && (
@@ -243,32 +346,10 @@ export const ThermometerQuestionComponent = ({
                                 })
                             }
                             disabled={!data.drag || $isLoading}
-                            readOnly={frozen}
+                            readOnly
                         />
                     )}
-
-                    {hasEnd && distanceValue !== null && (
-                        <div className="px-2 text-sm text-muted-foreground">
-                            Distance:{" "}
-                            <span className="font-medium text-foreground">
-                                {distanceValue.toFixed(2)} {unitLabel}
-                            </span>
-                        </div>
-                    )}
-
-                    {!frozen && (
-                        <AnswerToggle
-                            value={data.warmer ? "warmer" : "colder"}
-                            options={[
-                                { value: "warmer", label: "Hotter" },
-                                { value: "colder", label: "Colder" },
-                            ]}
-                            onChange={(value) =>
-                                set({ warmer: value === "warmer" })
-                            }
-                            disabled={!!$hiderMode || !data.drag || $isLoading}
-                        />
-                    )}
+                    {distanceLine}
                 </>
             )}
         </QuestionCard>

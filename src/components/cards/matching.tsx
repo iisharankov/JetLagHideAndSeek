@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 
 import { AdminLevelSelect } from "@/components/AdminLevelSelect";
 import CustomInitDialog from "@/components/CustomInitDialog";
-import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
@@ -13,6 +12,7 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { useTakenAway } from "@/hooks/useTakenAway";
+import { summaryTitle } from "@/lib/cardText";
 import {
     customInitPreference,
     drawingQuestionKey,
@@ -36,10 +36,18 @@ import {
     type MatchingQuestion,
     matchingQuestionSchema,
     NO_GROUP,
+    type Question,
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
-import { AnswerToggle, CardSection } from "./parts";
+import {
+    type CardParts,
+    FixedRow,
+    LocationButton,
+    selectTrigger,
+    useWhere,
+} from "./layout";
+import { whereLine } from "./radius";
 
 /** Types whose places can be copied into a custom-points question. */
 const PREFILLABLE = [
@@ -170,12 +178,220 @@ export const MatchingQuestionComponent = ({
             }
     }
 
+    const where = useWhere(data.lat, data.lng);
+    const locked = !data.drag || $isLoading;
+    const lengths = data.type === "same-length-station";
+    const parts: CardParts | null = frozen
+        ? null
+        : {
+              first: {
+                  label: "Type",
+                  render: (look) => (
+                      <Select
+                          trigger={selectTrigger(look, "Matching Type")}
+                          options={adaptTypeOptions(
+                              Object.fromEntries(
+                                  matchingQuestionSchema.options
+                                      .filter((x) => x.description === NO_GROUP)
+                                      .flatMap((x) =>
+                                          determineUnionizedStrings(
+                                              x.shape.type,
+                                          ),
+                                      )
+                                      .map((x) => [
+                                          (x._def as any).value,
+                                          x.description,
+                                      ]),
+                              ),
+                              gameRules,
+                              data.type,
+                          )}
+                          groups={matchingQuestionSchema.options
+                              .filter((x) => x.description !== NO_GROUP)
+                              .map((x): [string, Record<string, string>] => [
+                                  x.description ?? "",
+                                  adaptTypeOptions(
+                                      Object.fromEntries(
+                                          determineUnionizedStrings(
+                                              x.shape.type,
+                                          ).map((x) => [
+                                              (x._def as any).value,
+                                              x.description,
+                                          ]),
+                                      ),
+                                      gameRules,
+                                      data.type,
+                                  ),
+                              ])
+                              .reduce(
+                                  (acc, [key, value]) => {
+                                      const values = {
+                                          disabled: false,
+                                          options: value,
+                                      };
+
+                                      if (acc[key]) {
+                                          acc[key].options = {
+                                              ...acc[key].options,
+                                              ...value,
+                                          };
+                                      } else {
+                                          acc[key] = values;
+                                      }
+
+                                      return acc;
+                                  },
+                                  {} as Record<
+                                      string,
+                                      {
+                                          disabled: boolean;
+                                          options: Record<string, string>;
+                                      }
+                                  >,
+                              )}
+                          value={data.type}
+                          onValueChange={async (value) => {
+                              // A zone question needs its category; keep any.
+                              const cat = (data as { cat?: unknown }).cat ?? {
+                                  adminLevel: 4,
+                              };
+                              if (
+                                  value === "custom-zone" ||
+                                  value === "custom-points"
+                              ) {
+                                  if ($customInitPref === "ask") {
+                                      setPendingCustomType(value);
+                                      setCustomDialogOpen(true);
+                                      return;
+                                  }
+                                  // Apply the preference without the dialog.
+                                  const patch: Record<string, unknown> = {
+                                      type: value,
+                                      cat,
+                                  };
+                                  if ($customInitPref === "blank") {
+                                      patch.geo =
+                                          value === "custom-zone"
+                                              ? undefined
+                                              : [];
+                                      toast.info(
+                                          value === "custom-zone"
+                                              ? "Please draw the zone on the map."
+                                              : "Please draw the points on the map.",
+                                      );
+                                  } else if ($customInitPref === "prefill") {
+                                      if (value === "custom-zone") {
+                                          patch.geo =
+                                              await determineMatchingBoundary(
+                                                  data,
+                                              );
+                                      } else if (
+                                          PREFILLABLE.includes(data.type)
+                                      ) {
+                                          patch.geo =
+                                              await findMatchingPlaces(data);
+                                      } else {
+                                          patch.geo = [];
+                                          toast.info(
+                                              "Please draw the points on the map.",
+                                          );
+                                      }
+                                  }
+                                  set(patch as QuestionPatch);
+                                  return;
+                              }
+
+                              set({
+                                  type: value,
+                                  cat,
+                                  ...(value === "same-length-station"
+                                      ? { lengthComparison: "same", same: true }
+                                      : {}),
+                              } as QuestionPatch);
+                          }}
+                          disabled={!data.drag || $isLoading}
+                      />
+                  ),
+              },
+              location:
+                  data.type === "custom-zone"
+                      ? null
+                      : {
+                            label: "Location",
+                            render: (look) => (
+                                <LocationButton
+                                    look={look}
+                                    lat={data.lat}
+                                    lng={data.lng}
+                                    colorName={data.color}
+                                    disabled={locked}
+                                    onChange={(lat, lng) =>
+                                        set({
+                                            lat: lat ?? data.lat,
+                                            lng: lng ?? data.lng,
+                                        })
+                                    }
+                                />
+                            ),
+                        },
+              sentence: (first, location) =>
+                  location ? (
+                      <>
+                          Same {first} as {location}?
+                      </>
+                  ) : (
+                      <>Same {first}?</>
+                  ),
+              summary: {
+                  title: summaryTitle(
+                      { id: "matching", data } as Question,
+                      where,
+                  ),
+                  sub:
+                      data.type === "custom-zone"
+                          ? "A zone you draw"
+                          : whereLine(where, data.lat, data.lng),
+              },
+              guess: lengths
+                  ? {
+                        value: data.lengthComparison
+                            ? data.lengthComparison
+                            : data.same === false
+                              ? "different"
+                              : "same",
+                        options: [
+                            { value: "shorter", label: "Shorter" },
+                            { value: "same", label: "Same" },
+                            { value: "longer", label: "Longer" },
+                        ],
+                        onChange: (value) => {
+                            if (value === "shorter" || value === "longer") {
+                                set({ lengthComparison: value });
+                            } else {
+                                set({ lengthComparison: "same", same: true });
+                            }
+                        },
+                        disabled: !!$hiderMode || locked,
+                    }
+                  : {
+                        value: data.same ? "same" : "different",
+                        options: [
+                            { value: "same", label: "Same" },
+                            { value: "different", label: "Different" },
+                        ],
+                        onChange: (value) => set({ same: value === "same" }),
+                        disabled: !!$hiderMode || locked,
+                    },
+              extra: questionSpecific,
+          };
+
     return (
         <QuestionCard
             questionKey={questionKey}
             label={label}
             sub={sub}
             className={className}
+            parts={parts}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -212,193 +428,20 @@ export const MatchingQuestionComponent = ({
                     setCustomDialogOpen(false);
                 }}
             />
-            {frozen ? (
-                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                    <p className="text-sm" data-testid="matching-fact">
-                        <strong>
-                            {TYPES.matching[
-                                data.type as keyof typeof TYPES.matching
-                            ]?.label ?? data.type.replace(/[-_]/g, " ")}
-                        </strong>
-                    </p>
-                </SidebarMenuItem>
-            ) : (
-                <CardSection label="Type">
-                    <Select
-                        trigger="Matching Type"
-                        options={adaptTypeOptions(
-                            Object.fromEntries(
-                                matchingQuestionSchema.options
-                                    .filter((x) => x.description === NO_GROUP)
-                                    .flatMap((x) =>
-                                        determineUnionizedStrings(x.shape.type),
-                                    )
-                                    .map((x) => [
-                                        (x._def as any).value,
-                                        x.description,
-                                    ]),
-                            ),
-                            gameRules,
-                            data.type,
-                        )}
-                        groups={matchingQuestionSchema.options
-                            .filter((x) => x.description !== NO_GROUP)
-                            .map((x): [string, Record<string, string>] => [
-                                x.description ?? "",
-                                adaptTypeOptions(
-                                    Object.fromEntries(
-                                        determineUnionizedStrings(
-                                            x.shape.type,
-                                        ).map((x) => [
-                                            (x._def as any).value,
-                                            x.description,
-                                        ]),
-                                    ),
-                                    gameRules,
-                                    data.type,
-                                ),
-                            ])
-                            .reduce(
-                                (acc, [key, value]) => {
-                                    const values = {
-                                        disabled: false,
-                                        options: value,
-                                    };
-
-                                    if (acc[key]) {
-                                        acc[key].options = {
-                                            ...acc[key].options,
-                                            ...value,
-                                        };
-                                    } else {
-                                        acc[key] = values;
-                                    }
-
-                                    return acc;
-                                },
-                                {} as Record<
-                                    string,
-                                    {
-                                        disabled: boolean;
-                                        options: Record<string, string>;
-                                    }
-                                >,
-                            )}
-                        value={data.type}
-                        onValueChange={async (value) => {
-                            // A zone question needs its category; keep any.
-                            const cat = (data as { cat?: unknown }).cat ?? {
-                                adminLevel: 4,
-                            };
-                            if (
-                                value === "custom-zone" ||
-                                value === "custom-points"
-                            ) {
-                                if ($customInitPref === "ask") {
-                                    setPendingCustomType(value);
-                                    setCustomDialogOpen(true);
-                                    return;
-                                }
-                                // Apply the preference without the dialog.
-                                const patch: Record<string, unknown> = {
-                                    type: value,
-                                    cat,
-                                };
-                                if ($customInitPref === "blank") {
-                                    patch.geo =
-                                        value === "custom-zone"
-                                            ? undefined
-                                            : [];
-                                    toast.info(
-                                        value === "custom-zone"
-                                            ? "Please draw the zone on the map."
-                                            : "Please draw the points on the map.",
-                                    );
-                                } else if ($customInitPref === "prefill") {
-                                    if (value === "custom-zone") {
-                                        patch.geo =
-                                            await determineMatchingBoundary(
-                                                data,
-                                            );
-                                    } else if (
-                                        PREFILLABLE.includes(data.type)
-                                    ) {
-                                        patch.geo =
-                                            await findMatchingPlaces(data);
-                                    } else {
-                                        patch.geo = [];
-                                        toast.info(
-                                            "Please draw the points on the map.",
-                                        );
-                                    }
-                                }
-                                set(patch as QuestionPatch);
-                                return;
-                            }
-
-                            set({
-                                type: value,
-                                cat,
-                                ...(value === "same-length-station"
-                                    ? { lengthComparison: "same", same: true }
-                                    : {}),
-                            } as QuestionPatch);
-                        }}
-                        disabled={!data.drag || $isLoading}
-                    />
-                </CardSection>
-            )}
-            {!frozen && questionSpecific}
-
-            {data.type !== "custom-zone" && (
-                <LatitudeLongitude
-                    latitude={data.lat}
-                    longitude={data.lng}
-                    colorName={data.color}
-                    onChange={(lat, lng) =>
-                        set({ lat: lat ?? data.lat, lng: lng ?? data.lng })
+            {frozen && (
+                <FixedRow
+                    first={
+                        TYPES.matching[data.type as keyof typeof TYPES.matching]
+                            ?.label ?? data.type.replace(/[-_]/g, " ")
                     }
-                    disabled={!data.drag || $isLoading}
-                    readOnly={frozen}
+                    testId="matching-fact"
+                    place={
+                        data.type === "custom-zone"
+                            ? null
+                            : { lat: data.lat, lng: data.lng }
+                    }
                 />
             )}
-            {!frozen &&
-                (data.type === "same-length-station" ? (
-                    <AnswerToggle
-                        value={
-                            data.lengthComparison
-                                ? data.lengthComparison
-                                : data.same === false
-                                  ? "different"
-                                  : "same"
-                        }
-                        options={[
-                            { value: "shorter", label: "Shorter" },
-                            { value: "same", label: "Same" },
-                            { value: "longer", label: "Longer" },
-                        ]}
-                        onChange={(value) => {
-                            if (value === "shorter" || value === "longer") {
-                                set({ lengthComparison: value });
-                            } else if (value === "same") {
-                                set({ lengthComparison: "same", same: true });
-                            } else {
-                                set({ same: false });
-                            }
-                        }}
-                        disabled={!!$hiderMode || !data.drag || $isLoading}
-                    />
-                ) : (
-                    <AnswerToggle
-                        value={data.same ? "same" : "different"}
-                        options={[
-                            { value: "same", label: "Same" },
-                            { value: "different", label: "Different" },
-                        ]}
-                        onChange={(value) => set({ same: value === "same" })}
-                        disabled={!!$hiderMode || !data.drag || $isLoading}
-                    />
-                ))}
         </QuestionCard>
     );
 };

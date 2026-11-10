@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-10 (round 45). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-10 (round 46). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–45) and S7 (your admin code on your phone).
+**Only 5 minutes?** S1 (deploy rounds 32–46), then try the three cards (Q59) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -10,13 +10,13 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones, redrawn in round 45 from your comments: the map on top and large, the controls at the thumb, in four layouts (A, B, C, D) with pictures. Q59 picks one. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
+- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones; A, B and C are built (round 46), switched in Settings. Q59 picks the one that stays. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
 
 ## Questions
 
-**Q59. The question card on phones.** Round 45 redrew all four options with your comments: the map on top and large, Distance and Location side by side, a small "What if", Send between Hide and Delete, ×2 beside the cost, no Draft strip. Which one: D (one row of buttons, picture 10), A (labelled sections, 11), B (a sentence, 12) or C (a summary with Edit, 13)? And the guess as one row, or as a chip on the map (picture 14)? (asked 2026-11-10, redrawn in round 45; your answers so far: the distance as one button with a pop-up, built in round 41; the clock at the top, built in round 45)
+**Q59. The question card: which layout stays?** Round 46 built all three you picked, to try over a few days: Menu → Settings → Question card: **Sections** (A, picture 11), **Sentence** (B, 12, one line on a phone), **Summary** (C, 13; Edit shows the Sections rows under it until Done). All have What if as the chip on the map, Location's pop-up, Send between Hide and Delete, and the map between the card's header and its controls. Once you've played with them: which one stays (the others go, and so does the setting)? (asked 2026-11-10, built in round 46)
 
-*Suggested:* D, with What if as one row.
+*Suggested:* decide after a real game; no default to suggest yet.
 
 > **Answer:**
 
@@ -36,7 +36,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–45 and check.** **Where:** the server, as root, after you commit and push round 45. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–46 and check.** **Where:** the server, as root, after you commit and push round 46. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

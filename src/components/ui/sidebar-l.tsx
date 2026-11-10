@@ -17,7 +17,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { mapBottomInset } from "@/lib/context";
+import { cardOverMap, mapBottomInset } from "@/lib/context";
 import { cn } from "@/lib/utils";
 
 /** The phone's tab bar (TabBar.tsx), which the sheet and the map keep clear of. */
@@ -185,6 +185,8 @@ const Sidebar = React.forwardRef<
         ref,
     ) => {
         const { isMobile, state, openMobile } = useStore(SidebarContext);
+        // An open question's card shows the map through its middle (round 46).
+        const $cardOverMap = useStore(cardOverMap);
         // The map keeps clear of the phone's tab bar (the panel covers the
         // map whole when it's up: the map is framed for when it's down).
         React.useEffect(() => {
@@ -211,6 +213,9 @@ const Sidebar = React.forwardRef<
             return (
                 <BottomSheet
                     open={openMobile}
+                    className={cn(
+                        $cardOverMap && "pointer-events-none bg-transparent",
+                    )}
                     bottomInset={PHONE_TAB_BAR}
                     data-sidebar="sidebar"
                     data-mobile="true"

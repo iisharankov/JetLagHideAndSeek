@@ -1,4 +1,3 @@
-import { useStore } from "@nanostores/react";
 import { type ReactNode, useState } from "react";
 
 import { RepeatBadge } from "@/components/ask/QuestionTypes";
@@ -8,13 +7,11 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { gameState } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
-// The pieces every question card is made of on a phone (round 40): a
-// labelled section per setting, big chips, and the answer as one two-way
-// (or three-way) toggle.
+// The pieces question cards are made of: a labelled section, big chips,
+// and the distance as one button with its pop-up (the answer is the What
+// if chip since round 46, in layout.tsx).
 
 /** A setting of the question: a small label over its control. */
 export const CardSection = ({
@@ -40,51 +37,6 @@ export const CHIP =
 export const CHIP_ON = "bg-blue-600 text-white";
 export const CHIP_OFF = "bg-slate-700 hover:bg-slate-600";
 
-/**
- * The answer: alone it's what the hider said; in a game, on a draft, what
- * the map shows as a guess until the hider answers.
- */
-export const AnswerToggle = <T extends string>({
-    value,
-    options,
-    onChange,
-    disabled,
-}: {
-    value: T;
-    options: { value: T; label: string }[];
-    onChange: (value: T) => void;
-    disabled?: boolean;
-}) => {
-    const $game = useStore(gameState);
-    return (
-        <CardSection
-            label={$game ? "Show the map as if the answer is" : "Answer"}
-        >
-            <ToggleGroup
-                type="single"
-                value={value}
-                onValueChange={(next) => next && onChange(next as T)}
-                disabled={disabled}
-                className="grid w-full gap-0 overflow-hidden rounded-xl border border-slate-600"
-                style={{
-                    gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
-                }}
-                data-testid="answer-toggle"
-            >
-                {options.map((option) => (
-                    <ToggleGroupItem
-                        key={option.value}
-                        value={option.value}
-                        className="h-12 rounded-none border-r border-slate-600 text-base font-semibold last:border-r-0 data-[state=on]:bg-blue-600 data-[state=on]:text-white"
-                    >
-                        {option.label}
-                    </ToggleGroupItem>
-                ))}
-            </ToggleGroup>
-        </CardSection>
-    );
-};
-
 /** "500 m", "10 km". */
 export const kmLabel = (km: number) =>
     km < 1 ? `${Math.round(km * 1000)} m` : `${km} km`;
@@ -102,6 +54,7 @@ export const DistancePicker = ({
     taken = [],
     disabled,
     label = "Distance",
+    look = "section",
 }: {
     value: number;
     options: number[];
@@ -112,6 +65,11 @@ export const DistancePicker = ({
     taken?: number[];
     disabled?: boolean;
     label?: string;
+    /**
+     * "section": under its own label; "plain": the button alone (a row of
+     * the card's layout labels it); "token": a word in the sentence.
+     */
+    look?: "section" | "plain" | "token";
 }) => {
     const [open, setOpen] = useState(false);
     const [custom, setCustom] = useState(false);
@@ -121,122 +79,133 @@ export const DistancePicker = ({
         setOpen(false);
         setCustom(false);
     };
-    return (
-        <CardSection label={label}>
-            <Popover
-                open={open}
-                onOpenChange={(next) => (next ? setOpen(true) : close())}
-            >
-                <PopoverTrigger asChild>
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        className="flex min-h-12 w-full items-center justify-between rounded-xl border border-slate-600 bg-slate-800/60 px-4 text-left text-lg font-semibold hover:bg-slate-800 disabled:opacity-50"
-                        aria-label={`${label}: ${kmLabel(value)}`}
-                        data-testid="distance-picker"
-                    >
-                        <span>
-                            {kmLabel(value)}
-                            {!listed && (
-                                <span className="ml-2 text-sm font-normal text-slate-400">
-                                    custom
-                                </span>
-                            )}
+    const token = look === "token";
+    const picker = (
+        <Popover
+            open={open}
+            onOpenChange={(next) => (next ? setOpen(true) : close())}
+        >
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    disabled={disabled}
+                    className={
+                        token
+                            ? "inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-2.5 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+                            : "flex min-h-12 w-full items-center justify-between rounded-xl border border-slate-600 bg-slate-800/60 px-4 text-left text-lg font-semibold hover:bg-slate-800 disabled:opacity-50"
+                    }
+                    aria-label={`${label}: ${kmLabel(value)}`}
+                    data-testid="distance-picker"
+                >
+                    <span className="whitespace-nowrap">
+                        {kmLabel(value)}
+                        {!listed && !token && (
+                            <span className="ml-2 text-sm font-normal text-slate-400">
+                                custom
+                            </span>
+                        )}
+                        {!token && (
                             <RepeatBadge
                                 before={asked?.(value) ?? 0}
                                 className="ml-2 align-middle"
                             />
-                        </span>
-                        <span className="text-slate-400" aria-hidden>
-                            ▾
-                        </span>
-                    </button>
-                </PopoverTrigger>
-                <PopoverContent
-                    className="w-[min(22rem,calc(100vw-2rem))] border-slate-700 bg-slate-900 p-3 text-white"
-                    data-testid="distance-options"
-                >
-                    <div className="grid grid-cols-3 gap-2">
-                        {options.map((km) => (
-                            <button
-                                key={km}
-                                type="button"
-                                aria-pressed={listed && km === value}
-                                disabled={taken.includes(km)}
-                                title={
-                                    taken.includes(km)
-                                        ? "Taken away by the Curse of the Drained Brain"
-                                        : undefined
-                                }
-                                className={cn(
-                                    CHIP,
-                                    listed && km === value ? CHIP_ON : CHIP_OFF,
-                                    taken.includes(km) && "line-through",
-                                )}
-                                onClick={() => {
-                                    onChange(km);
-                                    close();
-                                }}
-                            >
-                                {kmLabel(km)}
-                                <RepeatBadge
-                                    before={asked?.(km) ?? 0}
-                                    className="absolute -right-1 -top-2"
-                                />
-                            </button>
-                        ))}
+                        )}
+                    </span>
+                    <span
+                        className={token ? "text-blue-100" : "text-slate-400"}
+                        aria-hidden
+                    >
+                        ▾
+                    </span>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[min(22rem,calc(100vw-2rem))] border-slate-700 bg-slate-900 p-3 text-white"
+                data-testid="distance-options"
+            >
+                <div className="grid grid-cols-3 gap-2">
+                    {options.map((km) => (
                         <button
+                            key={km}
                             type="button"
-                            aria-pressed={custom || !listed}
+                            aria-pressed={listed && km === value}
+                            disabled={taken.includes(km)}
+                            title={
+                                taken.includes(km)
+                                    ? "Taken away by the Curse of the Drained Brain"
+                                    : undefined
+                            }
                             className={cn(
                                 CHIP,
-                                custom || !listed
-                                    ? CHIP_ON
-                                    : "border border-dashed border-slate-500",
+                                listed && km === value ? CHIP_ON : CHIP_OFF,
+                                taken.includes(km) && "line-through",
                             )}
                             onClick={() => {
-                                setCustom(true);
-                                setTyped(String(value));
+                                onChange(km);
+                                close();
                             }}
                         >
-                            Custom…
-                        </button>
-                    </div>
-                    {custom && (
-                        <form
-                            className="mt-3 flex items-center gap-2"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                const km = parseFloat(typed.replace(",", "."));
-                                if (km > 0 && km <= 1000) {
-                                    onChange(km);
-                                    close();
-                                }
-                            }}
-                        >
-                            <input
-                                // The number pad, at once.
-                                autoFocus
-                                type="number"
-                                inputMode="decimal"
-                                step="any"
-                                min={0.1}
-                                max={1000}
-                                aria-label="Custom distance (km)"
-                                className="h-11 w-28 rounded-md border border-slate-600 bg-slate-950 px-2 text-base"
-                                value={typed}
-                                onChange={(event) =>
-                                    setTyped(event.target.value)
-                                }
+                            {kmLabel(km)}
+                            <RepeatBadge
+                                before={asked?.(km) ?? 0}
+                                className="absolute -right-1 -top-2"
                             />
-                            <span>km</span>
-                            <Button type="submit" className="ml-auto">
-                                OK
-                            </Button>
-                        </form>
-                    )}
-                </PopoverContent>
-            </Popover>
-        </CardSection>
+                        </button>
+                    ))}
+                    <button
+                        type="button"
+                        aria-pressed={custom || !listed}
+                        className={cn(
+                            CHIP,
+                            custom || !listed
+                                ? CHIP_ON
+                                : "border border-dashed border-slate-500",
+                        )}
+                        onClick={() => {
+                            setCustom(true);
+                            setTyped(String(value));
+                        }}
+                    >
+                        Custom…
+                    </button>
+                </div>
+                {custom && (
+                    <form
+                        className="mt-3 flex items-center gap-2"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            const km = parseFloat(typed.replace(",", "."));
+                            if (km > 0 && km <= 1000) {
+                                onChange(km);
+                                close();
+                            }
+                        }}
+                    >
+                        <input
+                            // The number pad, at once.
+                            autoFocus
+                            type="number"
+                            inputMode="decimal"
+                            step="any"
+                            min={0.1}
+                            max={1000}
+                            aria-label="Custom distance (km)"
+                            className="h-11 w-28 rounded-md border border-slate-600 bg-slate-950 px-2 text-base"
+                            value={typed}
+                            onChange={(event) => setTyped(event.target.value)}
+                        />
+                        <span>km</span>
+                        <Button type="submit" className="ml-auto">
+                            OK
+                        </Button>
+                    </form>
+                )}
+            </PopoverContent>
+        </Popover>
+    );
+    return look === "section" ? (
+        <CardSection label={label}>{picker}</CardSection>
+    ) : (
+        picker
     );
 };

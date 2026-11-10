@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDebounce } from "@/hooks/useDebounce";
 import { busy, isLoading } from "@/lib/context";
-import { describeGeoError, locate } from "@/lib/geolocation";
+import { describeGeoError, lastFix, locate } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 import { determineName, geocode, ICON_COLORS } from "@/maps/api";
 
@@ -237,10 +237,147 @@ const LatLngEditForm = ({
 };
 
 /** "47.35650° N, 8.54359° E". */
-const coordinatesText = (latitude: number, longitude: number) =>
+export const coordinatesText = (latitude: number, longitude: number) =>
     `${Math.abs(latitude).toFixed(5)}° ${latitude > 0 ? "N" : "S"}, ${Math.abs(
         longitude,
     ).toFixed(5)}° ${longitude > 0 ? "E" : "W"}`;
+
+type OnChange = (lat: number | null, lng: number | null) => void;
+
+/** Moves the point to where the phone is. */
+export const locateTo = (onChange: OnChange) => {
+    const done = busy.begin();
+    toast.promise(
+        locate()
+            .then((position) => {
+                lastFix.set({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    at: Date.now(),
+                });
+                onChange(position.coords.latitude, position.coords.longitude);
+            })
+            .finally(done),
+        {
+            pending: "Getting your location…",
+            success: { render: "Location set", autoClose: 500 },
+            error: {
+                render: ({ data }) => describeGeoError(data),
+                autoClose: 12000,
+            },
+        },
+    );
+};
+
+/** Moves the point to coordinates found in the clipboard. */
+export const pasteTo = (onChange: OnChange) => {
+    if (!navigator?.clipboard) {
+        toast.error("Clipboard API not supported in your browser");
+        return;
+    }
+    const done = busy.begin();
+    toast.promise(
+        navigator.clipboard
+            .readText()
+            .then((text) => {
+                const coords = parseCoordinatesFromText(text);
+                if (coords.lat !== null && coords.lng !== null) {
+                    onChange(coords.lat, coords.lng);
+                    return;
+                }
+                throw new Error(
+                    "Could not find coordinates in clipboard content",
+                );
+            })
+            .finally(done),
+        {
+            pending: "Reading from clipboard",
+            success: "Coordinates set from clipboard",
+            error: "No valid coordinates found in clipboard",
+        },
+        { autoClose: 1000 },
+    );
+};
+
+/** Copies the point's coordinates. */
+export const copyCoordinates = (latitude: number, longitude: number) => {
+    if (!navigator?.clipboard) {
+        toast.error("Clipboard API not supported in your browser");
+        return;
+    }
+    toast.promise(
+        navigator.clipboard.writeText(coordinatesText(latitude, longitude)),
+        {
+            pending: "Copying…",
+            success: "Coordinates copied",
+            error: "Couldn't copy the coordinates",
+        },
+        { autoClose: 1000 },
+    );
+};
+
+/**
+ * The coordinates typed, searched or pasted, in a dialog: the card's
+ * Location → "Type or paste coordinates", and the row's Change.
+ */
+export const CoordinatesEditor = ({
+    title,
+    latitude,
+    longitude,
+    onChange,
+    disabled,
+}: {
+    title: string;
+    latitude: number;
+    longitude: number;
+    onChange: OnChange;
+    disabled?: boolean;
+}) => (
+    <DialogContent>
+        <DialogHeader>
+            <DialogTitle className="text-2xl">{title}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+            Or drag the pin on the map.
+        </p>
+        <DialogClose asChild>
+            <Button
+                className="h-12 text-base"
+                onClick={() => locateTo(onChange)}
+                disabled={disabled}
+                title="Set to current location"
+            >
+                <LocateIcon /> Use my location
+            </Button>
+        </DialogClose>
+        <LatLngEditForm
+            latitude={latitude}
+            longitude={longitude}
+            onChange={onChange}
+            disabled={disabled}
+        />
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid">
+            <Button
+                variant="outline"
+                onClick={() => pasteTo(onChange)}
+                disabled={disabled}
+            >
+                <ClipboardPasteIcon /> Paste
+            </Button>
+            <Button
+                variant="outline"
+                onClick={() => copyCoordinates(latitude, longitude)}
+                title="Copy coordinates"
+            >
+                <ClipboardCopyIcon /> Copy
+            </Button>
+            <DialogClose asChild>
+                <Button className="col-span-2">Done</Button>
+            </DialogClose>
+        </DialogFooter>
+    </DialogContent>
+);
 
 /**
  * A question's place: one row with the pin's colour, the coordinates and
@@ -274,72 +411,9 @@ export const LatitudeLongitude = ({
     const $isLoading = useStore(isLoading);
     const color = colorName ? ICON_COLORS[colorName] : "transparent";
 
-    const locateMe = () => {
-        const done = busy.begin();
-        toast.promise(
-            locate()
-                .then((position) => {
-                    onChange(
-                        position.coords.latitude,
-                        position.coords.longitude,
-                    );
-                })
-                .finally(done),
-            {
-                pending: "Getting your location…",
-                success: { render: "Location set", autoClose: 500 },
-                error: {
-                    render: ({ data }) => describeGeoError(data),
-                    autoClose: 12000,
-                },
-            },
-        );
-    };
-
-    const paste = () => {
-        if (!navigator?.clipboard) {
-            toast.error("Clipboard API not supported in your browser");
-            return;
-        }
-        const done = busy.begin();
-        toast.promise(
-            navigator.clipboard
-                .readText()
-                .then((text) => {
-                    const coords = parseCoordinatesFromText(text);
-                    if (coords.lat !== null && coords.lng !== null) {
-                        onChange(coords.lat, coords.lng);
-                        return;
-                    }
-                    throw new Error(
-                        "Could not find coordinates in clipboard content",
-                    );
-                })
-                .finally(done),
-            {
-                pending: "Reading from clipboard",
-                success: "Coordinates set from clipboard",
-                error: "No valid coordinates found in clipboard",
-            },
-            { autoClose: 1000 },
-        );
-    };
-
-    const copy = () => {
-        if (!navigator?.clipboard) {
-            toast.error("Clipboard API not supported in your browser");
-            return;
-        }
-        toast.promise(
-            navigator.clipboard.writeText(coordinatesText(latitude, longitude)),
-            {
-                pending: "Copying…",
-                success: "Coordinates copied",
-                error: "Couldn't copy the coordinates",
-            },
-            { autoClose: 1000 },
-        );
-    };
+    const locateMe = () => locateTo(onChange);
+    const paste = () => pasteTo(onChange);
+    const copy = () => copyCoordinates(latitude, longitude);
 
     if (inlineEdit) {
         return (
@@ -385,7 +459,7 @@ export const LatitudeLongitude = ({
         );
     }
 
-    const title = label === "Location" ? "Asked from" : label;
+    const title = label;
     return (
         <SidebarMenuItem
             className={cn("px-3 py-1.5", $isLoading && "brightness-50")}
@@ -425,51 +499,13 @@ export const LatitudeLongitude = ({
                                 Change ›
                             </button>
                         </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle className="text-2xl">
-                                    {title}
-                                </DialogTitle>
-                            </DialogHeader>
-                            <p className="text-sm text-muted-foreground">
-                                Or drag the pin on the map.
-                            </p>
-                            <DialogClose asChild>
-                                <Button
-                                    className="h-12 text-base"
-                                    onClick={locateMe}
-                                    disabled={disabled}
-                                    title="Set to current location"
-                                >
-                                    <LocateIcon /> Use my location
-                                </Button>
-                            </DialogClose>
-                            <LatLngEditForm
-                                latitude={latitude}
-                                longitude={longitude}
-                                onChange={onChange}
-                                disabled={disabled}
-                            />
-                            <DialogFooter className="grid grid-cols-2 gap-2 sm:grid">
-                                <Button
-                                    variant="outline"
-                                    onClick={paste}
-                                    disabled={disabled}
-                                >
-                                    <ClipboardPasteIcon /> Paste
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={copy}
-                                    title="Copy coordinates"
-                                >
-                                    <ClipboardCopyIcon /> Copy
-                                </Button>
-                                <DialogClose asChild>
-                                    <Button className="col-span-2">Done</Button>
-                                </DialogClose>
-                            </DialogFooter>
-                        </DialogContent>
+                        <CoordinatesEditor
+                            title={title}
+                            latitude={latitude}
+                            longitude={longitude}
+                            onChange={onChange}
+                            disabled={disabled}
+                        />
                     </Dialog>
                 )}
             </div>

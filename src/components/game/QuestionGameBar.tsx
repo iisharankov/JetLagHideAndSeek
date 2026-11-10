@@ -21,21 +21,12 @@ import {
     type TentaclePlace,
 } from "@/lib/game/answers";
 import {
-    answerTimeLeft,
-    answerTimerText,
-    answerTimerTone,
-} from "@/lib/game/answerTimer";
-import {
     blockingCurses,
     kindRefusal,
     questionKind,
 } from "@/lib/game/curseRules";
 import { DRAWS } from "@/lib/game/hand";
-import {
-    askedBeforeText,
-    repeatBadge,
-    timesAskedBefore,
-} from "@/lib/game/questionIdentity";
+import { repeatBadge, timesAskedBefore } from "@/lib/game/questionIdentity";
 import { questionReference } from "@/lib/game/reference";
 import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
@@ -55,21 +46,38 @@ import { errorMessage } from "@/maps/errors";
 import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import type { Question } from "@/maps/schema";
 
-import { SendQuestion } from "./SendQuestion";
 import { ThermometerBar } from "./ThermometerBar";
 
 const STATE_TEXT = {
-    draft: "Draft: only seekers see this",
+    draft: "",
     armed: "Started: the seekers are travelling",
     asked: "Asked: waiting for the hider",
     answered: "Answered",
     vetoed: "Vetoed by the hider: no answer, not applied",
 };
 
-const TONE_CLASS = {
-    ok: "opacity-80",
-    warning: "font-semibold text-amber-300",
-    overdue: "font-semibold text-red-300",
+/**
+ * Why the seekers can't send this question now (a rest, a curse, a kind
+ * taken away), or null.
+ */
+export const useRefusal = (
+    question: Question | undefined,
+    entry: QuestionEntry | undefined,
+) => {
+    const $game = useStore(gameState);
+    if (!$game || !question || !entry) return null;
+    if (entry.state !== "draft" && entry.state !== "armed") return null;
+    const blocking = blockingCurses($game, serverNow())[0];
+    return (
+        restRefusal($game) ??
+        (blocking
+            ? `${blocking.name}: no questions until it's cleared.`
+            : kindRefusal(
+                  $game,
+                  questionKind(question as unknown as SharedQuestion),
+                  serverNow(),
+              ))
+    );
 };
 
 const same = (a: unknown, b: unknown) =>
@@ -430,6 +438,10 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const $previews = useStore(previewAnswers);
     const [changing, setChanging] = useState(false);
     const entry = $game?.questions[String(questionKey)];
+    const refusal = useRefusal(
+        $questions.find((q) => q.key === questionKey),
+        entry,
+    );
     // The countdown ticks while the hider has the question.
     useTick(entry?.state === "asked");
     // A preview belongs to a question waiting for its answer.
@@ -454,31 +466,17 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
         (entry.state === "asked" || (entry.state === "answered" && changing));
     // The hider's answer screen (mock-up 11): no coloured bar, big choices.
     const answering = showChoices && entry.state === "asked";
-    const timeLeft = answerTimeLeft(entry, serverNow());
-    const askedBefore =
-        entry.state === "draft" || entry.state === "armed"
-            ? timesAskedBefore($game, question as unknown as SharedQuestion)
-            : 0;
-    // The curses on the seekers may stop this question from being sent.
-    const blocking = blockingCurses($game, serverNow())[0];
-    const refusal =
-        entry.state === "draft" || entry.state === "armed"
-            ? (restRefusal($game) ??
-              (blocking
-                  ? `${blocking.name}: no questions until it's cleared.`
-                  : kindRefusal(
-                        $game,
-                        questionKind(question as unknown as SharedQuestion),
-                        serverNow(),
-                    )))
-            : null;
+    const draft = entry.state === "draft";
+    // A draft says nothing here unless it can't be sent (round 46: no
+    // Draft strip; who made it is under the title, Send at the foot).
+    const quiet = draft && !(refusal && $role === "seeker");
 
     return (
         <div
             className={cn(
                 "mx-2 mb-1 rounded-md px-2 py-1 text-xs",
+                quiet && "hidden",
                 answering && "text-sm",
-                entry.state === "draft" && "bg-amber-900/40 text-amber-100",
                 entry.state === "armed" && "bg-violet-900/50 text-violet-100",
                 entry.state === "asked" &&
                     !answering &&
@@ -489,41 +487,21 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
             data-testid="question-game-state"
             data-state={entry.state}
         >
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                {answering ? (
-                    <p className="text-slate-300">
-                        Asked by {entry.createdBy} ·{" "}
-                        {ago(entry.askedAt ?? entry.updatedAt, serverNow())}
-                        <AnsweredFrom question={question} />
+            {answering ? (
+                <p className="text-slate-300">
+                    Asked by {entry.createdBy} ·{" "}
+                    {ago(entry.askedAt ?? entry.updatedAt, serverNow())}
+                    <AnsweredFrom question={question} />
+                </p>
+            ) : (
+                !draft && (
+                    <p>
+                        <strong>{STATE_TEXT[entry.state]}</strong>
+                        {entry.state === "answered" &&
+                            `: ${describeAnswer(question)}`}
                     </p>
-                ) : (
-                    <>
-                        <p>
-                            <strong>{STATE_TEXT[entry.state]}</strong>
-                            {entry.state === "answered" &&
-                                `: ${describeAnswer(question)}`}
-                        </p>
-                        <p className="opacity-80">
-                            {entry.updatedBy === entry.createdBy
-                                ? `By ${entry.createdBy}`
-                                : `Changed by ${entry.updatedBy}`}{" "}
-                            · {ago(entry.updatedAt, serverNow())}
-                        </p>
-                    </>
-                )}
-                {timeLeft !== null && (
-                    <span
-                        className={cn(
-                            "shrink-0 rounded-full bg-slate-800 px-2.5 py-1 font-semibold tabular-nums",
-                            TONE_CLASS[answerTimerTone(timeLeft)],
-                        )}
-                        data-testid="answer-timer"
-                        data-tone={answerTimerTone(timeLeft)}
-                    >
-                        ⏳ {answerTimerText(timeLeft)}
-                    </span>
-                )}
-            </div>
+                )
+            )}
             {entry.late && (
                 <p
                     className="font-semibold text-amber-300"
@@ -542,36 +520,19 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     Randomized: it was {entry.randomizedFrom}.
                 </p>
             )}
-            {askedBefore > 0 && (
-                <p
-                    className="font-semibold text-amber-300"
-                    data-testid="asked-before"
-                >
-                    {askedBeforeText(askedBefore)}
-                </p>
-            )}
             {refusal && $role === "seeker" && (
                 <p className="text-amber-300" data-testid="send-refusal">
                     {refusal}
                 </p>
             )}
-            {question.id === "thermometer" &&
-            (entry.state === "draft" || entry.state === "armed") ? (
+            {question.id === "thermometer" && entry.state === "armed" && (
                 <ThermometerBar
                     data={question.data}
                     questionKey={questionKey}
-                    armed={entry.state === "armed"}
+                    armed
                     refused={refusal !== null}
+                    part="status"
                 />
-            ) : (
-                entry.state === "draft" &&
-                $role === "seeker" && (
-                    <SendQuestion
-                        question={question}
-                        questionKey={questionKey}
-                        refused={refusal !== null}
-                    />
-                )
             )}
             {showChoices && (
                 <AnswerPanel

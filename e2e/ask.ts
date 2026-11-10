@@ -36,10 +36,8 @@ export const askQuestion = async (
         if (how === "ask") {
             await page
                 .getByRole("button", {
-                    name:
-                        id === "radius"
-                            ? "Send to the hider"
-                            : /^Start the thermometer/,
+                    name: id === "radius" ? "Send" : /^Start the thermometer/,
+                    exact: id === "radius",
                 })
                 .click();
         }

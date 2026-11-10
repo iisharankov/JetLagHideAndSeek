@@ -105,7 +105,7 @@ src/
                             (Hider on the hider's phone), Menu
     QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
                             the order); a row (or the pin) opens the card in its place
-    cards/                  base.tsx (the open card's frame: back, lock, hide, delete) + one card per type
+    cards/                  base.tsx (the card's frame), layout.tsx (its three layouts, Location, What if) + one card per kind
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, then rows (station, pin follows GPS, seekers on
                             the map, show stations, show pin, Start the end game with 5 s to undo)
@@ -412,15 +412,22 @@ progress, the hider's spot, and earlier rounds.
   the types runs a four-note tour of that screen (`ASK_TOUR` in
   `lib/tourSteps.ts`); a tour step may open the types itself
   (`TourStep.screen`).
-- **The question card** (`components/cards/`, round 40): the header is ‹,
-  the cost badge, the title and the **i**; then the game's status and its
-  action; then labelled sections (`cards/parts.tsx`: `CardSection`, the
-  44 px `CHIP`s, `DistancePicker`, `AnswerToggle` for Inside/Outside, Hotter/Colder,
-  Same/Different, Closer/Further), the place as one "Asked from" row whose
-  Change opens Use my location, typed or pasted coordinates and Copy
-  (`LatLngPicker.tsx`); Hide from the map, Lock (alone) and Delete at the
-  card's foot. Other layouts are drawn in
-  `agentic_docs/plans/question-card/` (Q59).
+- **The question card** (`components/cards/`, round 46): `base.tsx` is
+  the frame: the header (‹ List, the title, the cost and ×2 side by side
+  with who made it, the **i**), the middle, the game's state
+  (`game/QuestionGameBar.tsx`), and the foot: Hide · the big button ·
+  Delete (Send, `useSendQuestion` in `game/SendQuestion.tsx`; Start, then
+  Ask, on a thermometer, `ThermometerBar part="action"`; the time left
+  once sent; the lock playing alone). Each kind gives its `CardParts`
+  (`cards/layout.tsx`): the first choice (a distance, or a type), the
+  Location button (your GPS, the pin, typed, copy), the sentence, the
+  summary, the guess and extra rows; `CardBody` lays them out as Settings
+  says (`cardLayout`: Sections, Sentence, Summary with Edit). What if is
+  one chip that cycles (`WhatIfChip`). A sent question shows a fixed,
+  dashed row (`FixedRow`). On a phone an open card leaves the map showing
+  between its header and the rest (`cardOverMap`, the sheet see-through,
+  the map framing the question with `maps/frameQuestion.ts`). Words and
+  sums: `lib/cardText.ts`.
 - **The rules over the app** (`RulesOverlay.tsx`): Help, a question's
   "Full rules" and Reference open the rulebook (and the reference) in an
   overlay with a page list, a search and ×; the pages load on first open.

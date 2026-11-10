@@ -30,6 +30,7 @@ import { showUndoToast } from "@/components/undoToast";
 import { useTick } from "@/hooks/useTick";
 import { withBase } from "@/lib/config";
 import {
+    cardOverMap,
     clearQuestions,
     isLoading,
     openQuestion,
@@ -95,7 +96,7 @@ export const QuestionSidebar = () => {
     const $role = useStore(gameRole);
     const $connection = useStore(gameConnection);
     const tab = useStore(sidebarTab);
-    const { isMobile } = useStore(SidebarContext);
+    const { isMobile, openMobile } = useStore(SidebarContext);
     const $ask = useStore(askFlow);
     useEffect(() => wireBackButton(), []);
     const $screen = useStore(pushedScreen);
@@ -257,10 +258,26 @@ export const QuestionSidebar = () => {
     };
     const openAsked = openIn(asked, false);
     const openResearch = openIn(research, true);
+    // A phone with a question's card open: the map shows between the card's
+    // header and its controls (round 46); the rest of the tab steps aside.
+    const overMap =
+        isMobile &&
+        openMobile &&
+        ((tab === "questions" && !!openAsked && !asking && !photoScreen) ||
+            (tab === "research" && !!openResearch && !askingResearch));
+    useEffect(() => {
+        cardOverMap.set(overMap);
+    }, [overMap]);
+    useEffect(() => () => cardOverMap.set(false), []);
 
     return (
         <Sidebar>
-            <div className="flex items-center justify-between">
+            <div
+                className={cn(
+                    "flex items-center justify-between",
+                    overMap && "hidden",
+                )}
+            >
                 <h2 className="ml-4 mt-4 font-poppins text-2xl">
                     {tab === "questions"
                         ? "Questions"
@@ -294,8 +311,13 @@ export const QuestionSidebar = () => {
                     answers wait until it&apos;s back.
                 </p>
             )}
-            {$game && $role === "seeker" && <LocationPrompt />}
-            <div className="px-2 pt-2">
+            {$game && $role === "seeker" && !overMap && <LocationPrompt />}
+            <div
+                className={cn(
+                    "px-2 pt-2",
+                    overMap && "pointer-events-auto bg-sidebar pt-0",
+                )}
+            >
                 {/* Phones have the tab bar at the bottom instead. */}
                 {!isMobile && (
                     <div data-tutorial-id="sidebar-tabs">
@@ -356,7 +378,7 @@ export const QuestionSidebar = () => {
                 )}
             </div>
             {/* The hiding clock at the top of every tab (round 45). */}
-            {$game && <RoundClock />}
+            {$game && !overMap && <RoundClock />}
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
@@ -380,7 +402,9 @@ export const QuestionSidebar = () => {
                     )}
                 >
                     {!openAsked && researchToggle}
-                    <CurseBanner />
+                    <div className="pointer-events-auto bg-sidebar empty:hidden">
+                        <CurseBanner />
+                    </div>
                     {openAsked}
                     {!openAsked &&
                         $game &&
@@ -447,7 +471,7 @@ export const QuestionSidebar = () => {
                     {!openResearch && <QuestionList list={research} research />}
                 </div>
             </SidebarContent>
-            <SidebarGroup>
+            <SidebarGroup className={cn(overMap && "hidden")}>
                 <SidebarGroupContent
                     className={tab === "questions" ? "" : "hidden"}
                 >

@@ -504,7 +504,7 @@ test("tips come the first time something happens, once, and never over the stati
 
     // Ana asks; Ben's first question gets a tip.
     await askQuestion(ana, "Radius", "draft");
-    await ana.getByRole("button", { name: "Send to the hider" }).click();
+    await ana.getByRole("button", { name: "Send", exact: true }).click();
     await expect(mark(ben)).toContainText("A question");
     await expect(mark(ben)).toContainText("within five minutes");
 

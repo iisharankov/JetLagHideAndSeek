@@ -261,6 +261,24 @@ export const draftsOnMap = persistentAtom<"all" | "active">(
     "draftsOnMap",
     "all",
 );
+/**
+ * The question card's layout (round 46, to try out): labelled sections,
+ * the question as a sentence, or a summary with Edit.
+ */
+export const CARD_LAYOUTS = ["sections", "sentence", "summary"] as const;
+export type CardLayout = (typeof CARD_LAYOUTS)[number];
+export const cardLayout = persistentAtom<CardLayout>("cardLayout", "sections", {
+    encode: (value) => value,
+    decode: (value) =>
+        (CARD_LAYOUTS as readonly string[]).includes(value)
+            ? (value as CardLayout)
+            : "sections",
+});
+/**
+ * On a phone, an open question's card leaves the map showing between its
+ * header and its controls (round 46): the sheet is see-through there.
+ */
+export const cardOverMap = atom<boolean>(false);
 /** Buzz, beep and notify about the game's news. */
 export const alertsEnabled = persistentAtom<boolean>("alerts", true, json);
 /** Game setup (Menu → Game): this phone's settings, or a new shared game. */

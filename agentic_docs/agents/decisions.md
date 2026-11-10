@@ -2,6 +2,21 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 46: the question card in three layouts, to try
+
+| Decision | Why | From |
+|---|---|---|
+| **Three card layouts, chosen in Menu → Settings → Question card: Sections (A, the default), Sentence (B), Summary (C)** | the owner: "code in 11a, 12b, and 13c in with a settings toggle… I will play between them over a few days and decide" | the owner (in chat) |
+| **On a phone an open card shows the real map between its header and its controls (not a second, small map); the map frames the question when the card opens** | pictures 10–18 put a map on top; the real one has every layer, and the pin drags there | this round |
+| **What if is one chip on the map that cycles through the answers (alone: "Answer")**, in every layout | the owner: picture 14's way 3, "short, clear, and the rollover icon makes it clear you can switch it" | the owner (in chat) |
+| **Location: "Me · GPS" when the question is within the fix's accuracy (at least 30 m) of the phone, else "Pin" and its coordinates; ⟳ moves it to where you are; a tap opens GPS, the pin, typed or pasted, copy** | the owner liked picture 15 | the owner (in chat) |
+| **The sentence is one line on a phone (15 px, the type's word cut short if long)**; the desktop's narrow sidebar wraps it | the owner: "make sure 12b has the text on one line, so the text can be a little smaller" | the owner (in chat) |
+| **Summary's Edit shows Sections' rows under the summary until Done** | the owner asked what Edit would show; the ask screens have no distance or place to change since round 42 | this round |
+| **Hide · Send · Delete at the foot; Send is "Send"; "Hide from the map" is "Hide"; "Asked from" is "Location" (the card and the ask screen)** | the owner's round 45 comments, as drawn | the owner (in chat) |
+| **No Draft strip: who made it is under the title; ×2 beside the cost there; the "Asked before…" line is the badge's tooltip** | the owner: "it's always a draft until it's sent" | the owner (in chat) |
+| **The cost and ×2 sit under the title, not before it** | before it, the title was cut short ("Question 2 · Ra…") on a phone | this round |
+| **A sent question shows a dashed row with a lock, the time left where Send was (picture 18)** | the owner: "16–18 look great" | the owner (in chat) |
+
 ## 2026-11-10, round 45: the question card redrawn; the clock on top, Ask at the foot; no pins for answered questions
 
 | Decision | Why | From |

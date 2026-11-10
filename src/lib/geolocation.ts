@@ -18,6 +18,22 @@ export const recentPosition = (now = Date.now(), maxAgeMs = 2 * 60_000) => {
     return here && now - here.at <= maxAgeMs ? here : null;
 };
 
+/** The last one-off fix (a question's "Me · GPS"), for when it isn't followed. */
+export const lastFix = atom<{
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    at: number;
+} | null>(null);
+
+/** Where the phone is, as freshly as known: followed, or the last fix (10 min). */
+export const knownPosition = (now = Date.now()) => {
+    const fix = lastFix.get();
+    return (
+        recentPosition(now) ?? (fix && now - fix.at <= 10 * 60_000 ? fix : null)
+    );
+};
+
 const HIGH: PositionOptions = {
     enableHighAccuracy: true,
     timeout: 15_000,

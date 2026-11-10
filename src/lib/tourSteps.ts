@@ -223,7 +223,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "send",
             title: "Send it",
-            text: "A draft only the seekers see shows on the map what each answer would mean. Tap **Send to the hider** when ready: they have five minutes to answer.",
+            text: "A draft only the seekers see shows on the map what each answer would mean; tap What if to switch. Tap **Send** when ready: the hider has five minutes to answer.",
             target: [id("send-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",

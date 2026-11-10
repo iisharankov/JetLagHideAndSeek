@@ -1,0 +1,27 @@
+# Round 46, 2026-11-10: The question card in three layouts, switched in Settings
+
+Model: Opus 5.5. Budget: a feature.
+
+Asked (pasted): "I like 15-location choices. I like 11a, and 12b, but make sure 12b has the text one one line, so the text can be a little smaller. 13-c is nice too actually, i'm wondering what the edit tab would show? Regarding 14, i like option 3, as it is short, clear, and the rollover icon makes it clear you can switch it. 16-18 look great! Can you code in 11a, 12b, and 13c in with a settings toggle to switch between them? I will play between them over a few days and decide"
+
+Read as: build pictures 11 (A, Sections), 12 (B, Sentence, one line on a phone) and 13 (C, Summary) in the app, chosen in Settings; in all three, What if as picture 14's chip on the map, Location as picture 15, the thermometer, matching and after-Send cards as 16–18; say what C's Edit shows.
+
+Answers used: none (Q59 stays open: which layout stays).
+
+Did:
+- **Three layouts** (`cards/layout.tsx`: `CardParts`, `CardBody`), chosen in Menu → Settings → Question card (`cardLayout` in `lib/context.ts`, saved on the phone): **Sections** (Distance or Type and Location side by side, labelled; stacked in the desktop's narrow sidebar), **Sentence** ("Are you within **5 km ▾** of **the pin ▾**?", one line on a phone at 15 px, the words open the same pop-ups), **Summary** ("Within 5 km of the pin?" and where from; **Edit** shows the Sections rows under it until **Done**, which answers "what would Edit show"). Every kind gives its parts: radar, thermometer (in a game the distance and where it starts; alone its two ends), matching, measuring, tentacles; the one-line words in `lib/cardText.ts`.
+- **What if** is one chip that cycles through the answers ("Answer" playing alone), on the map on a phone, at the top of the card on a desktop (`WhatIfChip`).
+- **Location** (`LocationButton`): "Me · GPS" when the question is within the fix's accuracy (at least 30 m) of the phone, else "Pin" and its coordinates; ⟳ moves it to where you are; a tap opens Me · GPS, The pin (drag it on the map), Type or paste coordinates, Copy the coordinates. A one-off fix counts for 10 minutes (`lastFix`, `knownPosition` in `lib/geolocation.ts`). The coordinates dialog and the locate, paste and copy actions are shared with the old row (`LatLngPicker.tsx`); "Asked from" is "Location" there and on the ask screen.
+- **The map between the card's header and its controls on a phone** (`cardOverMap`; the sheet see-through, `sidebar-l.tsx`; `QuestionSidebar.tsx` hides the tab's title, location note and clock while a card is open): the real map, touches reach it, the pin drags there, and it frames the question when the card opens or its distance changes (`maps/frameQuestion.ts`). "Drag the pin to move it" at the gap's foot.
+- **The frame** (`cards/base.tsx`): the title on its own (two lines if long), the cost and ×2 side by side under it with "By Ana · 2 min ago" (no Draft strip; the "Asked before…" line is the badge's tooltip); the foot is Hide · the big button · Delete: **Send** on a draft (the "send from where I am / the pin" choice above it, `useSendQuestion`), **Start the thermometer**, then **Ask**, on a thermometer (`ThermometerBar part="action"`; its progress and Cancel stay above), the time left once sent, the lock playing alone. A sent question shows a dashed row with a lock and Copy (`FixedRow`, picture 18). What was asked comes before the game's state, so the hider reads the question, then answers.
+- The old answer toggle (`AnswerToggle`) and the Send component are gone; the tour's Send step says **Send** and mentions What if.
+- **Tests, seen failing first:** `tests/cardText.test.ts` (the summaries per kind, me or the pin, what the map frames, the cycle), `e2e/cardLayouts.spec.ts` (alone: Sections side by side on a phone, What if flips, Location's four choices, the foot's order, the map takes touches in the gap; Sentence on one line; Summary with Edit and Done; in a game: ×2 beside the cost, "By Ana", no Draft strip, Hide · Send · Delete, then the time left where Send was). Updated: "Send to the hider" → Send (`exact: true`) in `e2e/ask.ts`, `sharedGame`, `location`, `tutorial`.
+
+Changed from the ask: the cost and ×2 sit under the title, not before it (before it the title was cut short on a phone). The card's header stays at the top and the map shows between it and the controls, as in the pictures, but it's the real map, not a small copy.
+
+Found on the way: nothing.
+
+Checked: lint and types clean; vitest 560 passed (77 files); build and build:server; Playwright full run 98 passed, 8 skipped. Screenshots looked at, phone: each layout on a radar draft in a game (×2, What if on the map, the map framed on the circle), Location's pop-up, Summary's Edit, a thermometer draft, a matching draft in all three, a sent radar, the hider answering; desktop: Sections. They showed the title cut short, Sections cramped and Send overflowing on desktop, a sent radar's "Within 5 km" cut, and the hider's answer above the question: fixed. Test-first. Not checked: on a real phone (touch on the map through the card, pinch there).
+Root-run files changed: none. Also flagged: none.
+Decisions: decisions.md, round 46. Steps changed: S1 (rounds 32–46). Questions added: none (Q59 reworded: which layout stays).
+Commit message: Round 46: the question card in three layouts (Sections, Sentence, Summary) switched in Settings, with the map between header and controls, What if on the map, Location's choices, Send between Hide and Delete

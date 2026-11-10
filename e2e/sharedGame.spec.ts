@@ -206,7 +206,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     // Ana sends it; Ben sees it. With hider mode on (his pin starts at the
     // map's centre, next to Ana's question) his phone suggests "Yes", and
     // nothing is sent until he picks an answer. He answers "No".
-    await page.getByRole("button", { name: "Send to the hider" }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
     // His phone says so (a toast; a buzz and a beep on a real phone).
     await expect(ben.getByText(/New question: Radar/)).toBeVisible();
     // His sidebar is on the Hider tab; the Questions tab counts what waits.
@@ -528,7 +528,7 @@ test("with the virtual deck the game deals the hider's cards", async ({
     const link = page.url();
     await closeMenu(page);
     await askQuestion(page, "Radius", "draft");
-    await page.getByRole("button", { name: "Send to the hider" }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
 
     const ben = await newPhone(browser);
     await preparePhone(ben, "Ben", link);
@@ -609,7 +609,7 @@ test("curses on the seekers: no asking until cleared, questions taken away, the 
     await closeMenu(page);
     await askQuestion(page, "Radius", "draft");
     await setDistance(page, "5 km");
-    const send = page.getByRole("button", { name: "Send to the hider" });
+    const send = page.getByRole("button", { name: "Send", exact: true });
     await expect(send).toBeEnabled();
     const banner = page.getByTestId("curse-banner");
     await expect(banner).toHaveCount(0);

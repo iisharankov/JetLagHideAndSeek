@@ -151,7 +151,7 @@ test("a question whose pin is away from the seeker asks where it's sent from", a
         .click();
     await expect(ana.locator(".follow-me-marker")).toHaveCount(1);
 
-    const send = ana.getByRole("button", { name: "Send to the hider" });
+    const send = ana.getByRole("button", { name: "Send", exact: true });
     await send.click();
     const askFrom = ana.getByTestId("ask-from");
     await expect(askFrom).toContainText("from where you are");
