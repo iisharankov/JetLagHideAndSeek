@@ -6,6 +6,7 @@ import { ANSWER_TIME_MS, photoTimeMs } from "@/lib/game/answerTimer";
 import { advanceDeck, DRAWS, removeFromHand } from "@/lib/game/deck";
 import {
     questionIdentity,
+    timesAskedBefore,
     timesPhotoAnsweredBefore,
 } from "@/lib/game/questionIdentity";
 import { ALWAYS_OFF, questionKey, tentacleRadiusKm } from "@/lib/game/settings";
@@ -43,14 +44,10 @@ export const oweDraws = (
         });
         return;
     }
-    const identity = questionIdentity(entry.question);
-    const times = Object.values(state.questions).filter(
-        (other) =>
-            other.state === "answered" &&
-            questionIdentity(other.question) === identity,
-    ).length;
+    // Once for each time it was asked before (answered or vetoed), and once.
+    const times = timesAskedBefore(state, entry.question) + 1;
     const chalice = (state.deck.chaliceLeft ?? 0) > 0;
-    for (let i = 0; i < Math.max(1, times); i++) {
+    for (let i = 0; i < times; i++) {
         const label = i === 0 ? draw.label : `${draw.label} (asked again)`;
         state.deck.owed.push({
             ...draw,

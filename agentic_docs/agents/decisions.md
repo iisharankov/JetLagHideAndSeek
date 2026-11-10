@@ -2,6 +2,18 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 44: photos sent whole and zoomable; ×3 and on
+
+| Decision | Why | From |
+|---|---|---|
+| **Photos go as the camera took them: a JPEG's picture bytes untouched, only its metadata removed (position, phone, comments, extra pictures); which way up kept. Over 15 MB, not a JPEG, or refused as too large: a smaller copy** | the owner: "no compression since zooming is so important"; the position must still never reach the seekers. Replaces "photos at most 5 MB" (before the standard, below) | the owner (in chat) |
+| **The API takes photos up to 16 MB, nginx 17m** | room for a 24 MP phone's photo; ~30 GB of server storage was fine (round 3) | this round |
+| **The photo viewer zooms (two fingers, double tap, wheel), moves a zoomed photo, Fit shows it whole; Turn starts from the whole photo** | the owner: "zooming is important" | the owner (in chat) |
+| **A New tab link in the viewer opens the photo on its own again** (reverses round 43's "never a new tab") | the owner asked whether to revert to the old style; both kept | the owner (in chat) |
+| **The photo viewer is over the notifications** | they covered Fit and × on phones | this round |
+| **Asked again: ×2, ×3, ×4… on the badge and in words ("double", "triple", then "×4")** | the owner: "2x for second ask, 3x third ask, so on"; the rulebook: "a third time, its cost would be triple; a fourth time, the cost quadrupled" | the owner (in chat), the rulebook |
+| **A vetoed question counts as asked: asking it again costs double, and so on** | the rulebook's Veto: "The question is still considered to have been asked, and therefore can only be asked again for its additional cost" | the rulebook, found this round |
+
 ## 2026-11-10, round 43: answered photos for the seekers
 
 | Decision | Why | From |

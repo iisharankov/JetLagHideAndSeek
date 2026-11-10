@@ -41,7 +41,9 @@ import {
     updateQuestion,
 } from "@/lib/context";
 import { DRAWS } from "@/lib/game/deck";
+import { costWord, timesAskedBefore } from "@/lib/game/questionIdentity";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
+import type { SharedQuestion } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
 
 /** The card's foot: a label and an icon, 44 px on phones. */
@@ -227,7 +229,17 @@ export const QuestionCard = ({
                                 className="mx-2 mb-1 rounded-md bg-slate-700/60 px-2 py-1 text-xs text-slate-200"
                             >
                                 Vetoed: the hider gave no answer, so nothing is
-                                applied. Ask it again (it costs double).
+                                applied. Ask it again (it costs{" "}
+                                {costWord(
+                                    1 +
+                                        (question && $game
+                                            ? timesAskedBefore(
+                                                  $game,
+                                                  question as unknown as SharedQuestion,
+                                              )
+                                            : 0),
+                                )}
+                                ).
                             </p>
                         )}
                     {status?.state === "skipped" &&

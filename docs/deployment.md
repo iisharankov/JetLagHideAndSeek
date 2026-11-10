@@ -87,6 +87,10 @@ deploy/check.sh     # a minute later
 ```
 
 Phones pick up the new version the next time the app is opened. If the
+change touched `deploy/nginx/` (round 44 raised `client_max_body_size` to
+17m for photos), copy that site's conf to `/etc/nginx/sites-available/`
+again (or change the same line there), then
+`sudo nginx -t && sudo systemctl reload nginx`. If the
 change touched the reference data builder (`server/datasets/` or
 `src/maps/datasets/`), `deploy.sh` says so: run `deploy/update-data.sh` too.
 

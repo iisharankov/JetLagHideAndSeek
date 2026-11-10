@@ -61,8 +61,10 @@ src/
                             server's clock), sync.ts, answers.ts, settings.ts,
                             deck.ts (the digital deck, pure), deckSession.ts, hand.ts (physical
                             deck), clock.ts, endgame.ts, events.ts + alerts.ts (what to tell
-                            whom; push opt-in), drafts.ts, photos.ts, answerTimer.ts,
-                            questionIdentity.ts (asked again, randomize), scoreboard.ts,
+                            whom; push opt-in), drafts.ts, photos.ts (sendPhoto: whole, or a
+                            smaller copy), jpeg.ts (a JPEG without its metadata, losslessly),
+                            answerTimer.ts,
+                            questionIdentity.ts (asked again: ×2, ×3…; randomize), scoreboard.ts,
                             curseRules.ts (what each curse does to the game), positions.ts
                             (the seekers' positions: when to send, who's shown), askFrom.ts
                             (a question's seekers' point, checked against the phone's)
@@ -297,8 +299,10 @@ progress, the hider's spot, and earlier rounds.
   (`X-Hider-Token`) for one more release. The hider's station and pin live
   in the game so two hider phones share one spot, and are never sent to
   seekers; answers are worked out from the station until the end game,
-  then from the pin. Photos are re-encoded before upload, which drops their
-  location data; a game holds 100 at most.
+  then from the pin. A JPEG photo goes as taken (up to 15 MB) with its
+  metadata removed, its picture bytes untouched (`lib/game/jpeg.ts`);
+  anything else, or anything bigger, is re-encoded, which drops it too. No
+  photo carries its location. A game holds 100 at most.
 - **Joining** (`POST /api/games/<id>/join`, `JoinDialog.tsx`): a game's link
   opens a dialog before anything else, once per phone (a reload, a
   restarted browser or a new round doesn't ask again): the name, then
@@ -446,7 +450,9 @@ progress, the hider's spot, and earlier rounds.
   time counts as a late answer (server `photoAnswered`). Randomize Question
   writes what changed into the history (`PowerupEntry.detail`).
   A seeker's answered photo opens straight to the photo (the row says
-  Show): full screen, a quarter turn at a time (`PhotoViewer`).
+  Show): full screen, a quarter turn at a time (`PhotoViewer`); two
+  fingers, a double tap or the wheel zoom, one finger moves it, Fit shows
+  it whole (the sums in `lib/photoView.ts`); New tab opens it on its own.
 - **The hider's answer screen** (`QuestionGameBar.tsx`): the timer as a
   plain pill, "Asked by … · from your station, …, 2.1 km away", the
   choices as big buttons (tentacle places as a list), Send pinned at the

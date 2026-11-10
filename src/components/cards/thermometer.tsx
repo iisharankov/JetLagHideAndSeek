@@ -88,8 +88,7 @@ const Travel = ({
                 value={data.distanceKm}
                 options={distances}
                 disabled={locked}
-                twice={(km) =>
-                    !!$game &&
+                asked={(km) =>
                     askedBefore(
                         $game,
                         thermometerQuestion(
@@ -97,7 +96,7 @@ const Travel = ({
                             km,
                             true,
                         ),
-                    ) > 0
+                    )
                 }
                 onChange={(km) => set({ distanceKm: km })}
             />

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    askedBeforeText,
+    costWord,
     questionIdentity,
-    timesAnsweredBefore,
+    repeatBadge,
+    timesAskedBefore,
     timesPhotoAnsweredBefore,
 } from "@/lib/game/questionIdentity";
 import type { QuestionEntry, SharedQuestion } from "@/lib/game/types";
@@ -40,7 +43,7 @@ describe("questionIdentity", () => {
     });
 });
 
-describe("timesAnsweredBefore", () => {
+describe("timesAskedBefore", () => {
     it("counts the answered questions that are the same, not the question itself", () => {
         const state = {
             questions: {
@@ -50,10 +53,47 @@ describe("timesAnsweredBefore", () => {
                 "4": entry(radar(4, 10)),
             },
         };
-        expect(timesAnsweredBefore(state, radar(5, 5))).toBe(2);
-        expect(timesAnsweredBefore(state, radar(1, 5))).toBe(1);
-        expect(timesAnsweredBefore(state, radar(6, 10))).toBe(1);
-        expect(timesAnsweredBefore(state, matching(7, "zone"))).toBe(0);
+        expect(timesAskedBefore(state, radar(5, 5))).toBe(2);
+        expect(timesAskedBefore(state, radar(1, 5))).toBe(1);
+        expect(timesAskedBefore(state, radar(6, 10))).toBe(1);
+        expect(timesAskedBefore(state, matching(7, "zone"))).toBe(0);
+    });
+
+    it("counts a vetoed question as asked (the rulebook's Veto, round 44)", () => {
+        const state = {
+            questions: {
+                "1": entry(radar(1, 5), "vetoed"),
+                "2": entry(radar(2, 5)),
+                "3": entry(radar(3, 5), "draft"),
+            },
+        };
+        expect(timesAskedBefore(state, radar(4, 5))).toBe(2);
+    });
+});
+
+describe("what asking again costs (round 44)", () => {
+    it("is ×2 the second time, ×3 the third, and so on", () => {
+        expect(repeatBadge(1)).toBe("×2");
+        expect(repeatBadge(2)).toBe("×3");
+        expect(repeatBadge(5)).toBe("×6");
+    });
+
+    it("says it in words: double, triple, then ×4", () => {
+        expect(costWord(1)).toBe("double");
+        expect(costWord(2)).toBe("triple");
+        expect(costWord(3)).toBe("×4");
+    });
+
+    it("says how often it was asked and how often the hider draws", () => {
+        expect(askedBeforeText(1)).toBe(
+            "Asked before this round: it costs double (the hider draws twice).",
+        );
+        expect(askedBeforeText(2)).toBe(
+            "Asked twice before this round: it costs triple (the hider draws 3 times).",
+        );
+        expect(askedBeforeText(3)).toBe(
+            "Asked 3 times before this round: it costs ×4 (the hider draws 4 times).",
+        );
     });
 });
 

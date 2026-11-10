@@ -19,8 +19,12 @@ export const questionIdentity = (question: SharedQuestion) => {
     return `${question.id}:${String(data.type ?? data.locationType ?? "")}`;
 };
 
-/** How often the same question was already answered this round. */
-export const timesAnsweredBefore = (
+/**
+ * How often the same question was already asked this round: answered, or
+ * vetoed ("the question is still considered to have been asked", the
+ * rulebook's Veto).
+ */
+export const timesAskedBefore = (
     state: Pick<GameState, "questions">,
     question: SharedQuestion,
 ) => {
@@ -28,10 +32,27 @@ export const timesAnsweredBefore = (
     return Object.values(state.questions).filter(
         (entry) =>
             entry.question.key !== question.key &&
-            entry.state === "answered" &&
+            (entry.state === "answered" || entry.state === "vetoed") &&
             questionIdentity(entry.question) === identity,
     ).length;
 };
+
+/**
+ * "×3": what a question asked `before` times already costs. The rulebook:
+ * twice the second time, triple the third, and so on.
+ */
+export const repeatBadge = (before: number) => `×${before + 1}`;
+
+/** The cost in words: "double", "triple", then "×4". */
+export const costWord = (before: number) =>
+    before === 1 ? "double" : before === 2 ? "triple" : repeatBadge(before);
+
+const times = (n: number) =>
+    n === 1 ? "once" : n === 2 ? "twice" : `${n} times`;
+
+/** "Asked twice before this round: it costs triple (the hider draws 3 times)." */
+export const askedBeforeText = (before: number) =>
+    `Asked ${before === 1 ? "" : `${times(before)} `}before this round: it costs ${costWord(before)} (the hider draws ${times(before + 1)}).`;
 
 /** Photo names compare without case or spaces around. */
 const photoName = (name: string) => name.trim().toLowerCase();

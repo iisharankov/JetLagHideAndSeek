@@ -96,7 +96,7 @@ test("the tab bar: Map hides the sheet, Questions comes back to the same questio
     expect(pageErrors).toEqual([]);
 });
 
-test("the ask flow marks what was asked before (×2) and unfolds each photo's rule", async ({
+test("the ask flow marks what was asked before (×2, ×3) and unfolds each photo's rule", async ({
     page,
     request,
 }) => {
@@ -141,8 +141,25 @@ test("the ask flow marks what was asked before (×2) and unfolds each photo's ru
         answer: { within: true },
         basedOn: Date.now() + 60_000,
     });
+    // Asked again and vetoed: still asked (the rulebook's Veto), so a
+    // third 5 km radar costs ×3 (round 44). A 10 km one vetoed: ×2.
+    for (const [key, radius] of [
+        [0.6, 5],
+        [0.7, 10],
+    ]) {
+        await op(SEEKER, {
+            type: "putQuestion",
+            question: {
+                id: "radius",
+                key,
+                data: { lat: 47.38, lng: 8.54, radius, unit: "kilometers" },
+            },
+        });
+        await op(SEEKER, { type: "sendQuestion", key });
+        await op(HIDER, { type: "vetoQuestion", key });
+    }
 
-    // Ana's phone (her player's key): Ask → Radar shows ×2 on 5 km only.
+    // Ana's phone (her player's key): Ask → Radar shows ×3 on 5 km, ×2 on 10 km.
     await prepare(page, { playerKey: SEEKER, playerName: "Ana" });
     await page.goto(`/?game=${id}`);
     await expect(page.getByTestId("join-dialog")).toHaveCount(0);
@@ -151,16 +168,21 @@ test("the ask flow marks what was asked before (×2) and unfolds each photo's ru
     }
     await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId("ask-radius").click();
-    // A draft at once; its distance pop-up marks 5 km ×2, and only that.
+    // A draft at once; its distance pop-up marks 5 km ×3, 10 km ×2, only those.
     await expect(page.getByTestId("draw-badge").first()).toHaveText("2/1");
     await openDistances(page);
     const options = page.getByTestId("distance-options");
     await expect(
         options
             .getByRole("button", { name: /^5 km/ })
-            .getByTestId("twice-badge"),
-    ).toBeVisible();
-    await expect(options.getByTestId("twice-badge")).toHaveCount(1);
+            .getByTestId("repeat-badge"),
+    ).toHaveText("×3");
+    await expect(
+        options
+            .getByRole("button", { name: /^10 km/ })
+            .getByTestId("repeat-badge"),
+    ).toHaveText("×2");
+    await expect(options.getByTestId("repeat-badge")).toHaveCount(2);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "All questions" }).click();
     await page.getByRole("button", { name: "Ask a question" }).click();

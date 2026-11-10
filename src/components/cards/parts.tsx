@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { type ReactNode, useState } from "react";
 
-import { TwiceBadge } from "@/components/ask/QuestionTypes";
+import { RepeatBadge } from "@/components/ask/QuestionTypes";
 import { Button } from "@/components/ui/button";
 import {
     Popover,
@@ -98,7 +98,7 @@ export const DistancePicker = ({
     value,
     options,
     onChange,
-    twice,
+    asked,
     taken = [],
     disabled,
     label = "Distance",
@@ -106,8 +106,8 @@ export const DistancePicker = ({
     value: number;
     options: number[];
     onChange: (km: number) => void;
-    /** Asked before this round: costs double. */
-    twice?: (km: number) => boolean;
+    /** How often this distance was asked before this round (×2, ×3…). */
+    asked?: (km: number) => number;
     /** Taken away (the Curse of the Drained Brain). */
     taken?: number[];
     disabled?: boolean;
@@ -142,9 +142,10 @@ export const DistancePicker = ({
                                     custom
                                 </span>
                             )}
-                            {twice?.(value) && (
-                                <TwiceBadge className="ml-2 align-middle" />
-                            )}
+                            <RepeatBadge
+                                before={asked?.(value) ?? 0}
+                                className="ml-2 align-middle"
+                            />
                         </span>
                         <span className="text-slate-400" aria-hidden>
                             ▾
@@ -178,9 +179,10 @@ export const DistancePicker = ({
                                 }}
                             >
                                 {kmLabel(km)}
-                                {twice?.(km) && (
-                                    <TwiceBadge className="absolute -right-1 -top-2" />
-                                )}
+                                <RepeatBadge
+                                    before={asked?.(km) ?? 0}
+                                    className="absolute -right-1 -top-2"
+                                />
                             </button>
                         ))}
                         <button

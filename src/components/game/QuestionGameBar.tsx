@@ -31,7 +31,11 @@ import {
     questionKind,
 } from "@/lib/game/curseRules";
 import { DRAWS } from "@/lib/game/hand";
-import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
+import {
+    askedBeforeText,
+    repeatBadge,
+    timesAskedBefore,
+} from "@/lib/game/questionIdentity";
 import { questionReference } from "@/lib/game/reference";
 import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
@@ -255,7 +259,7 @@ const AnswerPanel = ({
     const draw = DRAWS[question.id];
     const again =
         entry.state === "asked"
-            ? timesAnsweredBefore($game!, question as unknown as SharedQuestion)
+            ? timesAskedBefore($game!, question as unknown as SharedQuestion)
             : 0;
     return (
         <div className="mt-1 flex flex-col gap-2" data-testid="answer-panel">
@@ -320,7 +324,7 @@ const AnswerPanel = ({
                 {again > 0 && (
                     <span className="text-red-300">
                         {" "}
-                        · ×{again + 1}: asked before
+                        · {repeatBadge(again)}: asked before
                     </span>
                 )}
                 . The map shows what this answer rules out.
@@ -453,7 +457,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
     const timeLeft = answerTimeLeft(entry, serverNow());
     const askedBefore =
         entry.state === "draft" || entry.state === "armed"
-            ? timesAnsweredBefore($game, question as unknown as SharedQuestion)
+            ? timesAskedBefore($game, question as unknown as SharedQuestion)
             : 0;
     // The curses on the seekers may stop this question from being sent.
     const blocking = blockingCurses($game, serverNow())[0];
@@ -543,8 +547,7 @@ export const QuestionGameBar = ({ questionKey }: { questionKey: number }) => {
                     className="font-semibold text-amber-300"
                     data-testid="asked-before"
                 >
-                    Asked before this round: it costs double (the hider draws
-                    twice).
+                    {askedBeforeText(askedBefore)}
                 </p>
             )}
             {refusal && $role === "seeker" && (

@@ -304,7 +304,7 @@ describe("shared games", () => {
         await reader.cancel();
     });
 
-    it("stores photos up to 6 MB and serves them back", async () => {
+    it("stores photos up to 16 MB and serves them back", async () => {
         const id = await newGame();
         const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
         const upload = await app.request(`/api/games/${id}/photos`, {
@@ -320,10 +320,20 @@ describe("shared games", () => {
         expect(photo.headers.get("content-type")).toBe("image/jpeg");
         expect(new Uint8Array(await photo.arrayBuffer())).toEqual(bytes);
 
+        // A camera's photo as it was taken (round 44): 12 MB is fine.
+        const big = new Uint8Array(12 * 1024 * 1024);
+        big.set([0xff, 0xd8, 0xff]);
+        const whole = await app.request(`/api/games/${id}/photos`, {
+            method: "POST",
+            headers: { "Content-Type": "image/jpeg", "X-Player": "Ana" },
+            body: big,
+        });
+        expect(whole.status).toBe(201);
+
         const huge = await app.request(`/api/games/${id}/photos`, {
             method: "POST",
             headers: { "Content-Type": "image/jpeg" },
-            body: new Uint8Array(6 * 1024 * 1024 + 1),
+            body: new Uint8Array(16 * 1024 * 1024 + 1),
         });
         expect(huge.status).toBe(413);
     });

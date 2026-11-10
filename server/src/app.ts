@@ -25,8 +25,11 @@ import { legacyId, publicId, validKey } from "./rules/players";
 import { WrongGuessError } from "./rules/shared";
 
 const MAX_GAME_BYTES = 2 * 1024 * 1024;
-/** Phones shrink photos to at most 5 MB before uploading. */
-const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+/**
+ * Phones send photos as the camera took them up to 15 MB (round 44: the
+ * seekers zoom into the details), a smaller copy above that.
+ */
+const MAX_PHOTO_BYTES = 16 * 1024 * 1024;
 const KEEPALIVE_MS = 25_000;
 /** A play area or zone description can't be bigger than this. */
 const MAX_PART_BYTES = 300_000;

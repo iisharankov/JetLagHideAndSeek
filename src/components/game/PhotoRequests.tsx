@@ -32,8 +32,11 @@ import {
 } from "@/lib/game/answerTimer";
 import { photoUrl } from "@/lib/game/api";
 import { DRAWS } from "@/lib/game/deck";
-import { shrinkPhoto } from "@/lib/game/photos";
-import { timesPhotoAnsweredBefore } from "@/lib/game/questionIdentity";
+import { sendPhoto } from "@/lib/game/photos";
+import {
+    repeatBadge,
+    timesPhotoAnsweredBefore,
+} from "@/lib/game/questionIdentity";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     activeGameId,
@@ -43,6 +46,16 @@ import {
     uploadPhoto,
 } from "@/lib/game/session";
 import type { PhotoRequest } from "@/lib/game/types";
+import {
+    type Box,
+    frame,
+    panBy,
+    type Point,
+    START,
+    toggleZoom,
+    type View,
+    zoomAt,
+} from "@/lib/photoView";
 import { photoQuestions } from "@/lib/rules/content";
 import { back, pushScreen } from "@/lib/screens";
 import { cn } from "@/lib/utils";
@@ -88,11 +101,17 @@ const PhotoButton = ({
                     if (!file) return;
                     setBusy(true);
                     try {
-                        await uploadPhoto(await shrinkPhoto(file), {
-                            requestId,
-                        });
+                        // As the camera took it, unless it's too big.
+                        const sent = await sendPhoto(file, (photo) =>
+                            uploadPhoto(photo, { requestId }),
+                        );
                         tap();
-                        toast.success("Photo sent", { autoClose: 2000 });
+                        toast.success(
+                            sent === "smaller"
+                                ? "Photo sent (made smaller: it was too big)"
+                                : "Photo sent",
+                            { autoClose: 2000 },
+                        );
                         if (requestId && gameRole.get() === "hider") {
                             toast.info("Draw 1, keep 1: see Cards.", {
                                 toastId: "draw",
@@ -144,9 +163,18 @@ const Photo = ({ photoId, lazy }: { photoId: string; lazy?: boolean }) => {
     );
 };
 
+/** Two points' middle. */
+const middle = (a: Point, b: Point): Point => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+});
+
 /**
  * A photo over the whole screen (round 43): ↻ turns it a quarter, so a
  * landscape photo fills a phone held upright; × (or Escape) closes it.
+ * Round 44: two fingers zoom (or a double tap, or the wheel) and one moves
+ * the zoomed photo, to see its details; Fit shows it whole again; New tab
+ * opens it on its own, as before round 43.
  */
 export const PhotoViewer = ({
     photoId,
@@ -156,6 +184,17 @@ export const PhotoViewer = ({
     onClose: () => void;
 }) => {
     const [turn, setTurn] = useState(0);
+    const [view, setView] = useState<View>(START);
+    const [natural, setNatural] = useState<Box | null>(null);
+    const [screen, setScreen] = useState<Box | null>(null);
+    const stage = useRef<HTMLDivElement>(null);
+    // The fingers on the photo, and whether this touch is a tap.
+    const pointers = useRef(new Map<number, Point>());
+    const touch = useRef({
+        moved: false,
+        down: { x: 0, y: 0 },
+        lastTap: null as (Point & { at: number }) | null,
+    });
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             if (event.key === "Escape") onClose();
@@ -163,45 +202,203 @@ export const PhotoViewer = ({
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
+    useEffect(() => {
+        const el = stage.current;
+        if (!el) return;
+        const measure = () =>
+            setScreen({ width: el.clientWidth, height: el.clientHeight });
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+    /** Screen pixels from the middle of the photo's space. */
+    const fromMiddle = (clientX: number, clientY: number): Point => {
+        const rect = stage.current!.getBoundingClientRect();
+        return {
+            x: clientX - rect.left - rect.width / 2,
+            y: clientY - rect.top - rect.height / 2,
+        };
+    };
+    // The wheel zooms where the mouse is (not passive: the page stays put).
+    useEffect(() => {
+        const el = stage.current;
+        if (!el || !natural || !screen) return;
+        const fitted = frame(natural, screen, turn);
+        const onWheel = (event: WheelEvent) => {
+            event.preventDefault();
+            const dy = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+            const at = fromMiddle(event.clientX, event.clientY);
+            setView((v) => zoomAt(v, Math.exp(-dy * 0.002), at, fitted));
+        };
+        el.addEventListener("wheel", onWheel, { passive: false });
+        return () => el.removeEventListener("wheel", onWheel);
+    }, [natural, screen, turn]);
+
+    const fitted = natural && screen ? frame(natural, screen, turn) : null;
+    const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+            // A pointer the browser doesn't track (the tests' fingers).
+        }
+        const at = fromMiddle(event.clientX, event.clientY);
+        pointers.current.set(event.pointerId, at);
+        if (pointers.current.size === 1) {
+            touch.current.moved = false;
+            touch.current.down = at;
+        } else {
+            touch.current.moved = true;
+        }
+    };
+    const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const fingers = pointers.current;
+        const before = fingers.get(event.pointerId);
+        if (!before || !fitted) return;
+        const after = fromMiddle(event.clientX, event.clientY);
+        fingers.set(event.pointerId, after);
+        const { down } = touch.current;
+        if (Math.hypot(after.x - down.x, after.y - down.y) > 8) {
+            touch.current.moved = true;
+        }
+        if (fingers.size === 1) {
+            const dx = after.x - before.x;
+            const dy = after.y - before.y;
+            setView((v) => panBy(v, dx, dy, fitted));
+            return;
+        }
+        // Two fingers: zoom by how far apart they moved, where they are.
+        const other = [...fingers].find(([id]) => id !== event.pointerId)?.[1];
+        if (!other) return;
+        const was = Math.hypot(before.x - other.x, before.y - other.y);
+        const now = Math.hypot(after.x - other.x, after.y - other.y);
+        const from = middle(before, other);
+        const to = middle(after, other);
+        setView((v) =>
+            panBy(
+                zoomAt(v, was > 0 ? now / was : 1, from, fitted),
+                to.x - from.x,
+                to.y - from.y,
+                fitted,
+            ),
+        );
+    };
+    const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!pointers.current.delete(event.pointerId)) return;
+        if (
+            event.type !== "pointerup" ||
+            pointers.current.size > 0 ||
+            touch.current.moved ||
+            !fitted
+        ) {
+            return;
+        }
+        // A tap; two close together zoom in, or back out.
+        const at = fromMiddle(event.clientX, event.clientY);
+        const last = touch.current.lastTap;
+        if (
+            last &&
+            event.timeStamp - last.at < 350 &&
+            Math.hypot(at.x - last.x, at.y - last.y) < 30
+        ) {
+            touch.current.lastTap = null;
+            setView((v) => toggleZoom(v, at, fitted));
+        } else {
+            touch.current.lastTap = { ...at, at: event.timeStamp };
+        }
+    };
+
     const url = photoUrl(activeGameId.get(), photoId);
     // Turned sideways, the photo's width runs along the screen's height.
     const sideways = turn % 180 !== 0;
+    const size = fitted
+        ? sideways
+            ? { width: fitted.seen.height, height: fitted.seen.width }
+            : fitted.seen
+        : null;
+    const HEAD_BUTTON =
+        "flex h-11 shrink-0 items-center gap-2 rounded-lg bg-slate-800 px-4 font-semibold";
     return createPortal(
         <div
-            className="fixed inset-0 z-[1100] flex flex-col bg-black text-white"
+            // Over the notifications too (9999): nothing covers Fit or ×.
+            className="fixed inset-0 z-[10000] flex flex-col bg-black text-white"
             role="dialog"
             aria-label="Photo"
             data-testid="photo-viewer"
         >
-            <div className="flex items-center justify-between gap-2 p-2">
+            <div className="flex items-center gap-2 p-2">
                 <button
                     type="button"
-                    className="flex h-11 items-center gap-2 rounded-lg bg-slate-800 px-4 font-semibold"
+                    className={HEAD_BUTTON}
                     aria-label="Turn the photo"
-                    onClick={() => setTurn((turn + 90) % 360)}
+                    onClick={() => {
+                        setTurn((turn + 90) % 360);
+                        setView(START);
+                    }}
                 >
                     <span aria-hidden>↻</span> Turn
                 </button>
+                <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={HEAD_BUTTON}
+                    aria-label="Open the photo in a new tab"
+                >
+                    <span aria-hidden>↗</span> New tab
+                </a>
+                <span className="flex-1" />
+                {view.scale > 1 && (
+                    <button
+                        type="button"
+                        className={HEAD_BUTTON}
+                        onClick={() => setView(START)}
+                    >
+                        Fit
+                    </button>
+                )}
                 <button
                     type="button"
-                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-2xl"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-2xl"
                     aria-label="Close the photo"
                     onClick={onClose}
                 >
                     ×
                 </button>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+            <div
+                ref={stage}
+                className="relative min-h-0 flex-1 touch-none select-none overflow-hidden"
+                data-testid="photo-stage"
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+            >
                 <img
                     src={url}
                     alt="Photo"
+                    draggable={false}
                     data-turn={turn}
-                    className="object-contain transition-transform"
-                    style={{
-                        transform: `rotate(${turn}deg)`,
-                        maxWidth: sideways ? "calc(100dvh - 60px)" : "100vw",
-                        maxHeight: sideways ? "100vw" : "calc(100dvh - 60px)",
-                    }}
+                    data-scale={view.scale}
+                    data-x={Math.round(view.x)}
+                    data-y={Math.round(view.y)}
+                    onLoad={(event) =>
+                        setNatural({
+                            width: event.currentTarget.naturalWidth,
+                            height: event.currentTarget.naturalHeight,
+                        })
+                    }
+                    className="absolute left-1/2 top-1/2 max-w-none"
+                    style={
+                        size
+                            ? {
+                                  width: size.width,
+                                  height: size.height,
+                                  transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) scale(${view.scale}) rotate(${turn}deg)`,
+                              }
+                            : { opacity: 0 }
+                    }
                 />
             </div>
         </div>,
@@ -398,7 +595,7 @@ export const PhotoScreen = ({ id }: { id: string }) => {
                             {again > 0 && (
                                 <span className="text-red-300">
                                     {" "}
-                                    · ×{again + 1}: asked before
+                                    · {repeatBadge(again)}: asked before
                                 </span>
                             )}
                         </dd>

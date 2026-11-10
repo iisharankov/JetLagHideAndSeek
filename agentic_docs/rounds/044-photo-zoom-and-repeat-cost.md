@@ -1,0 +1,26 @@
+# Round 44, 2026-11-10: Photos sent whole and zoomable; ×2, ×3 and on for questions asked again
+
+Model: Opus 5.5. Budget: a fix.
+
+Asked: "hmm, zooming is important, sometimes you want to zoom in on details in the photo, that's important, also no compressoin since zooming is so important to get details. Maybe this should be reverted for the old style? Any way to have that and be able to rotate image in case so it doesn't show landscape on a portate? Also make sure 2x for second ask, 3x third ask, so on!"
+
+Read as: keep round 43's full-screen photo, add zoom to it (pinch, double tap) with the turn, and give the old new-tab way back as a link; send photos as the camera took them instead of re-compressing; the "asked before" badge and texts say ×3 the third time, ×4 the fourth, as the rulebook says.
+
+Answers used: none.
+
+Did:
+- **Zoom in the photo viewer** (`PhotoViewer` in `game/PhotoRequests.tsx`, the sums in `lib/photoView.ts`): two fingers zoom where they are, a double tap zooms in 2.5× on the spot (and back out), the mouse wheel zooms on a computer, one finger moves a zoomed photo; it never leaves the screen, and zooms up to two screen pixels per photo pixel. **Fit** (shown while zoomed) shows the whole photo again; **↻ Turn** turns a quarter and starts from the whole photo. **↗ New tab** opens the photo on its own, as before round 43. The viewer is over the notifications now, which covered Fit and × on the phone.
+- **Photos sent whole** (`sendPhoto` in `lib/game/photos.ts`, `lib/game/jpeg.ts`): a JPEG goes as the camera took it, its picture's bytes untouched; only its metadata goes (Exif with the GPS position, XMP, IPTC, comments, and any extra pictures after the first, such as a depth map). Which way up it is stays, as a one-entry Exif. A photo over 15 MB, one that isn't a JPEG, or one the server refuses as too large (an nginx not yet updated) goes as a smaller copy, as before (the toast says "made smaller").
+- **The limit:** the API takes photos up to 16 MB (`server/src/app.ts`, was 6 MB), nginx 17m (`deploy/nginx/*.conf`, was 7m).
+- **×2, ×3, ×4…** (`repeatBadge`, `costWord`, `askedBeforeText` in `lib/game/questionIdentity.ts`; `RepeatBadge` in `ask/QuestionTypes.tsx`): the red badge on the distance chips, the ask flow's choices and photo names counts up; the card and the ask screen say "Asked twice before this round: it costs triple (the hider draws 3 times)". The server already dealt that many draws.
+- **A vetoed question counts as asked** (`timesAskedBefore`, was `timesAnsweredBefore`): the rulebook's Veto says "The question is still considered to have been asked, and therefore can only be asked again for its additional cost". Asked again after a veto, it shows ×2 and the hider draws twice when it's answered (`oweDraws` in `server/src/rules/questions.ts` uses the same count). The vetoed card's note says what asking it again costs.
+- **Tests, seen failing first:** `tests/jpeg.test.ts` (what's removed and kept, both byte orders, progressive photos, broken files), `tests/sendPhoto.test.ts` (whole, the 413 fallback, too big, other errors, a PNG), `tests/photoView.test.ts` (fitting, turned, zoom at a spot, edges), `tests/questionIdentity.test.ts` (vetoed counted, ×3 and the words), `server/src/gameOps.test.ts` (×3 and ×4 draws; double after a veto), `server/src/app.test.ts` (12 MB taken, 16 MB refused), `e2e/photos.spec.ts` (a real JPEG with a camera's Exif arrives with its picture bytes as drawn and no position, shows the right way up, zooms by double tap, wheel and two fingers, moves, Fit, Turn, the New tab link), `e2e/shell.spec.ts` (×3 on 5 km after an answered and a vetoed 5 km radar, ×2 on a vetoed 10 km).
+
+Changed from the ask: nothing. The old style is back as a link next to Turn, not instead of the viewer.
+
+Found on the way: vetoed questions didn't count as asked (above). The tour step "Asked before" lost the bold on ×2, as the tutorial's bold words must be labels spelled the same in the app, and the badge's text is a number now.
+
+Checked: lint and types clean; vitest 551 passed (76 files); build and build:server; Playwright full run 92 passed, 8 skipped, then (after a one-line change to the hider's "×n: asked before", same text) all four lines again and the shared-game, ask-flow and photo specs: 25 passed, 1 skipped. Screenshots looked at, phone and desktop: a 2000 × 1200 street photo whole, zoomed on its street sign (sharp), turned to fill the phone; the hider's "Photo sent"; ×3 on 5 km in the radar's distances. They showed notifications covering Fit and × on the viewer: fixed (above). Test-first. Not checked: a real phone's pinch, a real camera photo (Exif from an iPhone or Android), nginx with 17m (the server).
+Root-run files changed: `deploy/nginx/jetlag.sharankov.com.conf` and `deploy/nginx/jetlag.sharankov.com.noauth.conf` (`client_max_body_size` 7m → 17m, nothing else). Also flagged: `server/src/app.ts` (the photo limit 6 → 16 MB, nothing else).
+Decisions: decisions.md, round 44. Steps changed: S1 (rounds 32–44, and the nginx line). Questions added: none.
+Commit message: Round 44: photos sent whole and zoomable (pinch, double tap, Fit, New tab), ×3 and on for questions asked again, vetoed questions count as asked

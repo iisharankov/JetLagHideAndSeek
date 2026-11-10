@@ -36,13 +36,20 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–42 and check.** **Where:** the server, as root, after you commit and push round 42. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–44 and check.** **Where:** the server, as root, after you commit and push round 44. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
   sleep 60 && ~/jetlag/deploy/check.sh
   # expect: every line ok; among them "ok    ADMIN_CODE is set (NN characters)" and "ok    the API knows the admin code: games need a code"
+  # Round 44: photos go whole, up to 15 MB; nginx's limit was 7m.
+  grep -rn client_max_body_size /etc/nginx/sites-available/
+  # expect: the jetlag site's line says 7m (the /api/ block); then:
+  sudo sed -i 's/client_max_body_size 7m;/client_max_body_size 17m;/' /etc/nginx/sites-available/<the jetlag file from the grep>
+  sudo nginx -t && sudo systemctl reload nginx
+  # expect: "syntax is ok", "test is successful", no output from reload
   ```
+  Until nginx says 17m, photos over about 7 MB go as a smaller copy (the hider sees "made smaller").
   **Done:**
 
 ### After deploying

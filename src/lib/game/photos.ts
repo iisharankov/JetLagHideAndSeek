@@ -1,4 +1,11 @@
-/** Photos are shrunk to at most this size before uploading. */
+import { stripJpeg } from "./jpeg";
+
+/**
+ * A photo bigger than this goes as a smaller copy (round 44: the server
+ * takes 16 MB, so a camera's photo nearly always goes as it is).
+ */
+export const ORIGINAL_MAX_BYTES = 15 * 1024 * 1024;
+/** A smaller copy is at most this big (what the server took before round 44). */
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_SIDE = 4096;
 
@@ -8,9 +15,9 @@ const toJpeg = (canvas: HTMLCanvasElement, quality: number) =>
     );
 
 /**
- * A photo as a JPEG of at most 5 MB. It is always re-encoded, which also
- * drops the photo's metadata, including where it was taken: a hider's photo
- * must not give away their position.
+ * A smaller copy of a photo: a JPEG of at most 5 MB. Re-encoding also drops
+ * the photo's metadata, including where it was taken: a hider's photo must
+ * not give away their position.
  */
 export const shrinkPhoto = async (file: Blob): Promise<Blob> => {
     const bitmap = await createImageBitmap(file, {
@@ -58,4 +65,42 @@ export const shrinkImageDataUrl = async (
         .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
     return canvas.toDataURL("image/jpeg", quality);
+};
+
+const isJpeg = async (file: Blob) => {
+    const head = new Uint8Array(await file.slice(0, 3).arrayBuffer());
+    return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+};
+
+/**
+ * Sends a photo as the camera took it (round 44), so the seekers can zoom
+ * into every detail: a JPEG goes with its picture untouched, only its
+ * metadata (where it was taken) removed. A photo too big for the server,
+ * or one this can't read, goes as a smaller copy. Says which went.
+ */
+export const sendPhoto = async (
+    file: Blob,
+    upload: (photo: Blob) => Promise<void>,
+    shrink: (file: Blob) => Promise<Blob> = shrinkPhoto,
+): Promise<"original" | "smaller" | "copy"> => {
+    const jpeg = await isJpeg(file);
+    const original =
+        jpeg && file.size <= ORIGINAL_MAX_BYTES
+            ? stripJpeg(new Uint8Array(await file.arrayBuffer()))
+            : null;
+    if (original) {
+        try {
+            await upload(
+                new Blob([original as Uint8Array<ArrayBuffer>], {
+                    type: "image/jpeg",
+                }),
+            );
+            return "original";
+        } catch (error) {
+            // An older server (or its proxy) takes less: send a copy.
+            if ((error as { status?: number }).status !== 413) throw error;
+        }
+    }
+    await upload(await shrink(file));
+    return jpeg ? "smaller" : "copy";
 };

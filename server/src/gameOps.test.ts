@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CARDS } from "@/lib/game/deck";
-import { timesAnsweredBefore } from "@/lib/game/questionIdentity";
+import { timesAskedBefore } from "@/lib/game/questionIdentity";
 import { defaultGameSettings } from "@/lib/game/settings";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
 import { photoNamesFor } from "@/lib/rules/photoQuestions";
@@ -808,6 +808,64 @@ describe("the virtual deck", () => {
         expect(state.deck?.owed).toEqual([]);
     });
 
+    /** Asks and answers a 5 km radar (key `key`); returns the draws it earned. */
+    const askRadar = (state: GameState, key: number, at: number) => {
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(key),
+            state: "asked",
+        });
+        state = apply(
+            state,
+            {
+                type: "answerQuestion",
+                key,
+                answer: { within: true },
+                basedOn: at,
+            },
+            hider,
+            at,
+        );
+        // What the answer earned: the draw being dealt and the queued ones.
+        return { state, draws: 1 + (state.deck?.owed.length ?? 0) };
+    };
+    const clear = (state: GameState) => {
+        while (state.deck?.pending.length) {
+            state = apply(state, { type: "keepCards", picks: [0] }, hider);
+        }
+        state.deck!.hand = [];
+        return state;
+    };
+
+    it("triples the cost the third time, and so on (round 44)", () => {
+        let state = virtual();
+        let asked = askRadar(state, 1, 5000);
+        expect(asked.draws).toBe(1);
+        state = clear(asked.state);
+        asked = askRadar(state, 2, 6000);
+        expect(asked.draws).toBe(2);
+        state = clear(asked.state);
+        asked = askRadar(state, 3, 7000);
+        expect(asked.draws).toBe(3);
+        state = clear(asked.state);
+        asked = askRadar(state, 4, 8000);
+        expect(asked.draws).toBe(4);
+    });
+
+    it("counts a vetoed question as asked: again, it costs double (round 44)", () => {
+        let state = virtual();
+        state = apply(state, {
+            type: "putQuestion",
+            question: radius(1),
+            state: "asked",
+        });
+        state.deck!.hand = ["powerup_veto_question"];
+        state = apply(state, { type: "vetoQuestion", key: 1 }, hider);
+        expect(timesAskedBefore(state, radius(2))).toBe(1);
+        const asked = askRadar(state, 2, 6000);
+        expect(asked.draws).toBe(2);
+    });
+
     it("vetoes a question with the card, and swaps cards with the powerups", () => {
         let state = virtual();
         state = apply(state, {
@@ -1510,7 +1568,7 @@ describe("the thermometer", () => {
             key: 8,
             data: { distanceKm: 1 },
         } as SharedQuestion;
-        expect(timesAnsweredBefore(state, again)).toBe(0);
+        expect(timesAskedBefore(state, again)).toBe(0);
         state = apply(
             state,
             {
@@ -1521,9 +1579,9 @@ describe("the thermometer", () => {
             },
             hider,
         );
-        expect(timesAnsweredBefore(state, again)).toBe(1);
+        expect(timesAskedBefore(state, again)).toBe(1);
         expect(
-            timesAnsweredBefore(state, {
+            timesAskedBefore(state, {
                 ...again,
                 data: { distanceKm: 5 },
             }),

@@ -25,6 +25,7 @@ import {
     thermometerQuestion,
 } from "@/lib/game/newQuestion";
 import { placeCount } from "@/lib/game/placeCounts";
+import { askedBeforeText } from "@/lib/game/questionIdentity";
 import { serverNow } from "@/lib/game/serverTime";
 import {
     armThermometer,
@@ -48,9 +49,9 @@ import {
 import {
     askRefusal,
     KINDS,
+    RepeatBadge,
     ScreenHeader,
     startPoint,
-    TwiceBadge,
 } from "./QuestionTypes";
 
 const SIZE_NAMES = { small: "small", medium: "medium", large: "large" };
@@ -172,8 +173,9 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                 return null;
         }
     };
-    const twice = (question: ReturnType<typeof chosen>) =>
-        shared && question && askedBefore($game, question) > 0;
+    /** How often it was asked before this round (×2, ×3…). */
+    const before = (question: ReturnType<typeof chosen>) =>
+        shared && question ? askedBefore($game, question) : 0;
 
     /** Makes the question; asks it (or starts it) in a shared game unless a draft. */
     const make = async (send: boolean) => {
@@ -247,9 +249,10 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                         }}
                     >
                         {value < 1 ? `${value * 1000} m` : `${value} km`}
-                        {twice(probe) && (
-                            <TwiceBadge className="absolute -right-1 -top-2" />
-                        )}
+                        <RepeatBadge
+                            before={before(probe)}
+                            className="absolute -right-1 -top-2"
+                        />
                     </button>
                 );
             })}
@@ -310,9 +313,10 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                                 none in the play area
                             </span>
                         )}
-                        {probe && twice(probe) && (
-                            <TwiceBadge className="absolute left-2 top-2" />
-                        )}
+                        <RepeatBadge
+                            before={before(probe)}
+                            className="absolute left-2 top-2"
+                        />
                     </button>
                 );
             })}
@@ -412,10 +416,12 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                                                 )
                                             }
                                         >
-                                            {photoAskedBefore(
-                                                $game,
-                                                choice.name,
-                                            ) > 0 && <TwiceBadge />}
+                                            <RepeatBadge
+                                                before={photoAskedBefore(
+                                                    $game,
+                                                    choice.name,
+                                                )}
+                                            />
                                             <span className="flex-1">
                                                 {choice.name}
                                             </span>
@@ -455,9 +461,9 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                             : "the map's centre (no position: turn location on to ask from where you are). The pin can be dragged afterwards."}
                     </p>
                 )}
-                {question && twice(question) && (
+                {before(question) > 0 && (
                     <p className="rounded-lg border border-amber-500/60 bg-amber-950/40 p-2 text-sm text-amber-200">
-                        Asked already this round: asking it again costs double.
+                        {askedBeforeText(before(question))}
                     </p>
                 )}
                 {refusal && (

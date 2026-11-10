@@ -16,6 +16,7 @@ import {
 } from "@/lib/game/curseRules";
 import { DRAWS } from "@/lib/game/hand";
 import { radarQuestion, thermometerQuestion } from "@/lib/game/newQuestion";
+import { askedBeforeText, repeatBadge } from "@/lib/game/questionIdentity";
 import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, gameState } from "@/lib/game/session";
@@ -82,19 +83,30 @@ export const DrawBadge = ({ kind }: { kind: AskKind }) => {
     );
 };
 
-/** "×2": asked before this round, so it costs double. */
-export const TwiceBadge = ({ className }: { className?: string }) => (
-    <span
-        className={cn(
-            "rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white",
-            className,
-        )}
-        title="Asked before this round: it costs double"
-        data-testid="twice-badge"
-    >
-        ×2
-    </span>
-);
+/**
+ * "×2": asked once before this round, so it costs double; "×3" after
+ * twice, and so on (round 44). Nothing for a question not asked yet.
+ */
+export const RepeatBadge = ({
+    before,
+    className,
+}: {
+    /** How often it was asked before this round. */
+    before: number;
+    className?: string;
+}) =>
+    before > 0 ? (
+        <span
+            className={cn(
+                "rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white",
+                className,
+            )}
+            title={askedBeforeText(before)}
+            data-testid="repeat-badge"
+        >
+            {repeatBadge(before)}
+        </span>
+    ) : null;
 
 /** A pushed screen's header: ‹ back, the badge, the title, and what's on the right. */
 export const ScreenHeader = ({

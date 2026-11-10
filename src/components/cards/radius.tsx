@@ -89,12 +89,11 @@ export const RadiusQuestionComponent = ({
                     options={radii}
                     taken={gone}
                     disabled={locked}
-                    twice={(km) =>
-                        !!$game &&
+                    asked={(km) =>
                         askedBefore(
                             $game,
                             radarQuestion({ lat: data.lat, lng: data.lng }, km),
-                        ) > 0
+                        )
                     }
                     onChange={(km) => set({ radius: km, unit: "kilometers" })}
                 />

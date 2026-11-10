@@ -191,7 +191,7 @@ export const ASK_TOUR: TourStep[] = [
     {
         id: "twice",
         title: "Asked before",
-        text: "A **×2** on a choice means it was asked already this round. Asking it again costs double: the hider draws and keeps twice, one after the other.",
+        text: "A red ×2 on a choice means it was asked already this round. Asking it again costs double: the hider draws and keeps twice, one after the other. A third time is ×3, and so on.",
     },
     {
         id: "info",

@@ -3,10 +3,7 @@
 // (where the phone is, or the map's centre) and what was chosen.
 import * as turf from "@turf/turf";
 
-import {
-    timesAnsweredBefore,
-    timesPhotoAnsweredBefore,
-} from "./questionIdentity";
+import { timesAskedBefore, timesPhotoAnsweredBefore } from "./questionIdentity";
 import type { GameState, SharedQuestion } from "./types";
 
 export type Start = { lat: number; lng: number };
@@ -93,7 +90,7 @@ export const askedBefore = (
     question: { id: string; data: Record<string, unknown> },
 ) =>
     state
-        ? timesAnsweredBefore(state, {
+        ? timesAskedBefore(state, {
               ...question,
               key: -1,
           } as SharedQuestion)
