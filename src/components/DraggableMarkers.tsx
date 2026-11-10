@@ -15,6 +15,7 @@ import {
     updateQuestion,
 } from "@/lib/context";
 import { gameState, hiderPhone } from "@/lib/game/session";
+import { pinOnMap } from "@/lib/game/sync";
 import {
     hiderPlaced,
     pinLocked,
@@ -141,7 +142,8 @@ const movePin = (latitude: number, longitude: number) => {
 export const DraggableMarkers = () => {
     const $questions = useStore(questions);
     const $pinLocked = useStore(pinLocked);
-    const $revealed = useStore(gameState)?.revealedPin ?? null;
+    const $game = useStore(gameState);
+    const $revealed = $game?.revealedPin ?? null;
     const $hiderMode = useStore(hiderMode);
     const $hider = useStore(hiderPhone);
     const $showHiderPin = useStore(showHiderPin);
@@ -186,6 +188,7 @@ export const DraggableMarkers = () => {
             {$questions.map((question) => {
                 if (!question.data) return null;
                 if (question.data.hidden) return null;
+                if (!pinOnMap(question, $game)) return null;
                 const draggable = question.data.drag;
                 if (
                     question.id === "matching" &&

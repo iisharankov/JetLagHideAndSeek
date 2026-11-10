@@ -199,6 +199,91 @@ test("the ask flow marks what was asked before (×2, ×3) and unfolds each photo
     ).toBeEnabled();
 });
 
+test("the Questions tab has the clock on top and Ask at the bottom; an answered question leaves no pin on the map", async ({
+    page,
+    request,
+    pageErrors,
+}, testInfo) => {
+    const phone = testInfo.project.name === "phone";
+    const created = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings: { size: "medium" },
+        questions: [],
+        by: "Org",
+    });
+    const { state } = await created.json();
+    const id = state.id as string;
+    const as = (key: string) => ({ "X-Player-Key": key });
+    const SEEKER = "layout-seeker-key-00001";
+    const HIDER = "layout-hider-key-000001";
+    await request.post(`${API}/games/${id}/join`, {
+        headers: as(HIDER),
+        data: { name: "Ben", hider: true },
+    });
+    await request.post(`${API}/games/${id}/join`, {
+        headers: as(SEEKER),
+        data: { name: "Ana" },
+    });
+    const op = (key: string, body: unknown) =>
+        request.post(`${API}/games/${id}/ops`, {
+            headers: as(key),
+            data: { op: body },
+        });
+    // Two radars sent: the first answered, the second still waiting.
+    for (const [key, lat] of [
+        [0.5, 47.38],
+        [0.8, 47.45],
+    ]) {
+        await op(SEEKER, {
+            type: "putQuestion",
+            question: {
+                id: "radius",
+                key,
+                data: { lat, lng: 8.54, radius: 5, unit: "kilometers" },
+            },
+        });
+        await op(SEEKER, { type: "sendQuestion", key });
+    }
+    await op(HIDER, {
+        type: "answerQuestion",
+        key: 0.5,
+        answer: { within: true },
+        basedOn: Date.now() + 60_000,
+    });
+
+    await prepare(page, { playerKey: SEEKER, playerName: "Ana" });
+    await page.goto(`/?game=${id}`);
+    await expect(page.getByTestId("join-dialog")).toHaveCount(0);
+    if (phone) await page.getByRole("radio", { name: /^Questions/ }).click();
+    const list = page.getByTestId("question-list");
+    await expect(list.getByRole("button")).toHaveCount(2);
+
+    // The clock above the list, Ask a question under it (round 45); on a
+    // phone Ask sits at the foot of the tab, over the tab bar.
+    const clock = await page.getByTestId("round-clock").boundingBox();
+    const rows = await list.boundingBox();
+    const ask = await page
+        .getByRole("button", { name: "Ask a question" })
+        .boundingBox();
+    expect(clock!.y + clock!.height).toBeLessThanOrEqual(rows!.y);
+    expect(rows!.y + rows!.height).toBeLessThanOrEqual(ask!.y);
+    if (phone) {
+        const bar = await page.getByTestId("tab-bar").boundingBox();
+        expect(bar!.y - (ask!.y + ask!.height)).toBeLessThan(40);
+        await page
+            .getByTestId("tab-bar")
+            .getByRole("button", { name: "Map" })
+            .click();
+    }
+
+    // The map: the waiting question's pin, none for the answered one.
+    await expect(
+        page.locator('img.leaflet-marker-icon[alt="Question"]'),
+    ).toHaveCount(1);
+    expect(pageErrors).toEqual([]);
+});
+
 test("the ? on Ask a question explains the screen in four notes; a toast closes by its full-height ×", async ({
     page,
     pageErrors,

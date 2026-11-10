@@ -355,6 +355,8 @@ export const QuestionSidebar = () => {
                     </div>
                 )}
             </div>
+            {/* The hiding clock at the top of every tab (round 45). */}
+            {$game && <RoundClock />}
             <SidebarContent className={tab === "stations" ? "" : "hidden"}>
                 {hider ? <HiderPanel /> : <StationsPanel />}
             </SidebarContent>
@@ -393,29 +395,17 @@ export const QuestionSidebar = () => {
                                 nothing for it.
                             </p>
                         )}
-                    <SidebarMenu
-                        className={cn("px-2 pt-2", openAsked && "hidden")}
-                        data-tutorial-id="add-questions-buttons"
-                    >
-                        {$game && $role === "hider" ? (
+                    {$game && $role === "hider" && (
+                        <SidebarMenu
+                            className={cn("px-2 pt-2", openAsked && "hidden")}
+                            data-tutorial-id="add-questions-buttons"
+                        >
                             <p className="px-2 py-1 text-xs text-slate-400">
                                 The seekers ask; you answer. Questions appear
                                 here once they send them.
                             </p>
-                        ) : (
-                            <SidebarMenuItem>
-                                <Button
-                                    className="min-h-11 w-full font-semibold"
-                                    disabled={$isLoading}
-                                    data-tutorial-id="ask-question"
-                                    onClick={() => openAsk()}
-                                >
-                                    <Plus className="h-5 w-5" aria-hidden />
-                                    Ask a question
-                                </Button>
-                            </SidebarMenuItem>
-                        )}
-                    </SidebarMenu>
+                        </SidebarMenu>
+                    )}
                     {!openAsked && (
                         <>
                             <NotePinList />
@@ -458,11 +448,27 @@ export const QuestionSidebar = () => {
                 </div>
             </SidebarContent>
             <SidebarGroup>
-                {$game && <RoundClock />}
                 <SidebarGroupContent
                     className={tab === "questions" ? "" : "hidden"}
                 >
                     <SidebarMenu>
+                        {/* Ask at the foot, under the thumb (round 45). */}
+                        {!openAsked &&
+                            !asking &&
+                            !photoScreen &&
+                            !($game && $role === "hider") && (
+                                <SidebarMenuItem data-tutorial-id="add-questions-buttons">
+                                    <Button
+                                        className="min-h-12 w-full text-base font-semibold"
+                                        disabled={$isLoading}
+                                        data-tutorial-id="ask-question"
+                                        onClick={() => openAsk()}
+                                    >
+                                        <Plus className="h-5 w-5" aria-hidden />
+                                        Ask a question
+                                    </Button>
+                                </SidebarMenuItem>
+                            )}
                         {$questions.length > 0 && !$game && !openAsked && (
                             <SidebarMenuItem>
                                 <AlertDialog>

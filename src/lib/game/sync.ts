@@ -130,6 +130,16 @@ export const canChangeQuestion = (
 };
 
 /**
+ * Whether a question shows its pin on the map: not once it's answered or
+ * vetoed (round 45, the owner's ask); its answer stays on the map, and its
+ * card says where it was asked from. Playing alone, every pin stays.
+ */
+export const pinOnMap = (question: Question, state: GameState | null) => {
+    const entry = state?.questions[String(question.key)];
+    return entry?.state !== "answered" && entry?.state !== "vetoed";
+};
+
+/**
  * How a question shapes the map: confirmed answers shade it; seekers'
  * drafts (and the hider's research questions) shade it as speculation;
  * questions waiting for the hider don't; vetoed ones never will. Without a

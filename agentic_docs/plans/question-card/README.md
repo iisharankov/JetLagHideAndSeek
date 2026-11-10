@@ -1,48 +1,44 @@
 # The question card on phones: options
 
-Round 40, 2026-11-10, from your comments on the radar draft's card ("the questions are still artifacts of the original design; buttons too small; some settings could be combined, toggled or cycled, like the GPS options and inside/outside"). The pictures are in `mockups/png/` (option A is the app itself; the others are drawn in `mockups/screens.html`, rendered by `render.mjs`).
+Round 45, 2026-11-10, redrawn from your comments on the card in the app (round 40's option A) and on round 40's picture D. Nothing here is built yet: Q59 picks one. The pictures are in `mockups/png/`, drawn in `mockups/screens.html` and rendered by `render.mjs` (`node agentic_docs/plans/question-card/mockups/render.mjs`).
 
-## A · Sections (built, in the app now)
+## What every picture has now
 
-`01-option-a-built-sections.png`, `01b-option-a-change-sheet.png`, `01c-option-a-thermometer.png`, `01d-option-a-matching.png`, `07-distance-popup-built.png` (retaken in round 42: the distance as one button with its pop-up, ‹ List as the back, the tab bar Hider · Questions · Map · Cards · Menu).
+Your comments, each in every option:
 
-- Header: ‹, the cost badge, the title, **i**. Nothing else, so the title has room.
-- The game's status and its one action (Send to the hider, Start the thermometer) right under it.
-- Labelled sections with 44–48 px controls: **Distance** (chips), **Type** (the dropdown), **Asked from** (one row: the pin's colour, the coordinates, **Change ›**; Change opens Use my location, typed or pasted coordinates, Copy), and the answer as one big two-way toggle (**Inside | Outside**, **Hotter | Colder**, **Same | Different**, **Closer | Further**). In a game it's labelled "Show the map as if the answer is", playing alone "Answer".
-- Hide from the map and Delete at the card's foot, with words.
+- **The map on top and large, the controls at the bottom** (your "04-option-d has the idea"). The pin is on that map, and you drag it there; **⤢** opens the big map.
+- **Send between Hide and Delete**, at the foot, the biggest button. "Hide from the map" is **Hide**, "Send to the hider" is **Send**.
+- **×2 beside the cost** (2/1 ×2) in the header. Once a question has been sent, the header says "sent by …" instead.
+- **No Draft strip**: a question is a draft until it's sent. Who made it moves under the title ("by Ana · 2 min ago").
+- **Location**, not "Asked from", on the same row as **Distance**.
+- **A smaller guess**, called **What if**: one 42 px row instead of a 64 px pair of buttons under its own label (picture 14 shows four ways).
 
-Good: every card changed at once (the parts are shared: `cards/parts.tsx`, `LatLngPicker.tsx`, `cards/base.tsx`); nothing to learn. Less good: it's still a form; at half height the map is hidden behind it.
+## The four options, with the map on top
 
-## B · The question as a sentence (`02-option-b-sentence.png`)
+| | Picture | What's under the map |
+|---|---|---|
+| **D** | `10-d-map-on-top.png` | One row: **10 km ▾** and **Me · GPS ⟳** (⟳ switches between your GPS and the pin; a tap on the rest opens picture 15). Then **What if: Inside \| Outside**. The fewest rows with every choice on screen. |
+| **A** | `11-a-sections-under-map.png` | Today's labelled sections, folded into two rows: DISTANCE and LOCATION (the coordinates, › for the choices) side by side, then WHAT IF THE ANSWER IS. The most familiar; a little taller. |
+| **B** | `12-b-sentence-under-map.png` | "Are you within **10 km ▾** of **me ▾**?" Tap a word to change it; the guess answers it: **Yes \| No**. Reads like the rulebook; each kind needs its own sentence (matching and measuring have many types). |
+| **C** | `13-c-summary-under-map.png` | "Within 10 km of me?" with **Edit** (which reopens the ask screens). The guess sits on the map ("What if: Inside ⟳"). The biggest map; a change is one tap further away. |
 
-"Are you within **10 km ▾** of **📍 me (GPS) ▾**?" Tapping a word opens its choices (the distance chips; "me" cycles GPS → pin on the map → typed). The guess is one switch ("Shade the map as if: Yes"). Hide and Delete behind **⋯**. Send pinned at the bottom.
+The same layout on the other kinds, and after Send (drawn as D):
 
-Good: reads like the rulebook; the fewest controls on screen. Less good: tappable words are less obvious than buttons for new players; each kind needs its own sentence (matching and measuring have many types).
-
-## C · A summary; editing goes back to the ask screens (`03-option-c-summary.png`)
-
-The card shows what was chosen in big text ("Within 10 km? From where you are, ±12 m"), **Edit the question ›** reopens the ask flow's screens (the same chips and tiles as when it was made), then the guess (**Yes · inside | No · outside**) and Send pinned.
-
-Good: one place to choose things (the ask flow), so the card can't drift from it; the card is calm. Less good: a change is one tap further away.
-
-## D · Full screen, a live map at the card's top (`04-option-d-map-strip.png`, redrawn in round 42)
-
-Every tab is full screen now, so the "short card over the map" became a small map inside the card: the map as this answer would leave it, then the distance ("10 km ▾"), "Me · GPS ⟳" (cycles GPS → pin → typed), the Inside/Outside toggle, Send pinned.
-
-Good: you see the effect while choosing without leaving the card. Less good: a second, smaller map to keep in step with the big one.
-
-## Ideas for any option
-
-- `05-toggles-per-kind.png`: a segmented control (two big halves) where both words matter (Inside/Outside, Hotter/Colder); a switch where the question reads as yes/no ("Same airport as me"). And "from where" as one control with a cycle button instead of three icons.
-- `06-clock-in-header.png`: the hiding clock as a pill in the sheet's header instead of the bar at the bottom of every tab (it takes about a sixth of a half sheet today); a tap opens Start, Pause and Rest.
-
-## Since (rounds 41 and 42)
-
-- Round 42: Radar and Thermometer make a draft at once (no choices screen); the other kinds' choices add a draft first ("Add to the map (draft)", "Ask now" second); the card's back is "‹ List".
-
-- Your chat answer: a distance is one button ("10 km ▾"), its choices, ×2 and Custom… in a pop-up. Built on the radar and thermometer cards (`DistancePicker`).
-- Every tab is now full screen, Map in the middle of the tab bar: option D's "short card over the map" doesn't fit as drawn; its one-row ideas (the cycling "from where") still do.
+- `16-d-thermometer.png`: distance and where it starts, then **Start the thermometer** where Send is. What if comes once you've travelled, as it needs the end.
+- `17-d-matching.png`: the type (**Canton ▾**) where the distance is; What if: **Same \| Different**.
+- `18-d-after-send.png`: distance and place fixed (dashed, with a lock), no guess on the map, **Waiting · 4:12** where Send was.
+- `15-location-choices.png`: tapping Location (in any option) shows your GPS, the pin (drag it on the map), type or paste, or copy. It works like the distance's pop-up.
+- `14-the-guess-smaller.png`: the guess four ways: today's buttons, one row, a chip on the map, a switch. It also has the words: **What if** (suggested), "If they say", "Shade as if", "Preview".
 
 ## Suggested
 
-C's structure: the card as a summary with the guess toggle and Send, **Edit** reopening the ask screens, and the clock as a pill (06). It removes the duplicated controls (the ask flow and the card both choose the distance today). (Round 40 suggested D's height too; with full-screen tabs since round 41, the map is a tap away on the tab bar instead.) A, as built with the distance pop-up, is a sound fallback if you'd rather keep editing on the card.
+**D** (picture 10), with What if as one row. It's the one you pointed at, every choice is still a visible button for new players, and the map gets about 60% of the screen. C's chip on the map (picture 14, way 3) is the next step if you want the map even bigger. B is the nicest to read but needs a sentence for every matching and measuring type.
+
+## Built this round (not part of the card)
+
+- **The Questions tab:** the clock is at the top and **Ask a question** at the bottom, over the tab bar. The clock is at the top of every tab now, so it stays in one place.
+- **The map:** answered and vetoed questions show no pin. Their answer stays on the map.
+
+## Before (round 40)
+
+`01-option-a-built-sections.png`, `01b-option-a-change-sheet.png`, `01c-option-a-thermometer.png`, `01d-option-a-matching.png` and `07-distance-popup-built.png` are the card as it is in the app (option A, rounds 40–42), for comparison. Round 40's drawings of B, C, D, the toggles and the clock pill (02–06) are replaced by 10–18; they're in git history.

@@ -5,6 +5,7 @@ import {
     canChangeQuestion,
     diffLocal,
     mergeRemoteQuestions,
+    pinOnMap,
     roleOnMap,
     syncedJson,
     toShared,
@@ -254,6 +255,27 @@ describe("roleOnMap", () => {
 
     it("everything counts when not playing a shared game", () => {
         expect(roleOnMap(radius(2), null)).toBe("confirmed");
+    });
+});
+
+describe("pinOnMap", () => {
+    const state = game([
+        entry(radius(1), "answered"),
+        entry(radius(2), "asked"),
+        entry(radius(3), "draft"),
+        entry(radius(5), "vetoed"),
+    ]);
+
+    it("answered and vetoed questions show no pin; the others do (round 45)", () => {
+        expect(pinOnMap(radius(1), state)).toBe(false);
+        expect(pinOnMap(radius(5), state)).toBe(false);
+        expect(pinOnMap(radius(2), state)).toBe(true);
+        expect(pinOnMap(radius(3), state)).toBe(true);
+        expect(pinOnMap(radius(4), state)).toBe(true); // not sent yet
+    });
+
+    it("playing alone, every question keeps its pin", () => {
+        expect(pinOnMap(radius(1), null)).toBe(true);
     });
 });
 

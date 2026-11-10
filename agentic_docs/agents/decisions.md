@@ -2,6 +2,15 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 45: the question card redrawn; the clock on top, Ask at the foot; no pins for answered questions
+
+| Decision | Why | From |
+|---|---|---|
+| **Answered and vetoed questions show no pin on the map; their answer stays drawn** (`pinOnMap`) | the owner: "Pins should not show for questions already answered"; a vetoed one is as finished (nothing to move, nothing drawn) | the owner (in chat); vetoed, this round |
+| **The hiding clock is at the top of every tab** (it was at the foot since round 9) | the owner: "time at top" on the Questions tab; on every tab so it doesn't jump when switching | the owner (in chat); every tab, this round |
+| **Ask a question is at the foot of the Questions tab, over the tab bar** | the owner: "ask a question should be on bottom… More accessible" | the owner (in chat) |
+| **The card's redesign is drawn, not built: four options (A–D), all with the map on top, Send between Hide and Delete, ×2 beside the cost, no Draft strip, "Location", a small "What if"** | the owner: "Remake all the photos with the comments above and ideas and let's see"; Q59 picks one | the owner (in chat) |
+
 ## 2026-11-10, round 44: photos sent whole and zoomable; ×3 and on
 
 | Decision | Why | From |

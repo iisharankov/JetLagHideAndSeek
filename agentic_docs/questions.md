@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-10 (round 42). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-10 (round 45). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–42) and S7 (your admin code on your phone).
+**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–45) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -10,13 +10,13 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones, four layouts with pictures (A is built and in the app now; B, C, D drawn). Q59 picks one. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
+- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones, redrawn in round 45 from your comments: the map on top and large, the controls at the thumb, in four layouts (A, B, C, D) with pictures. Q59 picks one. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
 
 ## Questions
 
-**Q59. The question card on phones.** Round 40 rebuilt it as option A (labelled sections, big chips, one "Asked from" row, a big Inside/Outside toggle, actions at the foot; in the app now). The plan page shows three other ways with pictures: B (the question as a sentence with tappable words), C (a summary, Edit reopens the ask screens), D (a short card over the map). Which way, and the clock as a pill in the header (picture 06)? (asked 2026-11-10; your chat answer about the distance, one button with a pop-up, is built in round 41; and since round 41 every tab is full screen, so D's "short card over the map" no longer fits as drawn)
+**Q59. The question card on phones.** Round 45 redrew all four options with your comments: the map on top and large, Distance and Location side by side, a small "What if", Send between Hide and Delete, ×2 beside the cost, no Draft strip. Which one: D (one row of buttons, picture 10), A (labelled sections, 11), B (a sentence, 12) or C (a summary with Edit, 13)? And the guess as one row, or as a chip on the map (picture 14)? (asked 2026-11-10, redrawn in round 45; your answers so far: the distance as one button with a pop-up, built in round 41; the clock at the top, built in round 45)
 
-*Suggested:* C's structure (a summary, Edit reopens the ask screens), with the guess and Send on the card, and the clock as a pill.
+*Suggested:* D, with What if as one row.
 
 > **Answer:**
 
@@ -36,7 +36,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–44 and check.** **Where:** the server, as root, after you commit and push round 44. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–45 and check.** **Where:** the server, as root, after you commit and push round 45. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

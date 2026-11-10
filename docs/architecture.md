@@ -100,7 +100,7 @@ src/
   components/
     islands/                the islands: Map, QuestionSidebar, TabBar, GameDialogs, PlayAreaBar
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline (the play area's shape: maps/playArea.ts)
-    DraggableMarkers.tsx    question pins and the hider pin; PolygonDraw.tsx: drawing tools
+    DraggableMarkers.tsx    question pins (none once answered or vetoed: pinOnMap in lib/game/sync.ts) and the hider pin; PolygonDraw.tsx: drawing tools
     QuestionSidebar.tsx     the sidebar: Questions (with the photo questions), Cards, Stations
                             (Hider on the hider's phone), Menu
     QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
