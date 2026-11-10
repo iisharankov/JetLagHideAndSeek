@@ -143,6 +143,23 @@ test("a photo question shows its rule and time; the hider sends it, can't answer
     await expect(anaTree.getByRole("img", { name: "Photo" })).toBeVisible();
     await ben.getByRole("button", { name: "Back" }).click();
     await ana.getByRole("button", { name: "Back" }).click();
+    // Answered, the row says Show and opens the photo itself, full screen,
+    // with a quarter turn for a landscape photo (round 43).
+    const treeRow = ana
+        .getByTestId("photo-request")
+        .filter({ hasText: "Photo · Tree" });
+    await expect(treeRow).toContainText("Show");
+    await treeRow.click();
+    const viewer = ana.getByTestId("photo-viewer");
+    await expect(viewer.getByRole("img", { name: "Photo" })).toBeVisible();
+    await viewer.getByRole("button", { name: "Turn the photo" }).click();
+    await expect(viewer.getByRole("img", { name: "Photo" })).toHaveAttribute(
+        "data-turn",
+        "90",
+    );
+    await viewer.getByRole("button", { name: "Close the photo" }).click();
+    await expect(viewer).toHaveCount(0);
+    await expect(ana.getByTestId("photo-screen")).toHaveCount(0);
 
     // Ben can't answer the sky (say): Ana's row and screen say so.
     const benSky = await openPhoto(ben, "The Sky");

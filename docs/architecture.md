@@ -445,6 +445,8 @@ progress, the hider's spot, and earlier rounds.
   I cannot answer (`photoNullAnswer`) and Randomize. A photo past its
   time counts as a late answer (server `photoAnswered`). Randomize Question
   writes what changed into the history (`PowerupEntry.detail`).
+  A seeker's answered photo opens straight to the photo (the row says
+  Show): full screen, a quarter turn at a time (`PhotoViewer`).
 - **The hider's answer screen** (`QuestionGameBar.tsx`): the timer as a
   plain pill, "Asked by … · from your station, …, 2.1 km away", the
   choices as big buttons (tentacle places as a list), Send pinned at the

@@ -262,9 +262,11 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
         mimeType: "image/png",
         buffer: PNG,
     });
-    const anaPhoto = await openPhoto(page, "Tree");
-    await expect(anaPhoto.getByRole("img")).toBeVisible();
-    await page.getByRole("button", { name: "Back" }).click();
+    // Answered: Ana's row opens the photo itself (round 43).
+    await openPhoto(page, "Tree");
+    const viewer = page.getByTestId("photo-viewer");
+    await expect(viewer.getByRole("img")).toBeVisible();
+    await viewer.getByRole("button", { name: "Close the photo" }).click();
     await ben.getByRole("button", { name: "Back" }).click();
 
     // Curses: Ben casts one, Ana sees it and clears it.

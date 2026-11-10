@@ -2,6 +2,13 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 43: answered photos for the seekers
+
+| Decision | Why | From |
+|---|---|---|
+| **A seeker's answered photo question opens the photo itself (the row says Show); waiting ones, and the hider's, open the question's screen** | the owner: the seekers don't need the rule and the time once it's answered | the owner (in chat) |
+| **Photos open full screen in the app, with a quarter turn; never a new tab** | the owner's rotate idea; a new tab lost the game before (round 42) | the owner (in chat) |
+
 ## 2026-11-10, round 42: Menu → Game tidied, settings trimmed, the rules over the app, drafts first, map colours
 
 | Decision | Why | From |

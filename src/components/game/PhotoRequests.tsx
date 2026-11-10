@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 
 import { ScreenHeader } from "@/components/ask/QuestionTypes";
@@ -120,22 +121,101 @@ const PhotoButton = ({
 /** A sent photo; `lazy` in a list, at once on its question's screen. */
 const Photo = ({ photoId, lazy }: { photoId: string; lazy?: boolean }) => {
     const url = photoUrl(activeGameId.get(), photoId);
+    const [open, setOpen] = useState(false);
     return (
-        <a href={url} target="_blank" rel="noreferrer">
-            <img
-                src={url}
-                alt="Photo"
-                loading={lazy ? "lazy" : "eager"}
-                className="max-h-72 w-full rounded-md object-cover"
-            />
-        </a>
+        <>
+            <button
+                type="button"
+                className="block w-full"
+                aria-label="Show the photo"
+                onClick={() => setOpen(true)}
+            >
+                <img
+                    src={url}
+                    alt="Photo"
+                    loading={lazy ? "lazy" : "eager"}
+                    className="max-h-72 w-full rounded-md object-cover"
+                />
+            </button>
+            {open && (
+                <PhotoViewer photoId={photoId} onClose={() => setOpen(false)} />
+            )}
+        </>
+    );
+};
+
+/**
+ * A photo over the whole screen (round 43): ↻ turns it a quarter, so a
+ * landscape photo fills a phone held upright; × (or Escape) closes it.
+ */
+export const PhotoViewer = ({
+    photoId,
+    onClose,
+}: {
+    photoId: string;
+    onClose: () => void;
+}) => {
+    const [turn, setTurn] = useState(0);
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
+    const url = photoUrl(activeGameId.get(), photoId);
+    // Turned sideways, the photo's width runs along the screen's height.
+    const sideways = turn % 180 !== 0;
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[1100] flex flex-col bg-black text-white"
+            role="dialog"
+            aria-label="Photo"
+            data-testid="photo-viewer"
+        >
+            <div className="flex items-center justify-between gap-2 p-2">
+                <button
+                    type="button"
+                    className="flex h-11 items-center gap-2 rounded-lg bg-slate-800 px-4 font-semibold"
+                    aria-label="Turn the photo"
+                    onClick={() => setTurn((turn + 90) % 360)}
+                >
+                    <span aria-hidden>↻</span> Turn
+                </button>
+                <button
+                    type="button"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-2xl"
+                    aria-label="Close the photo"
+                    onClick={onClose}
+                >
+                    ×
+                </button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                <img
+                    src={url}
+                    alt="Photo"
+                    data-turn={turn}
+                    className="object-contain transition-transform"
+                    style={{
+                        transform: `rotate(${turn}deg)`,
+                        maxWidth: sideways ? "calc(100dvh - 60px)" : "100vw",
+                        maxHeight: sideways ? "100vw" : "calc(100dvh - 60px)",
+                    }}
+                />
+            </div>
+        </div>,
+        document.body,
     );
 };
 
 /** Where a photo question stands: Waiting, Sent, Can't be answered. */
 const status = (request: PhotoRequest, hider: boolean) =>
     request.photoId
-        ? { text: "Sent", className: "bg-green-900/70 text-green-100" }
+        ? // The seekers' row opens the photo itself (round 43).
+          hider
+            ? { text: "Sent", className: "bg-green-900/70 text-green-100" }
+            : { text: "Show", className: "bg-green-700 text-white" }
         : request.nullAnswer
           ? {
                 text: "Can't be answered",
@@ -152,6 +232,8 @@ const status = (request: PhotoRequest, hider: boolean) =>
 export const PhotoRows = () => {
     const $game = useStore(gameState);
     const $role = useStore(gameRole);
+    // An answered photo, shown over everything (the seekers' Show).
+    const [showing, setShowing] = useState<string | null>(null);
     if (!$game || $game.photoRequests.length === 0) return null;
     return (
         <section className="px-2 pb-2">
@@ -168,11 +250,15 @@ export const PhotoRows = () => {
                                 className="flex min-h-11 w-full items-center gap-2 rounded-md border border-slate-700 bg-slate-800/40 px-3 py-2 text-left text-sm hover:bg-slate-800"
                                 data-testid="photo-request"
                                 onClick={() =>
-                                    pushScreen({
-                                        tab: "questions",
-                                        kind: "photo",
-                                        id: request.id,
-                                    })
+                                    // A seeker's answered photo: the photo
+                                    // itself; anything else, its screen.
+                                    $role !== "hider" && request.photoId
+                                        ? setShowing(request.photoId)
+                                        : pushScreen({
+                                              tab: "questions",
+                                              kind: "photo",
+                                              id: request.id,
+                                          })
                                 }
                             >
                                 <span aria-hidden>📷</span>
@@ -206,6 +292,12 @@ export const PhotoRows = () => {
                     );
                 })}
             </ul>
+            {showing && (
+                <PhotoViewer
+                    photoId={showing}
+                    onClose={() => setShowing(null)}
+                />
+            )}
         </section>
     );
 };
