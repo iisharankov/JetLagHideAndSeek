@@ -10,6 +10,7 @@ import {
     rulesText,
     rulesUrl,
 } from "@/lib/rules/content";
+import { openRules, rulesViewFromHref } from "@/lib/rulesOverlay";
 import { cn } from "@/lib/utils";
 
 export type RuleCategory = QuestionCategory | "photo";
@@ -91,6 +92,16 @@ export const RulePanel = ({
     );
 };
 
+/** A rules link that opens the rules over the app, not a new tab. */
+const inOverlay = (href: string) => (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (href === "reference") openRules("reference");
+    else {
+        const view = rulesViewFromHref(href);
+        openRules(view?.page, view?.heading);
+    }
+};
+
 const firstParagraph = (markdown: string) =>
     markdown.split(/\n{2,}/).find((block) => block.trim()) ?? "";
 
@@ -120,10 +131,10 @@ const Panel = ({
         <p>{app}</p>
         {note && <p>{note}</p>}
         <p className="flex flex-wrap gap-x-4">
-            <a href={url} target="_blank" rel="noreferrer">
+            <a href={url} onClick={inOverlay(url)}>
                 Full rules
             </a>
-            <a href={withBase("reference/")} target="_blank" rel="noreferrer">
+            <a href={withBase("reference/")} onClick={inOverlay("reference")}>
                 All questions
             </a>
         </p>

@@ -20,6 +20,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -355,8 +356,8 @@ const PlayerCard = ({
                 {team && ` · team ${team.name}`}
             </p>
             <p className="text-xs text-slate-400">
-                Your player code moves you to another phone, or back after the
-                browser lost you.
+                Use this code to join the game as this player if disconnected.
+                Save this code somewhere.
             </p>
             {me.code && (
                 <p
@@ -371,7 +372,7 @@ const PlayerCard = ({
                 className="min-h-11"
                 onClick={() => void shareCode()}
             >
-                Share the code
+                Copy code
             </Button>
             {!game.settings.teams && !hider && !someoneHides && (
                 <Button
@@ -641,22 +642,82 @@ const CodeField = () => {
 };
 
 /** Your name; in a game, the others see a new one once you leave the field. */
-const NameInput = () => {
+const NameInput = ({ inline = false }: { inline?: boolean }) => {
     const $name = useStore(playerName);
-    return (
+    const input = (
+        <Input
+            id="player-name"
+            className={inline ? "min-w-0 flex-1" : undefined}
+            value={$name}
+            maxLength={40}
+            placeholder="Shown to the others"
+            onChange={(e) => playerName.set(e.target.value)}
+            onBlur={(e) => void renameInGame(e.target.value)}
+        />
+    );
+    // In a game: the label and the field on one row.
+    return inline ? (
+        <div className="flex items-center gap-3">
+            <Label htmlFor="player-name" className="shrink-0">
+                Your name
+            </Label>
+            {input}
+        </div>
+    ) : (
         <>
             <Label htmlFor="player-name">Your name</Label>
-            <Input
-                id="player-name"
-                value={$name}
-                maxLength={40}
-                placeholder="Shown to the others"
-                onChange={(e) => playerName.set(e.target.value)}
-                onBlur={(e) => void renameInGame(e.target.value)}
-            />
+            {input}
         </>
     );
 };
+
+/**
+ * The game's fixed settings, behind one row (round 42): a tap opens them.
+ * The local rules are among them: they can't change during a game.
+ */
+const GameInfo = ({
+    settings,
+    playArea,
+}: {
+    settings: GameSettings;
+    playArea: string;
+}) => (
+    <Dialog>
+        <DialogTrigger asChild>
+            <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-slate-700 px-3 text-left text-sm hover:bg-white/5"
+                data-testid="game-info"
+            >
+                <span className="flex-1">
+                    <span className="font-semibold">Game settings</span>
+                    <span className="block text-xs text-slate-400">
+                        {SIZE_NAMES[settings.size]} game,{" "}
+                        {REGION_LABELS[settings.region]} rules · fixed for this
+                        game
+                    </span>
+                </span>
+                <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-400 font-serif text-sm font-bold italic"
+                    aria-hidden
+                >
+                    i
+                </span>
+            </button>
+        </DialogTrigger>
+        <DialogContent className="!bg-[hsl(var(--sidebar-background))] !text-white">
+            <DialogHeader>
+                <DialogTitle>Game settings</DialogTitle>
+                <DialogDescription>
+                    Decided when the game started; they can&apos;t change during
+                    it (the hider can widen the hiding zones). The local rules (
+                    {REGION_LABELS[settings.region]}) are among them.
+                </DialogDescription>
+            </DialogHeader>
+            <SettingsSummary settings={settings} playArea={playArea} />
+        </DialogContent>
+    </Dialog>
+);
 
 const when = (time: number) =>
     new Date(time).toLocaleString([], {
@@ -673,6 +734,12 @@ const GamesList = () => {
     // Only the phone that started a game deletes it, for everyone.
     const $mine = useStore(organiserTokens);
     const [open, setOpen] = useState(false);
+    const $game = useStore(gameState);
+    const $me = useStore(myPlayer);
+    // The others still playing in the game this phone is in.
+    const others = $game
+        ? activePlayers($game).filter((p) => p.id !== $me?.id).length
+        : 0;
     const games = Object.values($known).sort((a, b) => b.lastSeen - a.lastSeen);
     if (games.length === 0) return null;
 
@@ -719,6 +786,21 @@ const GamesList = () => {
                                     {when(game.lastSeen)} ·{" "}
                                     <span className="font-mono">{game.id}</span>
                                 </p>
+                                {game.id === $gameId && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        title="The whole game as a JSON file: questions, answers, rounds and links to the photos"
+                                        onClick={() => {
+                                            if (!downloadGame())
+                                                toast.error(
+                                                    "No game to download.",
+                                                );
+                                        }}
+                                    >
+                                        Download this game (file)
+                                    </Button>
+                                )}
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button
                                         size="sm"
@@ -729,16 +811,14 @@ const GamesList = () => {
                                         Rejoin
                                     </Button>
                                     {!$mine[game.id] ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            title="Drop it from this phone; the game goes on for the others"
-                                            onClick={() =>
-                                                forgetGameHere(game.id)
+                                        <ForgetButton
+                                            id={game.id}
+                                            live={
+                                                game.id === $gameId &&
+                                                others > 0
                                             }
-                                        >
-                                            Forget
-                                        </Button>
+                                            others={others}
+                                        />
                                     ) : (
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -887,38 +967,33 @@ export const GamePanel = () => {
 
     return (
         <section className="flex flex-col gap-2 rounded-lg border border-blue-500/60 p-3">
-            <h3 className="flex items-center justify-between gap-2 text-sm font-semibold font-poppins">
-                Shared game
+            <h3
+                className="flex items-center justify-between gap-2 text-sm font-semibold font-poppins"
+                data-testid="current-game"
+            >
+                <span>
+                    Current game: <span className="font-mono">{$gameId}</span>
+                </span>
                 <ConnectionStatus />
             </h3>
-            <Button onClick={shareLink} data-tutorial-id="share-link">
-                Share the game link
-            </Button>
-            <p className="break-all text-xs text-slate-400">{gameLink()}</p>
-            <Button
-                variant="outline"
-                size="sm"
-                title="The whole game as a JSON file: questions, answers, rounds and links to the photos"
-                onClick={() => {
-                    if (!downloadGame()) toast.error("No game to download.");
-                }}
-            >
-                Download this game (file)
-            </Button>
-            <NameInput />
+            <NameInput inline />
             {$game && $me && !$me.left && (
                 <PlayerCard game={$game} me={$me} hider={$role === "hider"} />
             )}
+            <Button
+                className="min-h-11"
+                onClick={shareLink}
+                data-tutorial-id="share-link"
+            >
+                Share link
+            </Button>
             {$game && $me && !$me.left && $game.settings.teams && (
                 <TeamLine game={$game} me={$me} />
             )}
             {$game && <PlayersList game={$game} me={$me} />}
 
             {$game && <Scoreboard game={$game} />}
-            <h4 className="text-xs font-semibold font-poppins text-slate-300">
-                Settings (fixed for this game)
-            </h4>
-            <SettingsSummary settings={settings} playArea={playArea} />
+            <GameInfo settings={settings} playArea={playArea} />
             {$game && $role === "hider" && (
                 <>
                     <Label htmlFor="game-hiding-radius">
@@ -1015,5 +1090,69 @@ export const GamePanel = () => {
                 </p>
             )}
         </section>
+    );
+};
+
+/**
+ * Forget a game on this phone. The game you're in, with others playing,
+ * asks first, and the button says so (round 42: one tap dropped a live
+ * game by accident).
+ */
+const ForgetButton = ({
+    id,
+    live,
+    others,
+}: {
+    id: string;
+    live: boolean;
+    others: number;
+}) => {
+    if (!live) {
+        return (
+            <Button
+                size="sm"
+                variant="outline"
+                title="Drop it from this phone; the game goes on for the others"
+                onClick={() => forgetGameHere(id)}
+            >
+                Forget
+            </Button>
+        );
+    }
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-300"
+                    title="You're in it: this phone leaves the game"
+                >
+                    Forget…
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>
+                        Forget the game you&apos;re playing?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        It&apos;s live, with {others} other player
+                        {others === 1 ? "" : "s"} in it. This phone leaves it
+                        and drops it from the list; to come back you need the
+                        game&apos;s link and your player code.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Keep playing</AlertDialogCancel>
+                    <AlertDialogAction
+                        className="bg-red-600 text-white hover:bg-red-500"
+                        onClick={() => forgetGameHere(id)}
+                    >
+                        Forget it
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 };

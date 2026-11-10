@@ -31,21 +31,29 @@ export const askQuestion = async (
     if (onPhone(page)) await openQuestions(page);
     await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId(`ask-${id}`).click();
+    // Radar and Thermometer: a draft at once, open on its card (round 42).
+    if (id === "radius" || id === "thermometer") {
+        if (how === "ask") {
+            await page
+                .getByRole("button", {
+                    name:
+                        id === "radius"
+                            ? "Send to the hider"
+                            : /^Start the thermometer/,
+                })
+                .click();
+        }
+        return;
+    }
     const screen = page.getByTestId("question-subtype");
     if (["matching", "measuring", "tentacles"].includes(id)) {
         await screen.locator("button[aria-pressed]").first().click();
     }
     if (how === "ask") {
-        await screen.locator('[data-tutorial-id="ask-send"]').click();
+        await screen.getByRole("button", { name: "Ask now" }).click();
     } else {
-        await screen
-            .getByRole("button", {
-                name:
-                    how === "draft"
-                        ? "Add as a draft (plan first)"
-                        : "Add the question",
-            })
-            .click();
+        // "Add the question" alone, "Add to the map (draft)" in a game.
+        await screen.locator('[data-tutorial-id="ask-send"]').click();
     }
 };
 
@@ -116,9 +124,27 @@ export const chooseStation = async (page: Page, name: string) => {
 
 /** A card's distance: its button, then the distance in the pop-up. */
 export const setDistance = async (page: Page, label: string) => {
-    await page.getByTestId("distance-picker").click();
+    await openDistances(page);
     await page
         .getByTestId("distance-options")
         .getByRole("button", { name: new RegExp(`^${label}`) })
         .click();
+};
+
+/**
+ * Opens a card's distance pop-up. A new draft re-renders once the game
+ * echoes it, which can close a pop-up opened just before: it's opened again.
+ */
+export const openDistances = async (page: Page) => {
+    const options = page.getByTestId("distance-options");
+    for (let tries = 0; tries < 3; tries++) {
+        await page.getByTestId("distance-picker").click();
+        try {
+            await options.waitFor({ state: "visible", timeout: 2000 });
+            return;
+        } catch {
+            // Closed again by the re-render: try once more.
+        }
+    }
+    await options.waitFor({ state: "visible" });
 };

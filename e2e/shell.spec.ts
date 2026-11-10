@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import { API_PORT, createGameOnApi, routeApi } from "./api";
-import { openQuestions } from "./ask";
+import { openDistances, openQuestions, setDistance } from "./ask";
 import { expect, test } from "./fixtures";
 
 // The phone's shell: the tab bar, Map and back to where you were, Back on
@@ -69,22 +69,20 @@ test("the tab bar: Map hides the sheet, Questions comes back to the same questio
     expect(widths.length).toBeGreaterThanOrEqual(4);
     expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
 
-    // Ask a question from the Questions tab: the types, then the radar's choices.
+    // Ask a question from the Questions tab: the types; the phone's Back
+    // goes back to the list.
     await bar.getByRole("radio", { name: /^Questions/ }).click();
     await page.getByRole("button", { name: "Ask a question" }).click();
     await expect(page.getByTestId("question-types")).toBeInViewport();
-    await page.getByTestId("ask-radius").click();
-    const choices = page.getByTestId("question-subtype");
-    await expect(choices).toContainText("Radar");
-    // The phone's Back: one screen back, to the types.
     await page.goBack();
-    await expect(page.getByTestId("question-types")).toBeInViewport();
+    await expect(page.getByTestId("question-types")).not.toBeInViewport();
+    // Radar: a draft at once, open on its card (round 42); the distance
+    // changes there, in its pop-up.
+    await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId("ask-radius").click();
-    await choices.getByRole("button", { name: "5 km", exact: true }).click();
-    await choices.getByRole("button", { name: "Add the question" }).click();
-    // It's made, and open on its card with the chosen distance.
     const back = page.getByRole("button", { name: "All questions" });
     await expect(back).toBeInViewport();
+    await setDistance(page, "5 km");
     await expect(page.getByTestId("distance-picker")).toContainText("5 km");
 
     // Map: the sheet goes; Questions: the same open question again.
@@ -153,17 +151,22 @@ test("the ask flow marks what was asked before (×2) and unfolds each photo's ru
     }
     await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId("ask-radius").click();
-    const choices = page.getByTestId("question-subtype");
+    // A draft at once; its distance pop-up marks 5 km ×2, and only that.
+    await expect(page.getByTestId("draw-badge").first()).toHaveText("2/1");
+    await openDistances(page);
+    const options = page.getByTestId("distance-options");
     await expect(
-        choices
+        options
             .getByRole("button", { name: /^5 km/ })
             .getByTestId("twice-badge"),
     ).toBeVisible();
-    await expect(choices.getByTestId("twice-badge")).toHaveCount(1);
-    await expect(choices.getByTestId("draw-badge")).toHaveText("2/1");
+    await expect(options.getByTestId("twice-badge")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "All questions" }).click();
+    await page.getByRole("button", { name: "Ask a question" }).click();
+    const choices = page.getByTestId("question-subtype");
 
     // Photo: a row unfolds what the photo must show; the time is the game's.
-    await page.getByRole("button", { name: "Back" }).click();
     await page.getByTestId("ask-photo").click();
     await expect(choices).toContainText("The hider has 10 minutes");
     const rows = choices.getByTestId("photo-choices");
@@ -194,14 +197,13 @@ test("the ? on Ask a question explains the screen in four notes; a toast closes 
     // The types screen is still there: the tour opened nothing of its own.
     await expect(page.getByTestId("question-types")).toBeInViewport();
 
-    // The radar's "i" unfolds its rule under the header.
+    // Radar: a draft at once; its card's "i" unfolds the rule.
     await page.getByTestId("ask-radius").click();
     await page.getByRole("button", { name: "About this question" }).click();
     await expect(page.getByTestId("rule-info")).toContainText("Are you within");
 
     // A notification (deleting the question made here says "undo"): the ×
     // is as tall as the toast, and closes it.
-    await page.getByRole("button", { name: "Add the question" }).click();
     await page.getByRole("button", { name: "Delete question" }).click();
     await page.getByRole("button", { name: "Delete Question" }).click();
     const toast = page.locator(".Toastify__toast").first();

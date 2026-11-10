@@ -17,6 +17,7 @@ import { GameSetupDialog } from "./game/GameSetupDialog";
 import { JoinDialog } from "./game/JoinDialog";
 import { NextHiderDialog } from "./game/NextHiderDialog";
 import { closeMenu, menuButton } from "./MenuScreen";
+import { RulesOverlay } from "./RulesOverlay";
 import { SidebarContext } from "./ui/sidebar-l";
 
 /**
@@ -50,6 +51,7 @@ export const GameDialogs = ({ className }: { className?: string }) => {
             <JoinDialog />
             <CoachMark />
             <NextHiderDialog />
+            <RulesOverlay />
             {$setup !== null && (
                 <GameSetupDialog
                     open

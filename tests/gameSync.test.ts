@@ -89,6 +89,36 @@ describe("toShared", () => {
 });
 
 describe("mergeRemoteQuestions", () => {
+    it("lets a draft's pin move again once a started thermometer is called off", () => {
+        const thermometer = questionSchema.parse({
+            id: "thermometer",
+            key: 3,
+            data: {
+                latA: 47.37,
+                lngA: 8.54,
+                latB: null,
+                lngB: null,
+                distanceKm: 5,
+            },
+        }) as Question;
+        // Started: its pin is fixed on this phone…
+        const armed = mergeRemoteQuestions(
+            game([entry(thermometer, "armed", "Ana")]),
+            [thermometer],
+            new Map([[3, syncedJson(thermometer)]]),
+            "Ana",
+        );
+        expect(armed[0].data.drag).toBe(false);
+        // …called off, it's a draft again: Ana's pin moves.
+        const cancelled = mergeRemoteQuestions(
+            game([entry(thermometer, "draft", "Ana")]),
+            armed,
+            new Map([[3, syncedJson(armed[0])]]),
+            "Ana",
+        );
+        expect(cancelled[0].data.drag).toBe(true);
+    });
+
     it("takes the server's questions in the order they were asked", () => {
         const merged = mergeRemoteQuestions(
             game([

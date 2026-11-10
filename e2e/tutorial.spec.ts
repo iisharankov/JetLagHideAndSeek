@@ -170,7 +170,8 @@ test("a first visit offers the setting-up tour, once, and it opens the Menu and 
     // What the tour opened is closed again, and no game was started.
     await expect(menu).toBeHidden();
     await expect(setup).toBeHidden();
-    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    // The Menu reopens where it was (Help, the tour's last step): to Game.
+    await openMenu(page, "Game");
     await expect(menu.getByLabel(/Have a code/)).toBeVisible();
     await expect(
         menu.getByRole("button", { name: "Start a shared game" }),

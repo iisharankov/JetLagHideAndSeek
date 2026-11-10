@@ -269,3 +269,10 @@ body {
 .toast-close:hover {
     opacity: 1;
 }
+
+/* What the answers ruled out: grey stripes (mapRefresh.ts adds the pattern),
+   the outside of the play area plain grey (round 42, to try). */
+.leaflet-overlay-pane path.ruled-out-cut {
+    fill: url(#ruled-out-hatch);
+    fill-opacity: 1;
+}

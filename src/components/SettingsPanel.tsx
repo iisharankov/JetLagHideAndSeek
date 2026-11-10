@@ -7,22 +7,15 @@ import {
     animateMapMovements,
     autoZoom,
     baseTileLayer,
-    customInitPreference,
-    defaultCustomQuestions,
     draftsOnMap,
     followMe,
-    leafletMapContext,
-    planningModeEnabled,
-    questions,
     referencePlacesMode,
-    regionChoice,
 } from "@/lib/context";
 import {
     askNotifications,
     notificationsState,
     type NotificationState,
 } from "@/lib/game/alerts";
-import type { RegionChoice } from "@/maps/regionRules";
 
 import { PushCard } from "./game/PushCard";
 import { MenuGroup } from "./MenuGroup";
@@ -34,59 +27,20 @@ import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 
 /** Menu → Settings: how this phone shows the game. */
 export const SettingsPanel = () => {
-    const $defaultCustomQuestions = useStore(defaultCustomQuestions);
-    const $regionChoice = useStore(regionChoice);
     const $animateMapMovements = useStore(animateMapMovements);
     const $autoZoom = useStore(autoZoom);
-    const $planningMode = useStore(planningModeEnabled);
     const $baseTileLayer = useStore(baseTileLayer);
     const $followMe = useStore(followMe);
     const $referencePlaces = useStore(referencePlacesMode);
-    const $customInitPref = useStore(customInitPreference);
     const $draftsOnMap = useStore(draftsOnMap);
     const $alerts = useStore(alertsEnabled);
     const [notifications, setNotifications] =
         useState<NotificationState>("default");
     useEffect(() => setNotifications(notificationsState()), []);
 
-    const setPlanningMode = (on: boolean) => {
-        if (!on) {
-            leafletMapContext.get()?.eachLayer((layer: any) => {
-                if (layer.questionKey || layer.questionKey === 0) {
-                    leafletMapContext.get()?.removeLayer(layer);
-                }
-            });
-        } else {
-            questions.set([...questions.get()]);
-        }
-        planningModeEnabled.set(on);
-    };
-
     return (
         <>
             <>
-                <MenuGroup title="Game rules">
-                    <Label>Local rules</Label>
-                    <Select
-                        trigger="Local rules"
-                        options={{
-                            auto: "Automatic (by play area)",
-                            standard: "Standard Jet Lag rules",
-                            switzerland: "Switzerland",
-                            germany: "Germany",
-                        }}
-                        value={$regionChoice}
-                        onValueChange={(v) =>
-                            regionChoice.set(v as RegionChoice)
-                        }
-                    />
-                    <p className="text-xs text-slate-400">
-                        Swiss rules: &quot;major city&quot; means 100,000+
-                        people, coastline and 7-Eleven questions are hidden and
-                        the lake shore question is added. German rules: the same
-                        with cities of a million.
-                    </p>
-                </MenuGroup>
                 <MenuGroup title="Map">
                     <Label>Reference places</Label>
                     <SegmentedControl
@@ -126,6 +80,7 @@ export const SettingsPanel = () => {
                     />
                     <ToggleCard
                         title="Animate map movements"
+                        description="The map glides to a question or a station instead of jumping there. Off is quicker on a slow phone."
                         checked={$animateMapMovements}
                         onCheckedChange={animateMapMovements.set}
                     />
@@ -140,6 +95,10 @@ export const SettingsPanel = () => {
                         value={$baseTileLayer}
                         onValueChange={(v) => baseTileLayer.set(v as any)}
                     />
+                    <p className="text-xs text-slate-400">
+                        Map data © OpenStreetMap contributors; basemap by
+                        Protomaps.
+                    </p>
                 </MenuGroup>
                 <MenuGroup title="Places">
                     <PlacesSettings />
@@ -166,30 +125,6 @@ export const SettingsPanel = () => {
                         &quot;Only the open card&quot;: tapping a draft shows
                         just that one; the others are outlined.
                     </p>
-                    <ToggleCard
-                        title="Planning mode"
-                        description="Unlocked questions only draw where they would split the map, without applying an answer."
-                        checked={$planningMode}
-                        onCheckedChange={setPlanningMode}
-                    />
-                    <ToggleCard
-                        title="Default to custom questions"
-                        checked={$defaultCustomQuestions}
-                        onCheckedChange={defaultCustomQuestions.set}
-                    />
-                    <Label>New custom questions</Label>
-                    <Select
-                        trigger="New custom default"
-                        options={{
-                            ask: "Ask each time",
-                            blank: "Start blank",
-                            prefill: "Copy from current",
-                        }}
-                        value={$customInitPref}
-                        onValueChange={(v) =>
-                            customInitPreference.set(v as any)
-                        }
-                    />
                 </MenuGroup>
                 <MenuGroup title="Alerts">
                     <ToggleCard
@@ -223,14 +158,6 @@ export const SettingsPanel = () => {
                         Add to Home Screen; iOS 16.4 or later).
                     </p>
                     <PushCard />
-                </MenuGroup>
-                <MenuGroup title="Map data">
-                    <p className="text-xs text-slate-400">
-                        Questions and the place search are answered from the map
-                        data downloaded to this server; a play area outside it
-                        isn&apos;t possible. Map data © OpenStreetMap
-                        contributors; basemap by Protomaps.
-                    </p>
                 </MenuGroup>
             </>
         </>

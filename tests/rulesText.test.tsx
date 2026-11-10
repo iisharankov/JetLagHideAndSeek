@@ -30,7 +30,8 @@ describe("RulesText", () => {
                 "![A diagram](/rules/img/x.webp)",
             ].join("\n"),
         );
-        expect(out).toContain("<h4>Zoo</h4>");
+        // An id, for the rules overlay to jump to (round 42).
+        expect(out).toContain('<h4 id="zoo">Zoo</h4>');
         expect(out).toContain("<ul><li>¼ Mile</li><li>1 Mile</li></ul>");
         expect(out).toContain(
             '<strong><span class="game-size game-size-large">LARGE</span> games</strong>',

@@ -32,7 +32,6 @@ import {
     sendOp,
     sendQuestion,
 } from "@/lib/game/session";
-import { kmText } from "@/lib/game/thermometer";
 import { hiddenTypesFor, tentacleKmFor } from "@/lib/gameSettings";
 import { currentPosition } from "@/lib/geolocation";
 import { TYPES } from "@/lib/questionInfo";
@@ -220,11 +219,9 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                   : "Pick a type"
               : !shared
                 ? "Add the question"
-                : kind === "radius"
-                  ? `Ask: within ${kmText(km)} km of me?`
-                  : kind === "thermometer"
-                    ? `Start the thermometer (${kmText(km)} km)`
-                    : "Ask the hider";
+                : // A draft first (round 42): seen on the map, then sent
+                  // from its card.
+                  "Add to the map (draft)";
 
     const chips = (list: number[]) => (
         <div
@@ -480,7 +477,8 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                         !start ||
                         (kind === "photo"
                             ? !photo || photoRefusal(photo) !== null
-                            : !question || refusal !== null)
+                            : // A draft is fine whatever stops asking.
+                              !question)
                     }
                     data-tutorial-id="ask-send"
                     onClick={() => {
@@ -492,7 +490,7 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                             closeAsk();
                             return;
                         }
-                        void make(true);
+                        void make(false);
                     }}
                 >
                     {primary}
@@ -501,10 +499,10 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                     <Button
                         variant="outline"
                         className="min-h-11"
-                        disabled={busy || !question}
-                        onClick={() => void make(false)}
+                        disabled={busy || !question || refusal !== null}
+                        onClick={() => void make(true)}
                     >
-                        Add as a draft (plan first)
+                        Ask now
                     </Button>
                 )}
             </div>

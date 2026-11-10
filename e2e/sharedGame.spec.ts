@@ -166,8 +166,7 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     await ben.getByRole("radio", { name: "My research" }).click();
     await ben.getByTestId("add-research").click();
     await ben.getByTestId("ask-radius").click();
-    await ben.getByRole("button", { name: "Add the question" }).click();
-    // It opens on its card; back on the list, the toggle counts it.
+    // A radar is made at once and opens on its card; back on the list, the toggle counts it.
     await ben.getByRole("button", { name: "All questions" }).click();
     await expect(
         ben.getByRole("radio", { name: /^My research \(1\)/ }),
@@ -196,9 +195,11 @@ test("a seeker asks, the hider answers, and both phones stay in step", async ({
     ).toHaveCount(0);
     // The settings came with the game: a small game, and he's the hider.
     await openMenu(ben, "Game");
+    await ben.getByTestId("game-info").click();
     await expect(ben.getByTestId("game-settings-summary")).toContainText(
         "Small",
     );
+    await ben.keyboard.press("Escape");
     await expect(ben.getByTestId("game-role")).toContainText("the hider");
     await closeMenu(ben);
 

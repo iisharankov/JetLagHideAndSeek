@@ -67,7 +67,9 @@ export const adaptTypeOptions = (
             .filter(
                 ([type]) =>
                     type === currentType ||
-                    !rules.hiddenQuestionTypes.includes(type),
+                    // Custom questions aren't part of the game (round 42).
+                    (!type.startsWith("custom") &&
+                        !rules.hiddenQuestionTypes.includes(type)),
             )
             .map(([type, label]) => [
                 type,

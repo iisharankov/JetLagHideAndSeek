@@ -3,19 +3,25 @@ import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "react-toastify";
 
-import { addQuestion, leafletMapContext } from "@/lib/context";
+import {
+    addQuestion,
+    gameSettings,
+    leafletMapContext,
+    openQuestion,
+} from "@/lib/context";
 import {
     blockingCurses,
     disabledCategory,
     kindRefusal,
 } from "@/lib/game/curseRules";
 import { DRAWS } from "@/lib/game/hand";
+import { radarQuestion, thermometerQuestion } from "@/lib/game/newQuestion";
 import { restRefusal } from "@/lib/game/rest";
 import { serverNow } from "@/lib/game/serverTime";
 import { gameRole, gameState } from "@/lib/game/session";
 import type { GameState } from "@/lib/game/types";
 import { recentPosition } from "@/lib/geolocation";
-import { askFlow, type AskKind, back, pickKind } from "@/lib/screens";
+import { askFlow, type AskKind, back, closeAsk, pickKind } from "@/lib/screens";
 import { startTour } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 
@@ -117,6 +123,42 @@ export const ScreenHeader = ({
     </div>
 );
 
+/**
+ * Radar and Thermometer skip their choices (round 42): a tap makes a draft
+ * with the game's usual distance, where you are, and opens its card to try
+ * on the map; the distance changes there.
+ */
+const draftAtOnce = (kind: "radius" | "thermometer", research: boolean) => {
+    const start = startPoint();
+    if (!start) {
+        toast.error("The map isn't ready yet.");
+        return;
+    }
+    const game = gameState.get();
+    const settings = game?.settings ?? gameSettings.get();
+    const shared = !!game && !research;
+    const question =
+        kind === "radius"
+            ? radarQuestion(
+                  start,
+                  settings.radarKm[Math.floor(settings.radarKm.length / 2)] ??
+                      5,
+              )
+            : thermometerQuestion(
+                  start,
+                  settings.thermometerKm[1] ?? settings.thermometerKm[0] ?? 5,
+                  shared,
+              );
+    const key = Math.random();
+    addQuestion({
+        ...question,
+        key,
+        data: research ? { ...question.data, research: true } : question.data,
+    } as Parameters<typeof addQuestion>[0]);
+    closeAsk();
+    openQuestion.set(key);
+};
+
 /** Where a new question starts: where the phone is, else the map's centre. */
 export const startPoint = () => {
     const here = recentPosition();
@@ -210,7 +252,11 @@ export const QuestionTypes = () => {
                             title={refusal ?? undefined}
                             aria-label={title}
                             className="flex min-h-28 flex-col items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-800/70 p-2 text-center hover:bg-slate-800 disabled:opacity-40"
-                            onClick={() => pickKind(kind)}
+                            onClick={() =>
+                                kind === "radius" || kind === "thermometer"
+                                    ? draftAtOnce(kind, research)
+                                    : pickKind(kind)
+                            }
                             data-testid={`ask-${kind}`}
                         >
                             <span className="text-2xl" aria-hidden>

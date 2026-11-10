@@ -1,5 +1,6 @@
 import { openQuestions } from "./ask";
 import { expect, test } from "./fixtures";
+import { openMenu } from "./menu";
 
 test("ⓘ shows a question's rules and links into the in-app rulebook", async ({
     page,
@@ -149,4 +150,40 @@ test("metric only: the rules in km, no miles to choose, an old question in miles
     await expect(page.locator(".leaflet-control-scale-imperial")).toHaveCount(
         0,
     );
+});
+
+test("the rules open over the game: pages, a search, and × back to where you were", async ({
+    page,
+    externalHosts,
+}) => {
+    void externalHosts;
+    await page.addInitScript(() =>
+        localStorage.setItem("showTutorials", "false"),
+    );
+    await page.goto("/");
+    await openMenu(page, "Help");
+    await page.getByRole("link", { name: "Rules" }).click();
+    const rules = page.getByTestId("rules-overlay");
+    await expect(rules).toBeVisible();
+    // Still this page: no new tab, the game underneath.
+    expect(page.url()).not.toContain("/rules/");
+    await rules.getByLabel("Search the rules").fill("thermometer");
+    const results = rules.getByTestId("rules-results");
+    await expect(results.getByRole("button").first()).toBeVisible();
+    await results
+        .getByRole("button", { name: /Thermometer Questions/ })
+        .first()
+        .click();
+    await expect(rules.getByRole("heading", { level: 1 })).toHaveText(
+        "Thermometer Questions",
+    );
+    // The page list opens from ☰.
+    await rules.getByRole("button", { name: "Rules pages" }).click();
+    await rules.getByRole("button", { name: "Questions & cards" }).click();
+    await expect(
+        rules.getByRole("heading", { name: "Question & card reference" }),
+    ).toBeVisible();
+    await rules.getByRole("button", { name: "Close the rules" }).click();
+    await expect(rules).toHaveCount(0);
+    await expect(page.getByTestId("menu-screen")).toBeVisible();
 });

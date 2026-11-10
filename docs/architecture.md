@@ -417,6 +417,16 @@ progress, the hider's spot, and earlier rounds.
   (`LatLngPicker.tsx`); Hide from the map, Lock (alone) and Delete at the
   card's foot. Other layouts are drawn in
   `agentic_docs/plans/question-card/` (Q59).
+- **The rules over the app** (`RulesOverlay.tsx`): Help, a question's
+  "Full rules" and Reference open the rulebook (and the reference) in an
+  overlay with a page list, a search and ×; the pages load on first open.
+- **Map colours** (`maps/questionColors.ts`, `mapRefresh.ts`): radars
+  blue, thermometers purple, other kinds their pin's colour; ruled out
+  grey: plain outside the play area, striped (`.ruled-out-cut`) where the
+  answers ruled it out.
+- **Drafts first:** Radar and Thermometer make a draft at once from the
+  types; the other kinds' choices add a draft, "Ask now" second. In a game
+  a pin moves only on your own draft (`game/sync.ts`).
 - **A card's distance** (radar, thermometer) is one button; the game's
   distances, ×2 and Custom… open in a pop-up (`DistancePicker` in
   `cards/parts.tsx`).

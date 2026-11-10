@@ -2,9 +2,9 @@
 
 Round 40, 2026-11-10, from your comments on the radar draft's card ("the questions are still artifacts of the original design; buttons too small; some settings could be combined, toggled or cycled, like the GPS options and inside/outside"). The pictures are in `mockups/png/` (option A is the app itself; the others are drawn in `mockups/screens.html`, rendered by `render.mjs`).
 
-## A · Sections (built tonight, in the app now)
+## A · Sections (built, in the app now)
 
-`01-option-a-built-sections.png`, `01b-option-a-change-sheet.png`, `01c-option-a-thermometer.png`, `01d-option-a-matching.png`.
+`01-option-a-built-sections.png`, `01b-option-a-change-sheet.png`, `01c-option-a-thermometer.png`, `01d-option-a-matching.png`, `07-distance-popup-built.png` (retaken in round 42: the distance as one button with its pop-up, ‹ List as the back, the tab bar Hider · Questions · Map · Cards · Menu).
 
 - Header: ‹, the cost badge, the title, **i**. Nothing else, so the title has room.
 - The game's status and its one action (Send to the hider, Start the thermometer) right under it.
@@ -25,18 +25,20 @@ The card shows what was chosen in big text ("Within 10 km? From where you are, �
 
 Good: one place to choose things (the ask flow), so the card can't drift from it; the card is calm. Less good: a change is one tap further away.
 
-## D · Map first (`04-option-d-peek.png`)
+## D · Full screen, a live map at the card's top (`04-option-d-map-strip.png`, redrawn in round 42)
 
-A short card over the map (about a third of the screen): the chips in one scrolling row, "From me · GPS ⟳" as one control that cycles GPS → pin → typed, the Inside/Outside toggle, Send. The hiding clock moves onto the map.
+Every tab is full screen now, so the "short card over the map" became a small map inside the card: the map as this answer would leave it, then the distance ("10 km ▾"), "Me · GPS ⟳" (cycles GPS → pin → typed), the Inside/Outside toggle, Send pinned.
 
-Good: you see what the guess does to the map while choosing (principle 3); everything in thumb reach. Less good: a small card has room for one row of chips; tentacles and matching with many types need the full height anyway.
+Good: you see the effect while choosing without leaving the card. Less good: a second, smaller map to keep in step with the big one.
 
 ## Ideas for any option
 
 - `05-toggles-per-kind.png`: a segmented control (two big halves) where both words matter (Inside/Outside, Hotter/Colder); a switch where the question reads as yes/no ("Same airport as me"). And "from where" as one control with a cycle button instead of three icons.
 - `06-clock-in-header.png`: the hiding clock as a pill in the sheet's header instead of the bar at the bottom of every tab (it takes about a sixth of a half sheet today); a tap opens Start, Pause and Rest.
 
-## Since (round 41)
+## Since (rounds 41 and 42)
+
+- Round 42: Radar and Thermometer make a draft at once (no choices screen); the other kinds' choices add a draft first ("Add to the map (draft)", "Ask now" second); the card's back is "‹ List".
 
 - Your chat answer: a distance is one button ("10 km ▾"), its choices, ×2 and Custom… in a pop-up. Built on the radar and thermometer cards (`DistancePicker`).
 - Every tab is now full screen, Map in the middle of the tab bar: option D's "short card over the map" doesn't fit as drawn; its one-row ideas (the cycling "from where") still do.

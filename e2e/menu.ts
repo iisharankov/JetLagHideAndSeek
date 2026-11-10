@@ -27,6 +27,8 @@ export const openMenu = async (page: Page, section?: string) => {
  */
 export const closeMenu = async (page: Page) => {
     await expect(page.getByTestId("join-dialog")).toHaveCount(0);
+    // A dialog still closing takes the Escape itself: wait it out.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     if (await menuScreen(page).isVisible()) {
         await page.keyboard.press("Escape");
     }

@@ -384,7 +384,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "invite",
             title: "Invite everyone",
-            text: "Once the game has started, **Share the game link** from here. Everyone opens it, gives a name and picks seeker or hider.",
+            text: "Once the game has started, **Share link** from here. Everyone opens it, gives a name and picks seeker or hider.",
             target: [id("share-link"), id("play-together")],
             menu: "game",
         },

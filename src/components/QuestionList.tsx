@@ -6,7 +6,7 @@ import { questionRows } from "@/lib/game/questionList";
 import { gameRole, gameState } from "@/lib/game/session";
 import type { QuestionState } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
-import { ICON_COLORS } from "@/maps/api";
+import { questionColor } from "@/maps/questionColors";
 import type { Question } from "@/maps/schema";
 
 const STATUS: Record<
@@ -67,12 +67,9 @@ export const QuestionList = ({
         >
             {rows.map((row) => {
                 const question = list.find((q) => q.key === row.key)!;
-                const data = question.data as {
-                    color?: keyof typeof ICON_COLORS;
-                    colorB?: keyof typeof ICON_COLORS;
-                    hidden?: boolean;
-                };
-                const color = ICON_COLORS[data.color ?? data.colorB ?? "grey"];
+                const data = question.data as { hidden?: boolean };
+                // The colour it draws in on the map (round 42).
+                const color = questionColor(question);
                 const status = row.state ? STATUS[row.state] : null;
                 const statusText = status
                     ? $role === "hider"

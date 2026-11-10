@@ -5,6 +5,7 @@ import type {
 } from "@playwright/test";
 
 import { createGameOnApi, routeApi } from "./api";
+import { setDistance } from "./ask";
 import { chooseStation } from "./ask";
 import { expect, test } from "./fixtures";
 
@@ -119,15 +120,13 @@ test("a thermometer starts where the seekers are, is asked once they've travelle
         .getByTestId("location-prompt")
         .getByRole("button", { name: "Turn on location" })
         .click();
-    // Ask → Thermometer: a distance, and it starts where she is.
+    // Ask → Thermometer: a draft at once where she is (round 42); 1 km in
+    // its distance pop-up, then Start.
     await ana.getByRole("button", { name: "Ask a question" }).click();
     await ana.getByTestId("ask-thermometer").click();
-    const choices = ana.getByTestId("question-subtype");
-    await choices.getByRole("button", { name: "1 km", exact: true }).click();
-    await expect(choices.getByTestId("asked-from")).toContainText(
-        "47.3779° N, 8.5403° E",
-    );
-    await choices
+    await setDistance(ana, "1 km");
+    await expect(ana.getByTestId("distance-picker")).toContainText("1 km");
+    await ana
         .getByRole("button", { name: "Start the thermometer (1 km)" })
         .click();
     const anaState = ana.getByTestId("question-game-state");

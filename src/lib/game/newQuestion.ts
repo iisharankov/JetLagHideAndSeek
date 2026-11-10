@@ -18,6 +18,8 @@ export const radarQuestion = (start: Start, km: number) => ({
         lng: start.lng,
         radius: km,
         unit: "kilometers" as const,
+        // Radars are blue (round 42).
+        color: "blue" as const,
     },
 });
 
@@ -39,6 +41,8 @@ export const thermometerQuestion = (
                 latB: null,
                 lngB: null,
                 distanceKm: km,
+                // Thermometers are purple (round 42): the start pin.
+                colorA: "violet" as const,
             },
         };
     }
@@ -47,7 +51,14 @@ export const thermometerQuestion = (
     }).geometry.coordinates;
     return {
         id: "thermometer" as const,
-        data: { latA: start.lat, lngA: start.lng, latB, lngB, distanceKm: km },
+        data: {
+            latA: start.lat,
+            lngA: start.lng,
+            latB,
+            lngB,
+            distanceKm: km,
+            colorA: "violet" as const,
+        },
     };
 };
 

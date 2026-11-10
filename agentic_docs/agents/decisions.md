@@ -2,6 +2,22 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 42: Menu → Game tidied, settings trimmed, the rules over the app, drafts first, map colours
+
+| Decision | Why | From |
+|---|---|---|
+| **Menu → Game in a game: "Current game: <code>", Your name on one row, the player card with Copy code, Share link, the players; the fixed settings behind one info row; Download in Your games** | the owner's points 1–4 | the owner (in chat) |
+| **Forget on the game you're in, with others playing, asks first** | the owner forgot a live game by one tap | the owner (in chat) |
+| **The local rules aren't in Settings any more: the game decides them (the info pop-up says they can't change)** | the owner's point 6 | the owner (in chat) |
+| **Auto zoom starts off on every phone (a new storage key)** | it was already off by default, but phones kept an old "on" | the owner (in chat) |
+| **No planning mode and no custom questions (switches gone, stores fixed off, custom types out of the pickers)** | the owner hasn't added custom questions | the owner (in chat) |
+| **The Menu button reopens the Menu where it was (section and scroll)** | the owner: jumping to the map and back reset it | the owner (in chat) |
+| **The rules open over the app, not in a new tab, with a page list, a search and × to close; not an iframe** | the owner's point 10; the site's policy forbids framing, and loosening it is a security change | the owner (in chat), this round |
+| **In a game, a pin moves only on a draft of yours, and moves again when a thermometer is called off** | the owner's bug | the owner (in chat) |
+| **Radar and Thermometer start as drafts at once; the other kinds' choices add a draft first, "Ask now" second** | the owner: "assume draft mode as a default" | the owner (in chat) |
+| **Radars blue, thermometers purple, ruled out grey; other kinds keep their pin's colour** | the owner's point 13 (other kinds not named) | the owner (in chat) |
+| **Stripes for what answers ruled out, plain grey outside the play area (one pattern for all answers), to try** | the owner: "test it out and come back to me"; per-question patterns need each answer's own cut | the owner (in chat), Q60 |
+
 ## 2026-11-10, round 41: full-screen tabs, questions before the station, the station chooser, History
 
 | Decision | Why | From |

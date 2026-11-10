@@ -1,5 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 
+import { headingSlug } from "@/lib/rules/sections";
+
 // Renders the rulebook's Markdown (src/content/rules/) as React: paragraphs,
 // headings, lists, tables, quotes, images, bold/italic, links and the
 // SMALL/MEDIUM/LARGE badges. Any other HTML in the text is shown as text.
@@ -117,7 +119,12 @@ export const RulesText = ({
                 const heading = block.match(/^(#{1,6})\s+(.*)$/);
                 if (heading) {
                     const Tag = `h${heading[1].length}` as "h4";
-                    return <Tag key={key}>{inline(heading[2], key)}</Tag>;
+                    // An id, for "Full rules" to jump to (RulesOverlay.tsx).
+                    return (
+                        <Tag key={key} id={headingSlug(heading[2])}>
+                            {inline(heading[2], key)}
+                        </Tag>
+                    );
                 }
                 const image = block.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
                 if (image) {

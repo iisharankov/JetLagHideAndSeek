@@ -47,6 +47,7 @@ import {
     sendOp,
 } from "@/lib/game/session";
 import { sectionLabel } from "@/lib/game/tabBadges";
+import { openRules } from "@/lib/rulesOverlay";
 import { askFlow, openAsk, pushedScreen, wireBackButton } from "@/lib/screens";
 import { cn } from "@/lib/utils";
 import type { Question } from "@/maps/schema";
@@ -275,8 +276,10 @@ export const QuestionSidebar = () => {
                 </h2>
                 <a
                     href={withBase("reference/")}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={(event) => {
+                        event.preventDefault();
+                        openRules("reference");
+                    }}
                     className="mt-4 ml-auto mr-3 text-sm text-blue-400 underline"
                 >
                     Reference

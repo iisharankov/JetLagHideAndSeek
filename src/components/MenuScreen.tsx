@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { withBase } from "@/lib/config";
@@ -10,6 +10,7 @@ import {
     sidebarTab,
 } from "@/lib/context";
 import { myCode } from "@/lib/game/codes";
+import { openRules } from "@/lib/rulesOverlay";
 import { showTutorial, startTour, tutorialsSeen } from "@/lib/tour";
 import { TOUR_LABELS, type TourId } from "@/lib/tourSteps";
 
@@ -24,14 +25,14 @@ import { SegmentedControl, ToggleCard } from "./ui/toggle-card";
 let before: SidebarTab = "questions";
 let wasOpen = true;
 
-/** The Menu button: opens the Menu on Game; when it's open, leaves it as it is. */
-export const menuButton = () => {
-    const sidebar = SidebarContext.get();
-    const shown =
-        sidebarTab.get() === "menu" &&
-        (sidebar.isMobile ? sidebar.openMobile : sidebar.open);
-    openMenu(shown ? undefined : "game");
-};
+/**
+ * The Menu button: opens the Menu on the section it was last on (round 42:
+ * back from the map, it's as you left it, scroll included).
+ */
+export const menuButton = () => openMenu();
+
+/** Where each section was scrolled to, for coming back to it. */
+const scrolls: Partial<Record<MenuTab, number>> = {};
 
 /**
  * Opens the Menu: a tab of the sidebar (the sheet on a phone, the left
@@ -80,8 +81,10 @@ const HelpPanel = () => {
                 >
                     <a
                         href={withBase("rules/")}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={(event) => {
+                            event.preventDefault();
+                            openRules();
+                        }}
                     >
                         Rules
                     </a>
@@ -93,8 +96,10 @@ const HelpPanel = () => {
                 >
                     <a
                         href={withBase("reference/")}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={(event) => {
+                            event.preventDefault();
+                            openRules("reference");
+                        }}
                     >
                         Questions &amp; cards
                     </a>
@@ -164,8 +169,23 @@ export const MenuScreen = () => {
         return () => window.removeEventListener("keydown", onKey);
     }, []);
     const shown = tab === "admin" && !admin ? "game" : tab;
+    const ref = useRef<HTMLElement>(null);
+    // The section's scroll, kept while away (the map, another tab).
+    useLayoutEffect(() => {
+        const box = ref.current?.closest<HTMLElement>(
+            '[data-sidebar="content"]',
+        );
+        if (!box) return;
+        box.scrollTop = scrolls[shown] ?? 0;
+        const save = () => {
+            scrolls[shown] = box.scrollTop;
+        };
+        box.addEventListener("scroll", save, { passive: true });
+        return () => box.removeEventListener("scroll", save);
+    }, [shown]);
     return (
         <section
+            ref={ref}
             className="flex flex-col gap-3 px-3 pb-6 pt-2"
             aria-label="Menu"
             data-testid="menu-screen"

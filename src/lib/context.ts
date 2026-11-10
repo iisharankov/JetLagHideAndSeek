@@ -379,14 +379,11 @@ export const deleteCustomPreset = (id: string) => {
 };
 
 export const drawingQuestionKey = atom<number>(-1);
-export const planningModeEnabled = persistentAtom<boolean>(
-    "planningModeEnabled",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
+/**
+ * Planning mode (questions drawn as their split lines only): off for good
+ * since round 42, its switch gone; kept so the map code reads one value.
+ */
+export const planningModeEnabled = atom<boolean>(false);
 /** Which questions draw their reference places (star, dots, zone outline). */
 export const referencePlacesMode = persistentAtom<ReferenceMode>(
     "referencePlaces",
@@ -412,7 +409,8 @@ export const showQuestion = (key: number) => {
  * Zoom to what's left after every change. Off (the default), the map only
  * zooms when the play area itself changes, so it stays where you put it.
  */
-export const autoZoom = persistentAtom<boolean>("autoZoom", false, {
+// A new key (round 42): phones that had it on start off again.
+export const autoZoom = persistentAtom<boolean>("autoZoom.v2", false, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
@@ -434,14 +432,8 @@ export const followMe = persistentAtom<boolean>("followMe", false, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });
-export const defaultCustomQuestions = persistentAtom<boolean>(
-    "defaultCustomQuestions",
-    false,
-    {
-        encode: JSON.stringify,
-        decode: JSON.parse,
-    },
-);
+/** Custom questions aren't part of the game (round 42): always off. */
+export const defaultCustomQuestions = atom<boolean>(false);
 
 export const customInitPreference = persistentAtom<"ask" | "blank" | "prefill">(
     "customInitPreference",

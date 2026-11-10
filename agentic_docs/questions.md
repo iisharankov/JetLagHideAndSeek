@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-10 (round 41). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-10 (round 42). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–41) and S7 (your admin code on your phone).
+**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–42) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -20,6 +20,12 @@ Nothing.
 
 > **Answer:**
 
+**Q60. Two greys on the map.** Round 42 tried your idea: outside the play area plain grey, what the answers ruled out inside it grey stripes at 45° (one pattern for all answers; a pattern per question would need each answer's own cut, more work). Keep the stripes, go back to one grey, or a pattern per question? (asked 2026-11-10)
+
+*Suggested:* keep the stripes as they are; a pattern per question only if two answers' cuts are hard to tell apart in a real game.
+
+> **Answer:**
+
 **Q48. Nightly backups.** Schedule `deploy/backup.sh` nightly (one crontab line, in docs/deployment.md)? Players won't press a download button before a disk dies. (asked 2026-10-17)
 
 *Suggested:* yes.
@@ -30,7 +36,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–41 and check.** **Where:** the server, as root, after you commit and push rounds 39–41. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–42 and check.** **Where:** the server, as root, after you commit and push round 42. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

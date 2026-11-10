@@ -50,7 +50,10 @@ test("one Menu holds game and settings, and no hider switch", async ({
         await expect(page.getByTestId("sidebar-sheet")).toBeVisible();
         await page.getByRole("button", { name: "Menu" }).click();
         await expect(menuScreen(page)).toBeInViewport();
-        await page.getByRole("button", { name: "Map" }).click();
+        await page
+            .getByTestId("tab-bar")
+            .getByRole("button", { name: "Map" })
+            .click();
         await expect(menuScreen(page)).not.toBeInViewport();
     }
 });

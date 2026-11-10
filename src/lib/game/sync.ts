@@ -61,13 +61,16 @@ export const mergeRemoteQuestions = (
             // Deleted on this phone but not sent yet.
             if (!mine && synced.has(key)) return [];
 
-            const view = mine
-                ? viewFields(mine)
-                : {
-                      collapsed: false,
-                      hidden: false,
-                      drag: entry.state === "draft" && entry.createdBy === me,
-                  };
+            // Whether its pin moves is the game's to say (round 42): a
+            // draft of this player's moves, anything sent doesn't. Kept
+            // from the phone it would stay fixed after a thermometer was
+            // started and called off.
+            const view = {
+                ...(mine
+                    ? viewFields(mine)
+                    : { collapsed: false, hidden: false }),
+                drag: entry.state === "draft" && entry.createdBy === me,
+            };
             // A started thermometer's start is fixed; an asked one's too.
             if (
                 (lockAnswered && entry.state === "answered") ||

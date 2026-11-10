@@ -44,9 +44,10 @@ import {
     type QuestionStatus,
     safeUnion,
 } from "@/maps";
-import { clearCache, ICON_COLORS } from "@/maps/api";
+import { clearCache } from "@/maps/api";
 import { errorMessage, NotApplicableError } from "@/maps/errors";
 import { loadPlayArea } from "@/maps/playArea";
+import { questionColor, RULED_OUT_COLOR } from "@/maps/questionColors";
 import type { Question } from "@/maps/schema";
 
 /** Layers this module owns are tagged so they can be found again. */
@@ -55,12 +56,41 @@ type TaggedLayer = L.Layer & {
     eliminationGeoJSON?: boolean;
 };
 
-/** A question waiting for the hider's answer: its shape, nothing ruled out. */
-const WAITING_STYLE: L.PathOptions = {
-    color: "#60a5fa",
+/** A question waiting for the hider's answer: its shape in its colour, nothing ruled out. */
+const waitingStyle = (color: string): L.PathOptions => ({
+    color,
     weight: 3,
     dashArray: "8 6",
     fill: false,
+});
+
+/** Outside the play area (round 42: grey, not Leaflet's blue). */
+const OUTSIDE_STYLE: L.PathOptions = {
+    color: RULED_OUT_COLOR,
+    weight: 2,
+    fillColor: RULED_OUT_COLOR,
+    fillOpacity: 0.4,
+};
+
+/**
+ * The stripes for what the answers ruled out: an SVG pattern in the map's
+ * drawing layer, which `.ruled-out-cut` fills with (globals.css).
+ */
+const addHatchPattern = (map: L.Map) => {
+    const svg = map.getPanes().overlayPane.querySelector("svg");
+    if (!svg || svg.querySelector("#ruled-out-hatch")) return;
+    svg.insertAdjacentHTML(
+        "afterbegin",
+        `<defs><pattern id="ruled-out-hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)"><rect width="10" height="10" fill="${RULED_OUT_COLOR}" fill-opacity="0.18"/><rect width="4" height="10" fill="${RULED_OUT_COLOR}" fill-opacity="0.55"/></pattern></defs>`,
+    );
+};
+
+/** What the answers ruled out inside the play area. */
+const RULED_OUT_STYLE: L.PathOptions = {
+    color: RULED_OUT_COLOR,
+    weight: 2,
+    fillColor: RULED_OUT_COLOR,
+    fillOpacity: 0.35,
 };
 
 /** Areas ruled out only by a seekers' draft question (speculation), in its colour. */
@@ -72,11 +102,8 @@ const speculativeStyle = (color: string): L.PathOptions => ({
     dashArray: "6 4",
 });
 
-/** A draft's colour: its pin's, amber without one. */
-const draftColor = (question: Question) =>
-    ICON_COLORS[
-        (question.data as { color?: string }).color as keyof typeof ICON_COLORS
-    ] ?? "#f59e0b";
+/** A draft's colour: its kind's (radar blue, thermometer purple) or its pin's. */
+const draftColor = (question: Question) => questionColor(question);
 
 // What was worked out last time is kept, so a refresh only recomputes what
 // changed: each area object gets an id, the engine remembers each
@@ -426,7 +453,7 @@ const refresh = async () => {
             const outline = await questionOutline(question);
             if (outline) {
                 const layer = L.geoJSON(outline, {
-                    style: WAITING_STYLE,
+                    style: waitingStyle(questionColor(question)),
                     interactive: false,
                 }) as L.GeoJSON & TaggedLayer;
                 layer.questionKey = question.key;
@@ -478,10 +505,36 @@ const refresh = async () => {
     });
 
     removeLayers(map, (layer) => layer.eliminationGeoJSON === true);
-    const knownMask = masks(known.key, () => holedMask(known.mapGeoData));
-    const shading = L.geoJSON(
-        turf.featureCollection([knownMask!]),
-    ) as L.GeoJSON & TaggedLayer;
+    // Two greys (round 42, to try): what the answers ruled out inside the
+    // play area striped, the outside of the play area plain, so the game's
+    // border and the questions' cuts tell apart.
+    const ruledOut = masks(`${known.key}|cut`, () => {
+        try {
+            return turf.difference(
+                turf.featureCollection([
+                    safeUnion(playArea as FeatureCollection<any>),
+                    safeUnion(known.mapGeoData),
+                ]),
+            );
+        } catch {
+            return null;
+        }
+    });
+    if (ruledOut) {
+        const cut = L.geoJSON(ruledOut, {
+            style: { ...RULED_OUT_STYLE, className: "ruled-out-cut" },
+            interactive: false,
+        }) as L.GeoJSON & TaggedLayer;
+        cut.eliminationGeoJSON = true;
+        cut.addTo(map);
+        addHatchPattern(map);
+    }
+    const outsideMask = masks(`${baseKey}|outside`, () =>
+        holedMask(playArea as FeatureCollection<any>),
+    );
+    const shading = L.geoJSON(turf.featureCollection([outsideMask!]), {
+        style: OUTSIDE_STYLE,
+    }) as L.GeoJSON & TaggedLayer;
     shading.eliminationGeoJSON = true;
     shading.addTo(map);
     for (const patch of patched) {

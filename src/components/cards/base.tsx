@@ -135,10 +135,11 @@ export const QuestionCard = ({
                             <button
                                 type="button"
                                 onClick={heading.back}
-                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm text-blue-300 hover:bg-white/10 md:h-9 md:w-9"
+                                className="inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg bg-slate-800 pl-1 pr-3 text-sm font-semibold text-blue-200 hover:bg-slate-700 md:min-h-9"
                                 aria-label="All questions"
                             >
                                 <ChevronLeft className="h-5 w-5" />
+                                List
                             </button>
                         )}
                         {question && draw && <DrawBadge kind={question.id} />}
