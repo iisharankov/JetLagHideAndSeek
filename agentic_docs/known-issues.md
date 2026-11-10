@@ -1,10 +1,10 @@
 # Known issues
 
-Bugs and debt not fixed yet. Updated 2026-11-09 (round 38). A fixed item leaves this file in the round that fixes it.
+Bugs and debt not fixed yet. Updated 2026-11-10 (round 40). A fixed item leaves this file in the round that fixes it.
 
 ## From the game of 2026-11-08 (planned in history/plans/nov-game-fixes/)
 
-- **Phone layout, left after runs E and F** (rounds 35–37): an open card's game bar comes before its fields, so a thermometer draft's Start sits above its chips on a half sheet; the radar's "Asked from" has no Change (the pin is dragged after); a card's header on a phone truncates a long title ("Question 1 · Measuri…") beside its three 44 px buttons; tapping the tab you're on doesn't scroll its list back to the top (the brief's E1); the six two-phone browser tests (roles, location, tutorial) still run on the desktop project only. [01-mobile-design.md](history/plans/nov-game-fixes/01-mobile-design.md).
+- **Phone layout, left after runs E and F** (rounds 35–37; round 40 fixed the card's title and gave "Asked from" its Change): an open card's game bar comes before its fields, so a thermometer draft's Start sits above its chips on a half sheet; tapping the tab you're on doesn't scroll its list back to the top (the brief's E1); the six two-phone browser tests (roles, location, tutorial) still run on the desktop project only. [01-mobile-design.md](history/plans/nov-game-fixes/01-mobile-design.md).
 - **`vaul` is in package.json but unused since round 37** (the Menu drawer went). Drop it with `pnpm remove vaul`, which rewrites the lockfile too (not run in round 37).
 - **The rules pictures and the printed cards show miles** (`public/rules/img/*.webp`, `public/rules/cards/`), while the texts say km since round 38. Replacing the pictures is the owner's call.
 - **The hider password from before players still works** for one release (round 32; kept in round 33 because Run A's deploy wasn't confirmed, S1): `POST /api/games/<id>/hider`, the `X-Hider-Token` header and `isHider` in `server/src/app.ts` `roleOf`, `hiderTokens` in `session.ts`. It keeps phones that were the hider at deploy time the hider; since round 33 it needs 6 characters and allows 5 wrong tries a minute. Remove once S1 is done and every phone has reloaded.
@@ -134,11 +134,12 @@ Numbering as in [history/audit-2026-10-17.md](history/audit-2026-10-17.md); stat
     Liechtenstein build, which checks that files exist, not what's in
     them). A unit test that reads `public/data` when it exists and is
     skipped otherwise would catch it at `npm test` time.
-19. **End-to-end:** 20 tests, about two minutes; 10 skip on the phone
-    project, among them every shared-game flow, so the sheet layout of the
-    team picker, the next-hider popup, the found popup, the place review,
-    the answer list and the rest dialog has never run in a phone-sized
-    browser. The `closeMenu` helper was flaky (fixed this round, item 5
-    above); four more tests still use `waitForTimeout` where a state to
-    wait for would do. No end-to-end test for the rest flow or the null
-    answer between two phones (the server tests cover both).
+19. **End-to-end** (updated round 39): 94 runs over the two projects,
+    about four minutes; six two-phone tests run on the desktop project only
+    (roles ×2, among them the end game's confirm and Undo; location ×3;
+    tutorial ×1). Built without a test of their own (round 39's audit):
+    seekers faded on the map after 10 minutes, `leaveGame` clearing the
+    station, other questions asked while a thermometer travels, the hider's
+    start pin for an armed thermometer, and `/reference/` itself (its
+    distance lists are the rules pages the unit test checks). Some tests
+    still use `waitForTimeout` where a state to wait for would do.

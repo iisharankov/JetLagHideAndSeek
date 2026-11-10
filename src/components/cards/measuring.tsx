@@ -13,7 +13,6 @@ import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTakenAway } from "@/hooks/useTakenAway";
 import {
     customInitPreference,
@@ -29,7 +28,6 @@ import {
 } from "@/lib/context";
 import { hiddenTypesFor } from "@/lib/gameSettings";
 import { TYPES } from "@/lib/questionInfo";
-import { cn } from "@/lib/utils";
 import { elevation } from "@/maps/elevation";
 import { determineMeasuringBoundary } from "@/maps/questions/measuring";
 import { adaptTypeOptions } from "@/maps/regionRules";
@@ -41,6 +39,7 @@ import {
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
+import { AnswerToggle, CardSection } from "./parts";
 
 export const MeasuringQuestionComponent = ({
     data,
@@ -201,7 +200,7 @@ export const MeasuringQuestionComponent = ({
                     </p>
                 </SidebarMenuItem>
             ) : (
-                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                <CardSection label="Type">
                     <Select
                         trigger="Measuring Type"
                         options={adaptTypeOptions(
@@ -294,7 +293,7 @@ export const MeasuringQuestionComponent = ({
                         }}
                         disabled={!data.drag || $isLoading}
                     />
-                </SidebarMenuItem>
+                </CardSection>
             )}
             {!frozen && questionSpecific}
             <LatitudeLongitude
@@ -308,36 +307,24 @@ export const MeasuringQuestionComponent = ({
                 readOnly={frozen}
             />
             {!frozen && (
-                <div className="flex items-center gap-2 px-2 py-1">
-                    <Label
-                        className={cn(
-                            "text-sm font-semibold",
-                            $isLoading && "text-muted-foreground",
-                        )}
-                    >
-                        Result
-                    </Label>
-                    <ToggleGroup
-                        className="grow"
-                        type="single"
-                        value={data.hiderCloser ? "closer" : "further"}
-                        onValueChange={(value: "closer" | "further") =>
-                            set({ hiderCloser: value === "closer" })
-                        }
-                        disabled={!!$hiderMode || !data.drag || $isLoading}
-                    >
-                        <ToggleGroupItem value="further">
-                            {data.type === "sea-level"
-                                ? "Hider Higher"
-                                : "Hider Further"}
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="closer">
-                            {data.type === "sea-level"
-                                ? "Hider Lower"
-                                : "Hider Closer"}
-                        </ToggleGroupItem>
-                    </ToggleGroup>
-                </div>
+                <AnswerToggle
+                    value={data.hiderCloser ? "closer" : "further"}
+                    options={
+                        data.type === "sea-level"
+                            ? [
+                                  { value: "closer", label: "Lower" },
+                                  { value: "further", label: "Higher" },
+                              ]
+                            : [
+                                  { value: "closer", label: "Closer" },
+                                  { value: "further", label: "Further" },
+                              ]
+                    }
+                    onChange={(value) =>
+                        set({ hiderCloser: value === "closer" })
+                    }
+                    disabled={!!$hiderMode || !data.drag || $isLoading}
+                />
             )}
         </QuestionCard>
     );

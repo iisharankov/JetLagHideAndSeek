@@ -6,7 +6,7 @@ import { GameDialogs } from "@/components/islands/GameDialogs";
 import { PlaceReviewBar } from "@/components/islands/PlaceReviewBar";
 import { PlayAreaBar } from "@/components/islands/PlayAreaBar";
 import { QuestionSidebar } from "@/components/islands/QuestionSidebar";
-import { AskButton, TabBar } from "@/components/islands/TabBar";
+import { TabBar } from "@/components/islands/TabBar";
 import { SidebarButton } from "@/components/SidebarButton";
 import { SidebarProvider } from "@/components/ui/sidebar-l";
 ---
@@ -37,7 +37,6 @@ import { SidebarProvider } from "@/components/ui/sidebar-l";
                         <GameDialogs client:load />
                     </div>
                     <Map className="w-full" client:only />
-                    <AskButton client:only />
                 </div>
             </div>
         </main>

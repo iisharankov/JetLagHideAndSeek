@@ -238,10 +238,10 @@ body {
 }
 
 /* Phones: the map's bottom controls (zoom, scale, attribution) sit above
-   the tab bar and the "Ask a question" button (TabBar.tsx). */
+   the tab bar (TabBar.tsx). */
 @media (max-width: 767px) {
     .leaflet-bottom {
-        bottom: calc(136px + env(safe-area-inset-bottom));
+        bottom: calc(72px + env(safe-area-inset-bottom));
     }
 }
 

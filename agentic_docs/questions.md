@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-09 (round 38). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-10 (round 40). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy rounds 32–38), then S7 (your admin code on your phone, a code per friend).
+**Only 5 minutes?** Q59 (which question card), then S1 (deploy rounds 32–40) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -10,9 +10,15 @@ Nothing.
 
 ## Plans waiting on you
 
-Nothing. The November plan (runs A–G) is built (rounds 32–38) and in `history/plans/nov-game-fixes/`.
+- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones, four layouts with pictures (A is built and in the app now; B, C, D drawn). Q59 picks one. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
 
 ## Questions
+
+**Q59. The question card on phones.** Round 40 rebuilt it as option A (labelled sections, big chips, one "Asked from" row, a big Inside/Outside toggle, actions at the foot; in the app now). The plan page shows three other ways with pictures: B (the question as a sentence with tappable words), C (a summary, Edit reopens the ask screens), D (a short card over the map). Which way, and the clock as a pill in the header (picture 06)? (asked 2026-11-10)
+
+*Suggested:* C's structure with D's height, and the clock as a pill: the card a short summary over the map with the guess and Send, Edit reopening the ask screens.
+
+> **Answer:**
 
 **Q48. Nightly backups.** Schedule `deploy/backup.sh` nightly (one crontab line, in docs/deployment.md)? Players won't press a download button before a disk dies. (asked 2026-10-17)
 
@@ -24,7 +30,7 @@ Nothing. The November plan (runs A–G) is built (rounds 32–38) and in `histor
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy runs A–G (rounds 32–38) and check.** **Where:** the server, as root, after you commit and push rounds 36–38. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–40 and check.** **Where:** the server, as root, after you commit and push rounds 39–40. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

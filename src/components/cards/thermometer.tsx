@@ -4,12 +4,10 @@ import { useEffect, useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
     gameSettings,
     hiderMode,
@@ -26,12 +24,7 @@ import { arcDistance } from "@/maps/geo-utils";
 import type { ThermometerQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen, useGameQuestionState } from "./base";
-
-const CHIP = "rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-50";
-const CHIP_ON = "bg-blue-600 text-white";
-const CHIP_OFF = "bg-slate-700 hover:bg-slate-600";
-
-const SIZE_NAMES = { small: "small", medium: "medium", large: "large" };
+import { AnswerToggle, CardSection, CHIP, CHIP_OFF, CHIP_ON } from "./parts";
 
 const coordinates = (lat: number, lng: number) =>
     `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
@@ -92,12 +85,11 @@ const Travel = ({
                     )}
                 >
                     Starts where you are. Travel the distance, then ask.
-                    Distance ({SIZE_NAMES[settings.size]} game):
                 </p>
             </SidebarMenuItem>
-            <SidebarMenuItem>
+            <CardSection label="Distance">
                 <div
-                    className={cn(MENU_ITEM_CLASSNAME, "flex flex-wrap gap-1")}
+                    className="flex flex-wrap gap-2"
                     role="group"
                     aria-label="Distance"
                     data-testid="thermometer-distances"
@@ -124,28 +116,26 @@ const Travel = ({
                         type="button"
                         disabled={locked}
                         aria-pressed={showCustom}
-                        className={cn(CHIP, showCustom ? CHIP_ON : CHIP_OFF)}
+                        className={cn(
+                            CHIP,
+                            showCustom
+                                ? CHIP_ON
+                                : "border border-dashed border-slate-500",
+                        )}
                         onClick={() => setCustom(true)}
                     >
                         Custom…
                     </button>
                 </div>
-            </SidebarMenuItem>
-            {showCustom && (
-                <SidebarMenuItem>
-                    <label
-                        className={cn(
-                            MENU_ITEM_CLASSNAME,
-                            "flex flex-row items-center gap-2 text-sm",
-                        )}
-                    >
+                {showCustom && (
+                    <label className="flex flex-row items-center gap-2 text-sm">
                         <Input
                             type="number"
                             inputMode="decimal"
                             min={0.1}
                             step={0.1}
                             aria-label="Custom distance (km)"
-                            className="w-24 rounded-md p-2"
+                            className="h-11 w-28 rounded-md p-2 text-base"
                             value={data.distanceKm}
                             disabled={locked}
                             onChange={(e) => {
@@ -157,8 +147,8 @@ const Travel = ({
                         />
                         km
                     </label>
-                </SidebarMenuItem>
-            )}
+                )}
+            </CardSection>
             <SidebarMenuItem>
                 <div
                     className={cn(
@@ -316,34 +306,17 @@ export const ThermometerQuestionComponent = ({
                     )}
 
                     {!frozen && (
-                        <div className="flex items-center gap-2 px-2 py-1">
-                            <Label
-                                className={cn(
-                                    "text-sm font-semibold",
-                                    $isLoading && "text-muted-foreground",
-                                )}
-                            >
-                                Result
-                            </Label>
-                            <ToggleGroup
-                                className="grow"
-                                type="single"
-                                value={data.warmer ? "warmer" : "colder"}
-                                onValueChange={(value: "warmer" | "colder") =>
-                                    set({ warmer: value === "warmer" })
-                                }
-                                disabled={
-                                    !!$hiderMode || !data.drag || $isLoading
-                                }
-                            >
-                                <ToggleGroupItem color="red" value="colder">
-                                    Colder
-                                </ToggleGroupItem>
-                                <ToggleGroupItem value="warmer">
-                                    Warmer
-                                </ToggleGroupItem>
-                            </ToggleGroup>
-                        </div>
+                        <AnswerToggle
+                            value={data.warmer ? "warmer" : "colder"}
+                            options={[
+                                { value: "warmer", label: "Hotter" },
+                                { value: "colder", label: "Colder" },
+                            ]}
+                            onChange={(value) =>
+                                set({ warmer: value === "warmer" })
+                            }
+                            disabled={!!$hiderMode || !data.drag || $isLoading}
+                        />
                     )}
                 </>
             )}

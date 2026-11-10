@@ -15,6 +15,7 @@ Tidied on 2026-11-09: the standard adopted (round 29); `docs/plan.md`, `docs/que
 | [history/rounds-before-the-standard.md](history/rounds-before-the-standard.md) | The old plan: phases 0–3 and rounds 4–26 (commits up to Round 28), what each did and its tests |
 | [history/questions-before-the-standard.md](history/questions-before-the-standard.md) | The old questions file as it was, Q43–Q50 and the decisions list (the decisions are also in agents/decisions.md) |
 | [history/audit-2026-10-17.md](history/audit-2026-10-17.md) | The sixth code audit, after the re-clone |
+| [plans/question-card/](plans/question-card/README.md) | The question card on phones: option A built (round 40), B–D drawn, waiting on Q59 |
 | [history/plans/tutorial-revamp.md](history/plans/tutorial-revamp.md) | The tutorial plan, built in round 21 |
 | [history/README.md](history/README.md) | How to get a deleted doc back |
 

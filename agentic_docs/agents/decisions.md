@@ -2,6 +2,18 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 40: the question card on phones, no Ask button over the map
+
+| Decision | Why | From |
+|---|---|---|
+| **No "Ask a question" button over the map; asking starts in the Questions tab** | the owner: "there's a questions tab" | the owner's comments (round 40) |
+| **The tab bar's items share the width evenly, however many sections there are** | the owner: "it's weird with the middle gap" | the owner's comments |
+| **The card is rebuilt as option A (sections) tonight; three other layouts are drawn for the morning (Q59)** | the owner: "try fixing it and also make a few pngs of different ideas" | the owner's comments |
+| **The header holds only ‹, the badge, the title and the i; Hide, Lock and Delete move to the card's foot, with words** | the title was cut off beside three icon buttons | the owner's screenshot |
+| **"Asked from" is one row; Change opens Use my location, typed or pasted coordinates and Copy** | three small icon buttons (edit, GPS, copy) were the "GPS options" | the owner's comments |
+| **The answer is one big toggle, labelled "Show the map as if the answer is" in a game and "Answer" alone; the thermometer's "Warmer" says "Hotter" as the rulebook does** | in a game a draft's answer is only the map's guess; the old "Result" label hid that | this round |
+| **Coordinates in the editor show six decimals** | 14 decimals were unreadable; six is about 10 cm | seen in the screenshots |
+
 ## 2026-11-09, round 38: Run G, metric everywhere
 
 | Decision | Why | From |

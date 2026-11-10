@@ -2,9 +2,7 @@ import { useStore } from "@nanostores/react";
 import {
     ClipboardCopyIcon,
     ClipboardPasteIcon,
-    EditIcon,
     LocateIcon,
-    MapPinIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
@@ -183,7 +181,10 @@ const LatLngEditForm = ({
                 <Label className="min-w-16">Latitude</Label>
                 <Input
                     type="number"
-                    value={Math.abs(latitude)}
+                    inputMode="decimal"
+                    step="any"
+                    // Six decimals: about 10 cm, and readable.
+                    value={Number(Math.abs(latitude).toFixed(6))}
                     min={0}
                     max={90}
                     onChange={(e) => {
@@ -208,7 +209,9 @@ const LatLngEditForm = ({
                 <Label className="min-w-16">Longitude</Label>
                 <Input
                     type="number"
-                    value={Math.abs(longitude)}
+                    inputMode="decimal"
+                    step="any"
+                    value={Number(Math.abs(longitude).toFixed(6))}
                     min={0}
                     max={180}
                     onChange={(e) => {
@@ -239,12 +242,10 @@ const coordinatesText = (latitude: number, longitude: number) =>
         longitude,
     ).toFixed(5)}° ${longitude > 0 ? "E" : "W"}`;
 
-const ICON_BUTTON =
-    "inline-flex h-7 w-7 max-md:h-11 max-md:w-11 shrink-0 items-center justify-center rounded-md border border-current/30 bg-black/20 hover:bg-black/35 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4";
-
 /**
- * A question's place: one row in the pin's colour with the coordinates and
- * three small buttons (edit, my location, copy); the editor also pastes.
+ * A question's place: one row with the pin's colour, the coordinates and
+ * Change, which opens Use my location, the typed coordinates, Paste and
+ * Copy (round 40: one control instead of three small buttons).
  * With `inlineEdit` (the hider pin's popup, drawn points) the editor is
  * shown straight away.
  */
@@ -384,87 +385,94 @@ export const LatitudeLongitude = ({
         );
     }
 
+    const title = label === "Location" ? "Asked from" : label;
     return (
         <SidebarMenuItem
-            className={cn(
-                "mt-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs",
-                $isLoading && "brightness-50",
-            )}
-            style={{
-                backgroundColor: color,
-                color: colorName === "gold" ? "black" : undefined,
-            }}
+            className={cn("px-3 py-1.5", $isLoading && "brightness-50")}
             data-testid="question-location"
         >
-            {label === "Location" ? (
-                <MapPinIcon
-                    className="h-4 w-4 shrink-0"
-                    aria-label="Location"
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                {title}
+            </p>
+            <div className="flex min-h-14 items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/60 px-3">
+                <span
+                    className="h-4 w-4 shrink-0 rounded-full border-2 border-white/60"
+                    style={{ backgroundColor: color }}
+                    aria-hidden
                 />
-            ) : (
-                <span className="shrink-0 font-semibold">{label}</span>
-            )}
-            <span className="min-w-0 flex-1 truncate tabular-nums font-oxygen">
-                {coordinatesText(latitude, longitude)}
-            </span>
-            {!readOnly && (
-                <>
+                <span className="min-w-0 flex-1 truncate text-sm tabular-nums font-oxygen">
+                    {coordinatesText(latitude, longitude)}
+                </span>
+                {readOnly ? (
+                    <button
+                        type="button"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-white/10 md:h-9 md:w-9 [&>svg]:h-5 [&>svg]:w-5"
+                        onClick={copy}
+                        title="Copy coordinates"
+                        aria-label="Copy coordinates"
+                    >
+                        <ClipboardCopyIcon />
+                    </button>
+                ) : (
                     <Dialog>
                         <DialogTrigger asChild>
                             <button
                                 type="button"
-                                className={ICON_BUTTON}
+                                className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-3 text-sm font-semibold text-blue-300 hover:bg-white/10 disabled:opacity-50"
                                 disabled={disabled}
-                                title="Edit coordinates"
+                                title="Move it: your location, typed or pasted coordinates"
                             >
-                                <EditIcon />
+                                Change ›
                             </button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="text-2xl">
-                                    Update {label}
+                                    {title}
                                 </DialogTitle>
                             </DialogHeader>
+                            <p className="text-sm text-muted-foreground">
+                                Or drag the pin on the map.
+                            </p>
+                            <DialogClose asChild>
+                                <Button
+                                    className="h-12 text-base"
+                                    onClick={locateMe}
+                                    disabled={disabled}
+                                    title="Set to current location"
+                                >
+                                    <LocateIcon /> Use my location
+                                </Button>
+                            </DialogClose>
                             <LatLngEditForm
                                 latitude={latitude}
                                 longitude={longitude}
                                 onChange={onChange}
                                 disabled={disabled}
                             />
-                            <DialogFooter className="gap-2">
+                            <DialogFooter className="grid grid-cols-2 gap-2 sm:grid">
                                 <Button
                                     variant="outline"
                                     onClick={paste}
                                     disabled={disabled}
                                 >
-                                    <ClipboardPasteIcon /> Paste from clipboard
+                                    <ClipboardPasteIcon /> Paste
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={copy}
+                                    title="Copy coordinates"
+                                >
+                                    <ClipboardCopyIcon /> Copy
                                 </Button>
                                 <DialogClose asChild>
-                                    <Button>Done</Button>
+                                    <Button className="col-span-2">Done</Button>
                                 </DialogClose>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
-                    <button
-                        type="button"
-                        className={ICON_BUTTON}
-                        onClick={locateMe}
-                        disabled={disabled}
-                        title="Set to current location"
-                    >
-                        <LocateIcon />
-                    </button>
-                </>
-            )}
-            <button
-                type="button"
-                className={ICON_BUTTON}
-                onClick={copy}
-                title="Copy coordinates"
-            >
-                <ClipboardCopyIcon />
-            </button>
+                )}
+            </div>
         </SidebarMenuItem>
     );
 };

@@ -27,6 +27,8 @@ export const askQuestion = async (
     how: "add" | "draft" | "ask" = "add",
 ) => {
     const id = IDS[kind] ?? kind;
+    // On a phone, asking is in the Questions tab (nothing over the map).
+    if (onPhone(page)) await openQuestions(page);
     await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId(`ask-${id}`).click();
     const screen = page.getByTestId("question-subtype");
@@ -54,6 +56,7 @@ export const openQuestions = async (page: Page) => {
 
 /** Asks for a photo: Ask a question → Photo → its row → "Ask for: …". */
 export const askPhoto = async (page: Page, name: string) => {
+    if (onPhone(page)) await openQuestions(page);
     await page.getByRole("button", { name: "Ask a question" }).click();
     await page.getByTestId("ask-photo").click();
     const screen = page.getByTestId("question-subtype");

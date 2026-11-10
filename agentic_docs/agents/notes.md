@@ -9,14 +9,14 @@ Only what differs from `../standard/profile.md`.
 - Rules come from the rulebook embedded in `src/content/rules/`. The owner has the source's permission; the project never names or links the site the texts came from.
 - The owner plays with friends who are new to the game and the app; copy and tutorials are for them, on phones, mid-game.
 
-## State on 2026-11-09 (round 38)
+## State on 2026-11-10 (round 40)
 
-- **Code:** runs A–E part 1 committed (rounds 32–35); rounds 36 (the rest of E), 37 (F) and 38 (G) built in one working tree overnight, not committed. Checks: lint and types clean, 518 unit tests, Playwright 87 passed and 7 skipped (the six two-phone tests on the phone, the tab-bar test on the desktop).
+- **Code:** runs A–G built and committed (rounds 32–38); round 39 audited them (all done) and round 40 rebuilt the question card for phones (option A of four, Q59), removed the Ask button over the map and evened the tab bar; 39–40 not committed. Checks: lint and types clean, 518 unit tests, Playwright 87 passed and 7 skipped.
 - **Deployed:** unknown from the laptop; S1 deploys everything from round 32 on; S7 puts the admin code on the owner's phone; S6 and S8 are the checks on real phones.
 - **What the app does now:** shared games by link; only a code starts a game; a player per phone with a player code; Teams with team passwords; the hider's station set for the round; one hider phone moves the pin with GPS; the thermometer started, travelled, asked; on phones a tab bar (Map · Questions · Cards · Stations or Hider · Menu) with a bottom sheet above it, Back on every pushed screen (and the phone's Back); the ask flow (types → choices → Ask or a draft) with the **?** tour; rules behind an **i**; photo questions as rows with their own screen (I cannot answer, the gallery when allowed); the hider's answer screen; Start the end game with 5 s to undo; the Menu as a tab; metric only. Reference: `../../docs/architecture.md`.
 - **Invariants a change must keep:** hiding zones decided by the station's own position; questions replaced, never mutated (`updateQuestion`); `hiderPhone` is the one "is this the hider's phone" source; the role is the server's; the player key never in the game state; `viewFor` strips every team password and every code but the viewer's; the admin code never stored; every wrong secret through `guarded`; a shared game's thermometer is armed then asked, never sent; Back goes through `lib/screens.ts` (`back()`), never by setting `openQuestion` from a history handler; `persistentAtom` from `@/lib/persist`; rule texts are the rulebook's; metric only (`tests/metric.test.ts`).
-- **Next:** the owner plays with it on a phone and sends a numbered list; what's left of the layout is in known-issues ("Phone layout, left after runs E and F"). Remove the old hider-password path once S1 is done.
-- **Waiting on the owner:** Q48; S1–S4, S6–S8.
+- **Next:** Q59 picks the card's layout (`plans/question-card/`); then the owner plays with it on a phone and sends a numbered list; what's left of the layout is in known-issues ("Phone layout, left after runs E and F"). Remove the old hider-password path once S1 is done.
+- **Waiting on the owner:** Q48, Q59; S1–S4, S6–S8.
 
 ## Traps
 
@@ -29,7 +29,6 @@ Only what differs from `../standard/profile.md`.
 - **Playwright's `toBeVisible` is true for the desktop sidebar that slid off-screen**; use `toBeInViewport`.
 - **A pane's `visibility` is the only testable thing about Leaflet panes** (they are 0×0); size assertions mean nothing.
 - **Routing order in Playwright:** `routeApi`'s `**/api/**` catches `/overpass/api/interpreter`; register the Overpass mock after it.
-- **`hiderChoosing.set(true)` on becoming the hider** shows the pick view over a set station (known issue, plan 05).
 - **The commit counter and the old plan's round numbers differ by two.** From round 29 the round files follow the commits.
 - **The server's clock rules**: every API answer carries `now`; phones correct their own clock (`serverTime.ts`). Timers compare against `serverNow()`, never `Date.now()`.
 - **Two tabs of one browser are one player** (since round 32): the second tab opens the game with no join dialog, as the same player and role. To try a hider and a seeker on one machine, use a second browser context (Playwright: `browser.newContext()`) or a private window.

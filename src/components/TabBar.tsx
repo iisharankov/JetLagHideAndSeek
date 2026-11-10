@@ -5,12 +5,10 @@ import {
     Map as MapIcon,
     Menu as MenuIcon,
     MessageCircleQuestion,
-    Plus,
     Search,
     TrainFront,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { SidebarContext } from "@/components/ui/sidebar-l";
 import { endgame, questions, type SidebarTab, sidebarTab } from "@/lib/context";
 import { hand, handLimit } from "@/lib/game/hand";
@@ -22,7 +20,6 @@ import {
 } from "@/lib/game/session";
 import { sectionLabel, sidebarSections } from "@/lib/game/tabBadges";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
-import { openAsk } from "@/lib/screens";
 import { cn } from "@/lib/utils";
 
 import { menuButton } from "./MenuScreen";
@@ -121,7 +118,9 @@ export const TabBar = () => {
             <div
                 role="radiogroup"
                 aria-label="Sidebar section"
-                className="flex min-w-0 flex-[4]"
+                className="flex min-w-0"
+                // One share per item, like Map and Menu: evenly spaced.
+                style={{ flex: sections.length }}
             >
                 {sections.map((section) => {
                     const Icon =
@@ -184,29 +183,5 @@ export const TabBar = () => {
                 Menu
             </button>
         </nav>
-    );
-};
-
-/** "＋ Ask a question" over the map on a phone (the sheet down). */
-export const AskButton = () => {
-    const { isMobile, openMobile, setOpenMobile } = useStore(SidebarContext);
-    const hider = useStore(hiderPhone);
-    if (!isMobile || openMobile || hider) return null;
-    return (
-        <Button
-            className="fixed left-4 right-20 z-[1031] h-12 text-base font-semibold shadow-lg"
-            style={{
-                bottom: `calc(${TAB_BAR_HEIGHT + 16}px + env(safe-area-inset-bottom))`,
-            }}
-            data-tutorial-id="ask-question"
-            onClick={() => {
-                sidebarTab.set("questions");
-                openAsk();
-                setOpenMobile(true);
-            }}
-        >
-            <Plus className="h-5 w-5" aria-hidden />
-            Ask a question
-        </Button>
     );
 };

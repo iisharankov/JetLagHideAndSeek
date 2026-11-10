@@ -3,12 +3,10 @@ import { useState } from "react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { UnitToggle } from "@/components/UnitToggle";
 import { useTakenAway } from "@/hooks/useTakenAway";
 import {
@@ -24,12 +22,9 @@ import { cn } from "@/lib/utils";
 import type { RadiusQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
+import { AnswerToggle, CardSection, CHIP, CHIP_OFF, CHIP_ON } from "./parts";
 
 const kmLabel = (km: number) => (km < 1 ? `${km * 1000} m` : `${km} km`);
-
-const CHIP = "rounded-md px-2 py-1 text-xs font-semibold disabled:opacity-50";
-const CHIP_ON = "bg-blue-600 text-white";
-const CHIP_OFF = "bg-slate-700 hover:bg-slate-600";
 
 export const RadiusQuestionComponent = ({
     data,
@@ -90,12 +85,9 @@ export const RadiusQuestionComponent = ({
                 </SidebarMenuItem>
             )}
             {!frozen && (
-                <SidebarMenuItem>
+                <CardSection label="Distance">
                     <div
-                        className={cn(
-                            MENU_ITEM_CLASSNAME,
-                            "flex flex-wrap gap-1",
-                        )}
+                        className="flex flex-wrap gap-2"
                         role="group"
                         aria-label="Radius"
                     >
@@ -133,41 +125,36 @@ export const RadiusQuestionComponent = ({
                             aria-pressed={showCustom}
                             className={cn(
                                 CHIP,
-                                showCustom ? CHIP_ON : CHIP_OFF,
+                                showCustom
+                                    ? CHIP_ON
+                                    : "border border-dashed border-slate-500",
                             )}
                             onClick={() => setCustom(true)}
                         >
                             Custom
                         </button>
                     </div>
-                </SidebarMenuItem>
-            )}
-            {!frozen && showCustom && (
-                <SidebarMenuItem>
-                    <div
-                        className={cn(
-                            MENU_ITEM_CLASSNAME,
-                            "flex flex-row items-center gap-2",
-                        )}
-                    >
-                        <Input
-                            type="number"
-                            inputMode="decimal"
-                            aria-label="Custom radius"
-                            className="w-24 rounded-md p-2"
-                            value={data.radius}
-                            disabled={locked}
-                            onChange={(e) =>
-                                set({ radius: parseFloat(e.target.value) })
-                            }
-                        />
-                        <UnitToggle
-                            unit={data.unit}
-                            disabled={locked}
-                            onChange={(unit) => set({ unit })}
-                        />
-                    </div>
-                </SidebarMenuItem>
+                    {showCustom && (
+                        <div className="flex flex-row items-center gap-2">
+                            <Input
+                                type="number"
+                                inputMode="decimal"
+                                aria-label="Custom radius"
+                                className="h-11 w-28 rounded-md p-2 text-base"
+                                value={data.radius}
+                                disabled={locked}
+                                onChange={(e) =>
+                                    set({ radius: parseFloat(e.target.value) })
+                                }
+                            />
+                            <UnitToggle
+                                unit={data.unit}
+                                disabled={locked}
+                                onChange={(unit) => set({ unit })}
+                            />
+                        </div>
+                    )}
+                </CardSection>
             )}
             <LatitudeLongitude
                 latitude={data.lat}
@@ -180,30 +167,15 @@ export const RadiusQuestionComponent = ({
                 readOnly={frozen}
             />
             {!frozen && (
-                <div className="flex items-center gap-2 px-2 py-1">
-                    <Label
-                        className={cn(
-                            "text-sm font-semibold",
-                            $isLoading && "text-muted-foreground",
-                        )}
-                    >
-                        Result
-                    </Label>
-                    <ToggleGroup
-                        className="grow"
-                        type="single"
-                        value={data.within ? "inside" : "outside"}
-                        onValueChange={(value: "inside" | "outside") =>
-                            set({ within: value === "inside" })
-                        }
-                        disabled={!!$hiderMode || locked}
-                    >
-                        <ToggleGroupItem value="outside">
-                            Outside
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="inside">Inside</ToggleGroupItem>
-                    </ToggleGroup>
-                </div>
+                <AnswerToggle
+                    value={data.within ? "inside" : "outside"}
+                    options={[
+                        { value: "inside", label: "Inside" },
+                        { value: "outside", label: "Outside" },
+                    ]}
+                    onChange={(value) => set({ within: value === "inside" })}
+                    disabled={!!$hiderMode || locked}
+                />
             )}
         </QuestionCard>
     );

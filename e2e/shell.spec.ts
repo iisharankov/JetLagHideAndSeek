@@ -56,8 +56,21 @@ test("the tab bar: Map hides the sheet, Questions comes back to the same questio
     await expect(bar).toBeVisible();
     await expect(bar.getByRole("radio", { name: /^Questions/ })).toBeVisible();
     await expect(bar.getByRole("button", { name: "Menu" })).toBeVisible();
+    // Nothing over the map but the map: asking is in the Questions tab.
+    await expect(
+        page.getByRole("button", { name: "Ask a question" }),
+    ).not.toBeInViewport();
+    // The items are evenly spaced, however many sections there are.
+    const widths = await bar
+        .locator(":scope > button, [role=radiogroup] > button")
+        .evaluateAll((items) =>
+            items.map((item) => Math.round(item.getBoundingClientRect().width)),
+        );
+    expect(widths.length).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
 
-    // Ask a question from the map: the types, then the radar's choices.
+    // Ask a question from the Questions tab: the types, then the radar's choices.
+    await bar.getByRole("radio", { name: /^Questions/ }).click();
     await page.getByRole("button", { name: "Ask a question" }).click();
     await expect(page.getByTestId("question-types")).toBeInViewport();
     await page.getByTestId("ask-radius").click();

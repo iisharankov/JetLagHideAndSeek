@@ -44,9 +44,9 @@ import { DRAWS } from "@/lib/game/deck";
 import { gameRole, gameState, sendOp } from "@/lib/game/session";
 import { cn } from "@/lib/utils";
 
-/** 44 px on phones (principle 7), smaller beside the desktop's sidebar. */
-const ICON_BUTTON =
-    "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/10 disabled:opacity-40 md:h-8 md:w-8 [&>svg]:h-5 [&>svg]:w-5 md:[&>svg]:h-4 md:[&>svg]:w-4";
+/** The card's foot: a label and an icon, 44 px on phones. */
+const FOOT_BUTTON =
+    "inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-600 px-3 text-sm font-semibold hover:bg-white/10 disabled:opacity-40 md:min-h-9 [&>svg]:h-4 [&>svg]:w-4";
 
 /** In a shared game: what the question's state is there, else null. */
 export const useGameQuestionState = (questionKey: number) => {
@@ -142,80 +142,9 @@ export const QuestionCard = ({
                             </button>
                         )}
                         {question && draw && <DrawBadge kind={question.id} />}
-                        <SidebarGroupLabel className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                        <SidebarGroupLabel className="h-auto min-w-0 flex-1 text-base font-semibold text-white md:text-sm">
                             {heading?.title ?? label} {sub && `(${sub})`}
                         </SidebarGroupLabel>
-                        <button
-                            type="button"
-                            className={ICON_BUTTON}
-                            onClick={() =>
-                                updateQuestion(questionKey, { hidden: !hidden })
-                            }
-                            disabled={$isLoading}
-                            aria-label={
-                                hidden ? "Show question" : "Hide question"
-                            }
-                            aria-pressed={hidden}
-                            title={
-                                hidden ? "Show on the map" : "Hide from the map"
-                            }
-                        >
-                            {hidden ? <EyeOffIcon /> : <EyeIcon />}
-                        </button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <button
-                                    type="button"
-                                    className={ICON_BUTTON}
-                                    disabled={$isLoading}
-                                    title={
-                                        byAgreement
-                                            ? "Ask to delete it (the other side must agree)"
-                                            : "Delete question"
-                                    }
-                                    aria-label="Delete question"
-                                >
-                                    <VscTrash />
-                                </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete this question?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {byAgreement
-                                            ? "It's part of the game: the other side gets a note and must agree before it goes."
-                                            : "You can undo this for a few seconds afterwards."}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() => {
-                                            if (byAgreement) {
-                                                void sendOp({
-                                                    type: "deleteQuestion",
-                                                    key: questionKey,
-                                                });
-                                                return;
-                                            }
-                                            showUndoToast(
-                                                "Question deleted.",
-                                                deleteQuestion(questionKey),
-                                            );
-                                        }}
-                                        className="mb-2 sm:mb-0"
-                                    >
-                                        {byAgreement
-                                            ? "Ask to delete"
-                                            : "Delete Question"}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
                         {question && info.button}
                     </div>
                     {info.panel}
@@ -328,14 +257,34 @@ export const QuestionCard = ({
                     )}
                     <SidebarGroupContent>
                         <SidebarMenu>{children}</SidebarMenu>
-                        {!$game && (
-                            <div className="flex justify-end px-2 pb-1">
+                        {/* The card's own actions, at its foot: big enough to hit, out of the title's way. */}
+                        <div
+                            className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700/70 px-3 py-2"
+                            data-testid="card-actions"
+                        >
+                            <button
+                                type="button"
+                                className={FOOT_BUTTON}
+                                onClick={() =>
+                                    updateQuestion(questionKey, {
+                                        hidden: !hidden,
+                                    })
+                                }
+                                disabled={$isLoading}
+                                aria-label={
+                                    hidden ? "Show question" : "Hide question"
+                                }
+                                aria-pressed={hidden}
+                            >
+                                {hidden ? <EyeOffIcon /> : <EyeIcon />}
+                                {hidden
+                                    ? "Show on the map"
+                                    : "Hide from the map"}
+                            </button>
+                            {!$game && (
                                 <button
                                     type="button"
-                                    className={cn(
-                                        ICON_BUTTON,
-                                        "w-auto gap-1 px-2 text-xs md:w-auto",
-                                    )}
+                                    className={FOOT_BUTTON}
                                     onClick={() =>
                                         updateQuestion(questionKey, {
                                             drag: locked,
@@ -353,8 +302,66 @@ export const QuestionCard = ({
                                     {locked ? <LockIcon /> : <UnlockIcon />}
                                     {locked ? "Locked" : "Unlocked"}
                                 </button>
-                            </div>
-                        )}
+                            )}
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            FOOT_BUTTON,
+                                            "ml-auto text-red-300",
+                                        )}
+                                        disabled={$isLoading}
+                                        title={
+                                            byAgreement
+                                                ? "Ask to delete it (the other side must agree)"
+                                                : "Delete question"
+                                        }
+                                        aria-label="Delete question"
+                                    >
+                                        <VscTrash />
+                                        Delete
+                                    </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Delete this question?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {byAgreement
+                                                ? "It's part of the game: the other side gets a note and must agree before it goes."
+                                                : "You can undo this for a few seconds afterwards."}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => {
+                                                if (byAgreement) {
+                                                    void sendOp({
+                                                        type: "deleteQuestion",
+                                                        key: questionKey,
+                                                    });
+                                                    return;
+                                                }
+                                                showUndoToast(
+                                                    "Question deleted.",
+                                                    deleteQuestion(questionKey),
+                                                );
+                                            }}
+                                            className="mb-2 sm:mb-0"
+                                        >
+                                            {byAgreement
+                                                ? "Ask to delete"
+                                                : "Delete Question"}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </SidebarGroupContent>
                 </div>
             </SidebarGroup>

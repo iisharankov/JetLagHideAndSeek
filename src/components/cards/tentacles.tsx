@@ -35,6 +35,7 @@ import {
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
+import { CardSection } from "./parts";
 
 /** "Zoos", "Museums"…: the kind of place, as the list names it. */
 const typeLabel = (locationType: string) => {
@@ -115,7 +116,7 @@ export const TentacleQuestionComponent = ({
                 </p>
             </SidebarMenuItem>
             {!frozen && (
-                <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                <CardSection label="Type">
                     <Select
                         trigger="Location Type"
                         options={Object.fromEntries(
@@ -183,7 +184,7 @@ export const TentacleQuestionComponent = ({
                         }}
                         disabled={!data.drag || $isLoading}
                     />
-                </SidebarMenuItem>
+                </CardSection>
             )}
             {data.locationType === "custom" && data.drag && !frozen && (
                 <>
