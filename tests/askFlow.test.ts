@@ -19,6 +19,7 @@ import {
     pushedScreen,
     pushScreen,
     screenDepth,
+    toTabRoot,
 } from "@/lib/screens";
 import { questionSchema } from "@/maps/schema";
 
@@ -37,13 +38,15 @@ describe("new questions from the ask flow", () => {
         }
     });
 
-    it("make a shared game's thermometer without an end, and a lone one with its end east", () => {
-        expect(thermometerQuestion(HB, 5, true).data).toMatchObject({
-            latB: null,
-            lngB: null,
-            distanceKm: 5,
-        });
-        const alone = thermometerQuestion(HB, 5, false).data;
+    it("make a thermometer with its end east on the circle: in a game a plan to drag (round 47), alone where they went", () => {
+        const shared = thermometerQuestion(HB, 5).data;
+        expect(shared.distanceKm).toBe(5);
+        expect(
+            turf.distance([HB.lng, HB.lat], [shared.lngB!, shared.latB!], {
+                units: "kilometers",
+            }),
+        ).toBeCloseTo(5, 3);
+        const alone = thermometerQuestion(HB, 5).data;
         expect(alone.lngB).toBeGreaterThan(HB.lng);
         expect(
             turf.distance([HB.lng, HB.lat], [alone.lngB!, alone.latB!], {
@@ -96,6 +99,15 @@ describe("the screens and Back", () => {
         // Nothing left: Back does nothing.
         back();
         expect(screenDepth.get()).toBe(0);
+    });
+
+    it("go all the way back to the list when the tab you're on is tapped (round 47)", () => {
+        openQuestion.set(7);
+        openAsk();
+        pickKind("matching");
+        toTabRoot();
+        expect(screenDepth.get()).toBe(0);
+        expect(openQuestion.get()).toBeNull();
     });
 });
 

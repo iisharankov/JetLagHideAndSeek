@@ -262,10 +262,10 @@ export const draftsOnMap = persistentAtom<"all" | "active">(
     "all",
 );
 /**
- * The question card's layout (round 46, to try out): labelled sections,
- * the question as a sentence, or a summary with Edit.
+ * The question card's layout (round 46, to try out): labelled sections, or
+ * the question as a sentence (the summary went in round 47).
  */
-export const CARD_LAYOUTS = ["sections", "sentence", "summary"] as const;
+export const CARD_LAYOUTS = ["sections", "sentence"] as const;
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
 export const cardLayout = persistentAtom<CardLayout>("cardLayout", "sections", {
     encode: (value) => value,

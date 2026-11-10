@@ -148,7 +148,6 @@ const draftAtOnce = (kind: "radius" | "thermometer", research: boolean) => {
     }
     const game = gameState.get();
     const settings = game?.settings ?? gameSettings.get();
-    const shared = !!game && !research;
     const question =
         kind === "radius"
             ? radarQuestion(
@@ -159,7 +158,6 @@ const draftAtOnce = (kind: "radius" | "thermometer", research: boolean) => {
             : thermometerQuestion(
                   start,
                   settings.thermometerKm[1] ?? settings.thermometerKm[0] ?? 5,
-                  shared,
               );
     const key = Math.random();
     addQuestion({

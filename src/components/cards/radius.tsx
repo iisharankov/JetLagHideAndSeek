@@ -1,7 +1,6 @@
 import { useStore } from "@nanostores/react";
 
 import { useTakenAway } from "@/hooks/useTakenAway";
-import { summaryTitle } from "@/lib/cardText";
 import {
     gameSettings,
     hiderMode,
@@ -12,15 +11,11 @@ import {
 } from "@/lib/context";
 import { askedBefore, radarQuestion } from "@/lib/game/newQuestion";
 import { gameState } from "@/lib/game/session";
-import type { Question, RadiusQuestion } from "@/maps/schema";
+import type { RadiusQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
-import { FixedRow, LocationButton, useWhere } from "./layout";
+import { FixedRow, LocationButton } from "./layout";
 import { DistancePicker, kmLabel } from "./parts";
-
-/** "My GPS · 47.3706, 8.5500" or "The pin · …": layout C's second line. */
-export const whereLine = (where: string, lat: number, lng: number) =>
-    `${where === "me" ? "My GPS" : "The pin"} · ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
 export const RadiusQuestionComponent = ({
     data,
@@ -41,7 +36,6 @@ export const RadiusQuestionComponent = ({
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     // Asked or answered: what was asked is a statement, not a choice.
     const frozen = useFrozen(questionKey);
-    const where = useWhere(data.lat, data.lng);
     // The game's radar distances; anything else is "custom".
     const radii = ($game?.settings ?? $settings).radarKm;
     // Radii a Curse of the Drained Brain took away.
@@ -119,13 +113,6 @@ export const RadiusQuestionComponent = ({
                                   Are you within {first} of {location}?
                               </>
                           ),
-                          summary: {
-                              title: summaryTitle(
-                                  { id: "radius", data } as Question,
-                                  where,
-                              ),
-                              sub: whereLine(where, data.lat, data.lng),
-                          },
                           guess: {
                               value: data.within ? "inside" : "outside",
                               options: [

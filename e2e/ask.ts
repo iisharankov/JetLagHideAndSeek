@@ -43,15 +43,12 @@ export const askQuestion = async (
         }
         return;
     }
+    // The others: a tap on a type makes it (a draft in a game) and opens
+    // its card (round 47); Send is on the card.
     const screen = page.getByTestId("question-subtype");
-    if (["matching", "measuring", "tentacles"].includes(id)) {
-        await screen.locator("button[aria-pressed]").first().click();
-    }
+    await screen.locator("button[aria-pressed]").first().click();
     if (how === "ask") {
-        await screen.getByRole("button", { name: "Ask now" }).click();
-    } else {
-        // "Add the question" alone, "Add to the map (draft)" in a game.
-        await screen.locator('[data-tutorial-id="ask-send"]').click();
+        await page.getByRole("button", { name: "Send", exact: true }).click();
     }
 };
 

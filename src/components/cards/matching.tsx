@@ -12,7 +12,6 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { useTakenAway } from "@/hooks/useTakenAway";
-import { summaryTitle } from "@/lib/cardText";
 import {
     customInitPreference,
     drawingQuestionKey,
@@ -36,7 +35,6 @@ import {
     type MatchingQuestion,
     matchingQuestionSchema,
     NO_GROUP,
-    type Question,
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
@@ -45,9 +43,7 @@ import {
     FixedRow,
     LocationButton,
     selectTrigger,
-    useWhere,
 } from "./layout";
-import { whereLine } from "./radius";
 
 /** Types whose places can be copied into a custom-points question. */
 const PREFILLABLE = [
@@ -178,7 +174,6 @@ export const MatchingQuestionComponent = ({
             }
     }
 
-    const where = useWhere(data.lat, data.lng);
     const locked = !data.drag || $isLoading;
     const lengths = data.type === "same-length-station";
     const parts: CardParts | null = frozen
@@ -342,16 +337,6 @@ export const MatchingQuestionComponent = ({
                   ) : (
                       <>Same {first}?</>
                   ),
-              summary: {
-                  title: summaryTitle(
-                      { id: "matching", data } as Question,
-                      where,
-                  ),
-                  sub:
-                      data.type === "custom-zone"
-                          ? "A zone you draw"
-                          : whereLine(where, data.lat, data.lng),
-              },
               guess: lengths
                   ? {
                         value: data.lengthComparison

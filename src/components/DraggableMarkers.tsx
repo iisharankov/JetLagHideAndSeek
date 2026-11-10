@@ -16,6 +16,7 @@ import {
 } from "@/lib/context";
 import { gameState, hiderPhone } from "@/lib/game/session";
 import { pinOnMap } from "@/lib/game/sync";
+import { endOutside } from "@/lib/game/thermometer";
 import {
     hiderPlaced,
     pinLocked,
@@ -215,7 +216,25 @@ export const DraggableMarkers = () => {
                                 }}
                             />
                         );
-                    case "thermometer":
+                    case "thermometer": {
+                        // A game's draft: its planned end stays at least
+                        // the distance from the start (round 47).
+                        const planning =
+                            !!$game &&
+                            ($game.questions[String(question.key)]?.state ??
+                                "draft") === "draft";
+                        const move = (patch: {
+                            latA?: number;
+                            lngA?: number;
+                            latB?: number;
+                            lngB?: number;
+                        }) => {
+                            const next = { ...question.data, ...patch };
+                            updateQuestion(question.key, {
+                                ...patch,
+                                ...(planning ? endOutside(next) : null),
+                            });
+                        };
                         return (
                             <Fragment key={question.key}>
                                 <ColoredMarker
@@ -229,10 +248,7 @@ export const DraggableMarkers = () => {
                                     onChange={(e) => {
                                         const { lat, lng } =
                                             e.target.getLatLng();
-                                        updateQuestion(question.key, {
-                                            latA: lat,
-                                            lngA: lng,
-                                        });
+                                        move({ latA: lat, lngA: lng });
                                     }}
                                 />
                                 {/* No end until a shared game's
@@ -250,15 +266,13 @@ export const DraggableMarkers = () => {
                                             onChange={(e) => {
                                                 const { lat, lng } =
                                                     e.target.getLatLng();
-                                                updateQuestion(question.key, {
-                                                    latB: lat,
-                                                    lngB: lng,
-                                                });
+                                                move({ latB: lat, lngB: lng });
                                             }}
                                         />
                                     )}
                             </Fragment>
                         );
+                    }
                     default:
                         return null;
                 }

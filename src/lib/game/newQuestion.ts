@@ -21,28 +21,12 @@ export const radarQuestion = (start: Start, km: number) => ({
 });
 
 /**
- * In a shared game a thermometer has no end until it's asked (the seekers
- * travel first); alone, the end sits east of the start, to drag.
+ * A thermometer's end sits east of the start, on the circle of its
+ * distance: alone, to drag to where the seekers went; in a shared game, a
+ * plan to drag before starting (round 47; the game clears it at Start and
+ * sets the real end when it's asked).
  */
-export const thermometerQuestion = (
-    start: Start,
-    km: number,
-    shared: boolean,
-) => {
-    if (shared) {
-        return {
-            id: "thermometer" as const,
-            data: {
-                latA: start.lat,
-                lngA: start.lng,
-                latB: null,
-                lngB: null,
-                distanceKm: km,
-                // Thermometers are purple (round 42): the start pin.
-                colorA: "violet" as const,
-            },
-        };
-    }
+export const thermometerQuestion = (start: Start, km: number) => {
     const [lngB, latB] = turf.destination([start.lng, start.lat], km, 90, {
         units: "kilometers",
     }).geometry.coordinates;
@@ -54,7 +38,10 @@ export const thermometerQuestion = (
             latB,
             lngB,
             distanceKm: km,
+            // Thermometers are purple (round 42): the start pin; the end
+            // gold, not a grey that looks switched off (round 47).
             colorA: "violet" as const,
+            colorB: "gold" as const,
         },
     };
 };

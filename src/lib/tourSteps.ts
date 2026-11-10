@@ -179,7 +179,7 @@ export const ASK_TOUR: TourStep[] = [
     {
         id: "kinds",
         title: "Six kinds",
-        text: "Each tile is a kind of question. Tap one to choose exactly what to ask; nothing goes to the hider until you tap the button at the bottom of the next screen.",
+        text: "Each tile is a kind of question. Tap one, then what to ask: it's a draft on the map at once, and nothing goes to the hider until you tap **Send** on its card.",
         target: [id("ask-kinds")],
     },
     {
@@ -215,7 +215,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
         {
             id: "ask",
             title: "Ask a question",
-            text: "Tap **Ask a question**, pick a kind, then what to ask. The button at the bottom sends it from where you are; a draft lets you plan first.",
+            text: "Tap **Ask a question**, pick a kind, then what to ask: it opens as a draft, to plan with on the map. **Send** at its foot asks the hider.",
             target: [id("ask-question"), id("add-questions-buttons")],
             sidebar: "open",
             tab: "questions",

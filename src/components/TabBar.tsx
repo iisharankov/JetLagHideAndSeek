@@ -23,6 +23,7 @@ import {
     sidebarSections,
 } from "@/lib/game/tabBadges";
 import { chosenStation, hiderChoosing } from "@/lib/hiderSpot";
+import { toTabRoot } from "@/lib/screens";
 import { cn } from "@/lib/utils";
 
 import { menuButton } from "./MenuScreen";
@@ -118,6 +119,8 @@ export const TabBar = () => {
                 className={cn(item, on && "text-white", "disabled:opacity-40")}
                 data-tutorial-id={`tab-${value}`}
                 onClick={() => {
+                    // The tab you're on, tapped: back to its list.
+                    if (on) toTabRoot();
                     sidebarTab.set(value);
                     setOpenMobile(true);
                 }}

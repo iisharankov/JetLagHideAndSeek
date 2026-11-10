@@ -8,7 +8,6 @@ import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
-import { summaryTitle } from "@/lib/cardText";
 import {
     gameSettings,
     hiderMode,
@@ -19,11 +18,11 @@ import {
 } from "@/lib/context";
 import { askedBefore, thermometerQuestion } from "@/lib/game/newQuestion";
 import { gameRole, gameState } from "@/lib/game/session";
-import { kmText } from "@/lib/game/thermometer";
+import { endOutside, kmText, plannedEnd } from "@/lib/game/thermometer";
 import { currentPosition, recentPosition } from "@/lib/geolocation";
 import { cn } from "@/lib/utils";
 import { arcDistance } from "@/maps/geo-utils";
-import type { Question, ThermometerQuestion } from "@/maps/schema";
+import type { ThermometerQuestion } from "@/maps/schema";
 
 import { QuestionCard, useFrozen, useGameQuestionState } from "./base";
 import { type CardParts, FixedRow, LocationButton } from "./layout";
@@ -79,12 +78,19 @@ const useTravelParts = (
     const $settings = useStore(gameSettings);
     const $role = useStore(gameRole);
     const $isLoading = useStore(isLoading);
+    const $hiderMode = useStore(hiderMode);
     useStore(currentPosition);
     const set = (patch: QuestionPatch) => updateQuestion(questionKey, patch);
     const settings = $game?.settings ?? $settings;
     const distances = settings.thermometerKm;
     const locked = !data.drag || $isLoading || $role === "hider";
     const here = recentPosition();
+    // A draft from before round 47 (or called off) has no planned end: it
+    // gets one on the circle, to drag.
+    const planned = data.latB !== null && data.lngB !== null;
+    useEffect(() => {
+        if (!planned && !locked) set(plannedEnd(data));
+    }, [planned, locked]);
     return {
         first: {
             label: "Distance",
@@ -100,11 +106,16 @@ const useTravelParts = (
                             thermometerQuestion(
                                 { lat: data.latA, lng: data.lngA },
                                 km,
-                                true,
                             ),
                         )
                     }
-                    onChange={(km) => set({ distanceKm: km })}
+                    onChange={(km) =>
+                        // The planned end stays outside the new circle.
+                        set({
+                            distanceKm: km,
+                            ...endOutside({ ...data, distanceKm: km }),
+                        })
+                    }
                 />
             ),
         },
@@ -113,16 +124,18 @@ const useTravelParts = (
             render: (look) => <StartShown data={data} look={look} />,
         },
         sentence: (first) => <>After traveling {first}: hotter or colder?</>,
-        summary: {
-            title: summaryTitle(
-                { id: "thermometer", data } as unknown as Question,
-                "me",
-            ),
-            sub: here
-                ? `Starts where you are${here.accuracy ? ` · ±${Math.round(here.accuracy)} m` : ""}`
-                : "Starts at its pin (no position yet)",
-        },
-        guess: null,
+        // With the planned end, What if shows the half each answer leaves.
+        guess: planned
+            ? {
+                  value: data.warmer ? "warmer" : "colder",
+                  options: [
+                      { value: "warmer", label: "Hotter" },
+                      { value: "colder", label: "Colder" },
+                  ],
+                  onChange: (value) => set({ warmer: value === "warmer" }),
+                  disabled: !!$hiderMode || locked,
+              }
+            : null,
         extra: (
             <>
                 <SidebarMenuItem>
@@ -132,7 +145,9 @@ const useTravelParts = (
                             "text-xs text-muted-foreground",
                         )}
                     >
-                        Starts where you are. Travel the distance, then ask.
+                        Starts where you are. The second pin is where you plan
+                        to end: drag it to see what each answer cuts in half (it
+                        stays outside the circle, the least you travel).
                     </p>
                 </SidebarMenuItem>
                 {!here && $role === "seeker" && (
@@ -279,16 +294,6 @@ export const ThermometerQuestionComponent = ({
                 Hotter at {location} than {first}?
             </>
         ),
-        summary: {
-            title: summaryTitle(
-                { id: "thermometer", data } as unknown as Question,
-                "me",
-            ),
-            sub:
-                distanceValue !== null
-                    ? `${distanceValue.toFixed(2)} km from start to end`
-                    : "",
-        },
         guess: {
             value: data.warmer ? "warmer" : "colder",
             options: [

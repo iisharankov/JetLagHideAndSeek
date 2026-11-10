@@ -13,7 +13,6 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { useTakenAway } from "@/hooks/useTakenAway";
-import { summaryTitle } from "@/lib/cardText";
 import {
     customInitPreference,
     displayHidingZones,
@@ -36,7 +35,6 @@ import {
     type MeasuringQuestion,
     measuringQuestionSchema,
     NO_GROUP,
-    type Question,
 } from "@/maps/schema";
 
 import { QuestionCard, useFrozen } from "./base";
@@ -45,9 +43,7 @@ import {
     FixedRow,
     LocationButton,
     selectTrigger,
-    useWhere,
 } from "./layout";
-import { whereLine } from "./radius";
 
 export const MeasuringQuestionComponent = ({
     data,
@@ -171,7 +167,6 @@ export const MeasuringQuestionComponent = ({
             break;
     }
 
-    const where = useWhere(data.lat, data.lng);
     const locked = !data.drag || $isLoading;
     const parts: CardParts | null = frozen
         ? null
@@ -305,13 +300,6 @@ export const MeasuringQuestionComponent = ({
                           Closer to {first} than {location}?
                       </>
                   ),
-              summary: {
-                  title: summaryTitle(
-                      { id: "measuring", data } as Question,
-                      where,
-                  ),
-                  sub: whereLine(where, data.lat, data.lng),
-              },
               guess: {
                   value: data.hiderCloser ? "closer" : "further",
                   options:

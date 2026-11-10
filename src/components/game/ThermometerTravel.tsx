@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { Polyline } from "react-leaflet";
+import { Circle, Polyline } from "react-leaflet";
 
 import { questions } from "@/lib/context";
 import { gameRole, gameState } from "@/lib/game/session";
@@ -35,6 +35,41 @@ export const ThermometerTravel = () => {
                 className="thermometer-travel"
                 interactive={false}
                 pathOptions={{ color: "#0284c7", weight: 3 }}
+            />
+        ));
+};
+
+/**
+ * A game's draft thermometer, before it's started (round 47): the circle
+ * of its distance around the start, dashed, so the seekers see how far
+ * they must go, and which stations and lines get them out of it.
+ */
+export const ThermometerRing = () => {
+    const $game = useStore(gameState);
+    const $role = useStore(gameRole);
+    const $questions = useStore(questions);
+    if (!$game || $role !== "seeker") return null;
+    return $questions
+        .flatMap((question) => {
+            if (question.id !== "thermometer" || question.data.hidden) {
+                return [];
+            }
+            const state = $game.questions[String(question.key)]?.state;
+            return state === undefined || state === "draft" ? [question] : [];
+        })
+        .map((question) => (
+            <Circle
+                key={question.key}
+                center={[question.data.latA, question.data.lngA]}
+                radius={question.data.distanceKm * 1000}
+                className="thermometer-ring"
+                interactive={false}
+                pathOptions={{
+                    color: "#9c2bcb",
+                    weight: 3,
+                    dashArray: "8 6",
+                    fill: false,
+                }}
             />
         ));
 };

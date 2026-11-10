@@ -1,0 +1,28 @@
+# Round 47, 2026-11-10: The thermometer planned before it starts; Summary gone; every question a draft first
+
+Model: Opus 5.5. Budget: a fix.
+
+Asked: "thermometer should have second pin that can be moved even before comitting first pin to see what it cuts in half. It should only be outside the thermometer radius since that's the minimum distance that must be travelled. Also the radius circule should show even before you start the termometer, to be able to understand how far you need to go and see statios and paths that fir your plans / Remove the code for the summary version, it sucks. I'm still liking both the sections and sentence version / Also remove the draft and "ask now" for tenticals and measureing and other questions, all questions clicked show as draft and then can be sent. / For the setence version of questions, maybe experiiment with two lines, but make sure the alignment is good. And finally ook to puting the back button somewhere on the lower half of screen. I'm wondering how smart it is to click the questions tab to have it go back? IDK. i do like that swiping from screen side does go back, that helps / Mkae the rules item on the top a button too, not a link or something"
+
+Read as: in a game, a draft thermometer gets a draggable end (kept at least its distance from the start) and its circle drawn, so its halves show before Start; remove layout C; a tap on a type makes the draft (no Ask now); the sentence on two lines, aligned; Back in the card's lower half on a phone, and try the tab tap; Reference a button.
+
+Answers used: none.
+
+Did:
+- **The thermometer planned** (`thermometerQuestion` in `lib/game/newQuestion.ts`, `plannedEnd` and `endOutside` in `lib/game/thermometer.ts`): in a game a new thermometer has its end east of the start on the circle of its distance, to drag; dragged inside the circle it goes to the circle, the same way round (`DraggableMarkers.tsx`), and so does a new distance or a moved start (`cards/thermometer.tsx`). A draft from before (or one called off) gets its end when opened. The card has What if (Hotter / Colder) and says what the second pin is. The circle is drawn, dashed purple, for a game's draft thermometers (`ThermometerRing` in `game/ThermometerTravel.tsx`). The server clears the end at Start as before, so the hider never sees the plan; the real end comes when it's asked. The end pin is gold.
+- **Summary removed** (`cardLayout` is Sections or Sentence; a saved "summary" reads as Sections): `CardBody`'s branch, each kind's summary, `summaryTitle` and `whereLine` gone.
+- **Every question a draft first** (`ask/QuestionSubtype.tsx`): a tap on a matching, measuring or tentacle type makes it (a draft in a game) and opens its card; no "Add to the map (draft)", no "Ask now". Photos are still asked from their row (they have no draft). The tour's two steps about asking say so.
+- **The sentence on two lines** (`sentenceItems` in `cards/layout.tsx`): 17 px, each word and each choice a piece of a wrapping row, every piece on its line's middle, punctuation kept with the piece before it (and spaces between pieces for screen readers); the choices 40 px tall; a type's word cut short past 13rem.
+- **Back in the lower half** (`cards/base.tsx`): on a phone ‹ List sits on the map above the card's controls, bottom left ("Drag the pin" bottom right). **The tab you're on, tapped, goes back to its list** (`toTabRoot` in `lib/screens.ts`, `TabBar.tsx`); the phone's Back and the side swipe work as before.
+- **Reference a button** (`QuestionSidebar.tsx`): outlined, with a book; the book alone in the desktop's narrow sidebar.
+- **Desktop:** the card's big button on its own row (Start the thermometer didn't fit); ‹ alone in the header.
+- **Tests, seen failing first:** `tests/thermometer.test.ts` (the planned end on the circle, pushed out the same way round, left alone outside), `tests/askFlow.test.ts` (a game's thermometer has its end; the tab tap empties the screens), `e2e/cardLayouts.spec.ts` (Reference a button; Back in the lower half and the tab tap on a phone; the sentence's pieces on at most two lines' middles; no Summary in Settings; a matching type's tap makes the draft, no Ask now; a draft thermometer has two pins, the circle and What if). Updated: `e2e/ask.ts` (a type's tap; Send on the card), `e2e/csp.spec.ts` (waits for the tour's first step, the notes' trap; it failed once in a full run), `e2e/questionList.spec.ts` (clicks the pin itself: the card's framing moves the map; failed once in a full run).
+
+Changed from the ask: the tab tap is in, to try (you weren't sure; Q59 asks). Photos keep asking from their row (no draft for a photo).
+
+Found on the way: on the desktop, Reference, Start the thermometer and long titles were cut short in the narrow sidebar: fixed.
+
+Checked: lint and types clean; vitest 562 passed (77 files); build and build:server; Playwright full run 100 passed, 8 skipped. Screenshots looked at, phone: the list (Reference), a draft thermometer in Sections and Sentence (circle, both pins, What if, the far half shaded), a radar and a measuring question in Sentence (two lines), the matching types; desktop: a radar in Sentence, a draft thermometer. Test-first. Not checked: on a real phone (dragging the planned end with a finger).
+Root-run files changed: none. Also flagged: none.
+Decisions: decisions.md, round 47. Steps changed: S1 (rounds 32–47). Questions added: none (Q59 reworded: Sections or Sentence, and the tab tap).
+Commit message: Round 47: a game's thermometer planned before it starts (a second pin outside its drawn circle), Summary removed, every question a draft first, the sentence on two lines, Back in the lower half, Reference a button

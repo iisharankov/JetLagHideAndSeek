@@ -27,12 +27,7 @@ import {
 import { placeCount } from "@/lib/game/placeCounts";
 import { askedBeforeText } from "@/lib/game/questionIdentity";
 import { serverNow } from "@/lib/game/serverTime";
-import {
-    armThermometer,
-    gameState,
-    sendOp,
-    sendQuestion,
-} from "@/lib/game/session";
+import { gameState, sendOp } from "@/lib/game/session";
 import { hiddenTypesFor, tentacleKmFor } from "@/lib/gameSettings";
 import { currentPosition } from "@/lib/geolocation";
 import { TYPES } from "@/lib/questionInfo";
@@ -101,8 +96,8 @@ const BIG_TENTACLES = ["zoo", "aquarium", "theme_park"];
 
 /**
  * One kind's choices (mock-ups 04–06): what to ask, from where, and ×2 on
- * what was asked before this round. The question is made on Ask (or as a
- * draft to plan with); nothing exists before that.
+ * what was asked before this round. A tap on a type makes the question (a
+ * draft in a game) and opens its card, where Send is (round 47: no Ask now).
  */
 export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
     const $game = useStore(gameState);
@@ -126,7 +121,6 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
     const [custom, setCustom] = useState(false);
     const [type, setType] = useState<string | null>(null);
     const [photo, setPhoto] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
     // Tentacles: a kind with no places in the play area is dimmed.
     const $area = useStore(mapGeoJSON);
     const [none, setNone] = useState<string[]>([]);
@@ -155,19 +149,19 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
     );
 
     /** The question as chosen so far (null: something still to pick). */
-    const chosen = (at: Start) => {
+    const chosen = (at: Start, picked: string | null = type) => {
         switch (kind) {
             case "radius":
                 return radarQuestion(at, km);
             case "thermometer":
-                return thermometerQuestion(at, km, shared);
+                return thermometerQuestion(at, km);
             case "matching":
-                return type ? matchingQuestion(at, type) : null;
+                return picked ? matchingQuestion(at, picked) : null;
             case "measuring":
-                return type ? measuringQuestion(at, type) : null;
+                return picked ? measuringQuestion(at, picked) : null;
             case "tentacles":
-                return type
-                    ? tentacleQuestion(at, type, tentacleKmFor(type))
+                return picked
+                    ? tentacleQuestion(at, picked, tentacleKmFor(picked))
                     : null;
             default:
                 return null;
@@ -177,10 +171,10 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
     const before = (question: ReturnType<typeof chosen>) =>
         shared && question ? askedBefore($game, question) : 0;
 
-    /** Makes the question; asks it (or starts it) in a shared game unless a draft. */
-    const make = async (send: boolean) => {
+    /** Makes the question (a draft in a game) and opens its card. */
+    const make = (picked: string | null = type) => {
         if (!start) return;
-        const question = chosen(start);
+        const question = chosen(start, picked);
         if (!question) return;
         const key = Math.random();
         addQuestion({
@@ -192,38 +186,22 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
         } as Parameters<typeof addQuestion>[0]);
         closeAsk();
         openQuestion.set(key);
-        if (!send || !shared) return;
-        setBusy(true);
-        try {
-            if (kind === "thermometer") {
-                await armThermometer(key, km, {
-                    lat: start.lat,
-                    lng: start.lng,
-                });
-            } else {
-                await sendQuestion(key);
-            }
-        } finally {
-            setBusy(false);
-        }
     };
 
     const refusal = shared ? askRefusal($game, kind, true) : null;
     const question = start ? chosen(start) : null;
+    // Radar and thermometer come here only by their distance chips (the
+    // types screen makes them at once); photos are asked from here.
     const primary =
         kind === "photo"
             ? photo
                 ? `Ask for: ${photo}`
                 : "Pick a photo"
-            : !question
-              ? kind === "tentacles"
-                  ? "Pick a place kind"
-                  : "Pick a type"
-              : !shared
-                ? "Add the question"
-                : // A draft first (round 42): seen on the map, then sent
-                  // from its card.
-                  "Add to the map (draft)";
+            : !shared
+              ? "Add the question"
+              : "Add to the map (draft)";
+    const tapToMake =
+        kind === "matching" || kind === "measuring" || kind === "tentacles";
 
     const chips = (list: number[]) => (
         <div
@@ -236,7 +214,7 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                 const probe =
                     kind === "radius"
                         ? radarQuestion({ lat: 0, lng: 0 }, value)
-                        : thermometerQuestion({ lat: 0, lng: 0 }, value, true);
+                        : thermometerQuestion({ lat: 0, lng: 0 }, value);
                 return (
                     <button
                         key={value}
@@ -305,7 +283,11 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                             type === choice.type &&
                                 "border-blue-500 bg-blue-600 text-white",
                         )}
-                        onClick={() => setType(choice.type)}
+                        onClick={() => {
+                            tap();
+                            setType(choice.type);
+                            make(choice.type);
+                        }}
                     >
                         {choice.label}
                         {empty && (
@@ -475,43 +457,34 @@ export const QuestionSubtype = ({ kind }: { kind: AskKind }) => {
                     </p>
                 )}
             </div>
-            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-700 bg-sidebar p-3">
-                <Button
-                    className="h-auto min-h-12 whitespace-normal py-2 text-base font-semibold"
-                    disabled={
-                        busy ||
-                        !start ||
-                        (kind === "photo"
-                            ? !photo || photoRefusal(photo) !== null
-                            : // A draft is fine whatever stops asking.
-                              !question)
-                    }
-                    data-tutorial-id="ask-send"
-                    onClick={() => {
-                        tap();
-                        if (kind === "photo") {
-                            if (!photo) return;
-                            // Its row appears under the questions.
-                            void sendOp({ type: "askPhoto", name: photo });
-                            closeAsk();
-                            return;
-                        }
-                        void make(false);
-                    }}
-                >
-                    {primary}
-                </Button>
-                {shared && kind !== "photo" && (
+            {!tapToMake && (
+                <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-700 bg-sidebar p-3">
                     <Button
-                        variant="outline"
-                        className="min-h-11"
-                        disabled={busy || !question || refusal !== null}
-                        onClick={() => void make(true)}
+                        className="h-auto min-h-12 whitespace-normal py-2 text-base font-semibold"
+                        disabled={
+                            !start ||
+                            (kind === "photo"
+                                ? !photo || photoRefusal(photo) !== null
+                                : // A draft is fine whatever stops asking.
+                                  !question)
+                        }
+                        data-tutorial-id="ask-send"
+                        onClick={() => {
+                            tap();
+                            if (kind === "photo") {
+                                if (!photo) return;
+                                // Its row appears under the questions.
+                                void sendOp({ type: "askPhoto", name: photo });
+                                closeAsk();
+                                return;
+                            }
+                            make();
+                        }}
                     >
-                        Ask now
+                        {primary}
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

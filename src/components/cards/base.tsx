@@ -307,7 +307,7 @@ export const QuestionCard = ({
                         className="flex items-center gap-1.5 pl-1 pr-1 pt-1"
                         data-testid="card-header"
                     >
-                        {heading && (
+                        {heading && !overMap && (
                             <button
                                 type="button"
                                 onClick={heading.back}
@@ -315,7 +315,8 @@ export const QuestionCard = ({
                                 aria-label="All questions"
                             >
                                 <ChevronLeft className="h-5 w-5" />
-                                List
+                                {/* The desktop's narrow sidebar: ‹ alone. */}
+                                <span className="md:sr-only">List</span>
                             </button>
                         )}
                         <div className="min-w-0 flex-1">
@@ -356,10 +357,22 @@ export const QuestionCard = ({
                                 {guess}
                             </div>
                         )}
+                        {/* Back within the thumb's reach (round 47). */}
+                        {heading && (
+                            <button
+                                type="button"
+                                onClick={heading.back}
+                                className="pointer-events-auto absolute bottom-3 left-3 inline-flex h-11 items-center gap-0.5 rounded-xl bg-white pl-1.5 pr-3.5 text-[15px] font-bold text-slate-800 shadow-md hover:bg-slate-100"
+                                aria-label="All questions"
+                            >
+                                <ChevronLeft className="h-5 w-5" />
+                                List
+                            </button>
+                        )}
                         {draggable && (
-                            <p className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow">
+                            <p className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow">
                                 <Hand className="h-4 w-4" aria-hidden />
-                                Drag the pin to move it
+                                Drag the pin
                             </p>
                         )}
                     </div>
@@ -509,7 +522,8 @@ export const QuestionCard = ({
                                     cancel={send.cancel}
                                 />
                             )}
-                            <div className="flex items-stretch gap-2">
+                            {/* The desktop's narrow sidebar: the big button on its own row. */}
+                            <div className="flex items-stretch gap-2 md:flex-wrap">
                                 <FootTool
                                     icon={hidden ? <EyeOffIcon /> : <EyeIcon />}
                                     word={hidden ? "Show" : "Hide"}
@@ -531,7 +545,7 @@ export const QuestionCard = ({
                                             : "Hide it from the map"
                                     }
                                 />
-                                <div className="flex min-w-0 flex-1">
+                                <div className="flex min-w-0 flex-1 md:order-first md:basis-full">
                                     {question && (
                                         <FootMiddle
                                             question={question}
@@ -546,7 +560,7 @@ export const QuestionCard = ({
                                         <FootTool
                                             icon={<VscTrash />}
                                             word="Delete"
-                                            className="text-red-300"
+                                            className="text-red-300 md:ml-auto"
                                             disabled={$isLoading}
                                             title={
                                                 byAgreement

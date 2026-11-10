@@ -2,6 +2,23 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-10, round 47: the thermometer planned; Summary gone; every question a draft first
+
+| Decision | Why | From |
+|---|---|---|
+| **A game's draft thermometer has a second pin, the planned end, to drag before starting; the map shows the halves it cuts (What if Hotter / Colder)** | the owner: "second pin that can be moved even before committing first pin to see what it cuts in half" | the owner (in chat) |
+| **The planned end stays outside the circle of the distance: dragged inside, it goes to the circle, the same way round; changing the distance or moving the start does the same** | the owner: "only outside the thermometer radius since that's the minimum distance that must be travelled" | the owner (in chat) |
+| **The circle of a draft thermometer's distance is drawn (dashed purple) before it's started** | the owner: "to understand how far you need to go and see stations and paths" | the owner (in chat) |
+| **The planned end is the seekers' only: the server clears it at Start (as before), then sets the real end when it's asked** | the hider must not see where the seekers mean to go | this round |
+| **The thermometer's end pin is gold (it was a random colour, grey looked switched off)** | seen in the screenshots | this round |
+| **Summary (layout C) removed; Settings → Question card is Sections or Sentence** | the owner: "Remove the code for the summary version, it sucks" | the owner (in chat) |
+| **Matching, measuring and tentacles: a tap on a type makes the draft and opens its card; no "Add to the map (draft)", no "Ask now"** (photos are still asked from their row: they have no draft) | the owner: "all questions clicked show as draft and then can be sent" | the owner (in chat); photos, this round |
+| **The sentence wraps to two lines on a phone (17 px), each word and choice centred on its line; a type's word is cut short past 13rem** | the owner: "experiment with two lines, but make sure the alignment is good" | the owner (in chat) |
+| **On a phone the card's ‹ List is in the lower half, on the map above the controls** | the owner: "putting the back button somewhere on the lower half of screen" | the owner (in chat) |
+| **Tapping the tab you're on goes back to its list (as phones' tab bars do)** | the owner wondered about it ("IDK"); it's a common pattern, and the phone's Back and the side swipe still work | this round, to try |
+| **Reference at the top of the sidebar is a button with a book (the book alone in the desktop's narrow sidebar)** | the owner: "Make the rules item on the top a button too" | the owner (in chat) |
+| **On the desktop the card's big button (Send, Start the thermometer) has its own row; ‹ alone** | the narrow sidebar cut them short | this round |
+
 ## 2026-11-10, round 46: the question card in three layouts, to try
 
 | Decision | Why | From |

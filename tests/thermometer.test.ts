@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import { questionIdentity } from "@/lib/game/questionIdentity";
 import { thermometerDefaults } from "@/lib/game/settings";
 import { roleOnMap } from "@/lib/game/sync";
-import { canAsk, coveredKm, remainingKm } from "@/lib/game/thermometer";
+import {
+    canAsk,
+    coveredKm,
+    endOutside,
+    plannedEnd,
+    remainingKm,
+} from "@/lib/game/thermometer";
 import type { GameState, SharedQuestion } from "@/lib/game/types";
 import {
     adjustPerThermometer,
@@ -123,5 +129,58 @@ describe("a thermometer under way", () => {
         expect(turf.booleanPointInPolygon([HB.lng, 47.25], kept as never)).toBe(
             false,
         );
+    });
+});
+
+// A shared game's draft thermometer has a planned end (round 47): a second
+// pin to drag, at least the distance from the start, to see what the
+// answer would cut in half before starting.
+describe("a draft thermometer's planned end", () => {
+    const km = (
+        a: { lat: number; lng: number },
+        b: { lat: number; lng: number },
+    ) => turf.distance([a.lng, a.lat], [b.lng, b.lat], { units: "kilometers" });
+
+    it("starts on the circle, east of the start", () => {
+        const end = plannedEnd({ latA: HB.lat, lngA: HB.lng, distanceKm: 5 });
+        expect(km(HB, { lat: end.latB, lng: end.lngB })).toBeCloseTo(5, 3);
+        expect(end.lngB).toBeGreaterThan(HB.lng);
+    });
+
+    it("is pushed out to the circle when it's inside, the same way round", () => {
+        const inside = north(2);
+        const moved = endOutside({
+            latA: HB.lat,
+            lngA: HB.lng,
+            latB: inside.latitude,
+            lngB: inside.longitude,
+            distanceKm: 5,
+        })!;
+        expect(km(HB, { lat: moved.latB, lng: moved.lngB })).toBeCloseTo(5, 3);
+        // Still due north.
+        expect(moved.lngB).toBeCloseTo(HB.lng, 4);
+        expect(moved.latB).toBeGreaterThan(HB.lat);
+    });
+
+    it("stays where it is outside the circle, or with no end", () => {
+        const far = north(8);
+        expect(
+            endOutside({
+                latA: HB.lat,
+                lngA: HB.lng,
+                latB: far.latitude,
+                lngB: far.longitude,
+                distanceKm: 5,
+            }),
+        ).toBeNull();
+        expect(
+            endOutside({
+                latA: HB.lat,
+                lngA: HB.lng,
+                latB: null,
+                lngB: null,
+                distanceKm: 5,
+            }),
+        ).toBeNull();
     });
 });

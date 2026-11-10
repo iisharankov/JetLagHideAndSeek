@@ -5,10 +5,11 @@ import { askQuestion, onPhone, setDistance } from "./ask";
 import { expect, test } from "./fixtures";
 import { closeMenu, openMenu } from "./menu";
 
-// The question card's three layouts (round 46, the owner's pick of the
-// round 45 pictures): Sections (A), Sentence (B), Summary (C), switched in
-// Menu → Settings. Every one: the map over the card on a phone, What if as
-// a chip that flips, Location's pop-up, Hide · Send · Delete at the foot.
+// The question card's layouts (round 46, the owner's pick of the round 45
+// pictures; Summary gone in round 47): Sections (A) and Sentence (B),
+// switched in Menu → Settings. Both: the map over the card on a phone, What
+// if as a chip that flips, Location's pop-up, Hide · Send · Delete at the
+// foot, Back in the lower half on a phone.
 
 const API = `http://127.0.0.1:${API_PORT}/api`;
 const PLAY_AREA = {
@@ -53,8 +54,13 @@ const chooseLayout = async (page: Page, name: string) => {
     await openMenu(page, "Settings");
     await page.getByRole("radio", { name, exact: true }).click();
     await closeMenu(page);
-    if (onPhone(page)) {
-        await page.getByRole("radio", { name: /^Questions/ }).click();
+    // Back on the card; tapping Questions now would go back to the list.
+    const questions = page.getByRole("radio", { name: /^Questions/ });
+    if (
+        onPhone(page) &&
+        (await questions.getAttribute("aria-checked")) !== "true"
+    ) {
+        await questions.click();
     }
 };
 
@@ -70,12 +76,19 @@ const xs = async (page: Page, labels: string[]) => {
     return out;
 };
 
-test("the card's three layouts, switched in Settings; What if flips; Location's choices", async ({
+test("the card's two layouts, switched in Settings; What if flips; Location's choices; Back within reach", async ({
     page,
     pageErrors,
 }, testInfo) => {
+    const phone = testInfo.project.name === "phone";
     await prepare(page);
     await page.goto("/");
+    if (phone) await page.getByRole("radio", { name: /^Questions/ }).click();
+    // The rules: a button at the top, not a link (round 47).
+    await expect(
+        page.getByRole("button", { name: "Reference", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Reference" })).toHaveCount(0);
     await askQuestion(page, "Radius");
     await setDistance(page, "5 km");
     const body = page.getByTestId("card-body");
@@ -138,30 +151,46 @@ test("the card's three layouts, switched in Settings; What if flips; Location's 
         expect(onMap).toBe(true);
     }
 
-    // B · Sentence: the question on one line, its words to tap.
+    // On a phone, Back is in the lower half (round 47), and the Questions
+    // tab, tapped while a card is open, goes back to the list too.
+    const back = page.getByRole("button", { name: "All questions" });
+    if (phone) {
+        const box = await back.boundingBox();
+        expect(box!.y).toBeGreaterThan(page.viewportSize()!.height / 2);
+        await page.getByRole("radio", { name: /^Questions/ }).click();
+        await expect(page.getByTestId("question-list")).toBeVisible();
+        await page.getByTestId("question-list").getByRole("button").click();
+        await expect(back).toBeVisible();
+    }
+
+    // B · Sentence: at most two lines, words and choices centred on each
+    // line; its words open the same choices.
     await chooseLayout(page, "Sentence");
     await expect(body).toHaveAttribute("data-layout", "sentence");
     const sentence = page.getByTestId("card-sentence");
     await expect(sentence).toHaveText(/^Are you within 5 km.* of the pin.*\?$/);
-    // One line on a phone (two would be over 80 px); the desktop's narrow
-    // sidebar wraps it.
-    if (testInfo.project.name === "phone") {
-        expect((await sentence.boundingBox())!.height).toBeLessThan(60);
-    }
+    const middles = await sentence.locator(":scope > *").evaluateAll((items) =>
+        items.map((item) => {
+            const box = item.getBoundingClientRect();
+            return box.top + box.height / 2;
+        }),
+    );
+    const lines = middles.reduce<number[]>(
+        (found, middle) =>
+            found.some((line) => Math.abs(line - middle) <= 1.5)
+                ? found
+                : [...found, middle],
+        [],
+    );
+    expect(lines.length).toBeLessThanOrEqual(phone ? 2 : 3);
     await expect(page.getByTestId("distance-picker")).toBeVisible();
 
-    // C · Summary: one line; Edit shows the choices, Done folds them.
-    await chooseLayout(page, "Summary");
-    await expect(body).toHaveAttribute("data-layout", "summary");
-    await expect(page.getByTestId("card-summary")).toContainText(
-        "Within 5 km of the pin?",
-    );
-    await expect(page.getByTestId("distance-picker")).toHaveCount(0);
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.getByTestId("distance-picker")).toBeVisible();
-    await expect(page.getByTestId("location-button")).toBeVisible();
-    await page.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(page.getByTestId("distance-picker")).toHaveCount(0);
+    // No Summary any more (round 47): two choices in Settings.
+    await openMenu(page, "Settings");
+    await expect(
+        page.getByRole("radio", { name: "Summary", exact: true }),
+    ).toHaveCount(0);
+    await closeMenu(page);
     expect(pageErrors).toEqual([]);
 });
 
@@ -250,5 +279,59 @@ test("in a game: no Draft strip, ×2 beside the cost, Send between Hide and Dele
     await expect(
         page.getByRole("button", { name: "Send", exact: true }),
     ).toHaveCount(0);
+
+    // Matching: a tap on a type makes the draft and opens it (round 47:
+    // no "Ask now", no draft button).
+    await page.getByRole("button", { name: "All questions" }).click();
+    await page.getByRole("button", { name: "Ask a question" }).click();
+    await page.getByTestId("ask-matching").click();
+    const screen = page.getByTestId("question-subtype");
+    await expect(screen.getByRole("button", { name: "Ask now" })).toHaveCount(
+        0,
+    );
+    await screen.locator("button[aria-pressed]").first().click();
+    await expect(page.getByTestId("question-subtype")).toHaveCount(0);
+    await expect(page.getByTestId("question-game-state")).toHaveAttribute(
+        "data-state",
+        "draft",
+    );
+    await expect(
+        page.getByRole("button", { name: "Send", exact: true }),
+    ).toBeVisible();
+    expect(pageErrors).toEqual([]);
+});
+
+test("a game's draft thermometer: its distance's circle and a planned end to drag, before it's started", async ({
+    page,
+    request,
+    pageErrors,
+}, testInfo) => {
+    const created = await createGameOnApi(request, {
+        playArea: { kind: "polygon", polygon: PLAY_AREA },
+        zone: null,
+        settings: { size: "medium" },
+        questions: [],
+        by: "Org",
+    });
+    const { state } = await created.json();
+    const id = state.id as string;
+    const as = (key: string) => ({ "X-Player-Key": key });
+    const SEEKER = `thermo-seeker-${testInfo.project.name}-001`;
+    await request.post(`${API}/games/${id}/join`, {
+        headers: as(`thermo-hider-${testInfo.project.name}-0001`),
+        data: { name: "Ben", hider: true },
+    });
+    await request.post(`${API}/games/${id}/join`, {
+        headers: as(SEEKER),
+        data: { name: "Ana" },
+    });
+    await prepare(page, { playerKey: SEEKER, playerName: "Ana" });
+    await page.goto(`/?game=${id}`);
+    await expect(page.getByTestId("join-dialog")).toHaveCount(0);
+    await askQuestion(page, "Thermometer");
+    // The start and the planned end, the circle to leave, and What if.
+    await expect(page.locator('img[alt="Question"]')).toHaveCount(2);
+    await expect(page.locator("path.thermometer-ring")).toHaveCount(1);
+    await expect(page.getByTestId("what-if")).toContainText("Hotter");
     expect(pageErrors).toEqual([]);
 });

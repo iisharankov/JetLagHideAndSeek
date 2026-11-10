@@ -112,15 +112,13 @@ export const SettingsPanel = () => {
                         options={[
                             { value: "sections", label: "Sections" },
                             { value: "sentence", label: "Sentence" },
-                            { value: "summary", label: "Summary" },
                         ]}
                         value={$cardLayout}
                         onValueChange={cardLayout.set}
                     />
                     <p className="text-xs text-slate-400">
                         How an open question looks, to try them out: labelled
-                        rows, the question as a sentence with words to tap, or
-                        one line with Edit.
+                        rows, or the question as a sentence with words to tap.
                     </p>
                     <Label>Seekers&apos; drafts on the map</Label>
                     <SegmentedControl

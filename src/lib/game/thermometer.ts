@@ -44,3 +44,41 @@ export const kmText = (km: number) =>
             km >= 10 ? km.toFixed(0) : km >= 1 ? km.toFixed(1) : km.toFixed(2),
         ),
     );
+
+type Planned = Started & { latB: number | null; lngB: number | null };
+
+/**
+ * A game's draft thermometer gets a planned end (round 47): a second pin
+ * on the circle of its distance, east of the start, to drag to where the
+ * seekers mean to go and see what the answer would cut in half.
+ */
+export const plannedEnd = (question: Started) => {
+    const [lngB, latB] = turf.getCoord(
+        turf.destination(
+            [question.lngA, question.latA],
+            question.distanceKm ?? 5,
+            90,
+            { units: "kilometers" },
+        ),
+    );
+    return { latB, lngB };
+};
+
+/**
+ * The planned end can't be nearer than the distance (the least the seekers
+ * travel): inside the circle, it's moved out to it, the same way round.
+ * Null when it's fine where it is (or there's no end).
+ */
+export const endOutside = (question: Planned) => {
+    if (question.latB === null || question.lngB === null) return null;
+    const start: [number, number] = [question.lngA, question.latA];
+    const end: [number, number] = [question.lngB, question.latB];
+    const distance = question.distanceKm ?? 0;
+    const apart = turf.distance(start, end, { units: "kilometers" });
+    if (apart >= distance) return null;
+    const bearing = apart > 0 ? turf.bearing(start, end) : 90;
+    const [lngB, latB] = turf.getCoord(
+        turf.destination(start, distance, bearing, { units: "kilometers" }),
+    );
+    return { latB, lngB };
+};

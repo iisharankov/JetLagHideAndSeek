@@ -58,10 +58,12 @@ test("questions are rows; a row, or a pin, opens its card", async ({
     if (testInfo.project.name === "phone") {
         await page.getByRole("button", { name: "Map" }).click();
     }
+    // On the pin itself, wherever it is: the map may still be moving (an
+    // open card frames its question, round 46).
     await page
         .locator('img.leaflet-marker-icon[alt="Question"]')
         .first()
-        .click({ force: true });
+        .dispatchEvent("click");
     await expect(back).toBeVisible();
     await expect(page.getByText(/^Question \d · /)).toBeVisible();
     expect(pageErrors).toEqual([]);

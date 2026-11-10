@@ -91,7 +91,7 @@ export const DistancePicker = ({
                     disabled={disabled}
                     className={
                         token
-                            ? "inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-2.5 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+                            ? "inline-flex h-10 shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-2.5 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
                             : "flex min-h-12 w-full items-center justify-between rounded-xl border border-slate-600 bg-slate-800/60 px-4 text-left text-lg font-semibold hover:bg-slate-800 disabled:opacity-50"
                     }
                     aria-label={`${label}: ${kmLabel(value)}`}

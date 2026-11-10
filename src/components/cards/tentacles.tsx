@@ -10,7 +10,6 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
 import { useTakenAway } from "@/hooks/useTakenAway";
-import { summaryTitle } from "@/lib/cardText";
 import {
     drawingQuestionKey,
     gameSettings,
@@ -29,7 +28,6 @@ import { filterPointsWithinRadius } from "@/maps/questions/tentacles";
 import {
     determineUnionizedStrings,
     NO_GROUP,
-    type Question,
     type TentacleQuestion,
     tentacleQuestionSchema,
     type TraditionalTentacleQuestion,
@@ -41,9 +39,7 @@ import {
     FixedRow,
     LocationButton,
     selectTrigger,
-    useWhere,
 } from "./layout";
-import { whereLine } from "./radius";
 
 /** "Zoos", "Museums"…: the kind of place, as the list names it. */
 const typeLabel = (locationType: string) => {
@@ -98,7 +94,6 @@ export const TentacleQuestionComponent = ({
             .indexOf(questionKey) + 1
     }`;
 
-    const where = useWhere(data.lat, data.lng);
     const locked = !data.drag || $isLoading;
     const parts: CardParts | null = frozen
         ? null
@@ -199,13 +194,6 @@ export const TentacleQuestionComponent = ({
                       Which {first} within {data.radius} km of {location}?
                   </>
               ),
-              summary: {
-                  title: summaryTitle(
-                      { id: "tentacles", data } as Question,
-                      where,
-                  ),
-                  sub: whereLine(where, data.lat, data.lng),
-              },
               guess: null,
               extra: (
                   <>

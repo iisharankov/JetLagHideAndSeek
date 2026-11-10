@@ -6,10 +6,15 @@ import {
     LocateFixed,
     Lock,
     MapPin,
-    Pencil,
     RefreshCw,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import {
+    Children,
+    Fragment,
+    isValidElement,
+    type ReactNode,
+    useState,
+} from "react";
 
 import {
     CoordinatesEditor,
@@ -30,10 +35,10 @@ import { cn } from "@/lib/utils";
 import { ICON_COLORS } from "@/maps/api";
 
 // The question card's middle (round 46, the owner's pick of the round 45
-// pictures, to try out): three layouts of the same parts, chosen in
-// Settings. A: labelled sections; B: the question as a sentence; C: a
-// summary with Edit. What if is a chip that flips; Location opens a small
-// pop-up (your GPS, the pin, typed, copy).
+// pictures, to try out): two layouts of the same parts, chosen in
+// Settings. A: labelled sections; B: the question as a sentence (C, the
+// summary, went in round 47). What if is a chip that flips; Location opens
+// a small pop-up (your GPS, the pin, typed, copy).
 
 /** How a part draws itself: a button in a row, or a word in the sentence. */
 export type Look = "plain" | "token";
@@ -52,8 +57,6 @@ export interface CardParts {
     location: { label: string; render: (look: Look) => ReactNode } | null;
     /** Layout B: the sentence around the two choices. */
     sentence: (first: ReactNode, location: ReactNode) => ReactNode;
-    /** Layout C: the question in one line, and where it's from. */
-    summary: { title: string; sub: string };
     /** The answer playing alone; in a game, the guess the map shows. */
     guess: Guess | null;
     /** Rows under the choices: a zone's level, warnings, custom drawing. */
@@ -134,7 +137,7 @@ export const LocationButton = ({
             <button
                 type="button"
                 disabled={disabled}
-                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 font-bold hover:bg-slate-700 disabled:opacity-50"
+                className="inline-flex h-10 shrink-0 items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 font-bold hover:bg-slate-700 disabled:opacity-50"
                 aria-label={`${label}: ${mine ? "me" : "the pin"}`}
                 data-testid="location-button"
             >
@@ -331,12 +334,48 @@ const Sections = ({ parts }: { parts: CardParts }) => (
 );
 
 /**
- * The middle of an open card, as Settings says: Sections, Sentence or
- * Summary (with Edit, which shows the sections until Done).
+ * The sentence as pieces for a wrapping row: each word on its own, the
+ * choices whole, punctuation kept with what's before it. On two lines
+ * every piece sits on its line's middle (round 47: "make sure the
+ * alignment is good").
  */
+const sentenceItems = (sentence: ReactNode) => {
+    const pieces =
+        isValidElement<{ children?: ReactNode }>(sentence) &&
+        sentence.type === Fragment
+            ? Children.toArray(sentence.props.children)
+            : [sentence];
+    const items: ReactNode[] = [];
+    for (const piece of pieces) {
+        if (typeof piece !== "string") {
+            items.push(piece);
+            continue;
+        }
+        for (const word of piece.split(/\s+/).filter(Boolean)) {
+            if (/^[?:!.,]/.test(word) && items.length > 0) {
+                const before = items.pop();
+                items.push(
+                    <span
+                        key={`p${items.length}`}
+                        className="inline-flex items-center"
+                    >
+                        {before}
+                        {word}
+                    </span>,
+                );
+            } else {
+                items.push(<span key={`w${items.length}`}>{word}</span>);
+            }
+        }
+    }
+    // Spaces between the pieces: not drawn in a flex row, but read aloud
+    // and copied as one sentence.
+    return items.flatMap((item, index) => (index > 0 ? [" ", item] : [item]));
+};
+
+/** The middle of an open card, as Settings says: Sections or Sentence. */
 export const CardBody = ({ parts }: { parts: CardParts }) => {
     const layout = useStore(cardLayout);
-    const [editing, setEditing] = useState(false);
     return (
         <div
             className="flex flex-col gap-1 pb-1"
@@ -347,46 +386,17 @@ export const CardBody = ({ parts }: { parts: CardParts }) => {
             {layout === "sentence" && (
                 <>
                     <p
-                        className="overflow-hidden whitespace-nowrap px-3 py-1 text-[15px] font-semibold leading-10 md:whitespace-normal [&>*]:align-middle"
+                        className="flex flex-wrap items-center gap-x-1.5 gap-y-2 px-3 py-1.5 text-[17px] font-semibold"
                         data-testid="card-sentence"
                     >
-                        {parts.sentence(
-                            parts.first.render("token"),
-                            parts.location?.render("token") ?? null,
+                        {sentenceItems(
+                            parts.sentence(
+                                parts.first.render("token"),
+                                parts.location?.render("token") ?? null,
+                            ),
                         )}
                     </p>
                     {parts.extra}
-                </>
-            )}
-            {layout === "summary" && (
-                <>
-                    <div className="mx-3 my-1 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 py-2 pl-3 pr-2">
-                        <div
-                            className="min-w-0 flex-1"
-                            data-testid="card-summary"
-                        >
-                            <p className="text-lg font-bold leading-snug">
-                                {parts.summary.title}
-                            </p>
-                            <p className="truncate text-xs text-slate-400">
-                                {parts.summary.sub}
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-slate-700 px-3 text-sm font-bold text-blue-200 hover:bg-slate-600"
-                            aria-expanded={editing}
-                            onClick={() => setEditing(!editing)}
-                        >
-                            {editing ? (
-                                <Check className="h-4 w-4" aria-hidden />
-                            ) : (
-                                <Pencil className="h-4 w-4" aria-hidden />
-                            )}
-                            {editing ? "Done" : "Edit"}
-                        </button>
-                    </div>
-                    {editing && <Sections parts={parts} />}
                 </>
             )}
         </div>
@@ -452,7 +462,7 @@ export const selectTrigger = (look: Look, placeholder: string) => ({
     placeholder,
     className:
         look === "token"
-            ? "inline-flex h-9 min-h-9 w-auto max-w-[9.5rem] gap-1 rounded-lg border-0 bg-blue-600 px-2.5 py-0 font-bold text-white max-md:min-h-9 max-md:text-[15px] [&>span]:truncate"
+            ? "inline-flex h-10 min-h-10 w-auto max-w-[13rem] gap-1 rounded-lg border-0 bg-blue-600 px-2.5 py-0 text-[17px] font-bold text-white max-md:min-h-10 max-md:text-[17px] [&>span]:truncate"
             : "min-h-12 rounded-xl border-slate-600 bg-slate-800/60 font-semibold [&>span]:truncate",
 });
 

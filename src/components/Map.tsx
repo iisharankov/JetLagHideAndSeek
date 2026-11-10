@@ -15,7 +15,10 @@ import { toast } from "react-toastify";
 
 import { addNotePin } from "@/components/game/NotePins";
 import { SeekerMarkers } from "@/components/game/SeekerMarkers";
-import { ThermometerTravel } from "@/components/game/ThermometerTravel";
+import {
+    ThermometerRing,
+    ThermometerTravel,
+} from "@/components/game/ThermometerTravel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { TILES_URL } from "@/lib/config";
@@ -252,6 +255,7 @@ export const Map = ({ className }: { className?: string }) => {
                 <DraggableMarkers />
                 <SeekerMarkers />
                 <ThermometerTravel />
+                <ThermometerRing />
                 <ReferenceMarkers />
                 <PlaceReviewMarkers />
                 <PolygonDraw />

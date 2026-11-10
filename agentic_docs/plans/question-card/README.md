@@ -1,6 +1,6 @@
 # The question card on phones: options
 
-**Round 46: A, B and C are built**, to try in real games: Menu → Settings → Question card (Sections, Sentence, Summary). All three have What if as the chip on the map (picture 14, way 3), Location's pop-up (15), the thermometer, matching and after-Send cards as in 16–18, and on a phone the real map between the card's header and its controls. Summary's **Edit** shows the Sections rows under the summary until **Done**. Q59 now asks which one stays.
+**Round 47: Sections (A) and Sentence (B) are in the app**, to try in real games: Menu → Settings → Question card. Summary (C) was built in round 46 and removed in round 47 at your word. Both have What if as the chip on the map (picture 14, way 3), Location's pop-up (15), the thermometer, matching and after-Send cards as in 16–18, and on a phone the real map between the card's header and its controls, with ‹ List in the lower half. Q59 now asks which one stays.
 
 Round 45, 2026-11-10, redrawn from your comments on the card in the app (round 40's option A) and on round 40's picture D. Nothing here is built yet: Q59 picks one. The pictures are in `mockups/png/`, drawn in `mockups/screens.html` and rendered by `render.mjs` (`node agentic_docs/plans/question-card/mockups/render.mjs`).
 

@@ -42,6 +42,9 @@ test("the app works under the production Content-Security-Policy", async ({
     // too.
     await openMenu(page, "Help");
     await page.getByRole("button", { name: "Seeker tutorial" }).click();
+    // The first step drawn before its Next (a click as the note turns into
+    // it was lost now and then: the notes' trap).
+    await expect(mark).toHaveAttribute("data-tour-step", "how-to-play");
     await mark.getByRole("button", { name: "Next" }).click();
     await expect(
         page.locator(".leaflet-tourDemo-pane path").first(),

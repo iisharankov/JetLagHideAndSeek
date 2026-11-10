@@ -68,6 +68,16 @@ export const back = () => {
     else if (openQuestion.get() !== null) openQuestion.set(null);
 };
 
+/**
+ * The tab's own view again, everything over it closed: the tab you're on,
+ * tapped (round 47, as phones' tab bars do).
+ */
+export const toTabRoot = () => {
+    askFlow.set(null);
+    pushedScreen.set(null);
+    openQuestion.set(null);
+};
+
 // The phone's Back button: one history entry per pushed screen. Leaving
 // screens by the app's own ‹ takes their entries back off the history.
 let pushed = 0;

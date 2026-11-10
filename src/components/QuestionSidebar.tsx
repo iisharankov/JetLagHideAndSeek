@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { Plus } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { withErrorBoundary } from "@/components/ErrorBoundary";
@@ -28,7 +28,6 @@ import {
 import { SegmentedControl } from "@/components/ui/toggle-card";
 import { showUndoToast } from "@/components/undoToast";
 import { useTick } from "@/hooks/useTick";
-import { withBase } from "@/lib/config";
 import {
     cardOverMap,
     clearQuestions,
@@ -291,16 +290,18 @@ export const QuestionSidebar = () => {
                               ? "Research"
                               : "Cards"}
                 </h2>
-                <a
-                    href={withBase("reference/")}
-                    onClick={(event) => {
-                        event.preventDefault();
-                        openRules("reference");
-                    }}
-                    className="mt-4 ml-auto mr-3 text-sm text-blue-400 underline"
+                {/* The rules over the app: a button (round 47), not a link. */}
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="mr-3 mt-4 ml-auto h-9 gap-1.5 font-semibold md:px-2.5"
+                    onClick={() => openRules("reference")}
+                    title="Reference"
                 >
-                    Reference
-                </a>
+                    <BookOpen className="h-4 w-4" aria-hidden />
+                    {/* The desktop's narrow sidebar: the book alone. */}
+                    <span className="md:sr-only">Reference</span>
+                </Button>
             </div>
             {$game && $connection === "retrying" && (
                 <p

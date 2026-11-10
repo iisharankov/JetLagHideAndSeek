@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-10 (round 46). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-10 (round 47). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy rounds 32–46), then try the three cards (Q59) and S7 (your admin code on your phone).
+**Only 5 minutes?** S1 (deploy rounds 32–47), then try the two cards (Q59) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -10,13 +10,13 @@ Nothing.
 
 ## Plans waiting on you
 
-- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones; A, B and C are built (round 46), switched in Settings. Q59 picks the one that stays. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
+- [plans/question-card/README.md](plans/question-card/README.md): the question card on phones; Sections and Sentence are in the app (rounds 46–47), switched in Settings. Q59 picks the one that stays. (The November plan, runs A–G, is built and in `history/plans/nov-game-fixes/`.)
 
 ## Questions
 
-**Q59. The question card: which layout stays?** Round 46 built all three you picked, to try over a few days: Menu → Settings → Question card: **Sections** (A, picture 11), **Sentence** (B, 12, one line on a phone), **Summary** (C, 13; Edit shows the Sections rows under it until Done). All have What if as the chip on the map, Location's pop-up, Send between Hide and Delete, and the map between the card's header and its controls. Once you've played with them: which one stays (the others go, and so does the setting)? (asked 2026-11-10, built in round 46)
+**Q59. The question card: Sections or Sentence?** Both are in the app to try (Menu → Settings → Question card); Summary went in round 47. Once you've played with them: which one stays (the other goes, and so does the setting)? Also: keep "tap the tab you're on to go back to the list" (round 47), or drop it? (asked 2026-11-10, built in rounds 46–47)
 
-*Suggested:* decide after a real game; no default to suggest yet.
+*Suggested:* decide after a real game; keep the tab tap unless it gets in the way.
 
 > **Answer:**
 
@@ -36,7 +36,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–46 and check.** **Where:** the server, as root, after you commit and push round 46. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–47 and check.** **Where:** the server, as root, after you commit and push round 47. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"

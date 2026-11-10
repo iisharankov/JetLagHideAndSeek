@@ -105,7 +105,7 @@ src/
                             (Hider on the hider's phone), Menu
     QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
                             the order); a row (or the pin) opens the card in its place
-    cards/                  base.tsx (the card's frame), layout.tsx (its three layouts, Location, What if) + one card per kind
+    cards/                  base.tsx (the card's frame), layout.tsx (its two layouts, Location, What if) + one card per kind
     StationsPanel.tsx       seekers: hiding zones, stations left, "Found it" (end game)
     HiderPanel.tsx          hider: pick the station, then rows (station, pin follows GPS, seekers on
                             the map, show stations, show pin, Start the end game with 5 s to undo)
@@ -412,22 +412,33 @@ progress, the hider's spot, and earlier rounds.
   the types runs a four-note tour of that screen (`ASK_TOUR` in
   `lib/tourSteps.ts`); a tour step may open the types itself
   (`TourStep.screen`).
-- **The question card** (`components/cards/`, round 46): `base.tsx` is
-  the frame: the header (‹ List, the title, the cost and ×2 side by side
-  with who made it, the **i**), the middle, the game's state
-  (`game/QuestionGameBar.tsx`), and the foot: Hide · the big button ·
-  Delete (Send, `useSendQuestion` in `game/SendQuestion.tsx`; Start, then
-  Ask, on a thermometer, `ThermometerBar part="action"`; the time left
-  once sent; the lock playing alone). Each kind gives its `CardParts`
-  (`cards/layout.tsx`): the first choice (a distance, or a type), the
-  Location button (your GPS, the pin, typed, copy), the sentence, the
-  summary, the guess and extra rows; `CardBody` lays them out as Settings
-  says (`cardLayout`: Sections, Sentence, Summary with Edit). What if is
-  one chip that cycles (`WhatIfChip`). A sent question shows a fixed,
-  dashed row (`FixedRow`). On a phone an open card leaves the map showing
-  between its header and the rest (`cardOverMap`, the sheet see-through,
-  the map framing the question with `maps/frameQuestion.ts`). Words and
-  sums: `lib/cardText.ts`.
+- **The question card** (`components/cards/`, rounds 46–47): `base.tsx` is
+  the frame: the header (the title, the cost and ×2 side by side with who
+  made it, the **i**; ‹ List there on a desktop, in the lower half on a
+  phone), the middle, the game's state (`game/QuestionGameBar.tsx`), and
+  the foot: Hide · the big button · Delete (Send, `useSendQuestion` in
+  `game/SendQuestion.tsx`; Start, then Ask, on a thermometer,
+  `ThermometerBar part="action"`; the time left once sent; the lock
+  playing alone). Each kind gives its `CardParts` (`cards/layout.tsx`):
+  the first choice (a distance, or a type), the Location button (your GPS,
+  the pin, typed, copy), the sentence, the guess and extra rows;
+  `CardBody` lays them out as Settings says (`cardLayout`: Sections, or
+  Sentence as wrapping, centred pieces). What if is one chip that cycles
+  (`WhatIfChip`). A sent question shows a fixed, dashed row (`FixedRow`).
+  On a phone an open card leaves the map showing between its header and
+  the rest (`cardOverMap`, the sheet see-through, the map framing the
+  question with `maps/frameQuestion.ts`). Sums: `lib/cardText.ts`.
+- **A game's draft thermometer** (round 47): made with a planned end on
+  the circle of its distance (`thermometerQuestion`), kept outside it
+  (`endOutside` in `lib/game/thermometer.ts`, from the pins in
+  `DraggableMarkers.tsx` and the distance in `cards/thermometer.tsx`); the
+  circle drawn by `ThermometerRing` (`game/ThermometerTravel.tsx`). The
+  server clears the end at Start (`armThermometer`).
+- **Asking** (round 47): Radar and Thermometer make a draft from the types
+  screen; the other kinds' types make it with a tap
+  (`ask/QuestionSubtype.tsx`); photos are asked from their row. The tab
+  you're on, tapped, goes back to its list (`toTabRoot` in
+  `lib/screens.ts`).
 - **The rules over the app** (`RulesOverlay.tsx`): Help, a question's
   "Full rules" and Reference open the rulebook (and the reference) in an
   overlay with a page list, a search and ×; the pages load on first open.
@@ -436,8 +447,8 @@ progress, the hider's spot, and earlier rounds.
   grey: plain outside the play area, striped (`.ruled-out-cut`) where the
   answers ruled it out.
 - **Drafts first:** Radar and Thermometer make a draft at once from the
-  types; the other kinds' choices add a draft, "Ask now" second. In a game
-  a pin moves only on your own draft (`game/sync.ts`).
+  types; the other kinds' types make one with a tap (round 47: no "Ask
+  now"). In a game a pin moves only on your own draft (`game/sync.ts`).
 - **A card's distance** (radar, thermometer) is one button; the game's
   distances, ×2 and Custom… open in a pop-up (`DistancePicker` in
   `cards/parts.tsx`).

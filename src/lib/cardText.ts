@@ -1,16 +1,10 @@
-// The question card's words and sums (round 46): its one-line summary
-// (layout C), whether a question's point is where the phone is ("me") or
-// not ("the pin"), what the map frames when a card opens over it, and the
-// What if chip's next answer.
-import { TYPES } from "@/lib/questionInfo";
+// The question card's sums (round 46): whether a question's point is where
+// the phone is ("me") or not ("the pin"), what the map frames when a card
+// opens over it, and the What if chip's next answer.
 import type { Question } from "@/maps/schema";
 
 /** Where a question is asked from, in its sentence: the phone, or its pin. */
 export type Where = "me" | "the pin";
-
-/** "500 m", "10 km". */
-export const distanceLabel = (km: number) =>
-    km < 1 ? `${Math.round(km * 1000)} m` : `${km} km`;
 
 const KM_PER_DEGREE = 111.32;
 
@@ -82,43 +76,3 @@ export const questionBounds = (question: Question): Bounds | null => {
 /** The next answer for the What if chip, round and round. */
 export const nextChoice = <T>(options: readonly T[], value: T): T =>
     options[(options.indexOf(value) + 1) % options.length];
-
-const typeLabel = (
-    kind: "matching" | "measuring" | "tentacles",
-    type: string,
-) => TYPES[kind][type]?.label ?? type.replace(/[-_]/g, " ");
-
-/** The question in one line, as the summary (layout C) says it. */
-export const summaryTitle = (question: Question, where: Where): string => {
-    const data = question.data as Record<string, any>;
-    switch (question.id) {
-        case "radius":
-            return `Within ${distanceLabel(
-                data.unit === "meters" ? data.radius / 1000 : data.radius,
-            )} of ${where}?`;
-        case "thermometer":
-            return data.latB !== null && data.lngB !== null
-                ? "Hotter at the end than at the start?"
-                : `After ${distanceLabel(data.distanceKm)}: hotter or colder?`;
-        case "matching": {
-            const label = typeLabel("matching", data.type);
-            if (data.type === "same-train-line") {
-                return `On the same train line as ${where}?`;
-            }
-            return label.startsWith("Same ")
-                ? `${label} as ${where}?`
-                : `Same ${label.toLowerCase()} as ${where}?`;
-        }
-        case "measuring":
-            return data.type === "sea-level"
-                ? `Higher or lower than ${where}?`
-                : `Closer to ${typeLabel("measuring", data.type).toLowerCase()} than ${where}?`;
-        case "tentacles":
-            return `Which of the ${typeLabel(
-                "tentacles",
-                data.locationType,
-            ).toLowerCase()} within ${distanceLabel(data.radius)} of ${where}?`;
-        default:
-            return "";
-    }
-};
