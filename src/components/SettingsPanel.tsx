@@ -7,8 +7,6 @@ import {
     animateMapMovements,
     autoZoom,
     baseTileLayer,
-    cardLayout,
-    draftsOnMap,
     followMe,
     referencePlacesMode,
 } from "@/lib/context";
@@ -21,6 +19,7 @@ import {
 import { PushCard } from "./game/PushCard";
 import { MenuGroup } from "./MenuGroup";
 import { PlacesSettings } from "./PlacesSettings";
+import { QuestionOptionFields } from "./QuestionOptions";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
@@ -33,8 +32,6 @@ export const SettingsPanel = () => {
     const $baseTileLayer = useStore(baseTileLayer);
     const $followMe = useStore(followMe);
     const $referencePlaces = useStore(referencePlacesMode);
-    const $draftsOnMap = useStore(draftsOnMap);
-    const $cardLayout = useStore(cardLayout);
     const $alerts = useStore(alertsEnabled);
     const [notifications, setNotifications] =
         useState<NotificationState>("default");
@@ -106,41 +103,8 @@ export const SettingsPanel = () => {
                     <PlacesSettings />
                 </MenuGroup>
                 <MenuGroup title="Questions">
-                    <Label>Question card</Label>
-                    <SegmentedControl
-                        label="Question card"
-                        options={[
-                            { value: "sections", label: "Sections" },
-                            { value: "sentence", label: "Sentence" },
-                        ]}
-                        value={$cardLayout}
-                        onValueChange={cardLayout.set}
-                    />
-                    <p className="text-xs text-slate-400">
-                        How an open question looks, to try them out: labelled
-                        rows, or the question as a sentence with words to tap.
-                    </p>
-                    <Label>Seekers&apos; drafts on the map</Label>
-                    <SegmentedControl
-                        label="Drafts on the map"
-                        options={[
-                            {
-                                value: "all",
-                                label: "All, each in its colour",
-                            },
-                            {
-                                value: "active",
-                                label: "Only the open card",
-                            },
-                        ]}
-                        value={$draftsOnMap}
-                        onValueChange={draftsOnMap.set}
-                    />
-                    <p className="text-xs text-slate-400">
-                        Drafts are questions not sent to the hider yet.
-                        &quot;Only the open card&quot;: tapping a draft shows
-                        just that one; the others are outlined.
-                    </p>
+                    {/* The same as Questions → ⚙ (round 48). */}
+                    <QuestionOptionFields />
                 </MenuGroup>
                 <MenuGroup title="Alerts">
                     <ToggleCard

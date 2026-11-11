@@ -9,23 +9,27 @@ const pinSvg = (fill: string) =>
     `<path d="M12.5.5C5.87.5.5 5.87.5 12.5c0 2.4.7 4.6 1.9 6.5l10.1 21.5 10.1-21.5c1.2-1.9 1.9-4.1 1.9-6.5C24.5 5.87 19.13.5 12.5.5z" fill="${fill}" stroke="#fff" stroke-opacity=".7"/>` +
     `<circle cx="12.5" cy="12.5" r="4.6" fill="#fff"/></svg>`;
 
-const icons = new Map<keyof typeof ICON_COLORS, Icon>();
+const icons = new Map<string, Icon>();
 
-export const markerIcon = (color: keyof typeof ICON_COLORS): Icon => {
-    let icon = icons.get(color);
+/** A pin of any fill (a thermometer's two purples, round 48). */
+export const pinIcon = (fill: string): Icon => {
+    let icon = icons.get(fill);
     if (!icon) {
         icon = new Icon({
-            iconUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(pinSvg(ICON_COLORS[color]))}`,
+            iconUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(pinSvg(fill))}`,
             shadowUrl: `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}marker-shadow.png`,
             iconSize: [25, 41],
             iconAnchor: [12, 41],
             popupAnchor: [1, -34],
             shadowSize: [41, 41],
         });
-        icons.set(color, icon);
+        icons.set(fill, icon);
     }
     return icon;
 };
+
+export const markerIcon = (color: keyof typeof ICON_COLORS): Icon =>
+    pinIcon(ICON_COLORS[color]);
 
 // The hider's own position (hider mode): a black pin with a yellow "hidden"
 // eye and a HIDER label, so it can't be mistaken for a question's pin.

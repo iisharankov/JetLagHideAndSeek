@@ -259,7 +259,7 @@ export const ThermometerQuestionComponent = ({
                     label="Start"
                     lat={data.latA}
                     lng={data.lngA}
-                    colorName={data.colorA}
+                    colorName="violet"
                     disabled={locked}
                     onChange={(lat, lng) =>
                         set({ latA: lat ?? data.latA, lngA: lng ?? data.lngA })
@@ -277,7 +277,7 @@ export const ThermometerQuestionComponent = ({
                               label="End"
                               lat={data.latB!}
                               lng={data.lngB!}
-                              colorName={data.colorB}
+                              colorName="violet"
                               disabled={locked}
                               onChange={(lat, lng) =>
                                   set({
@@ -327,7 +327,7 @@ export const ThermometerQuestionComponent = ({
                         latitude={data.latA}
                         longitude={data.lngA}
                         label="Start"
-                        colorName={data.colorA}
+                        colorName="violet"
                         onChange={(lat, lng) =>
                             set({
                                 latA: lat ?? data.latA,
@@ -343,7 +343,7 @@ export const ThermometerQuestionComponent = ({
                             latitude={data.latB}
                             longitude={data.lngB}
                             label="End"
-                            colorName={data.colorB}
+                            colorName="violet"
                             onChange={(lat, lng) =>
                                 set({
                                     latB: lat ?? data.latB,

@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 import type { DragEndEvent } from "leaflet";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
-import { Marker, Tooltip } from "react-leaflet";
+import { Marker, Polyline, Tooltip } from "react-leaflet";
 import { toast } from "react-toastify";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -10,10 +10,12 @@ import {
     activeQuestionKey,
     hiderMode,
     notePins,
+    pinsOnMap,
     questions,
     showQuestion,
     updateQuestion,
 } from "@/lib/context";
+import { pinShown } from "@/lib/game/drafts";
 import { gameState, hiderPhone } from "@/lib/game/session";
 import { pinOnMap } from "@/lib/game/sync";
 import { endOutside } from "@/lib/game/thermometer";
@@ -24,7 +26,8 @@ import {
     showHiderPin,
 } from "@/lib/hiderSpot";
 import type { ICON_COLORS } from "@/maps/api";
-import { hiderIcon, markerIcon } from "@/maps/markerIcon";
+import { hiderIcon, markerIcon, pinIcon } from "@/maps/markerIcon";
+import { THERMOMETER_PINS } from "@/maps/questionColors";
 
 import { NotePinMarker } from "./game/NotePins";
 import { LatitudeLongitude } from "./LatLngPicker";
@@ -44,6 +47,7 @@ const ColoredMarker = ({
     latitude,
     longitude,
     color,
+    fill,
     onChange,
     questionKey,
     sub = "",
@@ -53,6 +57,8 @@ const ColoredMarker = ({
     latitude: number;
     longitude: number;
     color: keyof typeof ICON_COLORS;
+    /** A fill of its own instead of `color` (a thermometer's pins). */
+    fill?: string;
     questionKey: number;
     sub?: string;
     /** Locked questions keep their pin, but it can't be moved. */
@@ -68,9 +74,11 @@ const ColoredMarker = ({
                 icon={
                     questionKey === -1
                         ? hiderIcon()
-                        : color
-                          ? markerIcon(color)
-                          : undefined
+                        : fill
+                          ? pinIcon(fill)
+                          : color
+                            ? markerIcon(color)
+                            : undefined
                 }
                 title={questionKey === -1 ? "Hider location" : undefined}
                 alt={questionKey === -1 ? "Hider location" : "Question"}
@@ -145,6 +153,9 @@ export const DraggableMarkers = () => {
     const $pinLocked = useStore(pinLocked);
     const $game = useStore(gameState);
     const $revealed = $game?.revealedPin ?? null;
+    // Every question's pin, or only the active question's (round 48).
+    const $pins = useStore(pinsOnMap);
+    const $active = useStore(activeQuestionKey);
     const $hiderMode = useStore(hiderMode);
     const $hider = useStore(hiderPhone);
     const $showHiderPin = useStore(showHiderPin);
@@ -190,6 +201,7 @@ export const DraggableMarkers = () => {
                 if (!question.data) return null;
                 if (question.data.hidden) return null;
                 if (!pinOnMap(question, $game)) return null;
+                if (!pinShown(question.key, $pins, $active)) return null;
                 const draggable = question.data.drag;
                 if (
                     question.id === "matching" &&
@@ -237,8 +249,34 @@ export const DraggableMarkers = () => {
                         };
                         return (
                             <Fragment key={question.key}>
+                                {/* The two ends, joined faintly: they
+                                    stay a pair among other questions. */}
+                                {question.data.latB !== null &&
+                                    question.data.lngB !== null && (
+                                        <Polyline
+                                            positions={[
+                                                [
+                                                    question.data.latA,
+                                                    question.data.lngA,
+                                                ],
+                                                [
+                                                    question.data.latB,
+                                                    question.data.lngB,
+                                                ],
+                                            ]}
+                                            className="thermometer-link"
+                                            interactive={false}
+                                            pathOptions={{
+                                                color: THERMOMETER_PINS.end,
+                                                weight: 2,
+                                                opacity: 0.55,
+                                                dashArray: "3 6",
+                                            }}
+                                        />
+                                    )}
                                 <ColoredMarker
                                     color={question.data.colorA}
+                                    fill={THERMOMETER_PINS.start}
                                     key={"a" + question.key.toString()}
                                     questionKey={question.key}
                                     draggable={draggable}
@@ -257,6 +295,7 @@ export const DraggableMarkers = () => {
                                     question.data.lngB !== null && (
                                         <ColoredMarker
                                             color={question.data.colorB}
+                                            fill={THERMOMETER_PINS.end}
                                             key={"b" + question.key.toString()}
                                             questionKey={question.key}
                                             draggable={draggable}

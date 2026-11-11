@@ -71,6 +71,7 @@ import {
     ThermometerQuestionComponent,
 } from "./QuestionCards";
 import { QuestionList, questionTitle } from "./QuestionList";
+import { QuestionOptions } from "./QuestionOptions";
 import { StationsPanel as Panel } from "./StationsPanel";
 import { useSidebarSections } from "./TabBar";
 
@@ -290,11 +291,22 @@ export const QuestionSidebar = () => {
                               ? "Research"
                               : "Cards"}
                 </h2>
+                {/* How the questions show: pins, drafts, the card (round 48). */}
+                {(tab === "questions" || tab === "research") && (
+                    <div className="mt-4 ml-auto">
+                        <QuestionOptions />
+                    </div>
+                )}
                 {/* The rules over the app: a button (round 47), not a link. */}
                 <Button
                     variant="outline"
                     size="sm"
-                    className="mr-3 mt-4 ml-auto h-9 gap-1.5 font-semibold md:px-2.5"
+                    className={cn(
+                        "mr-3 mt-4 h-9 gap-1.5 font-semibold md:px-2.5",
+                        tab === "questions" || tab === "research"
+                            ? "ml-2"
+                            : "ml-auto",
+                    )}
                     onClick={() => openRules("reference")}
                     title="Reference"
                 >

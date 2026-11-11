@@ -24,5 +24,14 @@ export const questionColor = (question: {
     return (name && ICON_COLORS[name]) ?? "#f59e0b";
 };
 
+/**
+ * A thermometer's pins (round 48): both purple, the start darker; a faint
+ * dashed line joins them.
+ */
+export const THERMOMETER_PINS = {
+    start: "#5B1478",
+    end: ICON_COLORS.violet,
+} as const;
+
 /** Ruled out (by answers, and outside the play area). */
 export const RULED_OUT_COLOR = "#475569";

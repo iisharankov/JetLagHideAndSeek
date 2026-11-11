@@ -279,6 +279,8 @@ export const cardLayout = persistentAtom<CardLayout>("cardLayout", "sections", {
  * header and its controls (round 46): the sheet is see-through there.
  */
 export const cardOverMap = atom<boolean>(false);
+/** Question pins on the map: every question's, or only the active one's (round 48). */
+export const pinsOnMap = persistentAtom<"all" | "active">("pinsOnMap", "all");
 /** Buzz, beep and notify about the game's news. */
 export const alertsEnabled = persistentAtom<boolean>("alerts", true, json);
 /** Game setup (Menu → Game): this phone's settings, or a new shared game. */

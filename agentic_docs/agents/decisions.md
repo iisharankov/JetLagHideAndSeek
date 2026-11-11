@@ -2,6 +2,15 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-11, round 48: thermometer pins, the Questions tab's ⚙, drafts on the map fixed
+
+| Decision | Why | From |
+|---|---|---|
+| **A thermometer's two pins are purple, the start a darker purple; a faint dashed purple line joins them** (the gold end of round 47 is gone) | the owner: "make the second pin for thermometer purple too… the main pin darker… a faint dashed line between those two pins" | the owner (in chat) |
+| **A ⚙ at the top of Questions opens a small pop-up: Pins (All / Active), Drafts (All / Active), Card (Sections / Sentence); the same three in Menu → Settings → Questions** | the owner: "a few settings could be in the questions tab… maybe just a gear though that makes a popup?" | the owner (in chat) |
+| **Pins: Active shows only the active question's pin (the one last opened or tapped)** | the owner: "show only current question pin" | the owner (in chat) |
+| **The map redraws when Drafts changes, and when the active card changes while it's on Active** | it never did: the setting looked like it did nothing (the owner: "I see no differences") | found this round |
+
 ## 2026-11-10, round 47: the thermometer planned; Summary gone; every question a draft first
 
 | Decision | Why | From |

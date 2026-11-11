@@ -434,6 +434,12 @@ progress, the hider's spot, and earlier rounds.
   `DraggableMarkers.tsx` and the distance in `cards/thermometer.tsx`); the
   circle drawn by `ThermometerRing` (`game/ThermometerTravel.tsx`). The
   server clears the end at Start (`armThermometer`).
+- **Questions → ⚙** (`QuestionOptions.tsx`, round 48; the same fields in
+  Settings): Pins (`pinsOnMap`, `pinShown` in `lib/game/drafts.ts`, used by
+  `DraggableMarkers.tsx`), Drafts (`draftsOnMap`; the map redraws on
+  `draftsKey`), Card (`cardLayout`). A thermometer's pins: `THERMOMETER_PINS`
+  (`maps/questionColors.ts`, drawn with `pinIcon`), joined by a dashed
+  `thermometer-link` line.
 - **Asking** (round 47): Radar and Thermometer make a draft from the types
   screen; the other kinds' types make it with a tap
   (`ask/QuestionSubtype.tsx`); photos are asked from their row. The tab

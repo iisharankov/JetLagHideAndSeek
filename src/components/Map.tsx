@@ -23,12 +23,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { TILES_URL } from "@/lib/config";
 import {
+    activeQuestionKey,
     additionalMapGeoLocations,
     addQuestion,
     type BaseTileLayer,
     baseTileLayer,
     displayHidingZones,
     displayHidingZonesOptions,
+    draftsOnMap,
     endgame,
     followMe,
     hiderMode,
@@ -39,6 +41,7 @@ import {
     polyGeoJSON,
     questions,
 } from "@/lib/context";
+import { draftsKey } from "@/lib/game/drafts";
 import { gameRole, gameState, previewAnswers } from "@/lib/game/session";
 import {
     newRadiusQuestion,
@@ -297,6 +300,11 @@ export const Map = ({ className }: { className?: string }) => {
     const questionsKey = questionsMapKey($questions);
     // The hider's answer previews shade the map before they're sent.
     const previewsKey = JSON.stringify(useStore(previewAnswers));
+    // Drafts shaded all, or only the active card's: the map follows the
+    // setting, and the active card when it matters (round 48).
+    const $draftsOnMap = useStore(draftsOnMap);
+    const $activeQuestion = useStore(activeQuestionKey);
+    const shadedDrafts = draftsKey($draftsOnMap, $activeQuestion);
     useEffect(() => {
         if (!map) return;
 
@@ -313,6 +321,7 @@ export const Map = ({ className }: { className?: string }) => {
         additionalKey,
         $polyGeoJSON,
         $endgame,
+        shadedDrafts,
     ]);
 
     // The hiding zones follow the answers whichever panels are open.

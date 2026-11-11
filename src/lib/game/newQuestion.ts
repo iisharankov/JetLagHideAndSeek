@@ -38,10 +38,9 @@ export const thermometerQuestion = (start: Start, km: number) => {
             latB,
             lngB,
             distanceKm: km,
-            // Thermometers are purple (round 42): the start pin; the end
-            // gold, not a grey that looks switched off (round 47).
+            // Thermometers are purple (round 42); on the map the start's pin
+            // is a darker purple than the end's (round 48).
             colorA: "violet" as const,
-            colorB: "gold" as const,
         },
     };
 };

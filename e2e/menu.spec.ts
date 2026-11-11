@@ -14,7 +14,10 @@ test("one Menu holds game and settings, and no hider switch", async ({
     await expect(page.getByRole("button", { name: "Save File" })).toHaveCount(
         0,
     );
-    await expect(page.getByRole("button", { name: "Options" })).toHaveCount(0);
+    // (Exactly "Options": Questions has "Question options" since round 48.)
+    await expect(
+        page.getByRole("button", { name: "Options", exact: true }),
+    ).toHaveCount(0);
 
     await openMenu(page, "Help");
     await expect(page.getByRole("radio", { name: "Hider" })).toHaveCount(0);
