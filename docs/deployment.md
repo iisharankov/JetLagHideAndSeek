@@ -130,8 +130,19 @@ It downloads new extracts and rebuilds the reference data inside the
 
 Set `BBOX` in `.env` (and the Geofabrik `REGIONS` list in `update-data.sh`)
 to cover the new area, then run `update-data.sh`. Place search comes from
-the reference data, so it follows the box. What Bern and Munich need, step
-by step: [guides/areas.md](guides/areas.md).
+the reference data, so it follows the box.
+
+## Far areas (Munich, Toronto)
+
+A far city gets a small pack of its own beside the main one (round 49):
+
+```bash
+AREA=munich deploy/update-data.sh     # or toronto; the list is in the script
+AREA=list deploy/update-data.sh       # rewrite the list after deleting an area
+```
+
+The monthly refresh leaves them alone. Details and what to check:
+[guides/areas.md](guides/areas.md).
 
 ## The privacy policy and external services
 

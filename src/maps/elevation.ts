@@ -5,8 +5,9 @@ import * as turf from "@turf/turf";
 import { contours } from "d3-contour";
 import type { Feature, MultiPolygon } from "geojson";
 
-import { DATA_URL } from "@/lib/config";
 import { memoizeAsync } from "@/lib/memoizeAsync";
+import { tileCenter } from "@/maps/datasets/areas";
+import { dataUrlAt } from "@/maps/datasets/load";
 
 import { NotApplicableError } from "./errors";
 
@@ -168,9 +169,9 @@ export const createElevation = (
 /** The app's elevation data, served next to the other reference data. */
 export const elevation = createElevation(
     async (z, x, y) => {
-        const response = await fetch(
-            `${DATA_URL}/elevation/${z}/${x}/${y}.i16`,
-        );
+        // From the pack covering the tile (a far area has its own, round 49).
+        const base = await dataUrlAt(...tileCenter(z, x, y));
+        const response = await fetch(`${base}/elevation/${z}/${x}/${y}.i16`);
         if (!response.ok) return null;
         return new Int16Array(await response.arrayBuffer());
     },

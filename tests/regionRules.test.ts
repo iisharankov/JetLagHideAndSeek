@@ -50,6 +50,15 @@ describe("regionRulesFor", () => {
         expect(rules.hiddenQuestionTypes).toEqual(["coastline", "seven11"]);
     });
 
+    it("gives a Canadian play area the lake shore, not the sea (round 49: Toronto)", () => {
+        // The Great Lakes aren't coastline in the map data; 7-Elevens exist.
+        const rules = regionRulesFor("auto", "CA");
+        expect(rules.region).toBe("canada");
+        expect(majorCityPopulation(rules)).toBe(1_000_000);
+        expect(rules.hiddenQuestionTypes).toEqual(["coastline"]);
+        expect(regionRulesFor("canada", "CH").region).toBe("canada");
+    });
+
     it("lets the players override the automatic choice", () => {
         expect(regionRulesFor("standard", "CH").region).toBe("standard");
         expect(regionRulesFor("switzerland", "US").region).toBe("switzerland");

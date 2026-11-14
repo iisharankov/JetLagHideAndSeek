@@ -21,7 +21,6 @@ import {
 } from "@/components/game/ThermometerTravel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { TILES_URL } from "@/lib/config";
 import {
     activeQuestionKey,
     additionalMapGeoLocations,
@@ -57,7 +56,7 @@ import { startHidingZoneLayer } from "@/maps/hidingZoneLayer";
 import { DraggableMarkers } from "./DraggableMarkers";
 import { requestMapRefresh } from "./mapRefresh";
 import { PlaceReviewMarkers } from "./PlaceReviewMarkers";
-import { PMTilesLayer } from "./PMTilesLayer";
+import { Basemaps } from "./PMTilesLayer";
 import { PolygonDraw } from "./PolygonDraw";
 import { ReferenceMarkers } from "./ReferenceMarkers";
 
@@ -78,9 +77,9 @@ const OSM_ATTRIBUTION =
 const getTileLayer = (tileLayer: BaseTileLayer) => {
     switch (tileLayer) {
         case "selfhosted":
-            return <PMTilesLayer url={TILES_URL} flavor="light" />;
+            return <Basemaps flavor="light" />;
         case "selfhosted-dark":
-            return <PMTilesLayer url={TILES_URL} flavor="dark" />;
+            return <Basemaps flavor="dark" />;
         case "osmcarto":
             return (
                 <TileLayer
@@ -93,7 +92,7 @@ const getTileLayer = (tileLayer: BaseTileLayer) => {
             );
     }
 
-    return <PMTilesLayer url={TILES_URL} flavor="light" />;
+    return <Basemaps flavor="light" />;
 };
 
 export const Map = ({ className }: { className?: string }) => {

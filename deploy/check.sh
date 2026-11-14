@@ -101,6 +101,17 @@ else
     fail "/tiles/basemap.pmtiles answers $tiles (run deploy/update-data.sh)"
 fi
 
+# Far areas (round 49: AREA=munich deploy/update-data.sh and the like).
+areas=$(curl -s --max-time 10 "$WEB/data/areas.json")
+if [ "$(status "$WEB/data/areas.json")" = "200" ]; then
+    for id in $(printf '%s' "$areas" | grep -o '"id":"[^"]*"' | cut -d'"' -f4); do
+        [ "$(status "$WEB/data/areas/$id/manifest.json")" = "200" ] && ok "area $id: data" || fail "area $id is listed but /data/areas/$id/manifest.json is missing"
+        [ "$(status -I "$WEB/tiles/$id.pmtiles")" = "200" ] && ok "area $id: basemap" || fail "area $id has no /tiles/$id.pmtiles"
+    done
+else
+    ok "no far areas (only the main one)"
+fi
+
 echo "== API"
 health=$(curl -s --max-time 10 "$API/api/health")
 [ "$health" = '{"ok":true}' ] && ok "/api/health" || fail "/api/health answers '${health:-nothing}' on $API"

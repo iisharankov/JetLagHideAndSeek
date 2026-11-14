@@ -5,7 +5,6 @@ import type {
     MultiPolygon,
     Polygon,
 } from "geojson";
-import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
 
 import {
@@ -22,6 +21,7 @@ import {
 } from "@/lib/context";
 import { hiderAnswerPosition } from "@/lib/hiderSpot";
 import { memoizeAsync } from "@/lib/memoizeAsync";
+import { memoize } from "@/lib/unique";
 import {
     adminLevelLabel,
     boundaryLines,
@@ -80,7 +80,7 @@ export const findAdminZoneInfo = memoizeAsync(
         `${lat.toFixed(6)},${lng.toFixed(6)},${adminLevel}`,
 );
 
-const highSpeedBase = _.memoize(
+const highSpeedBase = memoize(
     (features: Feature[]) => {
         const grouped = groupObjects(features);
 

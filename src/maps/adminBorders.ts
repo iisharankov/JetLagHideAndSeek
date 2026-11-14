@@ -78,6 +78,15 @@ const LEVEL_NAMES: Record<string, Record<number, string>> = {
     FR: { 4: "region", 6: "department", 7: "arrondissement", 8: "commune" },
     IT: { 4: "region", 6: "province", 8: "municipality" },
     LI: { 8: "municipality" },
+    // Ontario as OpenStreetMap maps it (round 49, Toronto): the City of
+    // Toronto is a single-tier city at level 6; its neighbourhoods are 10.
+    CA: {
+        4: "province",
+        5: "region",
+        6: "city or county",
+        8: "municipality",
+        10: "neighbourhood",
+    },
 };
 
 /** What a player calls an admin level, e.g. "canton" in Switzerland. */

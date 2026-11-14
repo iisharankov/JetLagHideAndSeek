@@ -10,8 +10,8 @@ beyond the box: no "far places", no pre-computed nearest-place maps.
 | Area                                             | What to do                                                                                    |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | Bern, Basel, Geneva, Lausanne, Lugano, Konstanz… | Nothing to download: pick it in the play-area picker, then Settings → Places before the game. |
-| Munich                                           | Widen the box and the extract list, refresh the data, sort out place search (below).          |
-| Vienna, Berlin, Milan…                           | The same, but the box gets big; see "What doesn't scale yet".                                 |
+| Munich, Toronto                                  | One command each on the server (below, round 49).                                             |
+| Vienna, Berlin, Milan…                           | A line in `deploy/update-data.sh`'s area list, then the same command.                         |
 
 ## Inside the box: Bern and the rest of Switzerland
 
@@ -29,35 +29,53 @@ emergency rooms listed next to their hospital, places split in "West" and
 "Ost" parts); another area may have other oddities. Rejections are kept per
 play area on that phone and go into the next game started from it.
 
-## Outside the box: Munich
+## Far areas: Munich, Toronto (round 49)
 
-Munich (11.58 E, 48.14 N) is east of the box. Steps, all on the server:
+Since round 49 one server holds several packs: the main one (Switzerland
+and around, as above) and a small one per far city, each with its own
+basemap file. The app asks each question of the pack that covers it, draws
+each basemap only inside its box, and searching a place in another area
+starts a new play area there (nobody plays Zürich + Toronto). Nothing to
+choose in the app: search "Munich" or "Toronto" in the play-area picker.
 
-1. **The box.** `BBOX=5.5,45.6,12.3,48.6` in `deploy/.env` (the compose file
-   reads it). Everything downstream follows it: the OpenStreetMap extract,
-   the pack, the basemap tiles and the elevation tiles. Munich's S-Bahn
-   reaches about 11.0–12.1 E, 47.8–48.5 N.
-2. **The extracts.** `REGIONS` in `deploy/update-data.sh` must cover the box:
-   add `europe/germany/bayern/oberbayern` (Munich; about 400 MB). The
-   north-east corner of that box is Niederbayern; add
-   `europe/germany/bayern/niederbayern` too or accept a thin empty corner.
-   Then `deploy/update-data.sh` (the app keeps working meanwhile). Count
-   on a bigger tile file.
-3. **Place search** follows the pack: the picker searches the pack's own
-   zones (every state, district and municipality in the box, with their
-   relation ids), so Munich's districts are found as soon as the pack
-   covers them. Nothing to configure.
-4. **Airports.** `src/maps/datasets/airports.ts` already lists MUC and the
-   other Bavarian airports; the pack takes the ones inside the box.
-5. **Rules.** A German play area gets the German rules under "Automatic":
-   the Swiss question list (no coastline or 7-Eleven, the lake shore on)
-   with 1,000,000+ cities (Munich counts).
-6. **Labels.** Zone questions already say state, district, municipality and
-   borough for Germany (`src/maps/adminBorders.ts`), and the Austrian,
-   French and Italian names too.
-7. **Before the first game:** Settings → Places, and the review for the
-   kinds the game uses. Expect new oddities (Munich has many honorary
-   consulates and a big "park" called Englischer Garten in several parts).
+| Area | Box | Extract (download) | Country |
+| --- | --- | --- | --- |
+| Munich | `11.25,48.00,11.85,48.30` (the city and its edge; MUC airport is outside) | `europe/germany/bayern/oberbayern` (about 250 MB) | DE |
+| Toronto | `-79.70,43.55,-79.05,43.90` (the City of Toronto and a little beyond; Pearson and the island airport inside) | `north-america/canada/ontario` (about 970 MB) | CA |
+
+On the server (the area list is in `deploy/update-data.sh`; add another
+city there the same way):
+
+```bash
+AREA=munich ~/jetlag/deploy/update-data.sh
+AREA=toronto ~/jetlag/deploy/update-data.sh
+~/jetlag/deploy/check.sh        # "ok area munich: data", "… basemap", same for toronto
+```
+
+Each writes `data/datasets/areas/<area>/`, `data/tiles/<area>.pmtiles` and the
+list `data/datasets/areas.json`. The monthly refresh (`update-data.sh` alone)
+rebuilds only the main area and leaves these alone. To drop an area: delete
+its folder and its `.pmtiles`, then `AREA=list deploy/update-data.sh`. The
+downloads stay in `data/osm/areas/<area>/downloads/` for a quicker refresh;
+delete them to save the space.
+
+What the app does in each:
+
+- **Rules:** game setup picks them from the play area's country: Germany for
+  Munich (Swiss rules, cities of a million), Canada for Toronto (the lake
+  shore question for Lake Ontario, no sea coast: the Great Lakes aren't
+  coastline in the map data; 7-Elevens in). A city's extract can't hold
+  whole country outlines, so the country comes from the area's line in
+  `update-data.sh` when the data can't say.
+- **Zone names:** Germany's state, district, municipality, borough;
+  Ontario's province, region, city or county, municipality, neighbourhood.
+  Check them in the play-area picker before the game: OpenStreetMap's
+  levels in Toronto may differ from these guesses.
+- **Airports:** Toronto Pearson, Billy Bishop and Hamilton are on the list
+  (`src/maps/datasets/airports.ts`); only those inside the play area count.
+- **Before the first game:** Settings → Places and the review for the kinds
+  the game uses (Munich has many honorary consulates and an Englischer
+  Garten in several parts; Toronto is new ground).
 
 On a PC, `REGION=europe/germany/bayern/oberbayern scripts/build-dev-data.sh`
 builds a pack for that region alone into `public/data/` (one pack at a time;
@@ -65,11 +83,10 @@ it replaces the Swiss one).
 
 ## What doesn't scale yet
 
-- **One box per server.** A far-away city (Berlin, London, Toronto) makes
-  the box and the tile file huge. The fix is one pack, tile file and
-  elevation set per area, chosen by the play area's box (`manifest.json`
-  per pack; `src/maps/datasets/load.ts`, the tile layer and the updater).
-  Not needed for Munich or Bern; needed before anything overseas (Q43).
 - **The kind rules** are name-based and German/English; a French- or
   Italian-speaking area may need a few more words in
   `src/lib/placeRules.ts` (`KIND_RULES`), found by reviewing on the map.
+- **A question running past an area's box** (a big radar near the edge of
+  the Toronto box) has no data beyond it and says "No map data for this
+  area". Keep play areas inside the box; widen the box in `update-data.sh`
+  if needed.

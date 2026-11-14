@@ -332,7 +332,7 @@ export interface CustomCard {
 export interface GameSettings {
     size: GameSize;
     /** Local rules (which questions exist, "major city" threshold…). */
-    region: "standard" | "switzerland" | "germany";
+    region: "standard" | "switzerland" | "germany" | "canada";
     /** The hider may still change this during the game. */
     hidingRadiusKm: number;
     /** The radar question's distances in this game (km), by game size. */

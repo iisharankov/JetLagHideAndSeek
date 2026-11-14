@@ -1,0 +1,27 @@
+# Round 49, 2026-11-14: Far areas (Munich, Toronto); the map smoother when zoomed out; an audit
+
+Model: Opus 5.5. Budget: a feature and an audit.
+
+Asked: "Do a full audit and see what there is left to do, also see if thre's ways to optimize the code/loading, bugs or issues, or bad architecture. Fix directly what you see (first make a markdown somewere so that you can track it as you might run out of credtis while doiing it). I notice the map does not load as smoothly as i would expect when zoomed out. Also, I'd like to play in Munich in 2 weeks and in Toronto downtown in 6 weeks. Please get ready the data to download both areas, both would be small games so city core most likely. Give me the commands to download the data and prep the rest and i will run them tomorrow night,"
+
+Read as: a tracker first (`plans/audit-nov-14/README.md`); Munich and Toronto served beside Switzerland, with the commands; the zoomed-out map smoother; the first load lighter; bugs found on the way fixed or listed.
+
+Answers used: none.
+
+Did:
+- **Far areas** (`maps/datasets/areas.ts`, `maps/datasets/load.ts`): the main pack stays at `/data/`; a far city's pack at `/data/areas/<id>/` and its basemap at `/tiles/<id>.pmtiles`, listed in `/data/areas.json`. Every lookup goes to the pack covering its point or box; searches, lakes and ids ask every pack; elevation tiles come from the pack covering the tile; each basemap is drawn only inside its box (`Basemaps` in `PMTilesLayer.tsx`); the play-area picker's tap layer reads the pack under the view. A place searched in another area starts a new play area (`sameArea`, `PlacePicker.tsx`).
+- **Building them** (`deploy/update-data.sh`, flagged): `AREA=munich` (box `11.25,48.00,11.85,48.30`, Upper Bavaria's extract), `AREA=toronto` (box `-79.70,43.55,-79.05,43.90`, Ontario's extract), `AREA=list`; each area's name and country go into `areas.json`. The main rebuild no longer deletes the whole datasets folder (it would have wiped the areas). Dry-run end to end with stand-in tools for curl, osmium, node and pmtiles: the folders, the list, a stale file cleared, an area removed. `deploy/check.sh` (flagged) checks each listed area's data and basemap.
+- **Rules and names for the new places:** Canada's rules (the lake shore on for Lake Ontario, the sea coast off, 7-Eleven on, cities of a million); game setup takes the rules from the play area's country (CH, DE, CA; unknown changes nothing; `regionForCountry`); a zone's country from its state's ISO code or the area's declared one when the pack has no country outline (`geocode.ts`); Toronto's airports (YYZ, YTZ, YHM); Ontario's level names.
+- **The map smoother when zoomed out:** hiding zones and stations on one Leaflet canvas with stations as dots and a 10 px tap tolerance (`hidingZoneLayer.ts`; was an SVG circle and an HTML marker per station); the basemap not redrawn on each zoom step (`updateWhenZooming: false`, `keepBuffer: 4`) and asking only for tiles inside its file's box (it asked for the whole world zoomed out).
+- **Lighter first load:** lodash (71 KB, three functions) replaced by `lib/unique.ts`; first load 609 → 583 KB gzipped (measured: the scripts the page fetches before any tap).
+- **The audit:** findings and what's left in the tracker and `known-issues.md` (JSTS in the first load, lodash in package.json, questions past an area's box, Toronto's level names to check).
+- **Tests, seen failing first:** `tests/dataAreas.test.ts` (routing per pack, searches across packs, ids, the view's pack, URLs, tile centres, basemaps, same area), `tests/geocode.test.ts` (the country from the state or the area), `tests/gameSettings.test.ts` (Canada, rules from the country, unknown → none), `tests/regionRules.test.ts` (Canada), `tests/adminBorders.test.ts` (Ontario), `tests/unique.test.ts`, `e2e/dataAreas.spec.ts` (Toronto found in its pack, alone, its tiles requested, Canada chosen), `e2e/hidingZones.spec.ts` (forty stations on a canvas, a tap picks one). Updated: `e2e/sharedGame.spec.ts` (the zones and stations counted from the map's attributes), `tests/elevation.test.ts` (the heavy rough-terrain test gets 20 s: it timed out once under load).
+
+Changed from the ask: the station icons are dots now (part of the smoothness fix). Not done: JSTS out of the first load (a plan in known-issues).
+
+Found on the way: the main data rebuild would have deleted far areas; new games always started with the Swiss rules; the basemap asked for the world's tiles; my first version of the country rule forced Swiss rules when the country was unknown (fixed before the hand-back).
+
+Checked: lint and types clean; vitest 578 passed (79 files); build and build:server; Playwright full run 104 passed, 8 skipped. The update script dry-run (stand-in tools). Screenshots looked at: the station dots and a picked station (phone, desktop). Test-first. Not checked: a real Munich or Toronto build (no osmium, pmtiles or Docker here: S9 on the server), the zoomed-out smoothness on a phone with real tiles and stations, Toronto's real zone levels.
+Root-run files changed: `deploy/update-data.sh` (far areas, the main rebuild keeps them), `deploy/check.sh` (lists the areas). Also flagged: none.
+Decisions: decisions.md, round 49. Steps changed: S1 (rounds 32–49), S9 added. Questions added: none.
+Commit message: Round 49: far areas (Munich and Toronto packs beside Switzerland, AREA= in update-data.sh), hiding zones on a canvas and a bounded basemap for a smoother map, Canada's rules and rules from the play area's country, lodash out, audit tracker

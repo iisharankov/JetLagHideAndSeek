@@ -31,7 +31,7 @@ export type {
     LakeProperties,
 } from "./categories";
 
-type Bbox = [number, number, number, number];
+export type Bbox = [number, number, number, number];
 type Zone = Feature<Polygon | MultiPolygon, Record<string, any>>;
 type Lake = Feature<Polygon | MultiPolygon, LakeProperties>;
 type Condition =
@@ -115,7 +115,7 @@ const pointOf = (element: DatasetElement): [number, number] =>
         ? [element.center.lon, element.center.lat]
         : [element.lon!, element.lat!];
 
-const within = (inner: Bbox, outer: Bbox, slack = 0.01) =>
+export const within = (inner: Bbox, outer: Bbox, slack = 0.01) =>
     inner[0] >= outer[0] - slack &&
     inner[1] >= outer[1] - slack &&
     inner[2] <= outer[2] + slack &&
@@ -125,14 +125,14 @@ const bboxesOverlap = (a: Bbox, b: Bbox) =>
     a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
 
 /** Lower case and without accents, for comparing names. */
-const fold = (text: string) =>
+export const fold = (text: string) =>
     text
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
 
 /** 0: the name is the query, 1: starts with it, 2: contains it, -1: no. */
-const nameRank = (names: (string | undefined)[], needle: string) => {
+export const nameRank = (names: (string | undefined)[], needle: string) => {
     const folded = names.filter((n): n is string => !!n).map(fold);
     // "Zürich/Zurich" style names list several languages.
     const parts = folded.flatMap((name) =>

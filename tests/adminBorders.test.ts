@@ -90,6 +90,11 @@ describe("adminLevelLabel", () => {
         expect(adminLevelLabel(8, "CH")).toBe("municipality");
     });
 
+    it("uses Ontario's names in Toronto (round 49)", () => {
+        expect(adminLevelLabel(6, "CA")).toBe("city or county");
+        expect(adminLevelLabel(10, "CA")).toBe("neighbourhood");
+    });
+
     it("knows the German and Austrian names for Munich and Vienna games", () => {
         expect(adminLevelLabel(4, "DE")).toBe("state");
         expect(adminLevelLabel(6, "DE")).toBe("district");

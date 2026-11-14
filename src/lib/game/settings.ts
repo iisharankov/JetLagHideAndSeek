@@ -74,7 +74,28 @@ export const ALWAYS_OFF: string[] = [];
 export const REGION_LABELS: Record<GameSettings["region"], string> = {
     switzerland: "Swiss",
     germany: "German",
+    canada: "Canadian",
     standard: "standard",
+};
+
+/** A new game's rules, from the play area's country (round 49). */
+export const regionForCountry = (
+    countryCode: string | undefined,
+): GameSettings["region"] | null => {
+    switch (countryCode?.toUpperCase()) {
+        case undefined:
+        case "":
+            // Unknown: no opinion.
+            return null;
+        case "CH":
+            return "switzerland";
+        case "DE":
+            return "germany";
+        case "CA":
+            return "canada";
+        default:
+            return "standard";
+    }
 };
 
 /** Question types a region's rules leave out. */
@@ -83,11 +104,15 @@ export const regionDisabledQuestions = (region: GameSettings["region"]) => [
     ...(region === "standard"
         ? // Lake shores stand in for the coast only under local rules.
           [questionKey("measuring", "lake")]
-        : // Landlocked, and there are no 7-Elevens.
-          [
-              questionKey("measuring", "coastline"),
-              questionKey("measuring", "seven11"),
-          ]),
+        : region === "canada"
+          ? // The Great Lakes aren't coastline in the map data: their
+            // shore is the lake question's (Toronto, round 49).
+            [questionKey("measuring", "coastline")]
+          : // Landlocked, and there are no 7-Elevens.
+            [
+                questionKey("measuring", "coastline"),
+                questionKey("measuring", "seven11"),
+            ]),
 ];
 
 export const defaultGameSettings = (
@@ -239,7 +264,9 @@ export const normalizeGameSettings = (raw: unknown): GameSettings => {
     const input = (raw ?? {}) as Partial<Record<keyof GameSettings, unknown>>;
     const size = isSize(input.size) ? input.size : "medium";
     const region =
-        input.region === "standard" || input.region === "germany"
+        input.region === "standard" ||
+        input.region === "germany" ||
+        input.region === "canada"
             ? input.region
             : "switzerland";
     const defaults = defaultGameSettings(size, region);

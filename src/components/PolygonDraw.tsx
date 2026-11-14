@@ -8,7 +8,6 @@ import type {
     Polygon as GeoJSONPolygon,
 } from "geojson";
 import * as L from "leaflet";
-import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { FeatureGroup, Marker, Polygon, Polyline } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
@@ -21,6 +20,7 @@ import {
     questions,
     updateQuestion,
 } from "@/lib/context";
+import { uniqueBy } from "@/lib/unique";
 import { CacheType, clearCache } from "@/maps/api";
 import { lngLatToText } from "@/maps/geo-utils";
 import type {
@@ -295,7 +295,7 @@ export const PolygonDraw = () => {
             const geoJSON = turf.featureCollection(geoJSONs);
 
             updateQuestion(question.key, {
-                places: _.uniqBy(
+                places: uniqueBy(
                     geoJSON.features as CustomTentacleQuestion["places"],
                     (x) => x.geometry.coordinates.join(","),
                 ), // Sometimes keys are duplicated
@@ -341,7 +341,7 @@ export const PolygonDraw = () => {
             const geoJSON = turf.featureCollection(geoJSONs);
 
             updateQuestion(question.key, {
-                geo: _.uniqBy(
+                geo: uniqueBy(
                     geoJSON.features as CustomTentacleQuestion["places"],
                     (x) => x.geometry.coordinates.join(","),
                 ), // Sometimes keys are duplicated
@@ -367,7 +367,7 @@ export const PolygonDraw = () => {
 
             updateQuestion(question.key, {
                 geo: turf.featureCollection(
-                    _.uniqBy(
+                    uniqueBy(
                         geoJSON.features as CustomTentacleQuestion["places"],
                         (x) => x.geometry.coordinates.join(","),
                     ),

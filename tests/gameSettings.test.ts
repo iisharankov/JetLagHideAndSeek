@@ -8,6 +8,8 @@ import {
     normalizeGameSettings,
     radarDefaultKm,
     radarDefaults,
+    regionDisabledQuestions,
+    regionForCountry,
     stationFilters,
     stationKindsFromFilters,
 } from "@/lib/game/settings";
@@ -86,6 +88,9 @@ describe("game settings", () => {
         ).toBe(true);
         expect(normalizeGameSettings({ region: "germany" }).region).toBe(
             "germany",
+        );
+        expect(normalizeGameSettings({ region: "canada" }).region).toBe(
+            "canada",
         );
         expect(
             normalizeGameSettings({
@@ -185,5 +190,24 @@ describe("radar distances", () => {
         expect(normalizeGameSettings({ size: "medium" }).radarKm).toEqual(
             radarDefaults("medium"),
         );
+    });
+});
+
+describe("the local rules a new game starts with (round 49)", () => {
+    it("follow the play area's country", () => {
+        expect(regionForCountry("CH")).toBe("switzerland");
+        expect(regionForCountry("de")).toBe("germany");
+        expect(regionForCountry("CA")).toBe("canada");
+        expect(regionForCountry("US")).toBe("standard");
+        // Unknown: no opinion (the players' choice stays).
+        expect(regionForCountry(undefined)).toBeNull();
+        expect(regionForCountry("")).toBeNull();
+    });
+
+    it("leave the lake shore in Canada, the sea coast out", () => {
+        const off = regionDisabledQuestions("canada");
+        expect(off).toContain("measuring:coastline");
+        expect(off).not.toContain("measuring:lake");
+        expect(off).not.toContain("measuring:seven11");
     });
 });

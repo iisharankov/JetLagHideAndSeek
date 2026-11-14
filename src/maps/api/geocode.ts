@@ -3,12 +3,12 @@
 // the pack covers and needs no other service. A Photon server is used only
 // where one is configured and there's no reference data (development).
 import * as turf from "@turf/turf";
-import _ from "lodash";
 
 import { GEOCODER_URL } from "@/lib/config";
+import { uniqueBy } from "@/lib/unique";
 import { adminLevelLabel } from "@/maps/adminBorders";
 import type { DatasetElement } from "@/maps/datasets";
-import { datasets } from "@/maps/datasets/load";
+import { dataAreas, datasets } from "@/maps/datasets/load";
 
 import { convertToLatLong, prettifyLocation } from "./geo";
 import type { APILocations, OpenStreetMap } from "./types";
@@ -53,11 +53,20 @@ const countryAt = async (lat: number, lng: number, zone?: Zone) => {
         zone && Number(zone.properties.admin_level) === 2
             ? zone
             : await datasets.adminZoneAt(lat, lng, 2);
+    // A far area's pack (round 49) may have no country outline: the
+    // state's ISO code, else the country its area was built for.
+    const state =
+        own || country ? null : await datasets.adminZoneAt(lat, lng, 4);
     const code =
         own ??
         country?.properties["ISO3166-1:alpha2"] ??
         codeFromName(country?.properties["name:en"]) ??
         codeFromName(country?.properties.name) ??
+        state?.properties["ISO3166-2"]?.split("-")[0] ??
+        (await dataAreas()).find(
+            ({ bbox: [w, s, e, n] }) =>
+                lng >= w && lng <= e && lat >= s && lat <= n,
+        )?.country ??
         "";
     return { code, country: country ? zoneName(country) : undefined };
 };
@@ -151,7 +160,7 @@ export const geocode = async (
             const places = (await datasets.searchPlaces(address)) ?? [];
             results.push(...(await Promise.all(places.map(fromPlace))));
         }
-        return _.uniqBy(results, key);
+        return uniqueBy(results, key);
     }
 
     if (!GEOCODER_URL) {
@@ -179,7 +188,7 @@ export const geocode = async (
         ];
     });
 
-    return _.uniqBy(
+    return uniqueBy(
         features.filter((feature) => {
             return filter ? feature.properties.osm_type === "R" : true;
         }),

@@ -35,6 +35,7 @@ import {
     radarDefaultKm,
     radarDefaults,
     regionDisabledQuestions,
+    regionForCountry,
     tentacleDefaults,
     THERMOMETER_KM,
     thermometerDefaults,
@@ -94,6 +95,26 @@ export const GameSetupDialog = ({
             setShowQuestions(false);
         }
     }, [open]);
+
+    // The rules follow the play area's country (round 49: a game in
+    // Munich or Toronto shouldn't start with the Swiss rules); elsewhere
+    // Standard or the local rules stay the players' choice.
+    const country = useStore(mapGeoLocation).properties.countrycode;
+    useEffect(() => {
+        if (!open) return;
+        const region = regionForCountry(country);
+        if (region === null || region === "standard") return;
+        setDraft((current) =>
+            current.region === region
+                ? current
+                : {
+                      ...current,
+                      region,
+                      disabledQuestions: regionDisabledQuestions(region),
+                      tentacleKm: tentacleDefaults(region),
+                  },
+        );
+    }, [open, country]);
 
     /** Closed for good: it opens on the first screen next time. */
     const close = () => {
@@ -415,6 +436,7 @@ export const GameSetupDialog = ({
                                         label: "Switzerland",
                                     },
                                     { value: "germany", label: "Germany" },
+                                    { value: "canada", label: "Canada" },
                                     { value: "standard", label: "Standard" },
                                 ]}
                                 value={draft.region}
@@ -424,7 +446,9 @@ export const GameSetupDialog = ({
                                 Switzerland: &quot;major city&quot; means
                                 100,000+ people, lake shores stand in for the
                                 coast, no 7-Eleven. Germany: the same with
-                                cities of a million. Changing this resets the
+                                cities of a million. Canada: the lake shore, not
+                                the sea; cities of a million. Set by the play
+                                area&apos;s country; changing it resets the
                                 question list on the last screen.
                             </p>
                             <ToggleCard

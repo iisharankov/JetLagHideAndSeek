@@ -351,17 +351,26 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     );
     // Choosing: the stations' icons only, no circles, and no pin yet (it
     // only matters from the end game on).
-    const zones = ben.locator('.leaflet-overlay-pane path[stroke="green"]');
+    // The zones and stations are drawn on a canvas (round 49): the map says
+    // how many.
+    const map = ben.locator(".leaflet-container");
+    const zones = {
+        toHaveCount: (n: number) =>
+            expect(map).toHaveAttribute("data-hiding-zones", String(n)),
+    };
     const mine = ben.locator('.leaflet-overlay-pane path[stroke="red"]');
-    const stationIcons = ben.locator(".leaflet-marker-pane svg");
+    const stationIcons = {
+        toHaveCount: (n: number) =>
+            expect(map).toHaveAttribute("data-hiding-stations", String(n)),
+    };
     const pin = ben.locator(".hider-marker");
     // The list is behind "Choose from the list", not in the tab.
     await expect(benPanel.getByTestId("hider-choose")).toContainText("(2)", {
         timeout: 30_000,
     });
     await expect(benPanel.locator("li")).toHaveCount(0);
-    await expect(stationIcons).toHaveCount(2);
-    await expect(zones).toHaveCount(0);
+    await stationIcons.toHaveCount(2);
+    await zones.toHaveCount(0);
     await expect(pin).toHaveCount(0);
     await chooseStation(ben, "Zürich Altstetten");
     await expect(ben.getByTestId("hider-station")).toContainText(
@@ -370,7 +379,7 @@ test("the hider picks a station; the seekers' pick starts the end game", async (
     // The chosen station's circle, alone, and the map there to show it.
     await expect(mine).toHaveCount(1);
     await expect(mine).toBeInViewport();
-    await expect(zones).toHaveCount(0);
+    await zones.toHaveCount(0);
     await expect(pin).toHaveCount(0);
     await ben.getByTestId("hider-done").click();
     await expect(pin).toHaveCount(1);

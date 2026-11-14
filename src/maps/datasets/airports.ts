@@ -1,6 +1,6 @@
 // Airports that count as "commercial" for airport questions: the ones
 // players would call an airport (with or without flights right now), within
-// reach of Switzerland (about 300 km). Edit this list to change which
+// reach of Switzerland (about 300 km), and of the far areas (Toronto). Edit this list to change which
 // airports count, then rebuild the reference data (deploy/README.md) and the
 // app. Codes are IATA codes as tagged in OpenStreetMap.
 
@@ -60,6 +60,12 @@ export const COMMERCIAL_AIRPORTS: Record<string, string> = {
     LNZ: "Linz",
     KLU: "Klagenfurt",
     LUX: "Luxembourg",
+
+    // Toronto (round 49: its own data pack). Left out: YKZ Buttonville
+    // (closed), YZD Downsview (no airline flights).
+    YYZ: "Toronto Pearson",
+    YTZ: "Billy Bishop Toronto City",
+    YHM: "Hamilton",
 };
 
 /** Whether an OSM `iata` tag (possibly "A;B") names a commercial airport. */

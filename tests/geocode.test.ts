@@ -82,18 +82,20 @@ const fill = () => {
 };
 
 // A fresh dataset reader per test: it remembers the files it has loaded.
-const holder = vi.hoisted(() => ({ current: null as any }));
+const holder = vi.hoisted(() => ({ current: null as any, areas: [] as any[] }));
 vi.mock("@/maps/datasets/load", () => ({
     datasets: new Proxy(
         {},
         { get: (_target, prop) => holder.current?.[prop as string] },
     ),
+    dataAreas: async () => holder.areas,
 }));
 beforeEach(async () => {
     const { createDatasets } = await import("@/maps/datasets");
     holder.current = createDatasets(
         async (name: string) => files[name] ?? null,
     );
+    holder.areas = [];
 });
 vi.mock("@/lib/config", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/lib/config")>()),
@@ -103,6 +105,46 @@ vi.mock("@/lib/config", async (importOriginal) => ({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("geocode", () => {
+    it("knows a zone's country without a country outline: from its state, or the area's own (round 49)", async () => {
+        // A far area's pack: no complete country or state outline (an
+        // extract cut to a city can't hold one).
+        files.manifest = {
+            version: 1,
+            built: "",
+            bbox: [-79.7, 43.55, -79.05, 43.9],
+            files: {},
+        };
+        files["admin-2"] = collection([]);
+        files["admin-4"] = collection([]);
+        files["admin-8"] = collection([]);
+        files["admin-6"] = collection([
+            zone(324211, 6, "Toronto", square(-79.64, 43.58, -79.12, 43.86)),
+        ]);
+        holder.areas = [
+            {
+                id: "toronto",
+                name: "Toronto",
+                bbox: [-79.7, 43.55, -79.05, 43.9],
+                country: "CA",
+            },
+        ];
+        const [toronto] = await geocode("toronto", "en");
+        expect(toronto.properties.countrycode).toBe("CA");
+        expect(toronto.properties.type).toBe("city or county");
+        // A state outline with its ISO code says it first.
+        files["admin-4"] = collection([
+            zone(68841, 4, "Ontario", square(-80, 43, -79, 44), {
+                "ISO3166-2": "CA-ON",
+            }),
+        ]);
+        holder.areas = [];
+        holder.current = (await import("@/maps/datasets")).createDatasets(
+            async (name: string) => files[name] ?? null,
+        );
+        const [again] = await geocode("toronto", "en");
+        expect(again.properties.countrycode).toBe("CA");
+    });
+
     it("finds zones in the reference data, named with their canton and country", async () => {
         fill();
         const found = await geocode("kilch", "en");

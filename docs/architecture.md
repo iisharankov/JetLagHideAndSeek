@@ -101,6 +101,7 @@ src/
     islands/                the islands: Map, QuestionSidebar, TabBar, GameDialogs, PlayAreaBar
     Map.tsx, mapRefresh.ts  the map and its refresh pipeline (the play area's shape: maps/playArea.ts)
     DraggableMarkers.tsx    question pins (none once answered or vetoed: pinOnMap in lib/game/sync.ts) and the hider pin; PolygonDraw.tsx: drawing tools
+    PMTilesLayer.tsx        the basemaps: the main file and each far area's, each bounded to its box (Basemaps)
     QuestionSidebar.tsx     the sidebar: Questions (with the photo questions), Cards, Stations
                             (Hider on the hider's phone), Menu
     QuestionList.tsx        the Questions tab: one row per question (lib/game/questionList.ts:
@@ -434,6 +435,16 @@ progress, the hider's spot, and earlier rounds.
   `DraggableMarkers.tsx` and the distance in `cards/thermometer.tsx`); the
   circle drawn by `ThermometerRing` (`game/ThermometerTravel.tsx`). The
   server clears the end at Start (`armThermometer`).
+- **Far areas** (round 49): `maps/datasets/load.ts` reads `/data/areas.json`
+  and makes one `createDatasets` per pack (the main one at `/data/`, each far
+  area at `/data/areas/<id>/`); `createAreaDatasets` (`maps/datasets/areas.ts`)
+  sends each lookup to the pack covering its point or box and searches all
+  of them. Elevation tiles come from the pack covering the tile
+  (`dataUrlAt`), basemaps from `<id>.pmtiles`. Built by `AREA=<id>
+  deploy/update-data.sh`; the areas and their boxes are listed in that
+  script.
+- **Hiding zones** (`maps/hidingZoneLayer.ts`): zones and station dots on
+  one Leaflet canvas (round 49), a 10 px tap tolerance.
 - **Questions → ⚙** (`QuestionOptions.tsx`, round 48; the same fields in
   Settings): Pins (`pinsOnMap`, `pinShown` in `lib/game/drafts.ts`, used by
   `DraggableMarkers.tsx`), Drafts (`draftsOnMap`; the map redraws on

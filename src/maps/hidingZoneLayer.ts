@@ -325,6 +325,26 @@ const STATION_ICON = L.divIcon({
     className: "",
 });
 
+/**
+ * Zones and stations are drawn on one canvas (round 49): one SVG shape and
+ * one HTML marker per station made a big play area slow to zoom and pan.
+ * The tolerance keeps a station dot easy to tap.
+ */
+let canvas: L.Canvas | null = null;
+const renderer = () => (canvas ??= L.canvas({ padding: 0.5, tolerance: 10 }));
+/** GeoJSON options drawn on that canvas (Leaflet passes them to each shape). */
+const onCanvas = (options: L.GeoJSONOptions): L.GeoJSONOptions =>
+    ({ ...options, renderer: renderer() }) as L.GeoJSONOptions;
+
+/** A station: a dark dot ringed in white. */
+const STATION_DOT: L.CircleMarkerOptions = {
+    radius: 6,
+    color: "#ffffff",
+    weight: 2,
+    fillColor: "#111827",
+    fillOpacity: 1,
+};
+
 type ZoneLayer = L.Layer & { hidingZones?: boolean };
 
 const removeZoneLayers = (map: L.Map) => {
@@ -347,6 +367,8 @@ const circleAround = (
             steps: 64,
             units: "kilometers",
         }),
+        // One or two of these (the hider's own, the end game's): SVG, so a
+        // test can find them.
         { style, interactive: false },
     );
 
@@ -355,6 +377,10 @@ const draw = () => {
     const map = leafletMapContext.get();
     if (!map) return;
     removeZoneLayers(map);
+    // What's on the canvas, said on the map (the tests read it).
+    const counts = map.getContainer().dataset;
+    counts.hidingZones = "0";
+    counts.hidingStations = "0";
 
     const hider = hiderPhone.get();
     const confirmed = hider ? chosenStation.get() : null;
@@ -395,30 +421,46 @@ const draw = () => {
                 sidebarTab.set("stations");
             }
         };
-        const layer = L.geoJSON(turf.featureCollection(features), {
-            style: ZONE_STYLE,
-            onEachFeature: (feature, featureLayer) => {
-                if (feature.geometry.type === "Point") return;
-                const id = feature.properties?.properties?.id;
-                if (id) featureLayer.on("click", () => onStation(id));
-            },
-            pointToLayer: (point: Feature<Point>, latlng) => {
-                const marker = L.marker(latlng, { icon: STATION_ICON });
-                marker.bindPopup(
-                    `<b>${escapeHtml(
-                        extractStationName(point) || "No Name Found",
-                    )} (${lngLatToText(
-                        point.geometry.coordinates as [number, number],
-                    )})</b>`,
-                );
-                const id = (point.properties as { id?: string } | null)?.id;
-                if (id && choosing) {
-                    marker.on("click", () => onStation(id));
-                }
-                return marker;
-            },
-        });
+        const layer = L.geoJSON(
+            turf.featureCollection(features),
+            onCanvas({
+                // Zones green; the station dots keep their own look.
+                style: (feature) =>
+                    feature?.geometry.type === "Point"
+                        ? STATION_DOT
+                        : ZONE_STYLE,
+                onEachFeature: (feature, featureLayer) => {
+                    if (feature.geometry.type === "Point") return;
+                    const id = feature.properties?.properties?.id;
+                    if (id) featureLayer.on("click", () => onStation(id));
+                },
+                pointToLayer: (point: Feature<Point>, latlng) => {
+                    const marker = L.circleMarker(latlng, {
+                        ...STATION_DOT,
+                        renderer: renderer(),
+                    });
+                    marker.bindPopup(
+                        `<b>${escapeHtml(
+                            extractStationName(point) || "No Name Found",
+                        )} (${lngLatToText(
+                            point.geometry.coordinates as [number, number],
+                        )})</b>`,
+                    );
+                    const id = (point.properties as { id?: string } | null)?.id;
+                    if (id && choosing) {
+                        marker.on("click", () => onStation(id));
+                    }
+                    return marker;
+                },
+            }),
+        );
         addZoneLayer(map, layer);
+        counts.hidingStations = String(
+            features.filter((f) => f.geometry.type === "Point").length,
+        );
+        counts.hidingZones = String(
+            features.length - Number(counts.hidingStations),
+        );
     }
 
     if (mine) addZoneLayer(map, circleAround(mine, MINE_STYLE));

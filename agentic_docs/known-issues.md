@@ -9,6 +9,15 @@ Bugs and debt not fixed yet. Updated 2026-11-10 (round 41). A fixed item leaves 
 - **The rules pictures and the printed cards show miles** (`public/rules/img/*.webp`, `public/rules/cards/`), while the texts say km since round 38. Replacing the pictures is the owner's call.
 - **The hider password from before players still works** for one release (round 32; kept in round 33 because Run A's deploy wasn't confirmed, S1): `POST /api/games/<id>/hider`, the `X-Hider-Token` header and `isHider` in `server/src/app.ts` `roleOf`, `hiderTokens` in `session.ts`. It keeps phones that were the hider at deploy time the hider; since round 33 it needs 6 characters and allows 5 wrong tries a minute. Remove once S1 is done and every phone has reloaded.
 
+## From the audit of 2026-11-14 (round 49)
+
+The tracker with every finding: [plans/audit-nov-14/README.md](plans/audit-nov-14/README.md). Left open:
+
+- **JSTS (264 KB, about 70 KB gzipped) in the first load**, from `turf.buffer` (`mergeAreas`, `lib/tourDemo.ts`, `maps/questions/measuring.ts`); some callers are synchronous. Make them async and load a one-line `buffer` module with `await import()`.
+- **`lodash` is unused but still in package.json**: `pnpm remove lodash` (a lockfile change), like `vaul` below.
+- **A question past a far area's box** has no data there ("No map data for this area"): keep play areas inside the box (round 20's item 1, the Overpass fallback, is what answers today).
+- **Toronto's zone names** (`CA` in `maps/adminBorders.ts`) are from the OpenStreetMap wiki, unchecked against real data: look in the play-area picker after S9.
+
 ## From the audit of 2026-10-17 (round 20)
 
 Numbering as in [history/audit-2026-10-17.md](history/audit-2026-10-17.md); status as of that date, check before acting. Items 2 and 3 wait on Q47, Q48 and Q50.
@@ -16,7 +25,7 @@ Numbering as in [history/audit-2026-10-17.md](history/audit-2026-10-17.md); stat
 ### Risks
 
 1. **The Overpass client is dead code the app still carries and still
-   calls.** `src/maps/api/overpass.ts` (511 lines), `overpassClient.ts`,
+   calls.** (Still true in round 49; with far areas, a question past an area's box ends here too.) `src/maps/api/overpass.ts` (511 lines), `overpassClient.ts`,
    `cache.ts`, the `osmtogeojson` dependency and the fallback branches in
    `matching.ts`, `measuring.ts`, `references.ts`, `hidingZoneStations.ts`,
    `trainLines.ts` and `places.ts` are all behind "the pack can't answer".

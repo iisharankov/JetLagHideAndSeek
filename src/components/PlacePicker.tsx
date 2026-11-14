@@ -40,6 +40,8 @@ import {
     geocode,
     type OpenStreetMap,
 } from "@/maps/api";
+import { sameArea } from "@/maps/datasets/areas";
+import { dataAreas } from "@/maps/datasets/load";
 
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
@@ -293,15 +295,34 @@ export const PlacePicker = ({
                             {results.map((result) => (
                                 <CommandItem
                                     key={`${result.properties.osm_id}${result.properties.name}`}
-                                    onSelect={() => {
-                                        additionalMapGeoLocations.set([
-                                            ...additionalMapGeoLocations.get(),
-                                            {
-                                                added: true,
-                                                location: result,
-                                                base: false,
-                                            },
-                                        ]);
+                                    onSelect={async () => {
+                                        // In another area (Toronto from
+                                        // Zürich): a new play area; nearby,
+                                        // added to this one (round 49).
+                                        // (These features keep [lat, lng].)
+                                        const [baseLat, baseLng] =
+                                            mapGeoLocation.get().geometry
+                                                .coordinates;
+                                        const [lat, lng] =
+                                            result.geometry.coordinates;
+                                        const far = !sameArea(
+                                            [baseLng, baseLat],
+                                            [lng, lat],
+                                            await dataAreas(),
+                                        );
+                                        if (far) {
+                                            mapGeoLocation.set(result);
+                                            additionalMapGeoLocations.set([]);
+                                        } else {
+                                            additionalMapGeoLocations.set([
+                                                ...additionalMapGeoLocations.get(),
+                                                {
+                                                    added: true,
+                                                    location: result,
+                                                    base: false,
+                                                },
+                                            ]);
+                                        }
 
                                         mapGeoJSON.set(null);
                                         polyGeoJSON.set(null);

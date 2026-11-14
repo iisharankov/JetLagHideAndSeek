@@ -6,7 +6,6 @@ import type {
     MultiLineString,
     MultiPolygon,
 } from "geojson";
-import _ from "lodash";
 import osmtogeojson from "osmtogeojson";
 import { toast } from "react-toastify";
 
@@ -18,6 +17,7 @@ import {
     polyGeoJSON,
 } from "@/lib/context";
 import { applyPlaceRules, insidePlayArea } from "@/lib/placeRules";
+import { unique } from "@/lib/unique";
 import { datasets } from "@/maps/datasets/load";
 import { mergeAreas } from "@/maps/mergeAreas";
 
@@ -303,7 +303,7 @@ out geom;
             nodes.push(...element.nodes);
         }
     });
-    const uniqNodes = _.uniq(nodes);
+    const uniqNodes = unique(nodes);
     return uniqNodes;
 };
 

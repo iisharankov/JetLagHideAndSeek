@@ -6,7 +6,6 @@ import type {
     Point,
     Polygon,
 } from "geojson";
-import _ from "lodash";
 
 import { mapGeoJSON, regionRules } from "@/lib/context";
 import type { RejectedPlace } from "@/lib/game/types";
@@ -16,6 +15,7 @@ import {
     mergeDuplicates,
     rejections,
 } from "@/lib/placeRules";
+import { uniqueBy } from "@/lib/unique";
 import {
     findPlacesInZone,
     LOCATION_FIRST_TAG,
@@ -59,7 +59,7 @@ export const commercialAirports = async () => {
         '["aeroway"="aerodrome"]["iata"]',
         "Finding airports...",
     );
-    const airports = _.uniqBy(
+    const airports = uniqueBy(
         elements.filter((e: any) => isCommercialAirport(e.tags.iata)),
         (e: any) => e.tags.iata,
     ).map(toPoint);

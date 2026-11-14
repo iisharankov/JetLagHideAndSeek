@@ -1,9 +1,14 @@
 // Local adaptations of the standard (US-centred) Jet Lag question set.
 
-export type RegionChoice = "auto" | "standard" | "switzerland" | "germany";
+export type RegionChoice =
+    | "auto"
+    | "standard"
+    | "switzerland"
+    | "germany"
+    | "canada";
 
 export interface RegionRules {
-    region: "standard" | "switzerland" | "germany";
+    region: "standard" | "switzerland" | "germany" | "canada";
     /** Question types that can't apply in the region; hidden from the menus. */
     hiddenQuestionTypes: string[];
 }
@@ -26,9 +31,19 @@ const GERMANY: RegionRules = {
     hiddenQuestionTypes: ["coastline", "seven11"],
 };
 
+/**
+ * Toronto and the like (round 49): the Great Lakes aren't coastline in the
+ * map data, so their shore is the lake question's; 7-Elevens exist.
+ */
+const CANADA: RegionRules = {
+    region: "canada",
+    hiddenQuestionTypes: ["coastline"],
+};
+
 const BY_COUNTRY: Record<string, RegionRules> = {
     CH: SWITZERLAND,
     DE: GERMANY,
+    CA: CANADA,
 };
 
 /** "auto" picks the rules by the play area's country. */
@@ -38,6 +53,7 @@ export const regionRulesFor = (
 ): RegionRules => {
     if (choice === "switzerland") return SWITZERLAND;
     if (choice === "germany") return GERMANY;
+    if (choice === "canada") return CANADA;
     if (choice === "standard") return STANDARD;
     return BY_COUNTRY[countryCode?.toUpperCase() ?? ""] ?? STANDARD;
 };

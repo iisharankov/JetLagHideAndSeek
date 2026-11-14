@@ -2,6 +2,20 @@
 
 Every decision and why, newest first. A reversal is a new row; the old row stays. Decisions from before the standard are at the end, as they were written, one bullet per round.
 
+## 2026-11-14, round 49: far areas (Munich, Toronto); the map smoother; an audit
+
+| Decision | Why | From |
+|---|---|---|
+| **One server, several packs: the main one at the data's root as before, a small one per far city in `areas/<id>/` with `<id>.pmtiles`, listed in `areas.json`; each question goes to the pack covering it** (reverses round 17's "one box per server") | the owner plays Munich in 2 weeks and Toronto in 6; one box from Switzerland to Toronto is impossible, and Munich is cheaper as its own small pack than by widening the Swiss box | the owner (in chat); the design, this round |
+| **Munich and Toronto are small boxes (the city core and a margin), built with `AREA=munich|toronto deploy/update-data.sh`** | "both would be small games so city core most likely" | the owner (in chat) |
+| **A place searched in another area starts a new play area** | "Switzerland + Toronto" isn't a game | this round |
+| **Canada's rules: the lake shore on (Lake Ontario), the sea coast off, 7-Eleven on, cities of a million** | the Great Lakes aren't coastline in OpenStreetMap; Toronto has 7-Elevens | this round |
+| **A new game's rules follow the play area's country (CH, DE, CA); an unknown country changes nothing** | they were always Swiss, so Munich needed remembering to pick Germany | found this round |
+| **A far area declares its country; the app uses it when the pack has no country outline** | a city's extract can't hold whole country borders | this round |
+| **Hiding zones and stations on one canvas; stations as dots** (they were a train icon each) | an SVG shape and an HTML marker per station made a big play area slow to zoom and pan ("the map does not load as smoothly as I would expect when zoomed out") | the owner (in chat) |
+| **The basemap isn't redrawn on each zoom step, and asks only for tiles inside its file's box** | the tiles are drawn in the browser; zoomed out it asked for the whole world | the owner (in chat) |
+| **lodash replaced by three small helpers** (`lib/unique.ts`) | 71 KB of the first load for three functions | this round |
+
 ## 2026-11-11, round 48: thermometer pins, the Questions tab's ⚙, drafts on the map fixed
 
 | Decision | Why | From |

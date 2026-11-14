@@ -112,7 +112,15 @@ const redraw = async () => {
     // The view, clipped to what the data covers (zoomed out, the view
     // reaches past it, and the data only answers for boxes it covers).
     const view = map.getBounds();
-    const covered = (await datasets.manifest())?.bbox;
+    // The pack under the view (Switzerland, or a far area's, round 49).
+    const covered = (
+        await datasets.manifestFor([
+            view.getWest(),
+            view.getSouth(),
+            view.getEast(),
+            view.getNorth(),
+        ])
+    )?.bbox;
     const box: [number, number, number, number] | null = covered
         ? [
               Math.max(view.getWest(), covered[0]),

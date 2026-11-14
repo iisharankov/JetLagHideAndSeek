@@ -1,8 +1,8 @@
 # Questions and your steps
 
-Updated 2026-11-11 (round 48). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
+Updated 2026-11-14 (round 49). Write after `> **Answer:**`. "yes" takes the suggestion. A blank means you haven't answered: it stays here and nothing is built for it. Answered items move to agentic_docs/rounds/.
 
-**Only 5 minutes?** S1 (deploy rounds 32–48), then try the two cards (Q59) and S7 (your admin code on your phone).
+**Only 5 minutes?** S1 (deploy rounds 32–49), then S9 (Munich and Toronto, about an hour, mostly waiting), then try the two cards (Q59) and S7 (your admin code on your phone).
 
 ## Now
 
@@ -36,7 +36,7 @@ Nothing.
 
 ### Before the next deploy
 
-- [ ] **S1. Deploy rounds 32–48 and check.** **Where:** the server, as root, after you commit and push round 48. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
+- [ ] **S1. Deploy rounds 32–49 and check.** **Where:** the server, as root, after you commit and push round 49. `ADMIN_CODE` is already in `deploy/.env` (you set it for S5); from this deploy on, games start only with a code. After it, each phone shows the join screen once (players are new); a phone that was the hider stays the hider until the next round.
   ```bash
   ~/jetlag/deploy/deploy.sh
   # expect: ends with the containers restarted, no "error"
@@ -50,6 +50,21 @@ Nothing.
   # expect: "syntax is ok", "test is successful", no output from reload
   ```
   Until nginx says 17m, photos over about 7 MB go as a smaller copy (the hider sees "made smaller").
+  **Done:**
+
+- [ ] **S9. Map data for Munich and Toronto** (after S1: it needs round 49's updater). **Where:** the server, as root. About 1.2 GB of downloads (Upper Bavaria 250 MB, Ontario 970 MB) and 15–40 minutes each; the app keeps working meanwhile. Run them one after the other (they share the elevation cache).
+  ```bash
+  cd ~/jetlag
+  AREA=munich deploy/update-data.sh
+  # expect, at the end: "Areas: Munich" and "Done (munich): … of map data and … of tiles (build …)"
+  AREA=toronto deploy/update-data.sh
+  # expect: "Areas: Munich, Toronto" and "Done (toronto): …"
+  deploy/check.sh
+  # expect, among the lines: "ok    area munich: data", "ok    area munich: basemap", the same for toronto
+  df -h ~/jetlag/deploy/data
+  # the downloads stay in deploy/data/osm/areas/*/downloads/ (about 1.3 GB): delete them if space is short
+  ```
+  Then on a phone: Menu → Game → Change game settings → Change (the play area) → "Search or draw instead" → "Toronto": it should be found, the map should fly there with streets drawn, and "Local rules" should say Canada. The same with "München" (Germany). Before each game: Settings → Places and the review on the map.
   **Done:**
 
 ### After deploying

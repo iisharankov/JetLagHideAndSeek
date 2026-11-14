@@ -99,6 +99,7 @@ describe("rough terrain", () => {
         return tile;
     };
 
+    // Heavy: about 1.5 s alone, more beside the other test files.
     it("gives a region that can be simplified and cut like any other", async () => {
         const rough = createElevation(async (z, x, y) => noisy(z, x, y), [11]);
         const box: [number, number, number, number] = [8.5, 47.35, 8.52, 47.37];
@@ -112,7 +113,7 @@ describe("rough terrain", () => {
                 ]),
             ),
         ).not.toThrow();
-    });
+    }, 20_000);
 });
 
 describe("pixelToLngLat", () => {
